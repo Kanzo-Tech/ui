@@ -1,4 +1,12 @@
-import { JoinResolver, relationColumns, relationQuery, typeWords, type JoinGraph, type JoinMiss, type Relation } from "@kanzo-tech/mosaic";
+import {
+  JoinResolver,
+  relationColumns,
+  relationQuery,
+  typeWords,
+  type JoinGraph,
+  type JoinMiss,
+  type Relation,
+} from "@kanzo-tech/relations";
 import {
   DASHBOARD_AGGREGATES,
   DASHBOARD_CHART_TYPES,

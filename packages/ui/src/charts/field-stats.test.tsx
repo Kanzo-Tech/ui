@@ -5,7 +5,7 @@ import type { Coordinator } from "@uwdata/mosaic-core";
 import { Query, asTableRef } from "@uwdata/mosaic-sql";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
-import type { JoinColumnStats, JoinGraph } from "@kanzo-tech/mosaic";
+import type { JoinColumnStats, JoinGraph } from "@kanzo-tech/relations";
 import { fieldStats, useFieldStats, type FieldColumn } from "./field-stats.js";
 import { MosaicProvider } from "./mosaic-provider.js";
 

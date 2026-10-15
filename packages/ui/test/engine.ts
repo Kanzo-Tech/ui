@@ -1,4 +1,5 @@
-import { internalEngineOver, type Coordinator, type Engine } from "@kanzo-tech/mosaic";
+import { type Coordinator } from "@kanzo-tech/mosaic";
+import { internalEngineOver, type Engine } from "@kanzo-tech/mosaic/engine";
 
 const engines = new WeakMap<object, Engine>();
 

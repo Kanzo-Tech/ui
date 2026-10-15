@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { attachWritten } from "@/lib/attach-graph";
 import { Show, Skeleton } from "@kanzo-tech/ui";
-import { engine, relationHops, type Engine, type JoinGraph, type Relation } from "@kanzo-tech/mosaic";
+import { engine, type Engine } from "@kanzo-tech/mosaic/engine";
+import { relationHops, type JoinGraph, type Relation } from "@kanzo-tech/relations";
 import { Dashboard, FilterBar, MosaicProvider, useMosaic, type DashboardSpec } from "@kanzo-tech/ui/analytics";
 import { Chat, ModelBadge } from "@kanzo-tech/ai";
 import { AnswerCard, useAskChat, type AskOutput } from "@kanzo-tech/ai/data";
 import { loadLocalModel, localModel, localModelLoad, localProvider, setLocalProvider, watchLocalModel } from "@kanzo-tech/llm/local";
-import { readJoinGraph } from "@kanzo-tech/graph";
+import { readJoinGraph } from "@kanzo-tech/relations";
 
 /**
  * **The page Ask's evaluation set asks on** — `packages/ai/eval/ask.eval.ts`. Everything it is, it
@@ -74,7 +75,7 @@ async function open(setup: Setup, signal: AbortSignal): Promise<Attached> {
   const page = await engine({ signal });
   // Origin-qualified: DuckDB-WASM resolves a root-relative path in its own filesystem.
   await attachWritten(page, setup.corpus, `${window.location.origin}${BASE}/corpus/${setup.corpus}`, signal);
-  const graph = await readJoinGraph(page, setup.corpus, signal);
+  const graph = await readJoinGraph(page, setup.corpus, { signal });
   signal.throwIfAborted();
   return { engine: page, graph, relation: relationFrom(graph, setup.relation) };
 }

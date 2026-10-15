@@ -23,14 +23,15 @@ crossfilter, cosmos.gl draws, and the parts are built from `@kanzo-tech/ui` and 
 
 ```tsx
 import { attachGraph } from "@kanzo-tech/graphar-duckdb";
-import { engine } from "@kanzo-tech/mosaic";
+import { engine } from "@kanzo-tech/mosaic/engine";
 import { GraphCanvas, GraphCounts, GraphInspector, GraphLegend, GraphRoot, GraphStatus, GraphToolbar } from "@kanzo-tech/graph";
 
 const e = await engine();
 // views "archive"."<type>", graphar_vertex_types, graphar_edge_types, graphar_properties
 await attachGraph(e, "archive", (paths) => paths.map((p) => `${url}/${p}`), { entry: "fossil.graph.yml" });
 
-// Under `<MosaicProvider engine={e} joins={await readJoinGraph(e, "archive")}>`:
+// Under `<MosaicProvider engine={e} joins={await readJoinGraph(e, "archive", { signal })}>`
+// (`readJoinGraph` is `@kanzo-tech/relations`'s):
 const { selection } = useMosaic();
 
 <GraphRoot from="archive" engine={e} r="degree" filterBy={selection} onFailure={setFailure}>
@@ -111,13 +112,11 @@ own `Problem`s (`graph/no-webgl`, `graph/context-lost`, `graph/no-positions`,
   category wears.
 - `VertexId` — a vertex is its global `dense_id`, a `number`.
 
-### The readers
+### The catalog
 
-- `readJoinGraph(engine, from, signal?)` — the graph attached as `from` as a `JoinGraph`, read from
-  GraphAr's relations: each vertex type a type keyed by `dense_id` over its view, with the writer's counts read from the
-  chunks' footers, each edge type joined through `src` and `dst` as global ids, and one more type,
-  `vertices`, every vertex type as one relation. It is what `@kanzo-tech/mosaic`'s relations —
-  and `@kanzo-tech/ui/analytics`' relation dashboards — are built over: `MosaicProvider`'s `joins`.
+The graph reads the attached graph's catalog with `@kanzo-tech/relations`'s `readJoinGraph`, the one
+reader of it, on the page's engine with the load's signal; the same function is what a host calls for
+`MosaicProvider`'s `joins`.
 
 The full guide — the parts, layout and camera, and the workspace recipe — is at
 [kanzo-tech.github.io/ui/docs/graph](https://kanzo-tech.github.io/ui/docs/graph).

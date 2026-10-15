@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { readJoinGraph } from "@kanzo-tech/graph";
+import { readJoinGraph } from "@kanzo-tech/relations";
 import { Skeleton } from "@kanzo-tech/ui";
-import { JoinResolver, relationKey, type JoinGraph, type Relation } from "@kanzo-tech/mosaic";
+import { JoinResolver, relationKey, type JoinGraph, type Relation } from "@kanzo-tech/relations";
 import {
   Dashboard,
   FilterBar,
@@ -28,7 +28,11 @@ export default function Example() {
   const [specs, setSpecs] = useState<Record<string, DashboardSpec>>({});
 
   useEffect(() => {
-    if (engine) readJoinGraph(engine, FROM).then(setGraph, setFailure);
+    if (!engine) return;
+    // Leaving the page stops the catalog read: the signal reaches the statement.
+    const controller = new AbortController();
+    readJoinGraph(engine, FROM, { signal: controller.signal }).then(setGraph, (error: unknown) => !controller.signal.aborted && setFailure(error));
+    return () => controller.abort();
   }, [engine]);
   const drawn = useMemo(
     () => {

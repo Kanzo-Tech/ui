@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { xScale } from "@uwdata/vgplot";
-import { type Engine, engine } from "@kanzo-tech/mosaic";
+import { type Engine, engine } from "@kanzo-tech/mosaic/engine";
 import {
   ChartAxisX,
   ChartAxisY,

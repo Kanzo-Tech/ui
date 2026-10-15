@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { GraphCanvas, GraphRoot, usePick } from "@kanzo-tech/graph";
-import { numbers, Query, type Engine } from "@kanzo-tech/mosaic";
+import { numbers, Query } from "@kanzo-tech/mosaic";
+import { type Engine } from "@kanzo-tech/mosaic/engine";
 import { Show, Toggle } from "@kanzo-tech/ui";
 import { ARCHIVE_KINDS, FROM, said, useArchive } from "./archive";
 

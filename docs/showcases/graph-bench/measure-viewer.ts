@@ -4,7 +4,7 @@ import { createElement, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { Graph } from "@cosmos.gl/graph";
 import { GraphCanvas, GraphRoot, useGraphContext, type GraphApi } from "@kanzo-tech/graph";
-import { engine, type Engine } from "@kanzo-tech/mosaic";
+import { engine, type Engine } from "@kanzo-tech/mosaic/engine";
 import type { GraphAttachment } from "@kanzo-tech/graphar-duckdb";
 import { attachWritten } from "@/lib/attach-graph";
 import { host, nextFrame, visible } from "./measure";

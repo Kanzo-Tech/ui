@@ -46,7 +46,7 @@ answer `palette` and `theme` already got.
 
 ```tsx
 import { attachGraph } from "@kanzo-tech/graphar-duckdb";
-import { engine } from "@kanzo-tech/mosaic";
+import { engine } from "@kanzo-tech/mosaic/engine";
 import { GraphCanvas, GraphLegend, GraphRoot, GraphToolbar } from "@kanzo-tech/graph";
 ```
 
@@ -527,7 +527,8 @@ semi-join on `dense_id`.
 
 ### readJoinGraph
 
-`readJoinGraph(engine, from, signal?)` is the same graph as a `JoinGraph` — what
+`readJoinGraph(engine, from, { signal })`, from `@kanzo-tech/relations`, is the same graph as a
+`JoinGraph`, read through any `Queryable` — what
 `@kanzo-tech/ui/analytics`' [relations](/docs/analytics/dashboard#relations) are built over, and the
 one constructor of one from a graph. Each vertex type is a type keyed by `dense_id`, its `table` the
 type's view under the global id, every column described as GraphAr's catalog describes it: its
@@ -546,12 +547,14 @@ graph: a field is called by its name, and a year is a number ([what GraphAr does
 carry](/docs/design/graph#what-graphar-does-not-carry)). A graph whose chunks state no counts has none,
 and `useFieldStats` reads its relation with one `SUMMARIZE`.
 
-The catalog is read in one place, `readCatalog`, and the canvas's structure and this graph are both
-what it answered, each on the engine's own door with its signal: a stop interrupts the read, and
-nothing caches it, so a page that draws the graph and a dashboard beside it reads the catalog twice.
+The catalog is read in one place, this function: the canvas reads it too, on the engine's own door
+with its signal, so a stop interrupts the read, and adds to each type the first global id it draws
+from. Nothing caches it: a page that draws the graph and a dashboard beside it reads the catalog twice.
 
 ```tsx
-const graph = await readJoinGraph(e, jobId);
+import { readJoinGraph } from "@kanzo-tech/relations";
+
+const graph = await readJoinGraph(e, jobId, { signal });
 
 <MosaicProvider engine={e} joins={graph}>
   <Dashboard relation={{ root: "Person", path: [] }} />
@@ -562,7 +565,7 @@ const graph = await readJoinGraph(e, jobId);
 `Person.country`, which `vertices` has not, and the page crosses them into the graph as one semi-join
 on `dense_id` — [what the page sees](/docs/analytics/dashboard#what-the-page-sees).
 
-*Held by* `packages/graph/src/core/join-graph.test.ts`, "keys a type by the global id, names its keys,
+*Held by* `packages/relations/src/graphar.test.ts`, "keys a type by the global id, names its keys,
 and joins an edge on its global ends"; `packages/graph/src/core/catalog.test.ts`,
 "takes an edge's label and its ends from graphar_edge_types, never from the view's name".
 
@@ -576,9 +579,9 @@ the edge from that type to its parent's. A map over a query, as fossil writes a 
 `termType` and `datatype` every reader of a `JoinGraph` already reads, and no other part is told:
 
 ```tsx
-import { withMapping, typeWords } from "@kanzo-tech/mosaic";
+import { withMapping, typeWords } from "@kanzo-tech/relations";
 
-const graph = withMapping(await readJoinGraph(e, "archive"), mapping.model());
+const graph = withMapping(await readJoinGraph(e, "archive", { signal }), mapping.model());
 
 <MosaicProvider engine={e} joins={graph}>
   <Dashboard relation={{ root: "Person", path: [] }} />
@@ -594,7 +597,7 @@ the one place a type's or an edge's words are chosen — the label, else the nam
 (`splitWords`) — and `RelationPicker`, Ask's chips and a column's `label` all read them. A year the
 mapping declares `xsd:gYear` is a time, whatever integer stores it.
 
-*Held by* `packages/mosaic/src/mapping.test.ts`, "puts the class, the predicates, the term types and the
+*Held by* `packages/relations/src/mapping.test.ts`, "puts the class, the predicates, the term types and the
 datatypes on the graph"; "keeps every language, and the reader chooses one: the same graph reads in
 either"; "describes an edge from the source's relation to the parent, the one its label names among
 several".

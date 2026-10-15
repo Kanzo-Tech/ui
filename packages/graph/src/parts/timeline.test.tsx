@@ -4,25 +4,11 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { KanzoThemeProvider } from "@kanzo-tech/ui";
 import { ChartTimeline, FilterBar, MosaicProvider, useMosaic } from "@kanzo-tech/ui/analytics";
 import { useEffect, useState, type ReactNode } from "react";
-import {
-  MosaicClient,
-  Query,
-  clauseInterval,
-  count,
-  crossfilterOver,
-  float64,
-  onRelation,
-  readOf,
-  type FilterExpr,
-  type JoinGraph,
-  type RelationClient,
-  type RelationRef,
-  type Selection,
-  type TableExpr,
-} from "@kanzo-tech/mosaic";
+import { MosaicClient, Query, clauseInterval, count, float64, type FilterExpr, type Selection, type TableExpr } from "@kanzo-tech/mosaic";
+import { crossfilterOver, onRelation, readOf, type JoinGraph, type RelationClient, type RelationRef } from "@kanzo-tech/relations";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { attach, settle, type Attached } from "../../test/corpus";
-import { readJoinGraph } from "../core/join-graph";
+import { readJoinGraph } from "@kanzo-tech/relations";
 import { readCatalog } from "../core/catalog";
 import { relation, verticesOf } from "../core/source";
 import { createGraph } from "../core/store";
@@ -68,7 +54,7 @@ function OnPage({ corpus, children }: { corpus: Attached; children: ReactNode })
   );
 }
 
-const joinsOf = (corpus: Attached): Promise<JoinGraph> => readJoinGraph(corpus.engine, corpus.from);
+const joinsOf = (corpus: Attached): Promise<JoinGraph> => readJoinGraph(corpus.engine, corpus.from, { signal: new AbortController().signal });
 
 async function mount(corpus: Attached, timeline: string) {
   const joins = await joinsOf(corpus);

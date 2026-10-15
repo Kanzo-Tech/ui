@@ -1,22 +1,5 @@
-import {
-  Query,
-  and,
-  asTableRef,
-  cast,
-  count,
-  eq,
-  float64,
-  isIn,
-  length,
-  literal,
-  not,
-  sql,
-  sum,
-  clauseColumns,
-  type Engine,
-  type ExprNode,
-  type FilterExpr,
-} from "@kanzo-tech/mosaic";
+import { Query, and, asTableRef, cast, count, eq, float64, isIn, length, literal, not, sql, sum, clauseColumns, type ExprNode, type FilterExpr } from "@kanzo-tech/mosaic";
+import { type Engine } from "@kanzo-tech/mosaic/engine";
 import { DST, KEY, SRC, VERTEX_INDEX, tableOf, type Structure, type VertexTable } from "./structure";
 
 /**

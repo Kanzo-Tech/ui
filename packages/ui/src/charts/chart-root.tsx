@@ -1,17 +1,8 @@
 "use client";
 
-import {
-  holdFirstDraw,
-  onRelation,
-  queryFailure,
-  relaySelection,
-  type RelationExpr,
-  type RelationRef,
-  type TableExpr,
-  Selection,
-  type Engine,
-  type SelectionClause,
-} from "@kanzo-tech/mosaic";
+import { holdFirstDraw, queryFailure, relaySelection, type TableExpr, Selection, type SelectionClause } from "@kanzo-tech/mosaic";
+import { type Engine } from "@kanzo-tech/mosaic/engine";
+import { onRelation, type RelationExpr, type RelationRef } from "@kanzo-tech/relations";
 import { createContext, useContext, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";

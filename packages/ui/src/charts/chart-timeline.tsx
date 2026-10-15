@@ -1,6 +1,7 @@
 "use client";
 
-import { type RelationExpr, type SelectionClause, Query, count, isNotNull } from "@kanzo-tech/mosaic";
+import { type SelectionClause, Query, count, isNotNull } from "@kanzo-tech/mosaic";
+import type { RelationExpr } from "@kanzo-tech/relations";
 import { Interval1D } from "@uwdata/mosaic-plot";
 import { bin } from "./chart-bin.js";
 import { PauseIcon, PlayIcon } from "lucide-react";

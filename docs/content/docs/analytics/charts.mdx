@@ -125,7 +125,8 @@ chart hydrate:
 "use client";
 
 import { useEffect, useState } from "react";
-import { engine, loadObjects, type Engine } from "@kanzo-tech/mosaic";
+import { loadObjects } from "@kanzo-tech/mosaic";
+import { engine, type Engine } from "@kanzo-tech/mosaic/engine";
 import { MosaicProvider } from "@kanzo-tech/ui/analytics";
 
 export default function Analytics({ children }: { children: React.ReactNode }) {
@@ -842,7 +843,8 @@ directions its `.orderby()` takes; the relation algebra (`Relation`, `JoinGraph`
 and `RelationExpr`, what every part's `relation` takes; `TableExpr`, `numbers` and `queryFailure`.
 
 ```tsx
-import { count, engine, Query } from "@kanzo-tech/mosaic";
+import { count, Query } from "@kanzo-tech/mosaic";
+import { engine } from "@kanzo-tech/mosaic/engine";
 import { ChartBarY, ChartRoot, MosaicProvider } from "@kanzo-tech/ui/analytics";
 ```
 

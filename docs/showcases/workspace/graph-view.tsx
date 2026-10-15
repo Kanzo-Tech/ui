@@ -57,17 +57,9 @@ import type { Proposal } from "@kanzo-tech/ai/task";
 import { AnswerCard, askEdit, AskChips, askOffers, useAskChat, type AskOutput, type AskSpec } from "@kanzo-tech/ai/data";
 import { scriptedModel } from "@kanzo-tech/llm/testing";
 import { promptOf } from "@kanzo-tech/testing";
-import {
-  Query,
-  Selection as MosaicSelection,
-  count,
-  numbers,
-  sql,
-  verbatim,
-  type Engine,
-  type ExprNode,
-  type JoinGraph,
-} from "@kanzo-tech/mosaic";
+import { Query, Selection as MosaicSelection, count, numbers, sql, verbatim, type ExprNode } from "@kanzo-tech/mosaic";
+import { type Engine } from "@kanzo-tech/mosaic/engine";
+import { type JoinGraph } from "@kanzo-tech/relations";
 import { MosaicProvider, useChartQuery, useMosaic } from "@kanzo-tech/ui/analytics";
 import {
   SparklesIcon,
@@ -76,17 +68,8 @@ import {
   XIcon,
 } from "lucide-react";
 import { cn } from "@kanzo-tech/ui";
-import {
-  GraphCounts,
-  GraphInspector,
-  GraphRoot,
-  GraphSearch,
-  GraphStatus,
-  readJoinGraph,
-  useGraphPrefs,
-  usePick,
-  type VertexDetail,
-} from "@kanzo-tech/graph";
+import { readJoinGraph } from "@kanzo-tech/relations";
+import { GraphCounts, GraphInspector, GraphRoot, GraphSearch, GraphStatus, useGraphPrefs, usePick, type VertexDetail } from "@kanzo-tech/graph";
 import {
   compileOrders,
   DEFAULT_ORDERS,
@@ -1097,7 +1080,7 @@ export function GraphAsk() {
     // The graph is the one read — every type's facts are on it — and a page left mid-read keeps none of it.
     const controller = new AbortController();
     const { signal } = controller;
-    readJoinGraph(archive.engine, FROM, signal).then(
+    readJoinGraph(archive.engine, FROM, { signal }).then(
       (graph) => !signal.aborted && setAskable({ graph }),
       (error: unknown) => !signal.aborted && announce(error),
     );

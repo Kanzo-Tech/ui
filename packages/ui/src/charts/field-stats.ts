@@ -1,19 +1,8 @@
 "use client";
 
-import {
-  type Engine,
-  internalCoordinatorOf,
-  type JoinAnnotation,
-  type JoinColumn,
-  type JoinGraph,
-  type Relation,
-  type RelationExpr,
-  type TableExpr,
-  Query,
-  jsType,
-  relationColumns,
-  sql,
-} from "@kanzo-tech/mosaic";
+import { type TableExpr, Query, jsType, sql } from "@kanzo-tech/mosaic";
+import { type Engine, internalCoordinatorOf } from "@kanzo-tech/mosaic/engine";
+import { type JoinAnnotation, type JoinColumn, type JoinGraph, type Relation, type RelationExpr, relationColumns } from "@kanzo-tech/relations";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo } from "react";
 import { chartTableKey } from "./chart-spec.js";

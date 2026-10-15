@@ -1,4 +1,5 @@
-import type { ClauseSource, Engine, MosaicClient, Selection } from "@kanzo-tech/mosaic";
+import type { ClauseSource, MosaicClient, Selection } from "@kanzo-tech/mosaic";
+import type { Engine } from "@kanzo-tech/mosaic/engine";
 import type { LookPatch } from "../render/graph-looks";
 import type { Sim } from "../render/graph-sim";
 import type { Binding, Channels } from "./channels";

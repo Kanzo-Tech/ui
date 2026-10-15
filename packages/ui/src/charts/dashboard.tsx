@@ -1,6 +1,7 @@
 "use client";
 
-import type { RelationExpr, TableExpr } from "@kanzo-tech/mosaic";
+import type { TableExpr } from "@kanzo-tech/mosaic";
+import type { RelationExpr } from "@kanzo-tech/relations";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import { createPortal } from "react-dom";

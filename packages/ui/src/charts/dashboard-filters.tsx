@@ -1,12 +1,7 @@
 "use client";
 
-import {
-  clauseParts,
-  relationOf,
-  sameRelation,
-  type RelationExpr,
-  type SelectionClause,
-} from "@kanzo-tech/mosaic";
+import { clauseParts, type SelectionClause } from "@kanzo-tech/mosaic";
+import { relationOf, sameRelation, type RelationExpr } from "@kanzo-tech/relations";
 import { useId } from "react";
 import {
   CalendarRangeIcon,

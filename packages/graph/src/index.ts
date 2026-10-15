@@ -52,5 +52,3 @@ export type { Channels, Placement } from "./core/channels";
 export type { GraphCommands, Motion, Tool, VertexId, VertexSelection, VertexSelectionSource } from "./core/types";
 export type { DataStatus, Drawn, GraphState } from "./core/state";
 export type { VertexDetail } from "./core/source";
-// The corpus as the join graph `@kanzo-tech/mosaic`'s relations are built over.
-export { readJoinGraph } from "./core/join-graph";

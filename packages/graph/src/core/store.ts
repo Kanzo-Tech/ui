@@ -1,4 +1,5 @@
-import { MosaicClient, Selection, firstDrawsPending, internalCoordinatorOf, onFirstDraws, type Coordinator } from "@kanzo-tech/mosaic";
+import { MosaicClient, Selection, firstDrawsPending, onFirstDraws, type Coordinator } from "@kanzo-tech/mosaic";
+import { internalCoordinatorOf } from "@kanzo-tech/mosaic/engine";
 import { domainOf } from "./categories";
 import { bindingOf } from "./channels";
 import { GraphClient, publish } from "./client";

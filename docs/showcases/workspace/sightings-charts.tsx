@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { ScrollArea, Show, Skeleton } from "@kanzo-tech/ui";
-import { loadCSV, type Engine } from "@kanzo-tech/mosaic";
+import { loadCSV } from "@kanzo-tech/mosaic";
+import { type Engine } from "@kanzo-tech/mosaic/engine";
 import {
   Dashboard,
   FilterBar,

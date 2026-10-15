@@ -1,4 +1,4 @@
-import type { Engine } from "@kanzo-tech/mosaic";
+import type { Engine } from "@kanzo-tech/mosaic/engine";
 import { Dictionary } from "./categories";
 import type { Binding } from "./channels";
 import { readColumns, readLinks } from "./source";

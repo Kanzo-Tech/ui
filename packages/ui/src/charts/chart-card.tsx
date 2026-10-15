@@ -1,6 +1,7 @@
 "use client";
 
-import { type RelationExpr, type TableExpr, count, desc, Query, type ExprValue } from "@kanzo-tech/mosaic";
+import { type TableExpr, count, desc, Query, type ExprValue } from "@kanzo-tech/mosaic";
+import type { RelationExpr } from "@kanzo-tech/relations";
 import type React from "react";
 import { bin } from "./chart-bin.js";
 import {

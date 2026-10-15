@@ -1,5 +1,7 @@
-import { Query } from "@kanzo-tech/mosaic";
+import { Query, count, isNotNull } from "@kanzo-tech/mosaic";
+import { relationQuery } from "@kanzo-tech/relations";
 import { describe, expect, it } from "vitest";
+import { readJoinGraph } from "@kanzo-tech/relations";
 import { attach, chunkOf, writeChunk } from "../../test/corpus";
 import { readCatalog } from "./catalog";
 
@@ -127,5 +129,17 @@ describe("readCatalog", () => {
     const person = vertices.find((v) => v.name === "Person")!;
     expect([...person.columns].every(([name, c]) => name === "dense_id" || c.stats === null)).toBe(true);
     expect(vertices.find((v) => v.name === "Place")!.columns.get("name")?.stats).not.toBeNull();
+  });
+
+  it("is @kanzo-tech/relations' reader: every type and every relation of an attached graph, in global ids, joined", async () => {
+    const corpus = await attach();
+    const graph = await readJoinGraph(corpus.engine, corpus.from, { signal: new AbortController().signal });
+    expect(graph.types.map((t) => t.name)).toEqual(["Person", "Place", "Tag", "vertices"]);
+    // Ten people, each living in `10 + i % 6`: the join lands on Place's global ids.
+    const relation = { root: "Person", path: [{ edge: "Person_livesIn_Place", direction: "out" as const }] };
+    const rows = (await corpus.coordinator.query(
+      Query.select({ n: count() }).from(relationQuery(graph, relation)).where(isNotNull("livesIn.name")),
+    )) as Iterable<{ n: unknown }>;
+    expect(Number(Array.from(rows)[0]!.n)).toBe(10);
   });
 });

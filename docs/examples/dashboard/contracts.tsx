@@ -2,7 +2,9 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { Skeleton } from "@kanzo-tech/ui";
-import { loadObjects, type Engine, type JoinGraph } from "@kanzo-tech/mosaic";
+import { loadObjects } from "@kanzo-tech/mosaic";
+import { type Engine } from "@kanzo-tech/mosaic/engine";
+import { type JoinGraph } from "@kanzo-tech/relations";
 import { useMosaic } from "@kanzo-tech/ui/analytics";
 import { ARCHIVE } from "@/example/archive";
 import { GRADES } from "@/example/world";

@@ -1,18 +1,8 @@
 "use client";
 
-import {
-  crossfilterOver,
-  internalCoordinatorOf,
-  type Engine,
-  type JoinResolver,
-  preaggregateOwnRelation,
-  readOf,
-  type JoinGraph,
-  type RelationExpr,
-  type RelationRef,
-  type TableExpr,
-  type Selection,
-} from "@kanzo-tech/mosaic";
+import { type TableExpr, type Selection } from "@kanzo-tech/mosaic";
+import { internalCoordinatorOf, type Engine } from "@kanzo-tech/mosaic/engine";
+import { crossfilterOver, type JoinResolver, preaggregateOwnRelation, readOf, type JoinGraph, type RelationExpr, type RelationRef } from "@kanzo-tech/relations";
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ark } from "@ark-ui/react/factory";

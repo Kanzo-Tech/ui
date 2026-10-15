@@ -1,6 +1,7 @@
 "use client";
 
-import { internalCoordinatorOf, type Coordinator, type Query } from "@kanzo-tech/mosaic";
+import { type Coordinator, type Query } from "@kanzo-tech/mosaic";
+import { internalCoordinatorOf } from "@kanzo-tech/mosaic/engine";
 import { use } from "react";
 import { useMosaic } from "./mosaic-provider.js";
 

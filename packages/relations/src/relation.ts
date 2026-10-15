@@ -1,14 +1,4 @@
-import {
-  FromClauseNode,
-  Query,
-  asTableRef,
-  column,
-  eq,
-  join,
-  type ExprNode,
-  type JoinNode,
-} from "@uwdata/mosaic-sql";
-import type { TableExpr } from "./table.js";
+import { FromClauseNode, Query, asTableRef, column, eq, join, type ExprNode, type JoinNode, type TableExpr } from "@kanzo-tech/mosaic";
 import { labelOf, namingColumn } from "./words.js";
 
 /**

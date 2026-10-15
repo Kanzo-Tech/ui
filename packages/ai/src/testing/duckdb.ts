@@ -5,7 +5,8 @@
 
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
-import { Coordinator, internalEngineOver, type Engine } from "@kanzo-tech/mosaic";
+import { Coordinator } from "@kanzo-tech/mosaic";
+import { internalEngineOver, type Engine } from "@kanzo-tech/mosaic/engine";
 import { decodeIPC, wasmConnector } from "@uwdata/mosaic-core";
 import type { DuckDBBindings, DuckDBConnection } from "@duckdb/duckdb-wasm/blocking";
 

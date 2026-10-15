@@ -2,7 +2,7 @@ import { engineOver } from "../../test/engine";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { clausePoint, Selection, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
 import { Query } from "@uwdata/mosaic-sql";
-import type { JoinGraph, JoinResolver } from "@kanzo-tech/mosaic";
+import type { JoinGraph, JoinResolver } from "@kanzo-tech/relations";
 import { describe, expect, it } from "vitest";
 import { MosaicClients, MosaicProvider, useMosaic } from "./mosaic-provider.js";
 import { useChartQuery } from "./use-chart-query.js";

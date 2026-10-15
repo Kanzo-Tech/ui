@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { GraphCanvas, GraphRoot } from "@kanzo-tech/graph";
 import { DiagnosticList, Problem, Show, type ProblemDescription } from "@kanzo-tech/ui";
-import { engine } from "@kanzo-tech/mosaic";
+import { engine } from "@kanzo-tech/mosaic/engine";
 import { attachWritten } from "@/lib/attach-graph";
 
 /** What a host says for a failure, keyed on its `code` — graphar's and the graph's alike. */

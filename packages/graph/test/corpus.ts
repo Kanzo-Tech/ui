@@ -5,7 +5,8 @@ import { dirname, join, resolve } from "node:path";
 import { ConsoleLogger, LogLevel, NODE_RUNTIME, createDuckDB } from "@duckdb/duckdb-wasm/blocking";
 import { afterAll } from "vitest";
 import { decodeIPC } from "@uwdata/mosaic-core";
-import { Coordinator, internalEngineOver, type Engine } from "@kanzo-tech/mosaic";
+import { Coordinator } from "@kanzo-tech/mosaic";
+import { internalEngineOver, type Engine } from "@kanzo-tech/mosaic/engine";
 
 /**
  * **A graph attached the way `@kanzo-tech/graphar-duckdb`'s `attachGraph` attaches one**, in a real

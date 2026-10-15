@@ -1,6 +1,6 @@
 "use client";
 
-import { engine, type Engine } from "@kanzo-tech/mosaic";
+import { engine, type Engine } from "@kanzo-tech/mosaic/engine";
 import { useEffect, useState } from "react";
 import { attachWritten } from "@/lib/attach-graph";
 
