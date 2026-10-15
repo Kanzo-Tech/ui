@@ -56,7 +56,7 @@ export interface JoinColumn {
   readonly role?: string;
   /** The literal datatype IRI its shape declared: `xsd:gYear` over an integer. */
   readonly datatype?: string;
-  /** R2RML's term type its shape declared: `rr:IRI`, `rr:BlankNode` or `rr:Literal`. */
+  /** The term type its shape or its mapping declared: RML-Core's `IRI`, `BlankNode` or `Literal`, or R2RML's `rr:` spelling of them. */
   readonly termType?: string;
   /** The property IRI it was mapped from. */
   readonly iri?: string;
