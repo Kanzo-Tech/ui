@@ -29,7 +29,11 @@ class FakeWorker {
     } else if (mode === "answer") {
       queueMicrotask(() =>
         this.listeners.get("message")?.({
-          data: { requestId: message.messageId, type: message.type === "CONNECT" ? "CONNECTION_INFO" : "OK", data: 0 },
+          data: {
+            requestId: message.messageId,
+            type: message.type === "CONNECT" ? "CONNECTION_INFO" : message.type === "RUN_QUERY" ? "QUERY_RESULT" : "OK",
+            data: message.type === "RUN_QUERY" ? new Uint8Array() : 0,
+          },
         }),
       );
     }
@@ -46,13 +50,6 @@ vi.mock("@duckdb/duckdb-wasm", async (original) => ({
     ...bundles.eh,
     pthreadWorker: null,
   }),
-}));
-
-vi.mock("@uwdata/mosaic-core", async (original) => ({
-  ...(await original<typeof import("@uwdata/mosaic-core")>()),
-  DuckDBWASMConnector: function () {
-    return { query: async () => undefined };
-  },
 }));
 
 const { engine, EngineError } = await import("./engine.js");
