@@ -28,7 +28,7 @@ export const auth = kanzoAuth(async () => ({
 
 ```ts title="proxy.ts"
 export const proxy = (request: NextRequest) => auth.proxy(request);
-export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)"] };
+export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };
 ```
 
 ```ts title="app/api/auth/[...auth]/route.ts"
@@ -147,9 +147,16 @@ renders per request, and a browser without CSP Level 3 does not run its scripts.
 
 Static files, `basePath`, every mount of `apis`, `problemPage` and every `public` prefix pass without a
 session. `public` is matched on **segment boundaries**: `/health` opens `/health/live` and not
-`/healthcare`. The static-file exemption is applied on the path as well, so it holds whatever
-matcher a product writes — a matcher that missed static files once served an application's
-`.wasm` from the sign-in page — but the matcher above is the one to start from.
+`/healthcare`.
+
+A static file is a path whose last segment ends in an extension on `staticExtensions`, whose default
+is what a browser fetches to draw a page: `js`, `mjs`, `css`, `map`, `wasm`, `png`, `jpg`, `jpeg`,
+`gif`, `webp`, `avif`, `svg`, `ico`, `woff`, `woff2`, `txt`, `xml`, `webmanifest`. A data format
+(`csv`, `json`, `parquet`) is deliberately not on it, and a dotted page such as `/graphs/foo.bar` is
+a page: the proxy gates it. Giving `staticExtensions` replaces the list. A path that must open
+without a session and is not a static file is a `public` prefix. Do not exclude `.*\..*` in your own
+`matcher`: that is the hole this list closes, and the list is applied inside the matcher so one that
+is wrong in the open direction is still caught.
 
 ## `session()` in a server component
 
@@ -412,6 +419,8 @@ Nothing here is invented; each piece is a reference system's answer or a standar
 | `public` | `readonly string[]` | nothing |
 | `redirectUri` | `string` | derived from the request |
 | `renewWithin` | `number` | `60`, in seconds |
+| `staticExtensions` | `readonly string[]` | `js`, `mjs`, `css`, `map`, `wasm`, `png`, `jpg`, `jpeg`, `gif`, `webp`, `avif`, `svg`, `ico`, `woff`, `woff2`, `txt`, `xml`, `webmanifest` |
+| `csp` | `Record<string, readonly string[]>`, directive to sources; `proxy` adds the nonce and `'strict-dynamic'` to `script-src` | none; no policy is sent |
 | `apis` | `Record<string, { audience: string; target: string \| ((organization: string \| undefined) => string \| undefined) }>`, by mount. **Requires `store`**: `kanzoAuth` throws when it is built with `apis` and no `store` | none; `api` answers 404 |
 
 ### `KanzoAuth`

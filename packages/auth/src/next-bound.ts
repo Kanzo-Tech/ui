@@ -45,6 +45,15 @@ interface KanzoAuthSettings extends RelyingPartyConfig {
    */
   readonly public?: readonly string[];
   /**
+   * The extensions of the files the proxy lets through without a session: a path whose last segment
+   * ends in `.<one of these>` is a static file, and every other path is a page, dotted or not.
+   * Replaces the default, which is what a browser fetches to draw a page: `js`, `mjs`, `css`, `map`,
+   * `wasm`, `png`, `jpg`, `jpeg`, `gif`, `webp`, `avif`, `svg`, `ico`, `woff`, `woff2`, `txt`, `xml`,
+   * `webmanifest`. A data format (`csv`, `json`, `parquet`) is deliberately not on it; a path that
+   * must open without a session and is not a static file is a `public` prefix.
+   */
+  readonly staticExtensions?: readonly string[];
+  /**
    * The Content-Security-Policy `proxy` sends, as directives to their sources. `proxy` draws a nonce
    * per request and adds `'nonce-…' 'strict-dynamic'` to `script-src` (the sources given here follow
    * them), on the request it forwards (the header Next reads to nonce its own scripts), on the
@@ -109,6 +118,8 @@ export interface Bound {
   readonly csp?: (nonce: string) => string;
   /** Every mount, the longest first, so a request is forwarded by the most specific one. */
   readonly apis: readonly Api[];
+  /** The lower-case extensions, with their dot, of a static file. */
+  readonly staticExtensions: readonly string[];
   /** Prefixes the proxy lets through: the routes, the forwarder, the problem page, and `public`. */
   readonly open: readonly string[];
   tenant(request: TenantRequest): Promise<string | undefined>;
@@ -188,6 +199,12 @@ function policy(directives: Readonly<Record<string, readonly string[]>>): (nonce
       .join("; ");
 }
 
+/** What a browser fetches to draw a page; a data format is a page's business, not a file's. */
+const STATIC_EXTENSIONS = [
+  "js", "mjs", "css", "map", "wasm", "png", "jpg", "jpeg", "gif", "webp", "avif", "svg", "ico",
+  "woff", "woff2", "txt", "xml", "webmanifest",
+];
+
 export function bind(config: KanzoAuthConfig): Bound {
   // The types say it and a config built from untyped data does not hear them.
   if (Object.keys(config.apis ?? {}).length > 0 && config.store === undefined) {
@@ -214,6 +231,9 @@ export function bind(config: KanzoAuthConfig): Bound {
     problemPage,
     redirectUri: config.redirectUri,
     renewWithin: config.renewWithin ?? DEFAULT_RENEW_WITHIN,
+    staticExtensions: (config.staticExtensions ?? STATIC_EXTENSIONS).map((extension) =>
+      `.${extension.replace(/^\./, "").toLowerCase()}`,
+    ),
     csp: config.csp === undefined ? undefined : policy(config.csp),
     apis,
     open: [basePath, problemPage, ...apis.map((api) => api.mount), ...(config.public ?? [])].map(

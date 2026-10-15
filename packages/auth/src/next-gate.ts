@@ -43,9 +43,13 @@ import { AuthError } from "./types";
  * resolver reads the same URL the routes do.
  */
 
-/** A path whose last segment carries a dot: a static file, not a page. */
-function isFile(pathname: string): boolean {
-  return pathname.slice(pathname.lastIndexOf("/") + 1).includes(".");
+/**
+ * A static file: the last segment ends in one of `staticExtensions`. Not "has a dot" — a dotted
+ * page (`/graphs/foo.bar`, a dataset slug `x.csv`) is a page, and the proxy is its session authority.
+ */
+function isFile(pathname: string, extensions: readonly string[]): boolean {
+  const segment = pathname.slice(pathname.lastIndexOf("/") + 1).toLowerCase();
+  return extensions.some((extension) => segment.endsWith(extension) && segment.length > extension.length);
 }
 
 /**
@@ -117,7 +121,7 @@ export async function gate(
     return response;
   };
 
-  if (isFile(pathname) || under(pathname, bound.open)) return through();
+  if (isFile(pathname, bound.staticExtensions) || under(pathname, bound.open)) return through();
 
   const mode = request.headers.get("sec-fetch-mode");
   const navigation = mode === null || mode === "navigate";

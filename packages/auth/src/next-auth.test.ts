@@ -301,6 +301,21 @@ describe("kanzoAuth", () => {
       expect((await mounted.proxy(navigation("/healthcare"))).status).toBe(307);
     });
 
+    it("gates a dotted path that is not a static extension and lets a static file through", async () => {
+      for (const path of ["/graphs/foo.bar", "/datasets/x.csv", "/export/report.json", "/v1.2/graphs", "/Logo.PNG.bak"]) {
+        const response = await auth.proxy(navigation(path));
+        expect(response.status, path).toBe(307);
+        expect(new URL(response.headers.get("location") ?? "").pathname, path).toBe("/api/auth/signin");
+      }
+      for (const path of ["/app.js", "/fonts/Inter.WOFF2", "/fossil/fossil_wasm_bg.wasm", "/robots.txt"]) {
+        expect((await auth.proxy(navigation(path))).headers.get("x-middleware-next"), path).toBe("1");
+      }
+      // A product's own list replaces the default.
+      const custom = kanzoAuth({ ...config, staticExtensions: ["pdf"] });
+      expect((await custom.proxy(navigation("/guide.pdf"))).headers.get("x-middleware-next")).toBe("1");
+      expect((await custom.proxy(navigation("/app.js"))).status).toBe(307);
+    });
+
     it("sends a navigation to the problem page when the store does not answer", async () => {
       const cookie = await signIn();
       backing.adapter.read = async () => {
