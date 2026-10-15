@@ -122,11 +122,8 @@ describe("documented tokens", () => {
   it("the corpus is not empty on either side", () => {
     // A guard over two empty sets passes every assertion below it. Both halves are stated, because
     // a glob that silently stops matching is the failure mode this whole file exists to catch.
-    // The floor moved 400 -> 140 when the derivation was cut and `packages/palette` was deleted:
-    // `tokens.css` used to carry a compiled document of 408 properties and six more of 199 each, and
-    // a theme is now about fifty-five. It is a floor against an EMPTY glob, not a record of the
-    // count — 173 today, and a number that tracked the corpus exactly would fail on every
-    // legitimate change.
+    // The floor is against an EMPTY glob, not a record of the count: a number that tracked the
+    // corpus exactly would fail on every legitimate change.
     expect(declared.size).toBeGreaterThan(140);
     expect(namespaces.size).toBeGreaterThan(20);
     expect(named.length).toBeGreaterThan(20);

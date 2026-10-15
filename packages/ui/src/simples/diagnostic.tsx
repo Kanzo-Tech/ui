@@ -315,16 +315,7 @@ const diagnosticFrameVariants = tv({
     //
     // The tier is `--muted-foreground` and not `--faint`, which is what a dimmed thing usually
     // reaches for here: `--faint` is solved against the page, and a diagnostic is a wash over it.
-    // Measured 2026-08 over the six documents in `packages/theme/palettes`, both modes: faint on
-    // that surface is 3.96–6.62:1 and lands under WCAG AA's 4.5 in seven of the twelve;
-    // muted-foreground is 6.54–9.48 in all of them. Every dimmed part below reads the same way.
-    //
-    // **Those numbers were taken against `bg-foreground/14`, and the card is now `bg-destructive/7` /
-    // `-warning-a3` / `-info-a3`** — the surface moved with the `Alert` alignment. The direction
-    // is not in doubt (a family wash at `-a3` is a comparably light tint, and the gap between the
-    // two tiers is ~2.5 stops), but the figures no longer describe what is painted. Re-measuring
-    // over the three washes on both modes is owed, and until it happens this is a claim about a
-    // surface that has been replaced.
+    // Every dimmed part below reads the same way.
     secondary: {
       true: ["text-muted-foreground", "[&_[data-slot=diagnostic-frame-file]]:font-normal"],
       false: "text-foreground",

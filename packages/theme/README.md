@@ -13,7 +13,7 @@ Four families ship, each a light theme and a dark one — eight themes:
 | `nord` | `nord` | `nord-dark` |
 
 A user picks a light theme and a dark theme, and which side to wear — GitHub's
-Appearance model, drawn by `<Preferences />` in `@kanzo-tech/ui`. A product ships its own families beside
+Appearance model, drawn by `PreferencesSections` in `@kanzo-tech/ui`. A product ships its own families beside
 or instead of these.
 
 - **Theme** — `packages/theme/themes/<name>.css`, hand-written source. Its colours, its three radii
@@ -111,8 +111,8 @@ import { KanzoThemeProvider } from "@kanzo-tech/ui";
 </KanzoThemeProvider>;
 ```
 
-Read or change the live preferences with `useKanzoTheme()`, or drop in the ready-made
-`<Preferences />` panel. Both come from `@kanzo-tech/ui`.
+Read or change the live preferences with `useKanzoTheme()`, or mount
+`PreferencesSections`. Both come from `@kanzo-tech/ui`.
 
 ## Dark mode
 

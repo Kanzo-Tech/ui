@@ -1,4 +1,4 @@
-import { relationKey, type JoinGraph } from "@kanzo-tech/mosaic";
+import { relationKey, withMapping, type JoinGraph } from "@kanzo-tech/mosaic";
 import { describe, expect, it } from "vitest";
 import type { LanguageModel } from "ai";
 import { runTask } from "../task/index.js";
@@ -107,10 +107,19 @@ describe("askAlternatives", () => {
     where: [{ field: "gender", in: ["female"] }],
   };
 
+  it("words a type by the label a mapping states, in the page's language, and by its name in words where it states none", () => {
+    const EX = "https://example.org/";
+    const label = (value: string, language: string) => ({ subject: `${EX}Award`, predicate: "http://www.w3.org/2000/01/rdf-schema#label", value: { termType: "Literal", value, language } });
+    const mapping = { tables: [{ id: "_:a", source: { kind: "table", name: "LaureateAward" }, subject: { kind: "column" }, classes: [`${EX}Award`], annotations: [label("prize", "en")], columns: [], relations: [] }] };
+    const chips = (graph: JoinGraph) => askAlternatives(byUniversity, input("", { graph })).find((c) => c.slot === "of")!;
+    expect(chips(withMapping(NOBEL, mapping)).value).toBe("prize");
+    expect(chips(NOBEL).value).toBe("laureate award");
+  });
+
   it("offers each slot's other values, as whole specs", () => {
     const chips = askAlternatives(women, input(""));
     expect(chips.map((c) => [c.slot, c.label, c.value])).toEqual([
-      ["of", "Counting", "Laureate"],
+      ["of", "Counting", "laureate"],
       ["x", "By", "birthPlace.name"],
       ["where.0", "gender", "female"],
     ]);
