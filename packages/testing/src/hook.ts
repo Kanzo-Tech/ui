@@ -1,6 +1,6 @@
 /**
  * **What a canvas knows and the DOM does not**, reached through a global only a test defines — and
- * what a scripted model was asked. `GraphCanvas` and `ChartRoot` register themselves here when they
+ * what a scripted model was asked. `GraphCanvas` registers itself here when they
  * find it on `window`, and do nothing otherwise, so production never has it. React DevTools'
  * `__REACT_DEVTOOLS_GLOBAL_HOOK__` is the shape: the tool defines the global, the library registers
  * with it.
@@ -14,8 +14,6 @@
 export interface KanzoTestingHook {
   /** By the canvas element's `id`. Both answers are in pixels from the canvas's top-left corner. */
   graphs: Map<string, GraphProbe>;
-  /** By the chart's accessible name, its `aria-label`. */
-  charts: Map<string, ChartProbe>;
   /**
    * By model id: the script a test registered, which `localModel(id)` answers from in place of that
    * model, and every prompt it was asked, flattened, in order.
@@ -71,11 +69,6 @@ export interface GraphProbe {
   screenOf(vertex: number): [number, number];
   /** Where a point in the data's `x`/`y` is drawn now; a layout that binds neither is its space. */
   screenAt(point: { x: number; y: number }): [number, number];
-}
-
-export interface ChartProbe {
-  /** Observable Plot's own `figure.scale(channel)`, in the plot's SVG pixels. */
-  scale(channel: "x" | "y" | "color"): { apply(value: unknown): number; invert?(pixel: number): unknown };
 }
 
 /**
@@ -242,7 +235,7 @@ interface LocalModelRegistry {
  */
 export function install(models: Readonly<Record<string, ModelScript>> = {}): void {
   const scope = globalThis as { __KANZO_TESTING__?: KanzoTestingHook } & { [key: symbol]: LocalModelRegistry | undefined };
-  const hook = (scope.__KANZO_TESTING__ ??= { graphs: new Map(), charts: new Map(), models: new Map() });
+  const hook = (scope.__KANZO_TESTING__ ??= { graphs: new Map(), models: new Map() });
   const registry = (scope[Symbol.for("@kanzo-tech/llm/local")] ??= { languageModels: new Map() });
   for (const [id, script] of Object.entries(models)) {
     const probe: ModelProbe = { script, prompts: [] };

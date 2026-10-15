@@ -99,22 +99,23 @@ loading without drawing a frame, as one with no WebGL does".
 
 ## A canvas's coordinates come through a hook only a test installs
 
-**What a WebGL canvas or a chart's scale knows — where a vertex is on screen, which pixel is 125°W —
+**What a WebGL canvas knows — where a vertex is on screen —
 reaches a harness through `window.__KANZO_TESTING__`, which the harness environment defines before
-the page loads and which production never has.** Each root registers itself when it finds the hook,
+the page loads and which production never has.** `GraphCanvas` registers itself when it finds the hook,
 and does nothing otherwise:
 
 ```ts
 interface KanzoTestingHook {
   graphs: Map<string, { screenOf(vertex: number): [number, number]; screenAt(point: { x: number; y: number }): [number, number] }>;
-  charts: Map<string, { scale(channel: "x" | "y" | "color"): { apply(value: unknown): number; invert?(pixel: number): unknown } }>;
   models: Map<string, { script: ModelScript; prompts: string[] }>; // what a scripted model was asked, below
 }
 ```
 
 The reference is tldraw and Excalidraw, whose end-to-end suites reach the editor a test exposes,
 and React DevTools' `__REACT_DEVTOOLS_GLOBAL_HOOK__`, a global the tool defines and the library
-registers with. A chart's scale is Observable Plot's own `figure.scale(channel)`.
+registers with. **A chart registers nothing**: which pixel is 125°W is Observable Plot's own
+`scale(channel)`, a property of the output it drew, so `ChartHarness` reads it off the DOM element
+(Plot documents `plot.scale(name)` on its return value; the end-to-end brush test holds it in Chromium).
 
 **What would reverse it:** a canvas whose content is in the accessibility tree, such as a graph
 rendered with an accessible table of its vertices beside the canvas. Then a harness reads that, and
@@ -124,13 +125,12 @@ The type is declared once, in `@kanzo-tech/testing`, because that package instal
 and `graph` import it as a type from a devDependency, so it never reaches what they publish, and the
 testing package imports nothing of theirs: no cycle, and a harness runs against whatever version of
 the components a page loaded. `llm` reads nothing of the hook: a model is not registered here
-([below](#a-model-is-resolved-through-one-registry)). A chart registers under its `aria-label`; a chart with no title is not
-one a harness can name, and is not registered.
+([below](#a-model-is-resolved-through-one-registry)).
 
 *Held by* `packages/graph/src/parts/graph-canvas-harness.test.tsx`, "registers with the test hook
 under its id when one is installed, and lets go of it when it unmounts" and "registers nothing when no
-test installed the hook"; `packages/ui/src/harnesses.test.tsx`, "registers nothing when no test
-installed the hook, nor a chart with no title"; and, in Chromium over the workspace showcase in CI's
+test installed the hook"; `packages/ui/src/harnesses.test.tsx`, "reads where a value falls from the
+scale Plot puts on its own output, with no chart registered anywhere"; and, in Chromium over the workspace showcase in CI's
 harnesses job, `packages/testing/e2e/workspace.e2e.test.ts`, "draws the archive, and a lasso
 around a vertex gives the canvas a clause" and "brushes a range in data, through the chart's own
 scale".

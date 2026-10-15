@@ -160,8 +160,9 @@ for the root entry. Every other entry is to be added with the entry-peers guard,
   already removed that pattern and wrote the reason; the rule was applied there and not here. The hook
   in `@kanzo-tech/testing` becomes an observer of the entries `mark` writes, and the probes are
   deleted. The line count is about eighty. **What would reverse it:** an assertion that needs a live
-  object an event cannot carry; the chart's Plot scale is the candidate and is **unverified** as
-  one. Then exactly one probe stays, in `ui`, and the other is deleted.
+  object an event cannot carry; the chart's Plot scale was the candidate and is not one: Plot puts
+  `scale(channel)` on the output it returns, so `ChartHarness` reads it off the DOM and the chart's
+  probe is deleted. Then the graph's, if it needs one, is the one that stays.
 - **`EngineError`, `GraphError`, `LlmError`, `AuthError`**, and `auth/src/deadline.ts`, the 10 s timer
   in `graph`'s renderer and the engine's `abandon`: replaced by `Problem` and `within`.
 - **The four definitions of the engine's table type** and the `Pick<Engine, "query">` in `ai/data`.
