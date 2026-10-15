@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { clausePoint, Selection, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
 import { Query } from "@uwdata/mosaic-sql";
+import type { JoinGraph, JoinResolver } from "@kanzo-tech/mosaic";
 import { describe, expect, it } from "vitest";
 import { MosaicClients, MosaicProvider, useMosaic } from "./mosaic-provider.js";
 import { useChartQuery } from "./use-chart-query.js";
@@ -67,5 +68,29 @@ describe("MosaicClients", () => {
     rerender(page(true));
     await waitFor(() => expect(screen.getByText("2")).toBeTruthy());
     expect(queries).toHaveLength(2);
+  });
+});
+
+describe("MosaicProvider", () => {
+  it("keeps the page's selection and its clauses when `joins` is a new graph, and hands the resolver the new one", () => {
+    const { coordinator } = stubCoordinator();
+    let crossfilter!: Selection;
+    const graph = (): JoinGraph => ({ types: [], edges: [] });
+    const first = graph();
+    const page = (joins: JoinGraph) => (
+      <MosaicProvider coordinator={coordinator} joins={joins}>
+        <Page into={(s) => (crossfilter = s)} />
+      </MosaicProvider>
+    );
+    const { rerender } = render(page(first));
+    const before = crossfilter;
+    act(() => before.update(clausePoint("a", 1, { source: { reset() {} } })));
+    expect(before.clauses).toHaveLength(1);
+
+    const second = graph();
+    rerender(page(second));
+    expect(crossfilter).toBe(before);
+    expect(crossfilter.clauses).toHaveLength(1);
+    expect((crossfilter.resolver as JoinResolver).joins).toBe(second);
   });
 });

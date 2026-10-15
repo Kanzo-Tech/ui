@@ -1,78 +1,232 @@
 ---
 title: How a failure leaves the library
-description: The thrown value whole, by one path; the codes kanzo-ui names itself; and the waits it bounds. The argument across fossil, kanzo-ui and their hosts is fossil's page, not this one.
+description: One failure class in RFC 9457's shape, thrown whole; a registry of codes generated from one source; and every wait bounded once, with the inner deadline expiring before the outer. The argument across fossil, kanzo-ui and their hosts is fossil's page, not this one.
 ---
 
 The rule spans three repositories, and its argument lives once, in fossil's
 `docs/content/docs/design/failure.mdx` (*Every wait ends, every failure is seen*). This page holds
-the two things only this library can: what its signatures promise a host, and the list of codes it
-names itself.
+what only this library can: what its signatures promise a host, the one class a failure is, the list
+of codes it names itself, and the figures of the waits it bounds.
+
+*Status: to be built.* The tree still has four classes, a `deadline()` in auth and equal figures on
+nested waits; each section says what it deletes, and the *Breaking* list at the end is the migration.
+The pieces named here live in [the kernel](/docs/design/kernel).
 
 ## The thrown value, whole, by one path
 
 Every surface that hands a host a failure hands it the `unknown` that was thrown: `GraphRoot`'s
 `onFailure`, `MosaicProvider`'s `onFailure`, `AssistProvider`'s `onFailure`, `useBlocker`'s `onFailure`,
-`useSession()`'s `error` beside `status: "failed"`, `useAgentChat()`'s `error`, `engine()`'s rejection. A `FossilError` arrives as
-a `FossilError`. The library never reduces a failure to its message, never depends on fossil's types
-to pass one, and never turns one into another state — an empty chart, `"anonymous"`, a spinner.
+`useSession()`'s `error` beside `status: "failed"`, `useAgentChat()`'s `error`, `engine()`'s rejection. A
+`Problem` arrives as a `Problem`, and a `FossilError` as a `FossilError`. The library never reduces a
+failure to its message, never depends on fossil's types to pass one, and never turns one into another
+state: an empty chart, `"anonymous"`, a spinner.
 
 **What would reverse it:** a second consumer that wants failures in a vocabulary of its own. Then the
-codes below become `data` on one kanzo-ui error type rather than a list a host must know.
+codes below become `data` on the one class rather than a list a host must know.
 
 *Held by* `packages/ui/src/failures-reach-the-host.test.ts`, "bites on onFailure, onError or error
 typed string" and "bites on a class extending MosaicClient with no queryError".
 
+## One class
+
+**A failure that leaves a package is a `Problem` (from `@kanzo-tech/kernel`) or an `AbortError`.**
+`EngineError`, `GraphError`, `LlmError` and `AuthError` are one class four times, written by copy with
+the constructor `(code, message, data, options)`, and what they were for, "one class per package, named
+for it", was a convention the code could not hold: `@kanzo-tech/llm` once coded `ai/unavailable` while
+keasy coded its own model failures `llm/failed`, so one area had two names. A `Problem` has no package;
+its **area** is the first half of its code, and the code is what a host branches on.
+
+**The reference is RFC 9457.** Its members are the class's: `status`, `detail` (the error's `message`),
+`type`, `title`, and extension members, of which `code` and `data` are the two that matter. `type` is
+the problem type's primary identifier (§3.1.1), and it is written: a tag URI, `tag:kanzo.tech,2026:problem/`
+followed by the code, derived from it and never independent. `about:blank` is the wrong type for a coded
+problem, because it means no semantics beyond the status (§4.2.1), and `title` is the registry's
+short summary of the type (§3.1.3), not the status phrase. `packages/auth/src/problem.ts` still writes
+the `about:blank` form today and moves with the migration. A host tests with
+`isProblem(error, code?)`, structurally and never by `instanceof`
+([the kernel](/docs/design/kernel#problem) argues why).
+
+**The wire is `application/problem+json`, from every server that speaks for the family.** The BFF
+already answered that way; keasy's Rust server answered `application/json` with a bespoke
+`{code, title, detail, data}` and no `status`, and every web client branched on the content type to
+read the two. After this, `ErrorBody` is gone from the server and the client's content-type branch with
+it: one parser, `Problem.from(body)`, reads both. A body carries `status`, `title`, `detail`, `code`,
+`data` and `help`, with a `type` that follows from `code`; its `cause` is present only when the cause is
+itself a `Problem` (at most 8 deep, a cycle cut), and a foreign cause's `data` keeps only the fields
+the registry declares for its code. **A stack, a
+foreign error's message, a statement's text, a URL with a credential never reach the wire**: they are
+what a cause carries, and the cause stays in process, whole, where `onFailure` can read it.
+
+**Two vocabularies for one event become one.** The BFF said `session/absent` and the server said
+`auth/session-required` for the same 401; the BFF said `idp/unreachable` and the server
+`auth/keys-unavailable` for an identity provider that could not be reached. The TS names win, because
+they say *who*: the server answers `session/absent` and `idp/unreachable`, and the two `auth/*` rows
+leave the server's registry, `schema.d.ts` and the web client's. The server's authorisation codes
+(`rbac/*`) are the product's own area and stay in its own registry; whether they fold under
+`organization/*` is open, and a host that never branches on the difference answers it.
+
+**What would reverse it:** a second non-TypeScript resource server that cannot share the list: then
+the list is a generated artifact each side reads, which is the next section. Or a consumer that cannot
+read `problem+json`; there is none.
+
+*Not yet held:* the guards that make four classes into one
+(`one-failure-model.test.ts` in [the kernel](/docs/design/architecture#the-guards)) are to be
+added.
+
+## The registry is generated
+
+**The codes are written once, in `problems.bnf` beside the kernel, and every projection is generated
+from it: the TypeScript table by a script in this repository, the Rust table by the server's own
+`xtask` from the file the kernel publishes.** It is fossil's pattern: its `problem.gen.ts` is generated,
+never edited, and a code in it is "stable once released, never reworded, never reused". A row is the
+code, its HTTP status where it crosses a wire, its title (the type's, one per code), and the fields of
+its `data`, and the file's one `base` is the prefix every `type` is made from. The file's grammar is in
+its own header. `check:generated`
+regenerates and fails on a difference, as it does for `themes.css`.
+
+Why a source and not a shared package: the server is Rust, and a TS package it cannot import is a list
+copied by hand, which is the state that produced `auth/session-required`. The table is the one thing
+the two languages must agree on, so it is the one thing neither writes. A host's own codes (keasy's
+`rbac/*`, `request/*`) are another registry from another source file in the same grammar: two
+registries share a grammar and a generator and never a list, so a host adds a code without a release of
+this library. fossil's own codes stay in fossil's catalogue, generated from its Rust type; a
+`FossilError` is read structurally and not re-registered here.
+
+*Open, decided by the work and not by this page:* whether the generator for Rust is shipped from this
+repository or written once in keasy's `xtask`. The grammar and the source are what this page fixes.
+
+**What would reverse it:** the registry having one writer in one language, in which case it is a
+module and not a generated file.
+
+*Not yet held:* the table-driven test in the kernel (every row builds, serialises and rebuilds) and
+`check:generated` over `problems.gen.ts` are to be added.
+
 ## The codes this library names
 
-Each is an `Error` with `code` and `data`, in the `area/kind` grammar fossil's and a host's codes use,
-so one host registry keys all three. One class per package, named for it, and its area the package's
-name. `@kanzo-tech/llm` broke that with an `AiError` coding `ai/unavailable`, while keasy coded its own
-model failures `llm/failed`, so one area had two names; the class is `LlmError` and its area `llm`.
+Each is a `Problem` in the `area/kind` grammar fossil's and a host's codes use, so one host registry
+keys all three. `data.after` is milliseconds when a deadline fired.
 
-| Code | Class | When | `data` |
-| --- | --- | --- | --- |
-| `engine/unavailable` | `EngineError` | DuckDB-WASM would not boot | `after` when the 60 s deadline fired |
-| `graph/no-webgl` | `GraphError` | no WebGL, a renderer that would not start, or no device within 10 s | `after` when the deadline fired |
-| `graph/context-lost` | `GraphError` | the browser took the WebGL context back | — |
-| `graph/no-positions` | `GraphError` | a device that came up holds no positions for the points it was given: a frame's read-back failed | — |
-| `graph/nothing-to-draw` | `GraphError` | an attached corpus with no vertex | — |
-| `llm/unavailable` | `LlmError`, from `@kanzo-tech/llm` | the page cannot run the model: no WebGPU for `localModel` | `reason` |
-| `llm/truncated` | `LlmError`, from `@kanzo-tech/llm` | a structured answer the model's context cut off | `reason` `"context"` |
-| `session/*`, `idp/*`, `api/*`, `callback/*`, `token/*`, `organization/*`, `claims/*` | `AuthError` | see [the auth layer](/docs/design/auth) | `after`, `status` where named |
+| Code | Status | When | `data` | What the host does |
+| --- | --- | --- | --- | --- |
+| `engine/unavailable` | n/a | DuckDB-WASM would not boot | `after` | offers a reload |
+| `engine/lost` | n/a | the worker died after boot; every pending read is rejected with it | `reason` `"worker"` or `"memory"` | re-attaches; the next `engine()` boots again |
+| `engine/failed` | n/a | the engine refused a statement | `statement`, every literal replaced by `?`; none for a `CREATE SECRET` | shows it; the statement is never in `detail` |
+| `engine/cannot-cancel` | n/a | an engine that cannot interrupt a statement was handed a signal | none | does not use that engine for a read that must be stoppable |
+| `graph/no-webgl` | n/a | no WebGL, a renderer that would not start, or no device within 10 s | `after` | says the view cannot be drawn here |
+| `graph/context-lost` | n/a | the browser took the WebGL context back | none | offers a reload |
+| `graph/no-positions` | n/a | a device that came up holds no positions for the points it was given | none | none; it is a fault |
+| `graph/nothing-to-draw` | n/a | an attached graph with no vertex | none | says the graph is empty |
+| `graph/too-large` | n/a | a graph with more vertices than the draw can address exactly | `count`, `limit` | narrows the graph; see [the scale limit](/docs/design/graph-hardening#the-scale-limit-is-guarded-and-raised-only-by-measurement) |
+| `llm/unavailable` | n/a | the page cannot run the model: no WebGPU for `localModel` | `reason` | says the model cannot run here |
+| `llm/truncated` | n/a | a structured answer the model's context cut off | `reason` `"context"` | a Task repairs it once, then shows it |
+| `llm/silent` | n/a | the model's load or a generation made no progress within its bound | `after`, `stage` | frees the turn and offers a retry |
+| `relations/invalid`, `relations/unmatched`, `relations/no-step` | n/a | a `JoinGraph` that contradicts itself; a mapping term that names nothing in the catalog; a path step that resolves to nothing | the type or term named | fixes the catalog or the mapping; it is a fault of wiring, shown, never an empty result |
+| `session/*`, `idp/*`, `api/unreachable`, `callback/*`, `token/*`, `organization/*`, `claims/*` | from the code | see [the auth layer](/docs/design/auth) | `after`, `status` where named | the BFF answers them; the registry holds status |
+| `api/silent` | 504 | a forwarded API did not answer its headers within the forwarder's bound | `after` | retries or shows it |
 
-**What would reverse it:** a code a host never branches on. Then it folds into its neighbour; the
-list is short because every row is a different thing to show.
+`engine/lost`, `engine/failed`, `engine/cannot-cancel`, `relations/*`, `graph/too-large`, `llm/silent` and
+`api/silent` are new. `engine/failed` is fossil's own code for the same event, which the Mosaic
+engine did not code at all, so a refused statement arrived as DuckDB's raw error and was wrapped
+differently by each reader (`engine/failed` in fossil, `GraphArError("engine")` in graphar, a string in
+rudof). `engine/lost` is the supported state of a DuckDB worker that dies, an out-of-memory sort being
+the way ([the engine](/docs/design/engine#a-dying-engine-is-a-supported-state)). `llm/silent` is the same grammar as `*/silent`
+elsewhere. `graph/too-large` is the guard on the graph's proven limit: its links are `Float32`, exact
+to 2^24 ids, and above that the drawing was silently wrong; the guard throws and the limit is raised
+only with measurements in a real browser, never promised beyond them.
+
+**A programming or deployment fault is not one.** `useSession` outside its provider and a session too
+large for a cookie throw a plain `Error` on purpose ([the auth layer](/docs/design/auth)); a code
+invites a `catch` that routes it to a sign-in page, the wrong answer to "you wired this up wrong".
+
+**What would reverse it:** a code a host never branches on. Then it folds into its neighbour; the list
+is short because every row is a different thing to show. And the one-fault rule reverses when a
+product must route on a fault programmatically; none has.
+
+*Not yet held:* for the new rows, a test per code that forces the failure is owed with each
+(a failure path no test forces is fossil's G3, and it applies here).
 
 ## The waits it bounds
 
-The figures are fossil's table, and move there with the measurement beside them. Two are this
-library's own: DuckDB's boot, 60 s, and cosmos.gl's device, 10 s — the second is not in fossil's
-table yet. Work inside the process — a query, a layout — has a signal and no deadline, and so does
-fossil's `attach`, which the host awaits before it names the catalog: the network waits inside it are
-fossil's to bound.
+The figures below are fossil's table where the wait is shared, and move there with the measurement
+beside them. The ones that are this library's own are marked; the second column is the bound, the third
+what it sits inside, which is the whole content of the next section.
 
-**What would reverse it:** a device that legitimately takes longer than 10 s to come up, measured.
+| Wait | Bound | Inside | Where |
+| --- | --- | --- | --- |
+| DuckDB boot: the module, the worker, `LOAD httpfs` | 60 s | the person's patience | `mosaic` engine, own |
+| cosmos.gl's GPU device | 10 s | the person's patience | `graph`, own; not yet in fossil's table |
+| The browser's `/session` and `/refresh` | 30 s | the person's patience | `auth`, fossil's "API request from the browser" |
+| The BFF forwarder, until the upstream's headers | 25 s | the browser's 30 s | `auth/next`; to be built |
+| An identity-provider request from the BFF | 10 s | the browser's 30 s | `auth`; fossil's figure for an identity or cloud request |
+| A `ticketStore` command | 5 s | the browser's 30 s | `auth`; fossil's figure for Valkey |
+| The model's load, with no progress | not yet measured | the person's patience | `llm`; a bound on silence, not on total time |
+| A generation, with no token | not yet measured | the person's patience | `llm` |
+
+A **query** and a **layout** are not in the table: work inside the process has a signal and no
+deadline. Stop is the person's, and it interrupts the statement in the engine
+([the engine](/docs/design/engine#aborting-interrupts-the-statement)); a Stop that only rejected the caller's wait left the
+statement running and every later read queued behind it, the failure that decided this. fossil's
+`attach`, which the host awaits before it names the catalog, bounds its own network waits.
+
+The model's two bounds are bounds on **silence**, not totals: a multi-gigabyte shard over a slow link
+is slow and alive, and a generation that never produces a token is dead. `turns()` serialises every
+call on one engine (`packages/llm/src/local.ts`), so before a bound existed one generation that never
+finished held the turn for the Ask panel, Assist and the starters at once, with only a manual Stop.
+The figures wait for a measurement on a device that runs the model; until then the rule is that there
+is a bound and its kind, and a bound set without a measurement is exactly what fossil's table forbids.
+
+**What would reverse it:** a device that legitimately takes longer than its figure, measured. Then the
+figure moves in this table with the measurement beside it; the rule that there *is* a figure does not.
 
 *Held by* `packages/mosaic/src/engine-boot.test.ts`, "rejects with data.after when the worker never
 answers within the 60 s deadline".
 
 ## One deadline per wait
 
-**A wait is bounded by the party that makes the request, once; whoever passes a transport or calls
-a door does not add a second bound around it.** Two bounds on one wait race to name one failure, and
-whichever wins, the other's code is what a host's registry was told to expect. keasy's session read
-was the case: `bffAuth` bounds `/session` and `/refresh` at 30 s as `session/silent`, keasy handed it
-a `fetch` that bounded every request at 30 s as `server/silent`, and `bffAuth` rewrapped the loser as
-`session/unavailable`. So `bffAuth`'s `fetch` is a transport, documented as one and not as a test
-seam, and a host bounds its own API calls in the requests it makes
-([the auth layer](/docs/design/auth#one-party-bounds-each-wait)).
+**A wait is bounded by the party that makes the request, once, by `within`; whoever passes a transport
+or calls a door does not add a second bound around it.** Two bounds on one wait race to name one
+failure, and whichever wins, the other's code is what a host's registry was told to expect. keasy's
+session read was the case: `bffAuth` bounds `/session` and `/refresh` at 30 s as `session/silent`,
+keasy handed it a `fetch` that bounded every request at 30 s as `server/silent`, and `bffAuth`
+rewrapped the loser as `session/unavailable`. So `bffAuth`'s `fetch` is a transport, documented as one
+and not as a test seam, and a host bounds its own API calls in the requests it makes
+([the auth layer](/docs/design/auth-failure#one-party-bounds-each-wait)).
 
-**What would reverse it:** a wait two parties must each bound for a reason of their own — a host
-that must give up sooner than the library on one screen. Then the host passes a signal, which the
-library's bound composes with, and the code is still the library's.
+**`within` is the only helper** ([the kernel](/docs/design/kernel#within) has its rules). It composes the
+caller's signal with its own, so an outer Stop or an outer deadline reaches every inner wait; this is
+what the forwarder lacked, which passed no `signal` to the upstream `send` and so neither bounded the
+hop nor cancelled it when the person navigated away: N tabs against one hung API exhaust the web
+container's sockets.
+
+**Deadlines nest: an inner wait expires before the one around it.** If it does not, the outer fires
+first or at the same instant and names the wrong party. fossil's G1 has the example, a vend that makes
+two calls inside one API request inside one browser request, hence 10 s, 25 s, 30 s. The arithmetic
+is this, and the table above carries each row's *Inside*:
+
+1. **An inner bound is strictly less than the one around it,** by a margin a hop pays in transit.
+2. **An outer bound is at least the sum of the inner waits that run in sequence inside it.**
+   `/refresh` renews and then exchanges, two waits one after the other, inside one browser request.
+3. **The caller's signal is passed down**, so when the outer ends the inner ones stop.
+
+**Three violations stand in the tree or in the proposed figures.** `/session` is 30 s in the
+browser, 30 s on `ticketStore` and 30 s in `openid-client`: equal, so the outer fires first or at the
+same instant and names itself. `/refresh` can take renew (30 s) plus exchange (30 s) server-side
+inside a 30 s browser deadline (`packages/auth/src/bff-auth.ts`). And the forwarder's proposed
+25 s equals fossil's 25 s for keasy's API handling one request, which is the forwarder's inner wait:
+one of the two figures moves when it is built. This page fixes the order; the figures that satisfy it
+are chosen with the measurement and written in the table, and the nesting test below is what finds the
+next equal pair.
+
+**What would reverse it:** a wait two parties must each bound for a reason of their own, a host that
+must give up sooner than the library on one screen. Then the host passes a signal, which the library's
+bound composes with, and the code is still the library's. Nothing reverses the nesting itself; an outer
+that is shorter than its inner is a bug in the arithmetic, not a position.
 
 *Held by* `packages/auth/src/bff-auth.test.ts`, "gives up on a session endpoint that never answers,
-after 30 s and not before".
+after 30 s and not before". To be added: the one-deadline guard (no timer that aborts or
+rejects outside the kernel) and a nesting test in `auth` that reads the package's table of bounds and
+asserts rules 1 and 2 on it. *Cannot prove:* a bound set in another repository (the Rust server's, the
+reverse proxy's), which is why the table names each owner.
 
 ## A model's failure is shown once, on the first attempt
 
@@ -83,16 +237,17 @@ such model fails the same with `reason` `"unserved"`, so a host says the model c
 than waiting on a load that will not finish.
 
 **The library's own asks are made once, through `@kanzo-tech/llm`.** Every model call the library
-makes goes through one of `llm`'s two doors, `stream` and `generate` — `streamText` and
-`generateText` with `maxRetries: 0` — so the first attempt's error is the one shown. The Task layer
+makes goes through one of `llm`'s two doors, `stream` and `generate`: `streamText` and
+`generateText` with `maxRetries: 0`, so the first attempt's error is the one shown. The Task layer
 did not: `runTask`, its repairs and `propose` called the AI SDK's `generateText` straight, with the
 SDK's default, so every draft retried twice. The SDK's default is two retries with backoff, and a
-generation that failed on this device fails the same way asked again — three waits where the person
+generation that failed on this device fails the same way asked again: three waits where the person
 sits through one.
 
-**What would reverse it:** a model the page reaches over the network again. Then the request has a
-silence to bound and a limit to name, and both belong to the one door that makes the request, not to
-`Assist` or `Chat` above it — two bounds on one wait are two parties racing to name one failure.
+**What would reverse it:** a model the page reaches over the network again. Remote models are not
+designed here and `LanguageModel` stays open with no locality enforced; the day one is admitted, the
+request has a silence to bound and a limit to name, and both belong to the one door that makes it, not
+to `Assist` or `Chat` above it. Two bounds on one wait are two parties racing to name one failure.
 
 *Held by* `packages/llm/src/local.test.ts`, "fails as llm/unavailable without WebGPU, before anything
 loads or is fetched"; `packages/ai/src/assist.test.tsx`, "asks once: an error the SDK would retry is the failure,
@@ -114,24 +269,32 @@ returned with the finish `length`, which a reader of text can see. `generateHeld
 three finishes. A stream cannot report `length`: the provider says `stop` for it, and the model's
 context is not ours to measure.
 
+**A truncation is a repairable failure, once.** `llm/truncated` aborted the whole Task, because
+`runTask` has no catch for it, where the guidance for the same condition is to retry with a larger
+budget. The Task layer retries once with a higher output budget and the previous answer dropped from
+its feedback, and shows the failure only if that fails; the retry is the Task's, the code is the
+model's.
+
 **What would reverse it:** `@browser-ai/web-llm` reporting the finish of a generation honestly on
-both paths. Then the middleware's check is the provider's, and the code goes.
+both paths. Then the middleware's check is the provider's, and the code goes. The repair reverses on
+evidence that a truncated generation never succeeds on retry on a device that runs the model.
 
 *Held by* `packages/llm/src/local.test.ts`, "rejects as llm/truncated a structured answer the context
 cut off, not as JSON that does not parse"; "returns text the context cut off with the finish length,
 not stop"; "rejects an interrupted generation as an AbortError, with the text it had written never
-returned"; "ends an interrupted stream as an AbortError".
+returned"; "ends an interrupted stream as an AbortError". The repair is to be built with its own test.
 
 ## An interrupt is a call's own
 
 WebLLM's `interruptGenerate()` is the engine's: it sets one flag, and whichever generation is
 running stops. `@browser-ai/web-llm` registers it on a call's `abortSignal` when the call is made,
-before the call has the engine's lock, so aborting a call that was only waiting — a starters query
-React Query cancelled, a second Enter — stopped the first question mid-JSON. `localModel` takes the
+before the call has the engine's lock, so aborting a call that was only waiting (a starters query
+React Query cancelled, a second Enter) stopped the first question mid-JSON. `localModel` takes the
 turns itself, one call at a time per engine, and hands a call to the provider only when its turn
 begins, so the provider's listener is registered for the one request the engine is running. A call
 aborted in the queue is dropped, and the engine never hears of it. The queue costs nothing WebLLM
-did not already charge: its own lock serialised non-streaming requests.
+did not already charge: its own lock serialised non-streaming requests. A turn that makes no progress
+is freed by `llm/silent`, so a dead generation does not hold every later one.
 
 **What would reverse it:** WebLLM interrupting a request by id. Then the queue is the engine's and
 the one here goes.
@@ -149,12 +312,13 @@ default, `--no-warmup` turns it off), and in WebLLM the XGrammar token table is 
 structured request and the GPU's pipelines run for the first time on the first generation, while
 "Model ready" only says the engine exists. Nothing in WebLLM documents the practice or confirms that
 this is where the first call's time goes, and no GPU was available when it was written. The warm-up
-pays nothing a real schema needs compiled — each schema still compiles on its first use. A warm-up
+pays nothing a real schema needs compiled: each schema still compiles on its first use. A warm-up
 that fails does not fail the load; the next call pays what it would have. `ready` stays "the engine
 can generate", and is published once it has, so a screen that waits for it does not start its
 questions behind a warm-up. The load, the warm-up and the first call (to its first token, or to its
-result when asked whole) are `performance.measure` spans named `kanzo:llm:load`, `kanzo:llm:warm-up`
-and `kanzo:llm:first-call`, readable under Timings in Chrome's Performance panel.
+result when asked whole) are spans named `kanzo:llm:load`, `kanzo:llm:warm-up` and
+`kanzo:llm:first-call`, written by the kernel's `mark` and readable under Timings in Chrome's
+Performance panel. They are also where the model's two silence bounds above are read off.
 
 **What would reverse it:** the first call costing no less after the warm-up than before, in those
 spans, on a device that runs the model. Then it is removed, with its changeset.
@@ -162,3 +326,20 @@ spans, on a device that runs the model. Then it is removed, with its changeset.
 *Held by* `packages/llm/src/local.test.ts`, "is ready only after one tiny structured generation,
 through the engine's turn"; "loads all the same when the warm-up fails"; "marks the load, the warm-up
 and the first call in the performance timeline, once each".
+
+## Breaking
+
+In the consumer's words; one changeset for each package named.
+
+- `EngineError`, `GraphError`, `LlmError` and `AuthError` are gone. Test with `isProblem(error, code)`
+  from `@kanzo-tech/kernel`; the codes are unchanged except where the table says new.
+- keasy's server answers `application/problem+json`. A client that parsed `{code, title, detail, data}`
+  from `application/json` reads `Problem.from(body)`; the server's `auth/session-required` is
+  `session/absent` and `auth/keys-unavailable` is `idp/unreachable`.
+- `bffAuth`'s timeouts nest: the forwarder answers `api/silent` (504) when an upstream is quiet, and
+  stops the upstream request when the browser's is cancelled. A product that handled the forwarder
+  never timing out registers one more code.
+- A DuckDB worker that dies after boot rejects pending reads with `engine/lost` and the next `engine()`
+  boots a new one. A host that held an attachment re-attaches on `engine/lost`.
+- The graph canvas refuses a graph it cannot draw exactly with `graph/too-large`, and the local model's load
+  and generation fail as `llm/silent` when they stop making progress.

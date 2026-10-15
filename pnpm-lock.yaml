@@ -415,6 +415,8 @@ importers:
         specifier: ^0.4.0
         version: 0.4.0(rollup@4.62.2)
 
+  packages/kernel: {}
+
   packages/llm:
     devDependencies:
       '@browser-ai/web-llm':
@@ -439,6 +441,9 @@ importers:
         specifier: 1.33.1-dev57.0
         version: 1.33.1-dev57.0
     devDependencies:
+      '@kanzo-tech/testing':
+        specifier: workspace:*
+        version: link:../testing
       '@uwdata/flechette':
         specifier: ^2.5.0
         version: 2.5.0

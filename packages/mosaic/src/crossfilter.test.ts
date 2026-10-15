@@ -2,7 +2,7 @@ import { MosaicClient, clauseInterval, clausePoint, type SelectionClause } from 
 import { asTableRef, sql } from "@uwdata/mosaic-sql";
 import { describe, expect, it, vi } from "vitest";
 import { clauseSemiJoin } from "./clause.js";
-import { JoinResolver, crossfilterOver, onRelation, preaggregateOwnRelation, readOf, relationOf, sameRelation, type JoinField, type RelationRef } from "./crossfilter.js";
+import { JoinError, JoinResolver, crossfilterOver, onRelation, preaggregateOwnRelation, readOf, relationOf, sameRelation, type JoinField, type RelationRef } from "./crossfilter.js";
 import { relationColumns, relationQuery, type JoinGraph, type Relation } from "./relation.js";
 
 const at = (table: string) => asTableRef(["c", table])!;
@@ -49,6 +49,17 @@ describe("the page's crossfilter across relations", () => {
     expect(where(resolver.predicate([clause], clause, on("Tag")))).toBe("FALSE");
     // A table the joins do not have has no key to cross by.
     expect(where(resolver.predicate([clause], clause, on("flights")))).toBe("FALSE");
+  });
+
+  it("fails, coded, on a relation the joins cannot walk, rather than keeping none of it", () => {
+    const resolver = new JoinResolver(JOINS);
+    const clause = onRelation(clauseInterval("age", [20, 30], { source: {} }), PERSON);
+    const broken: Relation = { root: "Post", path: [{ edge: "Person_knows_Person", direction: "out" }] };
+    const cross = () => resolver.predicate([clause], clause, on(broken));
+    expect(cross).toThrow(JoinError);
+    expect(cross).toThrow(expect.objectContaining({ code: "join/no-step" }));
+    // The decided semantic stays: a relation with no way across keeps none.
+    expect(where(resolver.predicate([clause], clause, on("Tag")))).toBe("FALSE");
   });
 
   it("crosses into and out of a union by the key its types share", () => {

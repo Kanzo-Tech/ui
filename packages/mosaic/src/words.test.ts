@@ -71,5 +71,9 @@ describe("splitWords", () => {
     expect(splitWords("birthPlace")).toBe("birth place");
     expect(splitWords("hall_of_fame")).toBe("hall of fame");
     expect(splitWords("Person")).toBe("person");
+    // An acronym keeps its case.
+    expect(splitWords("isLocatedIn")).toBe("is located in");
+    expect(splitWords("TagClass")).toBe("tag class");
+    expect(splitWords("ID")).toBe("ID");
   });
 });

@@ -28,9 +28,13 @@ export const continuationAt = (value: string, at: number): Proposal<string> => (
  */
 export interface AssistEvent {
   kind: "shown" | "accepted" | "partial" | "rejected" | "ignored";
-  proposal: Proposal<string>;
   /** The field's accessible name — which field it was. */
   field: string;
+  /**
+   * What was offered: text the model wrote from the reader's text. Present only where the provider
+   * opts in with `includeText`; an event is otherwise a count of what happened, and carries no text.
+   */
+  proposal?: Proposal<string>;
 }
 
 /** Where a request has got to. Internal: no surface exposes it, they draw from it. */

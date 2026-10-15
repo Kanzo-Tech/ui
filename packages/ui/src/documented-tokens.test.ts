@@ -6,8 +6,7 @@ import { describe, expect, it } from "vitest";
 /**
  * A page may not name a custom property nothing declares.
  *
- * `documented-exports.test.ts` is the same guard over the JS surface, and the colour layer needed
- * its own because the two corpora fail differently: a deleted export breaks the docs *build*, and a
+ * The colour layer needs a guard of its own because a deleted export breaks the docs *build*, and a
  * deleted token breaks nothing at all. Nothing reads MDX for CSS, `tsc` never sees it, and the
  * stylesheet has no notion of who was pointing at it — a page can name `--secondary-wash` forever
  * after the property stops being emitted, and every check in the pipeline stays green.

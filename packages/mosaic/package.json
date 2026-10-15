@@ -36,6 +36,7 @@
     "@uwdata/mosaic-sql": "^0.32.0"
   },
   "devDependencies": {
+    "@kanzo-tech/testing": "workspace:*",
     "@uwdata/flechette": "^2.5.0",
     "@uwdata/mosaic-core": "^0.32.0",
     "@uwdata/mosaic-sql": "^0.32.0"
@@ -51,6 +52,6 @@
   },
   "//gauges": "One gauge per published entry, and one per tree-shaken import a consumer meets; `scripts/gauges.mjs` (through `.size-limit.mjs`) is what each measures, and every limit's reason — each raise, dated, with its before and after — is a row on /docs/design, *A gauge per entry, and its raises written here*.",
   "gauges": {
-    ".": "5.2 kB"
+    ".": "7 kB"
   }
 }
