@@ -493,7 +493,10 @@ what a path is resolved by.
   branch that leaves it at `at`, with the column as the branch names it.
 - **`at(to, from)`** and **`crossing(from, predicates, to, at?)`**: the step a clause on `from` crosses
   into `to` at — the first whose type meets `from`'s root, or the step `at` names — and the clause
-  crossed, `key IN (SELECT key FROM from WHERE …)`, or `FALSE` where there is none.
+  crossed, `key IN (SELECT key FROM from WHERE …)`, or `FALSE` where there is none. A relation the
+  joins cannot walk is not none: `crossing` throws a `JoinError`, `code` `"join/no-step"`, so a part
+  reads a failure and not an empty chart. *Held by* `packages/mosaic/src/crossfilter.test.ts`, "fails,
+  coded, on a relation the joins cannot walk, rather than keeping none of it".
 
 ```ts
 const joins = new JoinResolver(graph);
