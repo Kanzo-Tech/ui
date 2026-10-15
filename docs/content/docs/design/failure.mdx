@@ -32,9 +32,10 @@ model failures `llm/failed`, so one area had two names; its area is `llm`. Every
 | --- | --- | --- | --- |
 | `engine/unavailable` | `@kanzo-tech/mosaic` | DuckDB-WASM would not boot | `after` when the 60 s deadline fired |
 | `graph/no-webgl` | `@kanzo-tech/graph` | no WebGL, a renderer that would not start, or no device within 10 s | `after` when the deadline fired |
-| `graph/context-lost` | `@kanzo-tech/graph` | the browser took the WebGL context back | — |
+| `graph/context-lost` | `@kanzo-tech/graph` | the browser took the WebGL context back and did not return it within 5 s | — |
 | `graph/no-positions` | `@kanzo-tech/graph` | a device that came up holds no positions for the points it was given: a frame's read-back failed | — |
 | `graph/nothing-to-draw` | `@kanzo-tech/graph` | an attached corpus with no vertex | — |
+| `graph/too-large` | `@kanzo-tech/graph` | a corpus of more than 2²⁴ vertices | `count`, `limit` |
 | `llm/unavailable` | `@kanzo-tech/llm` | the page cannot run the model: no WebGPU for `localModel` | `reason` |
 | `llm/truncated` | `@kanzo-tech/llm` | a structured answer the model's context cut off | `reason` `"context"` |
 | `session/*`, `idp/*`, `api/*`, `callback/*`, `token/*`, `organization/*`, `claims/*` | `@kanzo-tech/auth` | see [the auth layer](/docs/design/auth) | `after`, `status` where named |

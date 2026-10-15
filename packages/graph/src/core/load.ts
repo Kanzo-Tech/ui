@@ -106,13 +106,13 @@ export function carries(structure: Structure, column: string | undefined): colum
 }
 
 /** The links, and the positions: two bound columns, or a seeded start for the layout. */
-export async function loadGeometry(coordinator: Coordinator, structure: Structure, binding: Binding): Promise<Geometry> {
+export async function loadGeometry(coordinator: Coordinator, structure: Structure, binding: Binding, signal?: AbortSignal): Promise<Geometry> {
   const { size } = structure;
   const space = spaceFor(size);
   const bound = carries(structure, binding.x) && carries(structure, binding.y);
   const [links, columns] = await Promise.all([
-    readLinks(coordinator, structure),
-    bound ? readColumns(coordinator, structure, [binding.x as string, binding.y as string]) : Promise.resolve([]),
+    readLinks(coordinator, structure, signal),
+    bound ? readColumns(coordinator, structure, [binding.x as string, binding.y as string], signal) : Promise.resolve([]),
   ]);
   if (!bound) return { structure, size, positions: seeded(size, space), bound, links, extent: null, space };
   const positions = new Float32Array(2 * size).fill(Number.NaN);
@@ -147,12 +147,13 @@ export async function loadEncoding(
   geometry: Geometry,
   binding: Binding,
   seed: readonly unknown[],
+  signal?: AbortSignal,
 ): Promise<Encoding> {
   const { structure, size } = geometry;
   // A cluster column the corpus lacks is unbound, as a position column is — see `carries`.
   const clusterBy = carries(structure, binding.cluster) ? binding.cluster : undefined;
   const select = [binding.category, binding.size, clusterBy].filter((c): c is string => c !== undefined);
-  const answers = select.length > 0 ? await readColumns(coordinator, structure, [...new Set(select)]) : [];
+  const answers = select.length > 0 ? await readColumns(coordinator, structure, [...new Set(select)], signal) : [];
   const dictionary = new Dictionary(seed);
   const codes = new Uint32Array(size);
   const sizes = binding.size === undefined ? degrees(size, geometry.links) : new Float32Array(size).fill(Number.NaN);
