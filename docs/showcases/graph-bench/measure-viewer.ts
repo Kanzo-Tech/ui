@@ -322,10 +322,10 @@ export async function measureGrid(pointCount: number, { repeats = 5 } = {}): Pro
   const sample: GridSample = { path, pointCount, without: [], with: [] };
   if (!visible()) return { ...sample, failure: "the tab is hidden, and a hidden tab draws no frames" };
   const from = `bench_${pointCount}`;
-  let corpus: Attachment | null = null;
+  let corpus: GraphAttachment | null = null;
   try {
     const e = await engine();
-    corpus = await attach(from, { engine: e, url: `${window.location.origin}${path}` });
+    corpus = await attachWritten(e, from, `${window.location.origin}${path}`);
     for (let i = 0; i < repeats; i++) {
       for (const grid of i % 2 === 0 ? [false, true] : [true, false]) {
         (grid ? sample.with : sample.without).push(await viewerRun(e.coordinator, from, grid));
