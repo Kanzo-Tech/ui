@@ -172,7 +172,7 @@ export const SHIPPED: readonly Root[] = PUBLISHED.map(({ name, src }) => ({ name
  * `tailwind-variants` from `ai` or `graph` would otherwise take that package out of every scan
  * without a word. Raise it when a fourth joins.
  *
- * `documented-exports.test.ts` takes the same precaution from the other end, with `UNBUILT` and
+ * `one-meaning.test.ts` takes the same precaution from the other end, with `UNBUILT` and
  * `BUILD_FIRST`: a guard that reads an artefact says so when the artefact is not there.
  */
 if (ROOTS.length < 3) {

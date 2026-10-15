@@ -35,7 +35,7 @@ import * as UI from "./index";
  *
  * - **Nothing about the built artefact.** It imports `./index`, which is source. `docs/` resolves
  *   the package to `dist/`, which is how a rename typechecks clean and breaks the docs build.
- *   `documented-exports.test.ts` is the file that reads the emitted `.d.ts`; nothing installs the
+ *   `one-meaning.test.ts` is the file that reads the emitted `.d.ts`; nothing installs the
  *   tarball without the optional peers.
  * - **Nothing about shape.** `toBeTypeOf("function")` is satisfied by any function. A component
  *   that renders nothing, a hook that throws, a recipe whose variant keys were all renamed — each
@@ -363,7 +363,7 @@ describe("@kanzo-tech/ui public surface", () => {
     const surface = UI as Record<string, unknown>;
     // A question put to the person is one part, asked alone in a guided chat's turn or in a row by
     // `Questionnaire` (`/docs/design/admission`, *A question is one part, in `@kanzo-tech/ui`*).
-    // `@kanzo-tech/ai`'s `Question` is gone; `documented-exports.test.ts`'s one-meaning guard is
+    // `@kanzo-tech/ai`'s `Question` is gone; `one-meaning.test.ts`'s guard is
     // what fails if a second package exports the name again.
     for (const name of [
       "Question", "QuestionPrompt", "QuestionDescription", "QuestionChoices", "QuestionChoice",
