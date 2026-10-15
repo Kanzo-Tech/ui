@@ -107,7 +107,7 @@ vi.mock("@duckdb/duckdb-wasm", async (original) => ({
   },
 }));
 
-const { engine } = await import("./engine.js");
+const { engine, EngineError } = await import("./engine.js");
 
 beforeEach(() => {
   calls.length = 0;
@@ -205,11 +205,49 @@ describe("engine", () => {
     }
   });
 
-  it("hands a refused statement's own error back, not a wrapper", async () => {
-    const e = await engine();
-    const refused = new Error("Catalog Error: Table with name nowhere does not exist");
-    db.startPendingQuery.mockRejectedValueOnce(refused);
-    await expect(e.query("SELECT * FROM nowhere", { signal: new AbortController().signal })).rejects.toBe(refused);
+  // `onFailure` hands the thrown value to a host's telemetry: the statement's literals are a user's
+  // values, and DuckDB's message repeats the statement it refused.
+  describe("a refused statement", () => {
+    const refusal = new Error(
+      "Catalog Error: Table with name nowhere does not exist!\nLINE 1: SELECT * FROM nowhere WHERE name = 'Ada Lovelace' AND id IN (7, 8)",
+    );
+    const asked = "SELECT * FROM nowhere WHERE name = 'Ada Lovelace' AND id IN (7, 8)";
+    const everything = (error: unknown) => JSON.stringify(error, Object.getOwnPropertyNames(error as object));
+
+    it("is engine/failed, with DuckDB's words and the statement's shape, and no literal", async () => {
+      const e = await engine();
+      db.startPendingQuery.mockRejectedValueOnce(refusal);
+      const failure = await e.query(asked, { signal: new AbortController().signal }).catch((error: unknown) => error);
+      expect(failure).toBeInstanceOf(EngineError);
+      expect(failure).toMatchObject({
+        code: "engine/failed",
+        data: { statement: "SELECT * FROM nowhere WHERE name = ? AND id IN (?)" },
+      });
+      expect((failure as Error).message).toContain("Table with name nowhere does not exist!");
+      expect(everything(failure)).not.toMatch(/Ada|Lovelace|\b7\b/);
+    });
+
+    it("is the same through the coordinator, which is where a chart's failure comes from", async () => {
+      const e = await engine();
+      db.runQuery.mockRejectedValueOnce(refusal);
+      const failure = await e.coordinator.exec(asked).catch((error: unknown) => error);
+      expect(failure).toMatchObject({ code: "engine/failed", data: { statement: expect.stringContaining("= ?") } });
+      expect(everything(failure)).not.toMatch(/Ada|Lovelace/);
+    });
+
+    it("does not echo a CREATE SECRET, nor what DuckDB says of it", async () => {
+      const e = await engine();
+      const secret = "CREATE OR REPLACE SECRET s (TYPE s3, KEY_ID 'AKIAEXAMPLE', SECRET 'hunter2', SCOPE 's3://b/')";
+      db.startPendingQuery.mockRejectedValueOnce(new Error(`IO Error: bad key 'AKIAEXAMPLE'\nLINE 1: ${secret}`));
+      const failure = await e.query(secret, { signal: new AbortController().signal }).catch((error: unknown) => error);
+      expect(failure).toMatchObject({ code: "engine/failed", data: {} });
+      expect(everything(failure)).not.toMatch(/AKIAEXAMPLE|hunter2|s3:\/\/b|KEY_ID/);
+    });
+
+    it("is not logged with its statement: the coordinator has no console logger", async () => {
+      const e = await engine();
+      expect(e.coordinator.logger()).not.toBe(console);
+    });
   });
 
   // The defect: the wait ended and the statement ran on, so the page stayed stuck behind it.

@@ -1,5 +1,6 @@
 import { AsyncDuckDB, DuckDBDataProtocol, VoidLogger, selectBundle } from "@duckdb/duckdb-wasm";
 import { Coordinator, decodeIPC, type Connector } from "@uwdata/mosaic-core";
+import { isSecret, redact } from "./redact.js";
 
 /**
  * The page's one database: a DuckDB-WASM instance, the Mosaic `Coordinator` over it, and the file
@@ -53,7 +54,8 @@ export interface Engine {
    * decoded as the coordinator decodes, because the queue batches every Arrow request behind
    * `requestAnimationFrame` — the consolidation the charts want — and a hidden tab never fires one:
    * fossil's attach waited forever there with no error, and a host's DDL sat behind chart batches.
-   * Nothing is cached: these are statements with effects. A failure is DuckDB's own error, unwrapped.
+   * Nothing is cached: these are statements with effects. A failure is `EngineError` `engine/failed`,
+   * DuckDB's message and the statement with every literal replaced by `?`.
    *
    * **An abort stops the statement.** While it runs, the signal interrupts it in DuckDB and the call
    * rejects with `signal.reason`; the connection answers the next statement as if it had never been
@@ -156,14 +158,22 @@ const BOOT_DEADLINE = 60_000;
 /**
  * What the engine names. `engine/unavailable`: it would not boot, `data.after` set when the deadline
  * fired. `engine/lost`: the worker died after boot, `data.reason` `"worker"` or `"memory"`; the engine
- * forgets itself, and the next `engine()` boots another one with nothing attached.
+ * forgets itself, and the next `engine()` boots another one with nothing attached. `engine/failed`: DuckDB
+ * refused a statement. Its `message` and `data.statement` are the DuckDB's message and the statement
+ * with every literal replaced by `?` (see {@link redact}); a `CREATE SECRET` is not echoed at all. The
+ * original text is on no field, and not on `cause`, and not on the coordinator's logger, so what a
+ * host's `onFailure` hands to its telemetry carries no user's value and no credential.
  */
 export class EngineError extends Error {
   override readonly name = "EngineError";
   constructor(
-    readonly code: "engine/unavailable" | "engine/lost",
+    readonly code: "engine/unavailable" | "engine/lost" | "engine/failed",
     message: string,
-    readonly data: { readonly after?: number; readonly reason?: "worker" | "memory" } = {},
+    readonly data: {
+      readonly after?: number;
+      readonly reason?: "worker" | "memory";
+      readonly statement?: string;
+    } = {},
     options?: ErrorOptions,
   ) {
     super(message, options);
@@ -204,6 +214,15 @@ class Duck extends AsyncDuckDB {
   }
 }
 
+/** What DuckDB refusing `sql` is to a caller: the refusal with no literal of either in it. A loss passes as it is. */
+function failed(sql: string, error: unknown): EngineError {
+  if (error instanceof EngineError) return error;
+  if (isSecret(sql)) return new EngineError("engine/failed", "CREATE SECRET failed");
+  return new EngineError("engine/failed", redact(error instanceof Error ? error.message : String(error)), {
+    statement: redact(sql),
+  });
+}
+
 /** `promise`, or `signal.reason` the moment the signal aborts — the work behind it is not stopped. */
 function abandon<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
   if (signal.aborted) return Promise.reject(signal.reason);
@@ -225,7 +244,7 @@ async function boot(forget: () => void): Promise<Engine> {
     );
   } catch (error) {
     void duckdb?.terminate();
-    if (error instanceof EngineError) throw error;
+    if (error instanceof EngineError && error.code !== "engine/failed") throw error;
     const after = deadline.signal.aborted ? { after: BOOT_DEADLINE } : {};
     const message = deadline.signal.aborted
       ? `DuckDB did not boot within ${BOOT_DEADLINE / 1000} s`
@@ -272,11 +291,14 @@ async function start(forget: () => void, made: (duckdb: Duck) => void): Promise<
   const connector = {
     query: (request: { readonly type: string; readonly sql: string }) =>
       lane(async () => {
-        const bytes = await duckdb.runQuery(id, request.sql);
+        const bytes = await duckdb.runQuery(id, request.sql).catch((error: unknown) => {
+          throw failed(request.sql, error);
+        });
         return request.type === "exec" ? undefined : bytes;
       }),
   } as Connector;
-  const coordinator = new Coordinator(connector);
+  // No logger: its default is `console`, which is handed the failure with the statement in its message.
+  const coordinator = new Coordinator(connector, { logger: null });
   await coordinator.exec("SET autoload_known_extensions = false");
   for (const extension of build.extensions) await coordinator.exec(`LOAD '${extension}'`);
   // Files are read lazily by range; caching their metadata is what keeps a pan from re-probing, and
@@ -332,7 +354,7 @@ async function start(forget: () => void, made: (duckdb: Duck) => void): Promise<
       return decodeIPC(bytes) as unknown as Table;
     } catch (error) {
       // A statement that failed or was interrupted on the signal's account is the signal's reason.
-      throw signal.aborted ? signal.reason : error;
+      throw signal.aborted ? signal.reason : failed(sql, error);
     } finally {
       signal.removeEventListener("abort", interrupt);
     }

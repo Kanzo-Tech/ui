@@ -154,6 +154,27 @@ describe("the engine on DuckDB-WASM", () => {
     expect((await e.query("SELECT five FROM shared", { signal: signal() })).getChild("five")?.get(0)).toBe(5);
   }, 30_000);
 
+  // DuckDB's message repeats the statement it refused; nothing of a value may reach `onFailure`.
+  it("refuses a failing statement and a failing CREATE SECRET without a literal or a secret in them", async () => {
+    const e = await engine();
+    const everything = (error: unknown) => JSON.stringify(error, Object.getOwnPropertyNames(error as object));
+
+    const select = await e
+      .query("SELECT * FROM nowhere WHERE name = 'Ada Lovelace' AND id IN (7, 8)", { signal: signal() })
+      .catch((error: unknown) => error);
+    expect(select).toMatchObject({
+      code: "engine/failed",
+      data: { statement: "SELECT * FROM nowhere WHERE name = ? AND id IN (?)" },
+    });
+    expect(everything(select)).not.toMatch(/Ada|Lovelace/);
+
+    const secret = await e
+      .query("CREATE SECRET leaky (TYPE nosuchtype, KEY_ID 'AKIAEXAMPLE', SECRET 'hunter2')", { signal: signal() })
+      .catch((error: unknown) => error);
+    expect(secret).toMatchObject({ code: "engine/failed", data: {} });
+    expect(everything(secret)).not.toMatch(/AKIAEXAMPLE|hunter2|KEY_ID/);
+  }, 30_000);
+
   // Below WebAssembly's ceiling, so DuckDB spills or refuses while the worker lives.
   it("runs under a memory limit of its own", async () => {
     const e = await engine();
