@@ -31,6 +31,8 @@ const device: { ready: () => Promise<void>; broken: unknown } = { ready: () => P
  * reads positions back with no buffer throws what luma.gl throws.
  */
 const gpu = { pending: false, buffer: false, unreadable: false };
+/** The duration of every glide the camera was told. */
+const durations: number[] = [];
 /** What cosmos.gl's link index answers for any point: its neighbours, in buffer indices. */
 const neighbours: number[] = [];
 
@@ -59,7 +61,11 @@ vi.mock("@cosmos.gl/graph", () => ({
       calls.push("view");
     };
     getNeighboringPointIndices = () => [...neighbours];
-    fitViewByPointIndices = (indices: number[]) => calls.push(`frame:${indices.join(",")}`);
+    fitViewByPointIndices = (indices: number[], duration: number) => {
+      durations.push(duration);
+      calls.push(`frame:${indices.join(",")}`);
+    };
+    spaceToScreenPosition = ([x, y]: [number, number]): [number, number] => [x * 100, y * 100];
     zoomToPointByIndex = (index: number, _duration: number, scale: number, canZoomOut: boolean) =>
       calls.push(`zoom:${index}@${scale}${canZoomOut ? "" : " in"}`);
     destroy = () => calls.push("destroy");
@@ -116,6 +122,7 @@ const commands = () => calls.filter((call) => !call.startsWith("config:"));
 
 beforeEach(() => {
   calls.length = 0;
+  durations.length = 0;
   constructed.length = 0;
   uploaded.positions = null;
   uploaded.config = {};
@@ -500,6 +507,57 @@ describe("the live layout", () => {
     expect(calls).toContain("start");
     store.setOptions({ ...store.getOptions(), simulate: false });
     expect(commands().at(-1)).toBe("pause");
+  });
+});
+
+describe("the renderer's keys", () => {
+  it("lists a vertex's neighbours once each, in id order", async () => {
+    const { renderer } = await drawing();
+    neighbours.push(5, 3, 3, 1);
+    expect(renderer?.neighbours(0)).toEqual([1, 3, 5]);
+    neighbours.length = 0;
+  });
+
+  it("finds the nearest kept, placed vertex the way the key points, and one near the centre with no vertex focused", async () => {
+    const { renderer } = await drawing();
+    // Person i lies at lon i, lat 0, so the next one right is the next id.
+    expect(renderer?.toward(3, [1, 0])).toBe(4);
+    expect(renderer?.toward(3, [-1, 0])).toBe(2);
+    const first = renderer?.toward(null, [1, 0]) ?? -1;
+    expect(first).toBeGreaterThanOrEqual(0);
+    expect(first).toBeLessThan(16);
+  });
+
+  it("brings a vertex that is out of view into it, and leaves one that is in view alone", async () => {
+    const { host, renderer } = await drawing();
+    renderer?.show(2);
+    expect(calls.filter((call) => call.startsWith("zoom:2"))).toHaveLength(1);
+    calls.length = 0;
+    Object.defineProperty(host, "clientWidth", { value: 1e6 });
+    Object.defineProperty(host, "clientHeight", { value: 1e6 });
+    renderer?.show(2);
+    expect(calls.filter((call) => call.startsWith("zoom:"))).toHaveLength(0);
+  });
+
+  it("pans by moving the camera, which is the reader's from then on", async () => {
+    const { renderer } = await drawing();
+    calls.length = 0;
+    renderer?.pan(80, 0);
+    expect(calls).toContain("view");
+  });
+});
+
+describe("prefers-reduced-motion", () => {
+  it("gives the camera a duration of 0, and its usual one otherwise", async () => {
+    const { renderer } = await drawing();
+    neighbours.push(1);
+    renderer?.reveal(0);
+    expect(durations.at(-1)).toBe(420);
+    vi.stubGlobal("matchMedia", () => ({ matches: true }));
+    renderer?.reveal(0);
+    expect(durations.at(-1)).toBe(0);
+    vi.unstubAllGlobals();
+    neighbours.length = 0;
   });
 });
 

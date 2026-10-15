@@ -608,6 +608,66 @@ describe("GraphCanvas", () => {
     expect(document.querySelector("[data-slot=graph-canvas-grid]")).toBeNull();
   });
 
+  describe("as a widget", () => {
+    const mount = async (props: Partial<React.ComponentProps<typeof GraphCanvas>> = {}) => {
+      const corpus = await attach();
+      const held: { api: GraphApi | null } = { api: null };
+      render(
+        <GraphRoot {...over(corpus)} onFailure={() => {}}>
+          <GraphCanvas {...props} />
+          <Hold into={held} />
+        </GraphRoot>,
+      );
+      await ready(corpus);
+      if (!held.api) throw new Error("no api");
+      return { api: held.api, canvas: screen.getByRole("application") };
+    };
+
+    it("has a role, a name the host replaces, and a description that resolves to what is drawn", async () => {
+      const { canvas } = await mount();
+      expect(canvas.getAttribute("aria-roledescription")).toBe("graph canvas");
+      expect(canvas.getAttribute("aria-label")).toBe("Graph");
+      expect(canvas.tabIndex).toBe(0);
+      const description = document.getElementById(canvas.getAttribute("aria-describedby") ?? "");
+      expect(description?.textContent).toMatch(/^20 vertices and 20 links drawn\. Arrow keys move/);
+    });
+
+    it("takes the host's name and words", async () => {
+      const { canvas } = await mount({ "aria-label": "Archive", translations: { roledescription: "grafo" } });
+      expect(canvas.getAttribute("aria-label")).toBe("Archive");
+      expect(canvas.getAttribute("aria-roledescription")).toBe("grafo");
+    });
+
+    it("says the focused vertex in a polite status region: its type and its neighbours", async () => {
+      const { api } = await mount();
+      expect(screen.getByRole("status").textContent).toBe("");
+      act(() => api.setFocus(10));
+      await waitFor(() => expect(screen.getByRole("status").textContent).toMatch(/, Place, 0 neighbours$/));
+      expect(screen.getByRole("status").getAttribute("aria-live")).toBe("polite");
+    });
+
+    it("selects the focused vertex with Enter, adds with Ctrl and takes with Alt, as the canvas's gestures do", async () => {
+      const { api, canvas } = await mount();
+      act(() => api.setFocus(3));
+      fireEvent.keyDown(canvas, { key: "Enter" });
+      expect(api.getState().selection?.vertices).toEqual([3]);
+      act(() => api.setFocus(4));
+      fireEvent.keyDown(canvas, { key: " ", ctrlKey: true });
+      expect(api.getState().selection?.vertices.sort()).toEqual([3, 4]);
+      fireEvent.keyDown(canvas, { key: "Enter", altKey: true });
+      expect(api.getState().selection?.vertices).toEqual([3]);
+    });
+
+    it("leaves a key to a control laid over the canvas, and to the host's own handler", async () => {
+      const onKeyDown = vi.fn((event: React.KeyboardEvent) => event.preventDefault());
+      const { api, canvas } = await mount({ onKeyDown });
+      act(() => api.setFocus(3));
+      fireEvent.keyDown(canvas, { key: "Enter" });
+      expect(onKeyDown).toHaveBeenCalledOnce();
+      expect(api.getState().selection).toBeNull();
+    });
+  });
+
   describe("labels", () => {
     const labels = () => [...document.querySelectorAll("[data-slot=graph-canvas-label]")].map((el) => el.textContent);
     const mount = async (labelled: LabelLevel) => {
