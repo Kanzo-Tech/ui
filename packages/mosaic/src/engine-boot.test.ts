@@ -8,6 +8,13 @@ type Mode = "error" | "silent" | "answer";
 let mode: Mode = "error";
 const workers: FakeWorker[] = [];
 
+/** What the worker answers the statement calls with: the header, then an empty chunk to end the stream. */
+const replies: Record<string, string> = {
+  START_PENDING_QUERY: "QUERY_RESULT_HEADER_OR_NULL",
+  POLL_PENDING_QUERY: "QUERY_RESULT_HEADER_OR_NULL",
+  FETCH_QUERY_RESULTS: "QUERY_RESULT_CHUNK",
+};
+
 class FakeWorker {
   readonly listeners = new Map<string, (event: unknown) => void>();
   terminated = false;
@@ -33,8 +40,8 @@ class FakeWorker {
         this.listeners.get("message")?.({
           data: {
             requestId: message.messageId,
-            type: message.type === "CONNECT" ? "CONNECTION_INFO" : message.type === "RUN_QUERY" ? "QUERY_RESULT" : "OK",
-            data: message.type === "RUN_QUERY" ? new Uint8Array() : 0,
+            type: message.type === "CONNECT" ? "CONNECTION_INFO" : (replies[message.type] ?? "OK"),
+            data: message.type in replies ? new Uint8Array() : 0,
           },
         }),
       );

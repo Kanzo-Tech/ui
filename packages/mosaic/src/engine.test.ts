@@ -39,13 +39,6 @@ const db = {
   }),
   open: vi.fn(async () => {}),
   connect: vi.fn(async () => ({ useUnsafe: <R>(use: (bindings: unknown, conn: number) => R) => use(db, 7) })),
-  runQuery: vi.fn(async (_conn: number, text: string) => {
-    sql.push(text);
-    enter();
-    await new Promise((next) => setTimeout(next, 5));
-    live.inFlight--;
-    return answer;
-  }),
   startPendingQuery: vi.fn(async (_conn: number, text: string) => {
     sql.push(text);
     enter();
@@ -229,7 +222,7 @@ describe("engine", () => {
 
     it("is the same through the coordinator, which is where a chart's failure comes from", async () => {
       const e = await engine();
-      db.runQuery.mockRejectedValueOnce(refusal);
+      db.startPendingQuery.mockRejectedValueOnce(refusal);
       const failure = await e.coordinator.exec(asked).catch((error: unknown) => error);
       expect(failure).toMatchObject({ code: "engine/failed", data: { statement: expect.stringContaining("= ?") } });
       expect(everything(failure)).not.toMatch(/Ada|Lovelace/);

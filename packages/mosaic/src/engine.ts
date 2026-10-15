@@ -263,9 +263,8 @@ async function start(forget: () => void, made: (duckdb: Duck) => void): Promise<
   made(duckdb);
   await duckdb.instantiate(build.mainModule);
 
-  // The connection is ours rather than mosaic-core's connector's, because two doors share it and
-  // DuckDB-WASM's pending-query protocol is several messages: a statement of the coordinator's sent
-  // in between would end the one a signal can interrupt. `lane` is the turn-taking.
+  // The connection is ours rather than mosaic-core's connector's: DuckDB-WASM's pending-query protocol is
+  // several messages, so a second statement sent in between would end the one a signal can interrupt.
   await duckdb.open(RANGE_READS);
   const connection = await duckdb.connect();
   const id = connection.useUnsafe((_, conn) => conn);
@@ -286,16 +285,62 @@ async function start(forget: () => void, made: (duckdb: Duck) => void): Promise<
   };
   const lane = inOrder();
 
-  // The coordinator's statements are not signalled, so `runQuery` runs each in one message; on the
-  // 200,000-row graph-sized result it cost the same as the pending-query path `query` takes (see there).
+  /**
+   * **The one way a statement runs**, for the engine's own door and the coordinator's alike: in turn on
+   * the one connection, interrupted when `signal` aborts, refused as `engine/failed` or `engine/lost`.
+   * It is `startPendingQuery`, `pollPendingQuery` and `fetchQueryResults` on the bindings, which are
+   * what `AsyncDuckDBConnection.send()` is made of, and `cancelPendingQuery`, which is `cancelSent()`;
+   * the bytes are Arrow IPC, which the caller decodes with flechette. `send()` itself is not used: it
+   * reads the result with apache-arrow, a different `Table` class, and measured in Node 22 on
+   * DuckDB-WASM 1.33.1-dev57.0 (medians of 5-300 runs) it cost +1.4 ms on a trivial statement and +25% to
+   * +95% at two million rows, where this path was within -13% to +11% of the one-message `runQuery`
+   * it replaced (200,000 rows ×4 columns: -5% to +15%; a trivial statement +0.2 to +0.4 ms).
+   */
+  const execute = (sql: string, signal: AbortSignal): Promise<Uint8Array> => {
+    if (signal.aborted) return Promise.reject(signal.reason as Error);
+    let running = false;
+    const answered = lane(async () => {
+      if (signal.aborted) throw signal.reason; // aborted while it waited its turn: never sent
+      running = true;
+      const interrupt = () => void duckdb.cancelPendingQuery(id).catch(() => {}); // a cancel that fails is a dead worker, which rejects the statement itself
+      signal.addEventListener("abort", interrupt, { once: true });
+      try {
+        let header = await duckdb.startPendingQuery(id, sql, false);
+        while (header == null) header = await duckdb.pollPendingQuery(id);
+        const parts = [header];
+        for (;;) {
+          let part = await duckdb.fetchQueryResults(id);
+          while (part == null) part = await duckdb.fetchQueryResults(id);
+          if (part.length === 0) break;
+          parts.push(part);
+        }
+        const bytes = new Uint8Array(parts.reduce((total, one) => total + one.length, 0));
+        let at = 0;
+        for (const one of parts) {
+          bytes.set(one, at);
+          at += one.length;
+        }
+        return bytes;
+      } catch (error) {
+        // A statement that failed or was interrupted on the signal's account is the signal's reason.
+        throw signal.aborted ? signal.reason : failed(sql, error);
+      } finally {
+        signal.removeEventListener("abort", interrupt);
+      }
+    });
+    return new Promise<Uint8Array>((resolve, reject) => {
+      // Waiting, an abort ends the wait at once; running, the statement is interrupted and rejects itself.
+      const leave = () => running || reject(signal.reason);
+      signal.addEventListener("abort", leave, { once: true });
+      answered.then(resolve, reject).finally(() => signal.removeEventListener("abort", leave));
+    });
+  };
+
+  // The coordinator's statements carry no signal; it decodes the bytes itself.
+  const unsignalled = new AbortController().signal;
   const connector = {
     query: (request: { readonly type: string; readonly sql: string }) =>
-      lane(async () => {
-        const bytes = await duckdb.runQuery(id, request.sql).catch((error: unknown) => {
-          throw failed(request.sql, error);
-        });
-        return request.type === "exec" ? undefined : bytes;
-      }),
+      execute(request.sql, unsignalled).then((bytes) => (request.type === "exec" ? undefined : bytes)),
   } as Connector;
   // No logger: its default is `console`, which is handed the failure with the statement in its message.
   const coordinator = new Coordinator(connector, { logger: null });
@@ -320,61 +365,9 @@ async function start(forget: () => void, made: (duckdb: Duck) => void): Promise<
     behind.delete(name);
   };
 
-  /**
-   * `AsyncDuckDBConnection.send()` is `startPendingQuery`, `pollPendingQuery` and `fetchQueryResults`
-   * on the bindings, and `cancelSent()` is `cancelPendingQuery`; this is those calls, with the bytes
-   * handed to the decoder the coordinator uses rather than to apache-arrow. Measured in Node 22 on
-   * DuckDB-WASM 1.33.1-dev57.0, median of 5-300 runs, against `runQuery` and the same decoder: a
-   * trivial statement +0.2 to +0.4 ms (0.5 to 0.9 ms against 0.6), 10,000 rows ×4 columns -30% to 0%,
-   * 200,000 rows ×4 columns -5% to +15%, 2,000,000 rows ×2 columns -13% to +11%; `send()` itself,
-   * which reads the result with apache-arrow, was +1.4 ms on a trivial statement and +25% to +95% at
-   * two million rows.
-   */
-  const statement = async (sql: string, signal: AbortSignal): Promise<Table> => {
-    const interrupt = () => void duckdb.cancelPendingQuery(id).catch(() => {}); // a cancel that fails is a dead worker, which rejects the statement itself
-    signal.addEventListener("abort", interrupt, { once: true });
-    try {
-      if (signal.aborted) throw signal.reason;
-      let header = await duckdb.startPendingQuery(id, sql, false);
-      while (header == null) header = await duckdb.pollPendingQuery(id);
-      const parts = [header];
-      for (;;) {
-        let part = await duckdb.fetchQueryResults(id);
-        while (part == null) part = await duckdb.fetchQueryResults(id);
-        if (part.length === 0) break;
-        parts.push(part);
-      }
-      const bytes = new Uint8Array(parts.reduce((total, one) => total + one.length, 0));
-      let at = 0;
-      for (const one of parts) {
-        bytes.set(one, at);
-        at += one.length;
-      }
-      // `decodeIPC`'s defaults are the coordinator's own: this engine sets no `ipc` options on it.
-      return decodeIPC(bytes) as unknown as Table;
-    } catch (error) {
-      // A statement that failed or was interrupted on the signal's account is the signal's reason.
-      throw signal.aborted ? signal.reason : failed(sql, error);
-    } finally {
-      signal.removeEventListener("abort", interrupt);
-    }
-  };
-
-  const query = (sql: string, { signal }: { readonly signal: AbortSignal }) => {
-    if (signal.aborted) return Promise.reject(signal.reason as Error);
-    let running = false;
-    const answered = lane(() => {
-      if (signal.aborted) throw signal.reason; // aborted while it waited its turn: never sent
-      running = true;
-      return statement(sql, signal);
-    });
-    return new Promise<Table>((resolve, reject) => {
-      // Waiting, an abort ends the wait at once; running, the statement is interrupted and rejects itself.
-      const leave = () => running || reject(signal.reason);
-      signal.addEventListener("abort", leave, { once: true });
-      answered.then(resolve, reject).finally(() => signal.removeEventListener("abort", leave));
-    });
-  };
+  // `decodeIPC`'s defaults are the coordinator's own: this engine sets no `ipc` options on it.
+  const query = (sql: string, { signal }: { readonly signal: AbortSignal }) =>
+    execute(sql, signal).then((bytes) => decodeIPC(bytes) as unknown as Table);
 
   duckdb.lost = (failure) => {
     lost = failure;
