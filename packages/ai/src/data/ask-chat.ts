@@ -218,7 +218,9 @@ export function askTransport(
  */
 export const askKeep: KeepPart<AskMessage> = (part) => {
   if (part.type !== "data-answer") return part;
-  const { rows: _rows, truncated: _truncated, ...rest } = part.data;
+  const rest = { ...part.data };
+  delete rest.rows;
+  delete rest.truncated;
   return { ...part, data: rest };
 };
 
