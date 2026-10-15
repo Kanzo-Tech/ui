@@ -18,7 +18,7 @@ export function redact(text: string): string {
     const literal =
       /^'(?:[^']|'')*(?:'|$)/.exec(rest) ?? // a string, its quote doubled to escape one
       /^\$([A-Za-z_]\w*)?\$[\s\S]*?(?:\$\1\$|$)/.exec(rest) ?? // a dollar-quoted string, to its twin tag
-      (/^(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?\b/.test(rest) && !/[\w$.]$/.test(out) ? /^\S+?(?=[^\w.]|$)/.exec(rest) : null);
+      (/[\w$.]$/.test(out) ? null : /^(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?\b/.exec(rest)); // not the digits of a name
     if (literal) {
       out += "?";
       at += literal[0].length;
