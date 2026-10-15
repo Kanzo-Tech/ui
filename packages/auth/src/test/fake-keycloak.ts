@@ -150,7 +150,7 @@ export function fakeKeycloak() {
    */
   const logoutToken = async (
     claims: Record<string, unknown> = {},
-    options: { readonly kid?: string } = {},
+    options: { readonly kid?: string; readonly typ?: string | null } = {},
   ) => {
     const kid = options.kid ?? state.signingKid;
     const payload: Record<string, unknown> = {
@@ -167,7 +167,12 @@ export function fakeKeycloak() {
       if (value === undefined) delete payload[name];
     }
     return new SignJWT(payload)
-      .setProtectedHeader({ alg: "RS256", kid, typ: "logout+jwt" })
+      .setProtectedHeader({
+        alg: "RS256",
+        kid,
+        // `null` leaves it off, as an IdP that does not type its logout tokens would.
+        ...(options.typ === null ? {} : { typ: options.typ ?? "logout+jwt" }),
+      })
       .sign(keyFor(kid).privateKey);
   };
 
@@ -176,12 +181,6 @@ export function fakeKeycloak() {
 
 export type Realm = ReturnType<typeof fakeKeycloak>;
 
-/**
- * The `Cookie` header a browser would send back from a list of `Set-Cookie` values.
- *
- * A cleared cookie is dropped rather than sent back empty, because that is what a browser does —
- * and a test that sent it back would be asserting against a request no browser makes.
- */
 /**
  * A request as the browser makes one to its own origin: with `Sec-Fetch-Site: same-origin`, which
  * `isSameSite` requires since a request that says nothing about where it came from is refused.
@@ -193,6 +192,12 @@ export function fromPage(input: string | URL, init: RequestInit = {}): Request {
   return new Request(input, { ...init, headers });
 }
 
+/**
+ * The `Cookie` header a browser would send back from a list of `Set-Cookie` values.
+ *
+ * A cleared cookie is dropped rather than sent back empty, because that is what a browser does —
+ * and a test that sent it back would be asserting against a request no browser makes.
+ */
 export function asRequestHeader(cookies: readonly string[]): string {
   return cookies
     .filter((c) => !c.includes("Max-Age=0"))

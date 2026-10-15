@@ -60,6 +60,9 @@ function recordingStore() {
     async dropAll() {
       throw new Error("not under test");
     },
+    async seen() {
+      throw new Error("not under test");
+    },
   };
   return { store, records, calls };
 }
@@ -1039,6 +1042,48 @@ describe("relyingParty", () => {
       await auth.logout(await realm.logoutToken());
 
       expect(realm.state.calls).toContain("http://keycloak:8080/realms/kanzo/protocol/openid-connect/certs");
+    });
+
+    /** §2.4 recommends the header `typ` be `logout+jwt`, so that an ID token cannot pass for a logout token. */
+    it("refuses a logout token whose typ is not logout+jwt", async () => {
+      const { auth, cookie } = await signedIn();
+
+      await expect(auth.logout(await realm.logoutToken({}, { typ: "JWT" }))).rejects.toMatchObject({
+        code: "token/refused",
+      });
+      expect(await auth.read(cookie)).not.toBeNull();
+
+      // The case and the media-type prefix are RFC 7515 §4.1.9's to ignore.
+      await auth.logout(await realm.logoutToken({}, { typ: "application/Logout+JWT" }));
+      expect(await auth.read(cookie)).toBeNull();
+    });
+
+    /** Keycloak's own `typ` is not measured, so an untyped token is accepted until it is. */
+    it("accepts a logout token that carries no typ", async () => {
+      const { auth, cookie } = await signedIn();
+
+      await auth.logout(await realm.logoutToken({}, { typ: null }));
+
+      expect(await auth.read(cookie)).toBeNull();
+    });
+
+    it("refuses a logout token it has already seen, and one that carries no jti", async () => {
+      const { auth, backing } = await signedIn();
+      const token = await realm.logoutToken({ jti: "j-1", exp: Math.floor(Date.now() / 1000) + 120 });
+
+      await auth.logout(token);
+      // A session opened after the first logout is not ended by the replay.
+      const { done } = await signIn(auth, realm);
+      await expect(auth.logout(token)).rejects.toMatchObject({ code: "token/refused" });
+      expect(await auth.read(asRequestHeader(done.cookies))).not.toBeNull();
+
+      await expect(auth.logout(await realm.logoutToken({ jti: undefined }))).rejects.toMatchObject({
+        code: "token/refused",
+      });
+      // Remembered for the token's own remaining life and no longer.
+      const ttl = [...backing.ttls.entries()].find(([key]) => key.startsWith("logout-jti."))?.[1];
+      expect(ttl).toBeGreaterThan(100);
+      expect(ttl).toBeLessThanOrEqual(120);
     });
 
     it("answers that a stateless store cannot end a session from here", async () => {

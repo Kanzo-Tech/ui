@@ -52,6 +52,9 @@ import { AuthError, type AuthErrorCode, type Session, type SignInOptions } from 
  * `organization` would make Keycloak prompt for a choice at sign-in instead.
  */
 const DEFAULT_SCOPE = "openid profile email organization:*";
+/** Seconds a logout token without an `exp` is remembered for the replay check. */
+const LOGOUT_TOKEN_TTL = 300;
+
 /** Eight hours: a working day, after which the refresh token is the thing keeping you signed in. */
 const DEFAULT_MAX_AGE = 8 * 60 * 60;
 /** Ten minutes is long enough to type a password and short enough that an abandoned leg expires. */
@@ -228,6 +231,7 @@ function reachable(store: SessionStore): SessionStore {
     get: guard((ticket) => store.get(ticket)),
     drop: guard((ticket) => store.drop(ticket)),
     dropAll: guard((subject) => store.dropAll(subject)),
+    seen: guard((jti, ttl) => store.seen(jti, ttl)),
   };
 }
 
@@ -798,17 +802,24 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
 
     async logout(logoutToken) {
       let payload: JWTPayload;
+      let header: { readonly typ?: string };
       try {
         // `jose` checks the signature against the realm's published keys, `iss`, `aud` and the
         // presence of `iat`, and `exp` when the token carries one. An unknown `kid` re-fetches the
         // key set once per cooldown, which is how a rotation is survived here.
-        ({ payload } = await jwtVerify(logoutToken, await provider.keys(), {
+        ({ payload, protectedHeader: header } = await jwtVerify(logoutToken, await provider.keys(), {
           issuer: config.issuer,
           audience: config.clientId,
-          requiredClaims: ["iat"],
+          requiredClaims: ["iat", "jti"],
         }));
       } catch (error) {
         throw fromLogout(error);
+      }
+
+      // §2.4 recommends the header `typ` be `logout+jwt`, so that an ID token cannot pass for a logout
+      // token. Required only once Keycloak's own is measured: absent is accepted, a different one is not.
+      if (header.typ !== undefined && header.typ.replace(/^application\//i, "").toLowerCase() !== "logout+jwt") {
+        refuse("token/refused", "the logout token's `typ` header is not `logout+jwt`");
       }
 
       // §2.6 steps 4–6: the event is present, there is no `nonce` — which is what keeps an ID token
@@ -835,6 +846,13 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
             ? "the logout token names neither a subject nor a session"
             : "the logout token names a session but no subject, and sessions are found by subject",
         );
+      }
+
+      // §2.6 step 8, optional: a token already seen is refused, for it would end the sessions the
+      // person has opened since. Remembered until the token expires on its own.
+      const ttl = typeof payload.exp === "number" ? Math.max(1, Math.ceil(payload.exp - Date.now() / 1000)) : LOGOUT_TOKEN_TTL;
+      if (await store.seen(payload.jti ?? "", ttl)) {
+        refuse("token/refused", "the logout token has already been used");
       }
 
       await store.dropAll({ sub, sid });

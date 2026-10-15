@@ -62,7 +62,7 @@ describe("SessionStore", () => {
   it("is satisfied by a store that enforces one live session per person", async () => {
     // The interface exists for a product that allows one session per user and revokes on
     // sign-out. Forty lines here is the whole of what that costs, and writing it is the check
-    // that the five methods are the right five.
+    // that the six methods are the right six.
     const records = new Map<string, SessionRecord>();
     const live = new Map<string, string>();
     let next = 0;
@@ -90,6 +90,9 @@ describe("SessionStore", () => {
       async dropAll({ sub }) {
         const ticket = live.get(sub);
         if (ticket !== undefined) records.delete(ticket);
+      },
+      async seen() {
+        return false;
       },
     };
 

@@ -192,7 +192,7 @@ default is for a product that reads identity and calls no resource server; the m
 API to call, the cookie carries a ticket instead of the tokens. `kanzoAuth` enforces it: it throws
 when it is built with `apis` and no `store`.
 
-`SessionStore` is five methods, and `SessionRecord` is what they carry — the session and the IdP's
+`SessionStore` is six methods, and `SessionRecord` is what they carry — the session and the IdP's
 `sid`, plus the access, refresh and ID tokens the browser must never see. The tokens live on the
 record and not on `Session` for exactly that reason: a type carrying both would make the leak one
 typo away.
@@ -204,6 +204,7 @@ interface SessionStore {
   get(ticket: string): Promise<SessionRecord | null>;
   drop(ticket: string): Promise<void>;
   dropAll(subject: SessionSubject): Promise<void>;              // back-channel logout
+  seen(jti: string, ttl: number): Promise<boolean>;             // a logout token already used? remember it
 }
 ```
 
@@ -270,9 +271,13 @@ than at the deadline.
 
 `logout(logoutToken)` is the relying party's half of **OpenID Connect Back-Channel Logout 1.0**.
 It verifies the token as §2.6 lists: the signature against the realm's published keys, `iss`
-against the issuer, `aud` against the client id, `iat` present, the
+against the issuer, `aud` against the client id, `iat` and `jti` present, the
 `http://schemas.openid.net/event/backchannel-logout` event present, and **no `nonce`** — which is
-what keeps an ID token from being replayed as a logout token. Then it calls `store.dropAll` with
+what keeps an ID token from being replayed as a logout token. A `typ` header, when the token has
+one, must be `logout+jwt` (§2.4); an absent one is accepted, because Keycloak's is not measured.
+A `jti` the store has already seen is refused (§2.6 step 8), and remembered until the token's `exp`
+through the adapter under `logout-jti.<jti>`; the check reads and then writes, so two replays racing
+each other can both pass, and the gap is accepted. Then it calls `store.dropAll` with
 the token's `sub` and, when present, `sid`.
 
 The keys are `jose`'s remote key set over the discovered `jwks_uri`, fetched through the same

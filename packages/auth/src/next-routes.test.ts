@@ -570,12 +570,12 @@ describe("authRoutes", () => {
   });
 
   describe("backchannel-logout", () => {
-    function logout(token: string | null, headers: Record<string, string> = {}): Promise<Response> {
+    function logout(token: string | null, headers: Record<string, string> = {}, body?: string): Promise<Response> {
       return routes.POST(
         fromPage(`${ORIGIN}/api/auth/backchannel-logout`, {
           method: "POST",
           headers: { "content-type": "application/x-www-form-urlencoded", ...headers },
-          body: token === null ? "" : new URLSearchParams({ logout_token: token }).toString(),
+          body: body ?? (token === null ? "" : new URLSearchParams({ logout_token: token }).toString()),
         }),
       );
     }
@@ -599,6 +599,48 @@ describe("authRoutes", () => {
 
       expect((await logout(await realm.logoutToken({ aud: "other" }))).status).toBe(400);
       expect((await logout(null)).status).toBe(400);
+    });
+
+    it("refuses a logout body over the cap, however it announces its length", async () => {
+      const { cookie } = await signIn();
+      const token = await realm.logoutToken();
+      const padded = new URLSearchParams({ logout_token: token, padding: "x".repeat(9000) }).toString();
+
+      const response = await logout(token, {}, padded);
+      // A stream that claims no length is counted as it arrives.
+      const streamed = await routes.POST(
+        fromPage(`${ORIGIN}/api/auth/backchannel-logout`, {
+          method: "POST",
+          headers: { "content-type": "application/x-www-form-urlencoded" },
+          body: new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode(padded));
+              controller.close();
+            },
+          }),
+          duplex: "half",
+        } as RequestInit),
+      );
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({ status: 400, code: "token/refused" });
+      expect(streamed.status).toBe(400);
+      expect((await get(routes, "/api/auth/session", cookie)).status).toBe(200);
+    });
+
+    it("refuses a logout body that is not application/x-www-form-urlencoded", async () => {
+      const { cookie } = await signIn();
+      const token = await realm.logoutToken();
+
+      for (const type of ["application/json", "text/plain", "multipart/form-data"]) {
+        const response = await logout(token, { "content-type": type });
+        expect(response.status, type).toBe(400);
+      }
+      expect((await get(routes, "/api/auth/session", cookie)).status).toBe(200);
+      // Parameters after the type are the sender's to add.
+      expect(
+        (await logout(token, { "content-type": "application/x-www-form-urlencoded; charset=UTF-8" })).status,
+      ).toBe(200);
     });
 
     it("answers 501 when the store cannot end a session from the server", async () => {
