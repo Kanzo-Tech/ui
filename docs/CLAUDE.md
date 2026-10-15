@@ -62,7 +62,7 @@ The repository rules are in `../CLAUDE.md`. What follows is true only here.
   benchmark's). `@fossil-lang/executor`, a dev dependency, runs the `.fossil` programs in Node
   through `scripts/write-corpus.mjs`; there is no `fossil` CLI in the loop and no second writer.
   `pnpm --filter @kanzo-tech/docs corpus` writes the archive (1,543 vertices, 4,280 edges, about
-  45 kB) — `build:static` runs it first, so Pages serves the corpus it built. The benchmark's are
+  37 kB) — `build:static` runs it first, so Pages serves the corpus it built. The benchmark's are
   `node showcases/graph-bench/corpus/build-corpus.mjs [--sizes …]`, never built on CI; the million
   fails inside the executor (a DataFusion memory-pool panic in the WASM), so 200,000 is the largest
   there is until fossil fixes it.
