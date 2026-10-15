@@ -96,7 +96,7 @@ const reader = (relation: RelationRef) => ({ relation }) as never;
 describe("one selection across relations, as properties", () => {
   it("reads a clause on one relation from another exactly as the semi-join on its root's key, and as nothing without a step of its type", BUDGET, async () => {
     const corpus = await attach();
-    const joins = await readJoinGraph(corpus.coordinator, corpus.from);
+    const joins = await readJoinGraph(corpus.engine, corpus.from);
     await fc.assert(
       fc.asyncProperty(arbitrary(joins), async ({ a, b, step, members }) => {
         const page = crossfilterOver(joins);
@@ -131,7 +131,7 @@ describe("one selection across relations, as properties", () => {
 
   it("retracts a chip's clause for every reader, whatever relation it was published on", BUDGET, async () => {
     const corpus = await attach();
-    const joins = await readJoinGraph(corpus.coordinator, corpus.from);
+    const joins = await readJoinGraph(corpus.engine, corpus.from);
     await fc.assert(
       fc.asyncProperty(fc.array(arbitrary(joins), { minLength: 1, maxLength: 4 }), fc.nat(), async (runs, chip) => {
         const page = crossfilterOver(joins);

@@ -55,7 +55,7 @@ async function brushPlaces(guarded: boolean) {
   const { coordinator } = corpus;
   const error = vi.fn();
   coordinator.logger({ error, warn: () => {}, info: () => {}, debug: () => {}, log: () => {} } as never);
-  const joins = await readJoinGraph(coordinator, corpus.from);
+  const joins = await readJoinGraph(corpus.engine, corpus.from);
   if (guarded) preaggregateOwnRelation(coordinator);
   const page = crossfilterOver(joins);
   // A tile of places, which publishes the brush, and one beside it: same relation, pre-aggregated.

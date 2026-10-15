@@ -31,7 +31,7 @@ describe("GraphRoot and GraphCanvas", () => {
     }
     const corpus = await attach();
     render(
-      <GraphRoot coordinator={corpus.coordinator} from={corpus.from} onFailure={onFailure}>
+      <GraphRoot engine={corpus.engine} from={corpus.from} onFailure={onFailure}>
         <GraphCanvas />
         <Status />
       </GraphRoot>,
@@ -44,7 +44,7 @@ describe("GraphRoot and GraphCanvas", () => {
   it("does not rebuild the renderer because a callback changed identity", () => {
     const calls: string[] = [];
     const tree = (tag: string) => (
-      <GraphRoot coordinator={null} from={null} onFailure={(error) => calls.push(`${tag}:${String(error)}`)}>
+      <GraphRoot engine={null} from={null} onFailure={(error) => calls.push(`${tag}:${String(error)}`)}>
         <GraphCanvas />
       </GraphRoot>
     );
@@ -62,7 +62,7 @@ describe("GraphRoot and GraphCanvas", () => {
     }
     const corpus = await attach();
     render(
-      <GraphRoot coordinator={corpus.coordinator} from={corpus.from} onFailure={() => {}}>
+      <GraphRoot engine={corpus.engine} from={corpus.from} onFailure={() => {}}>
         <Part />
       </GraphRoot>,
     );
@@ -98,7 +98,7 @@ describe("useGraphState", () => {
       return null;
     }
     render(
-      <GraphRoot coordinator={corpus.coordinator} from={corpus.from} onFailure={() => {}}>
+      <GraphRoot engine={corpus.engine} from={corpus.from} onFailure={() => {}}>
         <Host />
         <ToolPart />
         <HoverPart />
@@ -120,7 +120,7 @@ describe("useGraph", () => {
     const look = { vignette: true };
     const { rerender, result } = renderHook(
       ({ tag }: { tag: string }) =>
-        useGraph({ coordinator: corpus.coordinator, from: corpus.from, fill: "team", look, onFailure: () => void tag }),
+        useGraph({ engine: corpus.engine, from: corpus.from, fill: "team", look, onFailure: () => void tag }),
       { initialProps: { tag: "a" } },
     );
     const options = result.current.getState().options;
@@ -132,7 +132,7 @@ describe("useGraph", () => {
   it("hands the store a new binding when a prop moves", async () => {
     const corpus = await attach();
     const { rerender } = renderHook(
-      ({ fill }: { fill: string }) => useGraph({ coordinator: corpus.coordinator, from: corpus.from, fill, onFailure: () => {} }),
+      ({ fill }: { fill: string }) => useGraph({ engine: corpus.engine, from: corpus.from, fill, onFailure: () => {} }),
       { initialProps: { fill: "team" } },
     );
     await act(() => settle(corpus));

@@ -45,7 +45,7 @@ function Page({ corpus, relation }: { corpus: Attached; relation: Relation }) {
   const [view, setView] = useState<"graph" | "dashboard">("dashboard");
   show = setView;
   return (
-    <GraphRoot coordinator={corpus.coordinator} filterBy={selection} from={corpus.from} onFailure={() => {}}>
+    <GraphRoot engine={corpus.engine} filterBy={selection} from={corpus.from} onFailure={() => {}}>
       <Snapshot />
       <FilterBar />
       <MosaicClients enabled={view === "dashboard"}>
@@ -120,14 +120,14 @@ describe("a pick on a hidden dashboard, under the timeline", { timeout: 60_000 }
 
   it("keeps a pick made on the dashboard when the timeline's window is taken off the bar", async () => {
     const corpus = await attach();
-    const joins: JoinGraph = await readJoinGraph(corpus.coordinator, corpus.from);
+    const joins: JoinGraph = await readJoinGraph(corpus.engine, corpus.from);
     const lives = joins.edges.find((e) => e.source === "Person" && e.destination === "Place")!;
     const knows = joins.edges.find((e) => e.source === "Person" && e.destination === "Person")!;
     // Two hops, the pick on a hop's column, as the demo's Laureate.gender is.
     const relation: Relation = { root: "Person", path: [{ edge: knows.name, direction: "out" }, { edge: lives.name, direction: "out" }] };
     const { container } = render(
       <Theme>
-        <QueryClientProvider client={queries}><MosaicProvider coordinator={corpus.coordinator} joins={joins}>
+        <QueryClientProvider client={queries}><MosaicProvider engine={corpus.engine} joins={joins}>
           <Page corpus={corpus} relation={relation} />
         </MosaicProvider></QueryClientProvider>
       </Theme>,

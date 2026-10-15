@@ -1,6 +1,6 @@
 "use client";
 
-import { engine, type Coordinator } from "@kanzo-tech/mosaic";
+import { engine, type Engine } from "@kanzo-tech/mosaic";
 import { useEffect, useState } from "react";
 import { attachWritten } from "@/lib/attach-graph";
 
@@ -15,24 +15,24 @@ export const ARCHIVE = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/corpus/archiv
 /** The catalog the archive is attached under: its tables are `"archive"."Node"`, `"archive".graphar_vertex_types`, … */
 export const FROM = "archive";
 
-let attaching: Promise<Coordinator> | null = null;
+let attaching: Promise<Engine> | null = null;
 
 /** A failure `onFailure` handed over, as a sentence: a host keys on its `code` before falling back to this. */
 export const said = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 /**
- * The archive attached to the page's one engine, as `GraphRoot`'s `from` and `coordinator` — both
- * `null` until it is, and on the server. One attach for the page: every preview reads the same catalog
- * through the same coordinator. A failed attach goes to `onFailure`, beside the root's own failures.
+ * The archive attached to the page's one engine, as `GraphRoot`'s `from` and `engine` — both `null`
+ * until it is, and on the server. One attach for the page: every preview reads the same catalog
+ * through the same engine. A failed attach goes to `onFailure`, beside the root's own failures.
  */
-export function useArchive(onFailure: (error: unknown) => void): { from: string | null; coordinator: Coordinator | null } {
-  const [coordinator, setCoordinator] = useState<Coordinator | null>(null);
+export function useArchive(onFailure: (error: unknown) => void): { from: string | null; engine: Engine | null } {
+  const [attached, setAttached] = useState<Engine | null>(null);
   useEffect(() => {
     if (!attaching) {
       const started = engine().then(async (e) => {
         // Origin-qualified: DuckDB-WASM resolves a root-relative path in its own filesystem.
         await attachWritten(e, FROM, `${window.location.origin}${ARCHIVE}`);
-        return e.coordinator;
+        return e;
       });
       attaching = started;
       // A failed attach is forgotten, so the next preview tries again instead of inheriting it.
@@ -42,12 +42,12 @@ export function useArchive(onFailure: (error: unknown) => void): { from: string 
     }
     let live = true;
     attaching.then(
-      (attached) => live && setCoordinator(attached),
+      (e) => live && setAttached(e),
       (error) => live && onFailure(error),
     );
     return () => {
       live = false;
     };
   }, [onFailure]);
-  return { from: coordinator ? FROM : null, coordinator };
+  return { from: attached ? FROM : null, engine: attached };
 }

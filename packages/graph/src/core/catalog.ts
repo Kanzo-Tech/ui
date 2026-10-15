@@ -1,4 +1,4 @@
-import { Query, and, asc, cast, eq, float64, literal, sql, type Coordinator, type JoinColumnStats } from "@kanzo-tech/mosaic";
+import { Query, and, asc, cast, eq, float64, literal, sql, type Engine, type JoinColumnStats } from "@kanzo-tech/mosaic";
 import { ask, relation, type Answer } from "./source";
 import { DST, DST_INDEX, KEY, SRC, SRC_INDEX, VERTEX_INDEX, type Column, type EdgeTable, type Structure, type VertexTable } from "./structure";
 
@@ -19,44 +19,45 @@ const STATS_KEY = "fossil:stats";
  * none). The global id is this function's arithmetic: a type's `first` is the sum of the counts of the
  * types before it, in the graph document's order (`ordinal`).
  *
- * **What a column holds is read from the chunks' footers**, through the same coordinator: `graphar_chunks`
+ * **What a column holds is read from the chunks' footers**, through the same engine: `graphar_chunks`
  * names each vertex chunk as the engine reads it, `parquet_kv_metadata` gives the writer's distinct
  * count and commonest values under `fossil:stats`, and `parquet_metadata` the nulls and the extent.
  * A column is counted when one chunk of its type states it — counts of a column cut across chunks do
  * not combine — and a list column is never counted.
  *
- * Four statements at once, then the footers in two more, each through the page's coordinator and its
- * cache, so the canvas and a join graph built on one page read the catalog once.
+ * Four statements at once, then the footers in two more, each on the engine's own door with the
+ * load's signal, so leaving a graph stops its catalog read. Nothing caches them: a join graph built
+ * beside the canvas reads the catalog a second time, six small statements over footers DuckDB keeps.
  */
-export async function readCatalog(coordinator: Coordinator, from: string, signal?: AbortSignal): Promise<Structure> {
-  const [types, edgeTypes, properties, engine, chunks] = await Promise.all([
-    ask(coordinator, Query.select("type", { count: cast("count", "DOUBLE") }).from(relation(from, "graphar_vertex_types")).orderby(asc("ordinal")), signal),
+export async function readCatalog(engine: Engine, from: string, signal?: AbortSignal): Promise<Structure> {
+  const [types, edgeTypes, properties, declared, chunks] = await Promise.all([
+    ask(engine, Query.select("type", { count: cast("count", "DOUBLE") }).from(relation(from, "graphar_vertex_types")).orderby(asc("ordinal")), signal),
     ask(
-      coordinator,
+      engine,
       Query.select("name", "src_type", "edge_type", "dst_type", { count: cast("count", "DOUBLE") })
         .from(relation(from, "graphar_edge_types"))
         .orderby(asc("ordinal")),
       signal,
     ),
     ask(
-      coordinator,
+      engine,
       Query.select("type", "property", "is_primary", "is_nullable").from(relation(from, "graphar_properties")).orderby("type", "ordinal"),
       signal,
     ),
     ask(
-      coordinator,
+      engine,
       Query.select("table_name", "column_name", { data_type: cast("data_type", "VARCHAR") })
         .from(sql`duckdb_columns()`)
         .where(and(eq("database_name", literal(from)), eq("schema_name", literal("main")))),
       signal,
     ),
-    ask(coordinator, Query.select("type", "path").from(relation(from, "graphar_chunks")).where(eq("kind", literal("vertex"))), signal),
+    ask(engine, Query.select("type", "path").from(relation(from, "graphar_chunks")).where(eq("kind", literal("vertex"))), signal),
   ]);
 
   const at = (table: unknown, name: unknown) => `${String(table)}\u0000${String(name)}`;
   const engineTypes = new Map<string, string>();
-  each(engine, (row) => engineTypes.set(at(row("table_name"), row("column_name")), String(row("data_type"))));
-  const counted = await readCounts(coordinator, chunks, engineTypes, signal);
+  each(declared, (row) => engineTypes.set(at(row("table_name"), row("column_name")), String(row("data_type"))));
+  const counted = await readCounts(engine, chunks, engineTypes, signal);
 
   const byType = new Map<string, Map<string, Column>>();
   each(properties, (row) => {
@@ -131,7 +132,7 @@ interface Footer {
  * such statement is absent — a graph a foreign writer made states none.
  */
 async function readCounts(
-  coordinator: Coordinator,
+  engine: Engine,
   chunks: Answer,
   engineTypes: ReadonlyMap<string, string>,
   signal?: AbortSignal,
@@ -142,7 +143,7 @@ async function readCounts(
   if (paths.length === 0) return counted;
   const [stated, metadata] = await Promise.all([
     ask(
-      coordinator,
+      engine,
       Query.unionAll(
         paths.map(({ path }) =>
           Query.select({ path: literal(path), stats: sql`decode(value)` })
@@ -153,7 +154,7 @@ async function readCounts(
       signal,
     ),
     ask(
-      coordinator,
+      engine,
       Query.unionAll(
         paths.map(({ path }) =>
           Query.select({

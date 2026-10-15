@@ -119,7 +119,7 @@ const key = relationKey(graph, relation);
 const saved = parseDashboards(stored); // throws on anything that is not a current document
 const keys = new JoinResolver(graph).steps(relation).map((s) => s.key);
 
-// under <MosaicProvider coordinator={coordinator} joins={graph}>
+// under <MosaicProvider engine={e} joins={graph}>
 <RelationPicker graph={graph} value={relation} onValueChange={setRelation} />
 <FilterBar relation={relation} rowNoun={relation.path.length ? "paths" : relation.root} />
 <Dashboard
@@ -157,12 +157,12 @@ card, tile and input reports its own query, with the thrown value — DuckDB's e
 telemetry and toasts, not for keeping the page legible.
 
 ```tsx
-<MosaicProvider coordinator={coordinator} onFailure={(error) => toastError(error, "A chart could not be read")}>
+<MosaicProvider engine={e} onFailure={(error) => toastError(error, "A chart could not be read")}>
 ```
 
 ## Checklist
 
-- [ ] One coordinator per page; one `MosaicProvider` per relation that has its own dashboard.
+- [ ] One engine per page; one `MosaicProvider` per relation that has its own dashboard.
 - [ ] `value` is `undefined` until the relation's first save; the read's failure is shown, not
       replaced by the automatic dashboard.
 - [ ] `onChange` writes the whole spec after a pause, keyed by the relation.

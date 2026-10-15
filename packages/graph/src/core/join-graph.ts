@@ -1,4 +1,4 @@
-import type { Coordinator, JoinColumn, JoinGraph } from "@kanzo-tech/mosaic";
+import type { Engine, JoinColumn, JoinGraph } from "@kanzo-tech/mosaic";
 import { readCatalog } from "./catalog";
 import { VERTICES, verticesOf } from "./source";
 import { DST, KEY, SRC, type Column, type Structure } from "./structure";
@@ -66,6 +66,6 @@ export function joinGraphOf(structure: Structure): JoinGraph {
 }
 
 /** The catalog of the graph attached as `from`, as a join graph — `readCatalog`, then `joinGraphOf`. */
-export async function readJoinGraph(coordinator: Coordinator, from: string): Promise<JoinGraph> {
-  return joinGraphOf(await readCatalog(coordinator, from));
+export async function readJoinGraph(engine: Engine, from: string, signal?: AbortSignal): Promise<JoinGraph> {
+  return joinGraphOf(await readCatalog(engine, from, signal));
 }

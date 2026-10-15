@@ -77,7 +77,7 @@ describe("joinGraphOf", () => {
 
   it("reads every type and every relation of an attached graph, in global ids, and leaves a type with no primary key out", async () => {
     const corpus = await attach();
-    const graph = await readJoinGraph(corpus.coordinator, corpus.from);
+    const graph = await readJoinGraph(corpus.engine, corpus.from);
     expect(graph.types.map((t) => t.name)).toEqual(["Person", "Place", "Tag", "vertices"]);
     // Ten people, each living in `10 + i % 6`: the join lands on Place's global ids.
     const relation = { root: "Person", path: [{ edge: "Person_livesIn_Place", direction: "out" as const }] };

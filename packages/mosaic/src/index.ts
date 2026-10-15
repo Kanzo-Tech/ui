@@ -134,9 +134,10 @@ export { type TableExpr } from "./table.js";
 /**
  * Ours: the page's one DuckDB-WASM engine — the coordinator and the file registry beside it. It is
  * the only door to `wasmConnector`, which is why that is no longer re-exported: a second boot is a
- * second database, and every host that wrote its own boot also wrote its own registry policy.
+ * second database, and every host that wrote its own boot also wrote its own registry policy. The
+ * coordinator is the engine's and on no type; `internal…` is the library's way to it, not a host's.
  */
-export { engine, type Engine } from "./engine.js";
+export { engine, internalCoordinatorOf, internalEngineOver, type Engine } from "./engine.js";
 
 /** Ours: what a query threw, from the `QueryError` mosaic-core hands a client's `queryError`. */
 export { queryFailure } from "./failure.js";

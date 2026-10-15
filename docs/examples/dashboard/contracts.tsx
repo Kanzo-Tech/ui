@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { Skeleton } from "@kanzo-tech/ui";
-import { loadObjects, type Coordinator, type JoinGraph } from "@kanzo-tech/mosaic";
+import { loadObjects, type Engine, type JoinGraph } from "@kanzo-tech/mosaic";
 import { useMosaic } from "@kanzo-tech/ui/analytics";
 import { ARCHIVE } from "@/example/archive";
 import { GRADES } from "@/example/world";
@@ -69,26 +69,27 @@ function laidOut() {
 
 const loading = new Map<string, Promise<void>>();
 
-function ensure(coordinator: Coordinator, table: string): Promise<void> {
+function ensure(engine: Engine, table: string): Promise<void> {
   let pending = loading.get(table);
   if (!pending) {
-    pending = coordinator.exec(loadObjects(table, table === CONTRACTS ? rows() : laidOut())).then(() => undefined);
+    const load = String(loadObjects(table, table === CONTRACTS ? rows() : laidOut()));
+    pending = engine.query(load, { signal: new AbortController().signal }).then(() => undefined);
     loading.set(table, pending);
   }
   return pending;
 }
 
 function Loaded({ table, children }: { table: string; children: ReactNode }) {
-  const { coordinator } = useMosaic();
+  const { engine } = useMosaic();
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     let live = true;
-    ensure(coordinator, table).then(() => live && setReady(true));
+    ensure(engine, table).then(() => live && setReady(true));
     return () => {
       live = false;
     };
-  }, [coordinator, table]);
+  }, [engine, table]);
 
   return ready ? children : <Skeleton className="h-96 w-full" />;
 }

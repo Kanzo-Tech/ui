@@ -1,3 +1,4 @@
+import { engineOver } from "../../test/engine";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { Coordinator, Selection } from "@uwdata/mosaic-core";
@@ -17,7 +18,7 @@ import { MosaicClients, MosaicProvider, useMosaic, type MosaicContextValue } fro
 const coordinator = { clear() {} } as unknown as Coordinator;
 
 const Chart = ({ children }: { children?: React.ReactNode }) => (
-  <MosaicProvider coordinator={coordinator}>
+  <MosaicProvider engine={engineOver(coordinator)}>
     <ChartRoot config={{ cpu: { label: "CPU" }, mem: { label: "Memory", color: "#123456" } }} relation="telemetry">
       <ChartBarY x="host" y="n" />
       <ChartAxisX tickRotate={45} />
@@ -89,7 +90,7 @@ describe("ChartRoot on the page's selection", () => {
       return null;
     };
     const view = render(
-      <MosaicProvider coordinator={coordinator} joins={joins}>
+      <MosaicProvider engine={engineOver(coordinator)} joins={joins}>
         <Context />
         {node}
         <ChartRoot relation="telemetry">
@@ -117,7 +118,7 @@ describe("ChartRoot on the page's selection", () => {
       return null;
     };
     render(
-      <MosaicProvider coordinator={coordinator} joins={JOINS}>
+      <MosaicProvider engine={engineOver(coordinator)} joins={JOINS}>
         <ChartRoot relation="Person">
           <Probe />
         </ChartRoot>
@@ -135,7 +136,7 @@ describe("ChartRoot on the page's selection", () => {
     // jsdom never draws: the chart is still pending.
     expect(firstDrawsPending(mosaic().selection)).toBe(1);
     view.rerender(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <MosaicClients enabled={false}>
           <ChartRoot relation="telemetry" />
         </MosaicClients>
@@ -152,7 +153,7 @@ describe("ChartRoot on the page's selection", () => {
       return null;
     };
     render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <Context />
         <MosaicClients enabled={false}>
           <ChartRoot relation="telemetry" />

@@ -22,14 +22,14 @@ import { EditingPage } from "./editing-page";
 
 export default function Example() {
   const [failure, setFailure] = useState<unknown>(null);
-  const { coordinator } = useArchive(setFailure);
+  const { engine } = useArchive(setFailure);
   const [graph, setGraph] = useState<JoinGraph | null>(null);
   const [relation, setRelation] = useState<Relation>({ root: "Node", path: [] });
   const [specs, setSpecs] = useState<Record<string, DashboardSpec>>({});
 
   useEffect(() => {
-    if (coordinator) readJoinGraph(coordinator, FROM).then(setGraph, setFailure);
-  }, [coordinator]);
+    if (engine) readJoinGraph(engine, FROM).then(setGraph, setFailure);
+  }, [engine]);
   const drawn = useMemo(
     () => {
       if (!graph) return null;
@@ -44,9 +44,9 @@ export default function Example() {
   );
 
   if (failure !== null) return <p className="text-muted-foreground text-sm">{said(failure)}</p>;
-  if (!coordinator || !graph || !drawn) return <Skeleton className="h-96 w-full" />;
+  if (!engine || !graph || !drawn) return <Skeleton className="h-96 w-full" />;
   return (
-    <MosaicProvider coordinator={coordinator} joins={graph}>
+    <MosaicProvider engine={engine} joins={graph}>
       <EditingPage>
         <RelationPicker graph={graph} onValueChange={setRelation} value={relation} />
         <FilterBar rowNoun={relation.path.length ? "paths" : "nodes"} relation={relation} />

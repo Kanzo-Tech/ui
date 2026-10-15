@@ -62,11 +62,11 @@ const LIVES: Relation = { root: "Person", path: [{ edge: "Person_livesIn_Place",
 async function discover() {
   const corpus = await attach();
   const coordinator: Coordinator = corpus.coordinator;
-  const joins = await readJoinGraph(coordinator, corpus.from);
+  const joins = await readJoinGraph(corpus.engine, corpus.from);
   preaggregateOwnRelation(coordinator);
   const page = crossfilterOver(joins);
   const onFailure = vi.fn();
-  const graph = createGraph({ from: corpus.from, coordinator, onFailure, filterBy: page });
+  const graph = createGraph({ from: corpus.from, engine: corpus.engine, onFailure, filterBy: page });
   graph.subscribe(() => {});
   const { table } = readOf(joins, LIVES);
   const tiles = [new Tile(page, LIVES, table), new Tile(page, LIVES, table)] as const;

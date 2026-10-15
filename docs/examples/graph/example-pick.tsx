@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { GraphCanvas, GraphRoot, usePick } from "@kanzo-tech/graph";
-import { numbers, Query, type Coordinator } from "@kanzo-tech/mosaic";
+import { numbers, Query, type Engine } from "@kanzo-tech/mosaic";
 import { Show, Toggle } from "@kanzo-tech/ui";
 import { ARCHIVE_KINDS, FROM, said, useArchive } from "./archive";
 
@@ -12,12 +12,13 @@ const KINDS = ["beast", "region", "tag"] as const;
  * A panel beside the canvas that picks *every vertex of a kind*. It is one place, so picking another
  * kind replaces its pick; the canvas greys out the rest, and a lasso intersects with it.
  */
-function Kinds({ coordinator }: { coordinator: Coordinator | null }) {
+function Kinds({ engine }: { engine: Engine | null }) {
   const kinds = usePick("kinds");
   const pick = async (kind: (typeof KINDS)[number], label: string) => {
-    if (!coordinator) return;
+    if (!engine) return;
     const query = Query.from(`"${FROM}"."Node"`).select({ id: "dense_id" }).where(`kind = '${kind}'`);
-    kinds.pick(numbers(await coordinator.query(query), "id"), label);
+    const answer = await engine.query(String(query), { signal: AbortSignal.timeout(10_000) });
+    kinds.pick(numbers(answer, "id"), label);
   };
   return (
     <div className="flex w-48 shrink-0 flex-col gap-2">
@@ -25,7 +26,7 @@ function Kinds({ coordinator }: { coordinator: Coordinator | null }) {
         const label = `Every ${ARCHIVE_KINDS[kind].toLowerCase()}`;
         return (
           <Toggle
-            disabled={!coordinator}
+            disabled={!engine}
             key={kind}
             onPressedChange={(pressed) => (pressed ? void pick(kind, label) : kinds.pick(null, label))}
             pressed={kinds.picked === label}
@@ -50,7 +51,7 @@ export default function Example() {
             <p className="absolute inset-0 grid place-items-center p-6 text-center text-muted-foreground text-sm">{said(failure)}</p>
           </Show>
         </GraphCanvas>
-        <Kinds coordinator={archive.coordinator} />
+        <Kinds engine={archive.engine} />
       </GraphRoot>
     </div>
   );

@@ -5,11 +5,11 @@ import { dirname, join, resolve } from "node:path";
 import { ConsoleLogger, LogLevel, NODE_RUNTIME, createDuckDB } from "@duckdb/duckdb-wasm/blocking";
 import { afterAll } from "vitest";
 import { decodeIPC } from "@uwdata/mosaic-core";
-import { Coordinator } from "@kanzo-tech/mosaic";
+import { Coordinator, internalEngineOver, type Engine } from "@kanzo-tech/mosaic";
 
 /**
  * **A graph attached the way `@kanzo-tech/graphar-duckdb`'s `attachGraph` attaches one**, in a real
- * DuckDB-WASM in this process, read through a real Mosaic `Coordinator` — so what the graph's SQL
+ * DuckDB-WASM in this process, read through an engine with a real Mosaic `Coordinator` inside — so what the graph's SQL
  * means is what DuckDB answers, not what a fake believes. A relation per type with GraphAr's own
  * columns, and the information files as `graphar_vertex_types`, `graphar_edge_types`,
  * `graphar_properties`, `graphar_extra_info` and `graphar_chunks`, typed as `attachGraph` types them,
@@ -86,15 +86,21 @@ export function writeChunk(file: string, from: string, type: string, stats: stri
 }
 
 export interface Attached {
-  /** The page's coordinator, over this process's DuckDB. */
+  /**
+   * The page's engine over this process's DuckDB: `query` and the coordinator inside it share one
+   * connector, so `sent` sees both doors. The blocking connection answers before an abort could land,
+   * so `query` reads the signal either side of the statement.
+   */
+  readonly engine: Engine;
+  /** The coordinator inside `engine`, for a test that connects Mosaic clients of its own, as a chart would. */
   readonly coordinator: Coordinator;
   /** The catalog the graph is attached under — what `from` names. */
   readonly from: string;
-  /** Every statement the coordinator sent, in order. */
+  /** Every statement the engine sent, through either door, in order. */
   readonly sent: string[];
   /** How many of them have been answered, or refused. */
   readonly answered: { readonly count: number };
-  /** How many queries the coordinator was asked, and how many of those have settled. */
+  /** How many queries the engine was asked, through either door, and how many of those have settled. */
   readonly asked: { readonly count: number; readonly settled: number };
   /** Make the next statement matching `pattern` fail with `error`, as a storage refusal would. */
   refuse(pattern: RegExp, error: unknown): void;
@@ -161,7 +167,7 @@ CREATE VIEW ${c}.footer_stats AS ${STATS(c)};
 export const chunkOf = (c: string, type: string, k = 0) => join(chunks, `${c}_${type}_chunk${k}.parquet`);
 
 /**
- * A fresh catalog holding the graph above, and a coordinator of its own over the shared database.
+ * A fresh catalog holding the graph above, and an engine of its own over the shared database.
  * `people` grows `Person` for a test about scale; the other types follow it, global ids shifted.
  */
 export async function attach(people = 10): Promise<Attached> {
@@ -219,14 +225,27 @@ export async function attach(people = 10): Promise<Attached> {
     result.then(settled, settled);
     return result;
   };
-  return { coordinator, from, sent, answered, asked, refuse: (pattern, error) => refusals.push({ pattern, error }) };
+  const query: Engine["query"] = async (sql, { signal }) => {
+    asked.count++;
+    try {
+      signal.throwIfAborted();
+      const bytes = (await connector.query({ type: "arrow", sql })) as Uint8Array;
+      signal.throwIfAborted();
+      return decodeIPC(bytes) as never;
+    } finally {
+      asked.settled++;
+    }
+  };
+  const unused = () => Promise.reject(new Error("the corpus registers no files"));
+  const engine = internalEngineOver({ query, registerFiles: unused, registerFileBuffer: unused, dropFiles: unused }, coordinator);
+  return { engine, coordinator, from, sent, answered, asked, refuse: (pattern, error) => refusals.push({ pattern, error }) };
 }
 
 /** What a host's storage rejects with: an `Error` carrying a code. */
 export const refusal = () => Object.assign(new Error("the bucket did not answer"), { code: "storage/unreachable" });
 
 /**
- * Until every query asked of the coordinator has settled, every statement sent has been answered, and
+ * Until every query asked of the engine has settled, every statement sent has been answered, and
  * nothing new was asked for a few turns — counted, not timed, so a slow runner waits for the answer
  * rather than for a quiet that came too early. Counting at the manager is what covers a query still
  * waiting on its frame, which the connector has not seen yet.

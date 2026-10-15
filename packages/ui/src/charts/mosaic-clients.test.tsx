@@ -1,3 +1,4 @@
+import { engineOver } from "../../test/engine";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { clausePoint, Selection, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
 import { Query } from "@uwdata/mosaic-sql";
@@ -47,7 +48,7 @@ describe("MosaicClients", () => {
     const { coordinator, queries } = stubCoordinator();
     let crossfilter!: Selection;
     const page = (enabled: boolean) => (
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <Page into={(s) => (crossfilter = s)} />
         <MosaicClients enabled={enabled}>
           <Count />
@@ -78,7 +79,7 @@ describe("MosaicProvider", () => {
     const graph = (): JoinGraph => ({ types: [], edges: [] });
     const first = graph();
     const page = (joins: JoinGraph) => (
-      <MosaicProvider coordinator={coordinator} joins={joins}>
+      <MosaicProvider engine={engineOver(coordinator)} joins={joins}>
         <Page into={(s) => (crossfilter = s)} />
       </MosaicProvider>
     );

@@ -61,7 +61,7 @@ async function fit(relation: Relation) {
   const { coordinator } = corpus;
   const error = vi.fn();
   coordinator.logger({ error, warn: () => {}, info: () => {}, debug: () => {}, log: () => {} } as never);
-  const table = relationQuery(await readJoinGraph(coordinator, corpus.from), relation);
+  const table = relationQuery(await readJoinGraph(corpus.engine, corpus.from), relation);
   const own = Selection.crossfilter();
   const tile = new Fit(own, table);
   coordinator.connect(tile);

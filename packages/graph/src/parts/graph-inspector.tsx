@@ -135,24 +135,28 @@ function Value({ value, date, t }: { value: unknown; date: boolean; t: GraphInsp
 /** `null` is no such vertex in the corpus; `false` is a read that did not answer. */
 type Answer<T> = { vertex: VertexId; value: T | null | false } | null;
 
-/** Read `read(vertex)` for the focused vertex, keeping only the newest answer; a failure goes to `onFailure`. */
-function useRead<T>(vertex: VertexId | null, read: ((vertex: VertexId) => Promise<T | null>) | null): T | null | false | undefined {
+/**
+ * Read `read(vertex)` for the focused vertex, keeping only the newest answer; a failure goes to
+ * `onFailure`. The read the reader moved on from is stopped, not only ignored.
+ */
+function useRead<T>(
+  vertex: VertexId | null,
+  read: ((vertex: VertexId, signal: AbortSignal) => Promise<T | null>) | null,
+): T | null | false | undefined {
   const api = useGraphContext();
   const [answer, setAnswer] = useState<Answer<T>>(null);
   useEffect(() => {
     if (vertex === null || read === null) return;
-    let current = true;
-    read(vertex).then(
-      (value) => current && setAnswer({ vertex, value }),
+    const stop = new AbortController();
+    read(vertex, stop.signal).then(
+      (value) => stop.signal.aborted || setAnswer({ vertex, value }),
       (error: unknown) => {
-        if (!current) return;
+        if (stop.signal.aborted) return;
         setAnswer({ vertex, value: false });
         api.getState().options.onFailure(error);
       },
     );
-    return () => {
-      current = false;
-    };
+    return () => stop.abort();
   }, [api, vertex, read]);
   return answer !== null && answer.vertex === vertex ? answer.value : undefined;
 }
@@ -160,8 +164,8 @@ function useRead<T>(vertex: VertexId | null, read: ((vertex: VertexId) => Promis
 /**
  * **The focused vertex, fetched and laid out by the corpus's own tables** — the Linkurious inspector's
  * shape. The loaded graph carries what the channels project and nothing else, so the rest of the row
- * is read when a reader focuses it — one statement on its table, by its key, through the page's
- * coordinator.
+ * is read when a reader focuses it — one statement on its table, by its key, on the page's engine;
+ * focusing another vertex stops it.
  *
  * The header names the vertex: its type over it, with the canvas's glyph when colour is the type;
  * its `title`, else its IRI's local name; and **Locate** beside it, which frames it with its
@@ -182,10 +186,10 @@ export function GraphInspector({ children, className, slot, translations, ...res
   const domain = useGraphState((s) => s.drawn?.domain ?? s.domain);
   const capacity = useChartCapacity();
   const scale = useMemo(() => scaleOf(options, capacity), [options, capacity]);
-  const { coordinator, categories } = options;
+  const { engine, categories } = options;
   const row = useMemo(
-    () => (structure && coordinator ? (vertex: VertexId) => readVertex(coordinator, structure, vertex) : null),
-    [coordinator, structure],
+    () => (structure && engine ? (vertex: VertexId, signal: AbortSignal) => readVertex(engine, structure, vertex, signal) : null),
+    [engine, structure],
   );
   const answered = useRead(focus, row);
 

@@ -93,7 +93,7 @@ class DuckWorker {
 vi.stubGlobal("Worker", DuckWorker);
 vi.stubGlobal("location", new URL("file:///page/"));
 
-const { engine } = await import("./engine.js");
+const { engine, internalCoordinatorOf } = await import("./engine.js");
 
 afterAll(() => {
   for (const worker of started) void worker.terminate();
@@ -151,7 +151,7 @@ describe("the engine on DuckDB-WASM", () => {
 
   it("shares the connection with the coordinator's statements", async () => {
     const e = await engine();
-    await e.coordinator.exec("CREATE OR REPLACE TEMP TABLE shared AS SELECT 5 AS five");
+    await internalCoordinatorOf(e).exec("CREATE OR REPLACE TEMP TABLE shared AS SELECT 5 AS five");
     expect((await e.query("SELECT five FROM shared", { signal: signal() })).getChild("five")?.get(0)).toBe(5);
   }, 30_000);
 

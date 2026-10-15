@@ -24,7 +24,7 @@ function Columns({ name, into }: { name: "graph.x-by" | "graph.cluster-by" | "gr
 function Workspace({ corpus, into = {}, column = "graph.x-by" }: { corpus: Attached | null; into?: { options?: unknown }; column?: "graph.x-by" | "graph.time-by" }) {
   const { look, sim, placement } = useGraphPrefs();
   return (
-    <GraphRoot coordinator={corpus?.coordinator ?? null} from={corpus?.from ?? null} look={look} onFailure={() => {}} sim={sim} {...placement}>
+    <GraphRoot engine={corpus?.engine ?? null} from={corpus?.from ?? null} look={look} onFailure={() => {}} sim={sim} {...placement}>
       <PreferencesSections namespace="graph" />
       <Columns into={into} name={column} />
     </GraphRoot>

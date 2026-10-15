@@ -128,18 +128,17 @@ export function useTitles(vertices: readonly VertexId[]): ReadonlyMap<VertexId, 
   const api = useGraphContext();
   const structure = useGraphState((s) => s.structure);
   const title = useGraphState((s) => s.options.title);
-  const coordinator = useGraphState((s) => s.options.coordinator);
+  const engine = useGraphState((s) => s.options.engine);
   const [titles, setTitles] = useState<ReadonlyMap<VertexId, string>>(() => new Map());
   useEffect(() => {
-    if (!structure || !coordinator || vertices.length === 0) return;
-    let current = true;
-    readTitles(coordinator, structure, vertices, title).then(
-      (found) => current && setTitles(found),
-      (error: unknown) => current && api.getState().options.onFailure(error),
+    if (!structure || !engine || vertices.length === 0) return;
+    // Labels for vertices no longer shown are stopped, not only dropped.
+    const stop = new AbortController();
+    readTitles(engine, structure, vertices, title, stop.signal).then(
+      (found) => stop.signal.aborted || setTitles(found),
+      (error: unknown) => stop.signal.aborted || api.getState().options.onFailure(error),
     );
-    return () => {
-      current = false;
-    };
-  }, [api, structure, coordinator, vertices, title]);
+    return () => stop.abort();
+  }, [api, structure, engine, vertices, title]);
   return titles;
 }

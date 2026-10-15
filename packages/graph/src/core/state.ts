@@ -1,4 +1,4 @@
-import type { ClauseSource, Coordinator, MosaicClient, Selection } from "@kanzo-tech/mosaic";
+import type { ClauseSource, Engine, MosaicClient, Selection } from "@kanzo-tech/mosaic";
 import type { LookPatch } from "../render/graph-looks";
 import type { Sim } from "../render/graph-sim";
 import type { Binding, Channels } from "./channels";
@@ -10,11 +10,15 @@ export interface GraphOptions extends Channels {
   /**
    * The catalog `attachGraph` attached the graph under — a view per type, and `graphar_vertex_types`,
    * `graphar_edge_types` and `graphar_properties` — or `null` for none yet. The graph reads it
-   * through `coordinator`.
+   * through `engine`.
    */
   from: string | null;
-  /** The page's Mosaic coordinator: the one connection every chart and the graph read through. */
-  coordinator: Coordinator | null;
+  /**
+   * The page's engine, `engine()`'s: the graph's own reads go to it with the load's signal, so a
+   * stop interrupts the statement, and its Mosaic client reads through the coordinator inside it,
+   * beside every chart on the page.
+   */
+  engine: Engine | null;
   /** Which column the size ramp is spent on — Plot's `r`. */
   r?: string;
   /** Which column a label and the hover card show — Plot's `title`. Absent, each table's `identity`. */

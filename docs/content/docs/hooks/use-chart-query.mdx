@@ -30,7 +30,7 @@ child of one.
 ## The failure it exists to prevent
 
 A dashboard always has something that is not a plot, and it has to move with the brush like
-everything else. The shortcut — `coordinator.query()` inside a `useEffect` — looks identical on the
+everything else. The shortcut — `engine.query()` inside a `useEffect` — looks identical on the
 first paint and then sits there reporting **unfiltered** totals beside filtered charts. Nobody reads
 that as a stale widget; they read it as a broken crossfilter, three components away.
 

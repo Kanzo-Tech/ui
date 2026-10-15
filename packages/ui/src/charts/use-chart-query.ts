@@ -4,6 +4,7 @@ import {
   queryFailure,
   type RelationClient,
   type RelationRef,
+  internalCoordinatorOf,
   makeClient,
   type MosaicClient,
   type Selection,
@@ -68,7 +69,7 @@ export function useQueryClient(
   deps: readonly unknown[],
   relation: RelationRef | null = null,
 ): { client: MosaicClient | null; rows: readonly ChartQueryRow[] | null; error: unknown } {
-  const { coordinator, onFailure } = useMosaic();
+  const { engine, onFailure } = useMosaic();
   const enabled = useClientsEnabled();
   // Read the latest builder without making it a dependency: an inline arrow would reconnect the
   // client on every render, and reconnecting re-runs the query.
@@ -81,6 +82,7 @@ export function useQueryClient(
   useEffect(() => {
     setRows(null);
     setError(undefined);
+    const coordinator = internalCoordinatorOf(engine);
     const instance = makeClient({
       coordinator,
       // Born as `MosaicClients` says now; the effect below follows it after.
@@ -103,7 +105,7 @@ export function useQueryClient(
     setClient(instance);
     return () => coordinator.disconnect(instance);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coordinator, filterBy, onFailure, ...deps]);
+  }, [engine, filterBy, onFailure, ...deps]);
 
   // The relation is read when the client asks, so a new one needs no new client — only a new answer.
   const relationKey = JSON.stringify(relation);

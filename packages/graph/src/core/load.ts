@@ -1,4 +1,4 @@
-import type { Coordinator } from "@kanzo-tech/mosaic";
+import type { Engine } from "@kanzo-tech/mosaic";
 import { Dictionary } from "./categories";
 import type { Binding } from "./channels";
 import { readColumns, readLinks } from "./source";
@@ -106,13 +106,13 @@ export function carries(structure: Structure, column: string | undefined): colum
 }
 
 /** The links, and the positions: two bound columns, or a seeded start for the layout. */
-export async function loadGeometry(coordinator: Coordinator, structure: Structure, binding: Binding, signal?: AbortSignal): Promise<Geometry> {
+export async function loadGeometry(engine: Engine, structure: Structure, binding: Binding, signal?: AbortSignal): Promise<Geometry> {
   const { size } = structure;
   const space = spaceFor(size);
   const bound = carries(structure, binding.x) && carries(structure, binding.y);
   const [links, columns] = await Promise.all([
-    readLinks(coordinator, structure, signal),
-    bound ? readColumns(coordinator, structure, [binding.x as string, binding.y as string], signal) : Promise.resolve([]),
+    readLinks(engine, structure, signal),
+    bound ? readColumns(engine, structure, [binding.x as string, binding.y as string], signal) : Promise.resolve([]),
   ]);
   if (!bound) return { structure, size, positions: seeded(size, space), bound, links, extent: null, space };
   const positions = new Float32Array(2 * size).fill(Number.NaN);
@@ -143,7 +143,7 @@ function degrees(size: number, links: Float32Array): Float32Array {
 
 /** The bound channels — category, size and cluster — over every vertex. */
 export async function loadEncoding(
-  coordinator: Coordinator,
+  engine: Engine,
   geometry: Geometry,
   binding: Binding,
   seed: readonly unknown[],
@@ -153,7 +153,7 @@ export async function loadEncoding(
   // A cluster column the corpus lacks is unbound, as a position column is — see `carries`.
   const clusterBy = carries(structure, binding.cluster) ? binding.cluster : undefined;
   const select = [binding.category, binding.size, clusterBy].filter((c): c is string => c !== undefined);
-  const answers = select.length > 0 ? await readColumns(coordinator, structure, [...new Set(select)], signal) : [];
+  const answers = select.length > 0 ? await readColumns(engine, structure, [...new Set(select)], signal) : [];
   const dictionary = new Dictionary(seed);
   const codes = new Uint32Array(size);
   const sizes = binding.size === undefined ? degrees(size, geometry.links) : new Float32Array(size).fill(Number.NaN);

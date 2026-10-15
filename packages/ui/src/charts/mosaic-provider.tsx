@@ -2,6 +2,8 @@
 
 import {
   crossfilterOver,
+  internalCoordinatorOf,
+  type Engine,
   type JoinResolver,
   preaggregateOwnRelation,
   readOf,
@@ -9,7 +11,6 @@ import {
   type RelationExpr,
   type RelationRef,
   type TableExpr,
-  type Coordinator,
   type Selection,
 } from "@kanzo-tech/mosaic";
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
@@ -19,15 +20,17 @@ import { cn } from "../lib/cn.js";
 import { coordinator as setActiveCoordinator } from "@uwdata/vgplot";
 
 /**
- * MosaicProvider — the page's coordinator, its joins, and the one selection every part on this
- * subpath filters by and publishes into.
+ * MosaicProvider — the page's engine, its joins, and the one selection every part on this subpath
+ * filters by and publishes into.
  *
- * **Bring-your-own coordinator**, the way CodeEditor is bring-your-own-language. The provider
- * never instantiates a `Coordinator`: the consumer passes one in — `engine()`'s, the page's one
- * DuckDB-WASM database, or one over a socket/REST connector of their own. That keeps the boot out
- * of any React Server Component — it lives in the consumer's `"use client"` island.
+ * **Bring-your-own engine**, the way CodeEditor is bring-your-own-language. The provider never
+ * boots one: the consumer passes `engine()`'s, the page's one DuckDB-WASM database, the same one it
+ * hands the graph and Ask. That keeps the boot out of any React Server Component — it lives in the
+ * consumer's `"use client"` island. **No host holds a coordinator** (`/docs/design/engine`, *One
+ * door*): the Mosaic `Coordinator` is the engine's, its cache and consolidator, and a host on a
+ * socket or REST connector of its own is not served.
  *
- * The provider registers the caller's coordinator as vgplot's active one, so `vg.plot(...)` marks
+ * The provider registers the engine's coordinator as vgplot's active one, so `vg.plot(...)` marks
  * resolve their queries through it, and **owns the page's selection**: one Mosaic crossfilter, built
  * over `joins` (`@kanzo-tech/mosaic`'s `crossfilterOver`), so a clause published on one relation
  * reaches a part reading another — crossed by key along the joins, or keeping none of it where there
@@ -36,8 +39,8 @@ import { coordinator as setActiveCoordinator } from "@uwdata/vgplot";
  */
 
 export interface MosaicContextValue {
-  /** The caller-supplied coordinator. Also registered as vgplot's active coordinator. */
-  coordinator: Coordinator;
+  /** The caller-supplied engine. Its coordinator is registered as vgplot's active one. */
+  engine: Engine;
   /**
    * The page's one selection: what every part filters by and publishes into. A chip's × is
    * `selection.reset([clause])`, *Clear* is `selection.reset()`.
@@ -52,11 +55,8 @@ export interface MosaicContextValue {
 const MosaicContext = createContext<MosaicContextValue | null>(null);
 
 export interface MosaicProviderProps {
-  /**
-   * The Mosaic `Coordinator`, constructed by the caller over their own DuckDB / connector.
-   * The package never builds one — see the module note.
-   */
-  coordinator: Coordinator;
+  /** The page's engine, `engine()`'s — the package never boots one; see the module note. */
+  engine: Engine;
   /**
    * The types and the edges between them that the page's relations are read over —
    * `@kanzo-tech/graph`'s `readJoinGraph` for a fossil corpus. A part's `relation` names a type or a
@@ -74,29 +74,30 @@ export interface MosaicProviderProps {
   children: ReactNode;
 }
 
-export function MosaicProvider({ coordinator, joins = null, onFailure, children }: MosaicProviderProps) {
+export function MosaicProvider({ engine, joins = null, onFailure, children }: MosaicProviderProps) {
   // Read through a ref, so a host's inline `onFailure` is never a change of context.
   const latest = useRef(onFailure);
   latest.current = onFailure;
 
-  // One selection per coordinator: a new `joins` graph is read by the selection's resolver, not a new
+  // One selection per engine: a new `joins` graph is read by the selection's resolver, not a new
   // selection, which would orphan every clause and every client attached to the old one.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const selection = useMemo(() => crossfilterOver(joins), [coordinator]);
+  const selection = useMemo(() => crossfilterOver(joins), [engine]);
   // Before any child's own effect asks a query, and outside render: the two process-wide things this
   // provider sets are vgplot's active coordinator (`coordinator(instance)` is mosaic-core's global
   // setter, the same call a host's boot makes) and that a clause crossed in from another relation is
   // never pre-aggregated against the client's table.
   useLayoutEffect(() => {
+    const coordinator = internalCoordinatorOf(engine);
     setActiveCoordinator(coordinator);
     preaggregateOwnRelation(coordinator);
-  }, [coordinator]);
+  }, [engine]);
   useLayoutEffect(() => {
     (selection.resolver as JoinResolver).joins = joins;
   }, [selection, joins]);
   const value = useMemo<MosaicContextValue>(
-    () => ({ coordinator, selection, joins, onFailure: (error) => latest.current?.(error) }),
-    [coordinator, selection, joins],
+    () => ({ engine, selection, joins, onFailure: (error) => latest.current?.(error) }),
+    [engine, selection, joins],
   );
 
   // The page's slots are the outermost provider's: a provider nested for another relation draws in
@@ -272,7 +273,7 @@ export function useReading(): RelationRef | null {
   return useContext(Reading);
 }
 
-/** The page's Mosaic context — its coordinator, its one selection and its joins. */
+/** The page's Mosaic context — its engine, its one selection and its joins. */
 export function useMosaic(): MosaicContextValue {
   const ctx = useContext(MosaicContext);
   if (!ctx) throw new Error("useMosaic must be used within a <MosaicProvider>.");

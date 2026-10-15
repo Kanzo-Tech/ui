@@ -21,7 +21,7 @@ import { MosaicDemo } from "./mosaic-demo";
 // would be absurd. That split is the engine rule.
 //
 // **`ChartStat` asks the relation**, under the same crossfilter as the plots, and lives on
-// `/analytics` because it cannot answer without a coordinator. It is `useChartQuery` wrapped around
+// `/analytics` because it cannot answer without an engine. It is `useChartQuery` wrapped around
 // `StatValue`, so it re-answers on every clause anyone publishes — including one published by a chart
 // in a different card, which is the case a hand-rolled tile always gets wrong.
 //

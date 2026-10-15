@@ -296,7 +296,7 @@ no bridge between selections and no second way to retract a clause.
 ### What a host writes
 
 ```tsx
-<MosaicProvider coordinator={coordinator} joins={joins}>
+<MosaicProvider engine={e} joins={joins}>
   <FilterBar />
   <GraphCanvas />                                   {/* the graph is one more client */}
   <ChartTimeline relation="vertices" field="date" />

@@ -1,3 +1,4 @@
+import { engineOver } from "../test/engine";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   ChartHarness,
@@ -96,7 +97,7 @@ describe("FilterBarHarness", () => {
     const env = dom();
     let crossfilter!: Selection;
     render(
-      <QueryClientProvider client={queries}><MosaicProvider coordinator={stubCoordinator()}>
+      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
         <Page into={(s) => (crossfilter = s)} />
         <FilterBar rowNoun="sightings" relation="sightings" />
       </MosaicProvider></QueryClientProvider>,
@@ -119,7 +120,7 @@ describe("FilterBarHarness", () => {
     const env = dom();
     const spec: DashboardSpec = { filters: [{ field: "bounty" }], tiles: [] };
     render(
-      <QueryClientProvider client={queries}><MosaicProvider coordinator={stubCoordinator()}>
+      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
         <FilterBar />
         <Dashboard relation="sightings" value={spec} />
       </MosaicProvider></QueryClientProvider>,
@@ -141,7 +142,7 @@ describe("DashboardHarness", () => {
       ],
     };
     render(
-      <QueryClientProvider client={queries}><MosaicProvider coordinator={stubCoordinator()}>
+      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
         <Dashboard relation="sightings" value={spec} />
       </MosaicProvider></QueryClientProvider>,
     );
@@ -156,7 +157,7 @@ describe("ChartHarness", () => {
   it("finds a chart as a figure by its title, and busy until it has drawn", async () => {
     const env = dom();
     const { unmount } = render(
-      <QueryClientProvider client={queries}><MosaicProvider coordinator={stubCoordinator()}>
+      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
         <ChartRoot aria-label="Count by region" relation="sightings">
           <ChartBarY x="region" y="n" />
         </ChartRoot>

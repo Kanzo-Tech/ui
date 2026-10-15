@@ -9,7 +9,7 @@ import {
   type RelationRef,
   type TableExpr,
   Selection,
-  type Coordinator,
+  type Engine,
   type SelectionClause,
 } from "@kanzo-tech/mosaic";
 import { createContext, useContext, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
@@ -183,8 +183,8 @@ function toVgDirective(directive: ChartDirective): VgDirective | null {
 }
 
 export interface ChartContextValue {
-  /** The active Mosaic coordinator, for a consumer that queries alongside the plot. */
-  coordinator: Coordinator;
+  /** The page's engine, for a consumer that queries alongside the plot. */
+  engine: Engine;
   config: ChartConfig;
   /** What the marks read: the root's `relation`, compiled over the provider's joins. */
   table?: TableExpr;
@@ -213,7 +213,7 @@ export interface ChartContextValue {
 const ChartContext = createContext<ChartContextValue | null>(null);
 
 /**
- * The chart context — config, selections, coordinator, and the `color` / `formatNumber` helpers
+ * The chart context — config, selections, engine, and the `color` / `formatNumber` helpers
  * that keep a series' identity in one place. Throws outside a `<ChartRoot>`.
  *
  * Available to DOM parts (`ChartLegend`, a custom tooltip, a readout). **Not** to descriptors:
@@ -308,7 +308,7 @@ export function ChartRoot(props: ChartRootProps) {
     slot,
     ...rest
   } = props;
-  const { coordinator, selection, onFailure } = useMosaic();
+  const { engine, selection, onFailure } = useMosaic();
   const read = useRelation(relation);
   const { table } = read;
   const reading = read.relation;
@@ -356,7 +356,7 @@ export function ChartRoot(props: ChartRootProps) {
   const tableKey = `${chartTableKey(table)}\u0000${JSON.stringify(reading)}`;
   const context = useMemo<ChartContextValue>(
     () => ({
-      coordinator,
+      engine,
       config,
       table,
       relation: reading,
@@ -373,7 +373,7 @@ export function ChartRoot(props: ChartRootProps) {
     }),
     // `numberKey` and `tableKey` stand in for their objects' identities; both are read fresh.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [coordinator, config, tableKey, selection, locale, numberKey],
+    [engine, config, tableKey, selection, locale, numberKey],
   );
 
   // Compiled twice on purpose: once here with an identity colour resolver, purely to fingerprint

@@ -1,4 +1,4 @@
-import { MosaicClient, Selection, firstDrawsPending, onFirstDraws, type Coordinator } from "@kanzo-tech/mosaic";
+import { MosaicClient, Selection, firstDrawsPending, internalCoordinatorOf, onFirstDraws, type Coordinator } from "@kanzo-tech/mosaic";
 import { domainOf } from "./categories";
 import { bindingOf } from "./channels";
 import { GraphClient, publish } from "./client";
@@ -86,7 +86,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
 
   function statusOf(): DataStatus {
     if (failed || unrenderable) return "failed";
-    if (options.from === null || options.coordinator === null) return "none";
+    if (options.from === null || options.engine === null) return "none";
     const current = [geometry, encoding, mask];
     const shown = geometry !== null && current.every((part, i) => part === uploaded[i]);
     if (reads.busy() || !shown) return "loading";
@@ -152,9 +152,9 @@ export function createGraph(initial: GraphOptions): GraphStore {
   }
 
   function loadStructure(): void {
-    const { coordinator, from } = options;
-    if (coordinator === null || from === null) return;
-    read("structure", (signal) => readCatalog(coordinator, from, signal), (next) => {
+    const { engine, from } = options;
+    if (engine === null || from === null) return;
+    read("structure", (signal) => readCatalog(engine, from, signal), (next) => {
       if (next.size === 0) {
         failed = true;
         fail(new Problem("graph/nothing-to-draw", `the graph attached as ${from} has no vertex`));
@@ -172,10 +172,10 @@ export function createGraph(initial: GraphOptions): GraphStore {
   }
 
   function loadPositions(): void {
-    const { coordinator } = options;
+    const { engine } = options;
     const given = structure;
-    if (coordinator === null || given === null) return;
-    read("geometry", (signal) => loadGeometry(coordinator, given, binding, signal), (next) => {
+    if (engine === null || given === null) return;
+    read("geometry", (signal) => loadGeometry(engine, given, binding, signal), (next) => {
       geometry = next;
       arrangement = null;
       mask = kept ? maskOf(next.size, kept) : null;
@@ -184,11 +184,11 @@ export function createGraph(initial: GraphOptions): GraphStore {
   }
 
   function loadChannels(): void {
-    const { coordinator } = options;
+    const { engine } = options;
     const given = geometry;
-    if (coordinator === null || given === null) return;
+    if (engine === null || given === null) return;
     const seed = domainNow();
-    read("encoding", (signal) => loadEncoding(coordinator, given, binding, seed, signal), (next) => {
+    read("encoding", (signal) => loadEncoding(engine, given, binding, seed, signal), (next) => {
       encoding = next;
     });
   }
@@ -209,14 +209,16 @@ export function createGraph(initial: GraphOptions): GraphStore {
   }
 
   /**
-   * The graph's Mosaic client, connected to the coordinator while anything is subscribed. The
+   * The graph's Mosaic client, connected to the engine's coordinator while anything is subscribed — the
+   * one read of the graph that goes through it, since it is a Mosaic client like every chart. The
    * canvas's pick goes with it: withdrawn from the selection the old client published into, and
    * published again from the new one, so a clause never outlives the client it exempts.
    */
   function connect(): void {
     disconnect();
-    const { coordinator } = options;
-    if (coordinator === null) return;
+    const { engine } = options;
+    if (engine === null) return;
+    const coordinator = internalCoordinatorOf(engine);
     client = new GraphClient(
       scope(),
       () => structure,
@@ -259,7 +261,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
 
   const store: GraphStore = {
     /**
-     * The first subscriber connects the client to the coordinator, and the last one disconnects it
+     * The first subscriber connects the client to the engine's coordinator, and the last one disconnects it
      * and lets the graph go — `QueryObserver`'s `onSubscribe`/`onUnsubscribe`, which is what
      * survives StrictMode mounting everything twice.
      */
@@ -290,8 +292,8 @@ export function createGraph(initial: GraphOptions): GraphStore {
       options = next;
       const before = binding;
       binding = bindingOf(next);
-      if (next.from !== previous.from || next.coordinator !== previous.coordinator) {
-        if (active && next.coordinator !== previous.coordinator) connect();
+      if (next.from !== previous.from || next.engine !== previous.engine) {
+        if (active && next.engine !== previous.engine) connect();
         return reset();
       }
       if (active && scope() !== (previous.filterBy ?? own)) connect();

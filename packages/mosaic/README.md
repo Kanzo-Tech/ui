@@ -18,7 +18,8 @@ import { numbers } from "@kanzo-tech/mosaic";
 import { engine } from "@kanzo-tech/mosaic";
 ```
 
-- **`engine()`** — the page's one DuckDB-WASM database: `{ coordinator, query, registerFiles, registerFileBuffer, dropFiles }`,
+- **`engine()`** — the page's one DuckDB-WASM database: `{ query, registerFiles, registerFileBuffer, dropFiles }`, with
+  the Mosaic coordinator inside it and on no type — `MosaicProvider` and the graph reach it, no host does —
   one per document however many callers ask. vgplot has one active coordinator, so a second boot is
   a second database the last-mounted chart wins. `registerFiles({ name: url })` registers a URL under a name:
   the same URL is a no-op, a different one drops the old lease and registers the new, which is what

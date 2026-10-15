@@ -4,7 +4,7 @@ import { createElement, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { Graph } from "@cosmos.gl/graph";
 import { GraphCanvas, GraphRoot, useGraphContext, type GraphApi } from "@kanzo-tech/graph";
-import { engine, type Coordinator } from "@kanzo-tech/mosaic";
+import { engine, type Engine } from "@kanzo-tech/mosaic";
 import type { GraphAttachment } from "@kanzo-tech/graphar-duckdb";
 import { attachWritten } from "@/lib/attach-graph";
 import { host, nextFrame, visible } from "./measure";
@@ -13,7 +13,7 @@ import { host, nextFrame, visible } from "./measure";
  * Our viewer against cosmos.gl alone, on the same positions and the same camera path.
  *
  * The graph is attached once with `attachGraph`. The raw half reads its links with one statement
- * per relation through the page's coordinator, seeds the start the graph seeds, and draws it with
+ * per relation through the page's engine, seeds the start the graph seeds, and draws it with
  * nothing of ours in the way. The viewer half mounts `<GraphRoot><GraphCanvas/>` over the same
  * catalog with `simulate={false}`, so both draw the same still picture. Both then follow one trajectory — the same wheel events on each canvas, a camera change
  * every frame, through cosmos.gl's own d3-zoom and nothing else — and the page records the interval
@@ -130,7 +130,7 @@ interface Payload {
   space: number;
 }
 
-/** What `coordinator.query(…, { type: "arrow" })` answers, as far as this file reads it. */
+/** What `engine.query` answers, as far as this file reads it. */
 interface Answer {
   numRows: number;
   getChild(name: string): { toArray(): ArrayLike<unknown> } | null;
@@ -168,8 +168,9 @@ function seeded(size: number): { positions: Float32Array; extent: Box; space: nu
 }
 
 /** Every vertex and every link of the attached catalog, as SQL answers them. */
-async function payloadOf(coordinator: Coordinator, from: string): Promise<Payload> {
-  const ask = (sql: string) => coordinator.query(sql, { type: "arrow" }) as Promise<Answer>;
+async function payloadOf(e: Engine, from: string): Promise<Payload> {
+  const signal = new AbortController().signal;
+  const ask = (sql: string): Promise<Answer> => e.query(sql, { signal });
   // A vertex's global id is the sum of the counts of the types before it plus its index in its own.
   const types = await ask(`SELECT "type", count::DOUBLE AS count FROM ${ident(from)}.graphar_vertex_types ORDER BY ordinal`);
   const [typeName, typeCount] = ["type", "count"].map((c) => types.getChild(c)?.toArray() ?? []);
@@ -240,7 +241,7 @@ function Hold({ into }: { into: (api: GraphApi) => void }) {
   return null;
 }
 
-async function viewerRun(coordinator: Coordinator, from: string, grid = true): Promise<Run> {
+async function viewerRun(e: Engine, from: string, grid = true): Promise<Run> {
   const element = host();
   const root = createRoot(element);
   let api: GraphApi | null = null;
@@ -250,7 +251,7 @@ async function viewerRun(coordinator: Coordinator, from: string, grid = true): P
     root.render(
       createElement(
         GraphRoot,
-        { from, coordinator, simulate: false, look: { grid }, onFailure: (error: unknown) => void (failure ??= { error }) },
+        { from, engine: e, simulate: false, look: { grid }, onFailure: (error: unknown) => void (failure ??= { error }) },
         createElement(GraphCanvas),
         createElement(Hold, { into: (held: GraphApi) => void (api = held) }),
       ),
@@ -283,12 +284,12 @@ export async function measureViewer(pointCount: number, { repeats = 3 } = {}): P
   try {
     const e = await engine();
     corpus = await attachWritten(e, from, `${window.location.origin}${path}`);
-    const payload = await payloadOf(e.coordinator, from);
+    const payload = await payloadOf(e, from);
     sample.pointCount = payload.total;
     sample.linkCount = payload.links.length / 2;
     for (let i = 0; i < repeats; i++) {
       sample.raw.push(await rawRun(payload));
-      sample.viewer.push(await viewerRun(e.coordinator, from));
+      sample.viewer.push(await viewerRun(e, from));
     }
     sample.rawP95 = median(sample.raw.map((run) => run.p95));
     sample.viewerP95 = median(sample.viewer.map((run) => run.p95));
@@ -328,7 +329,7 @@ export async function measureGrid(pointCount: number, { repeats = 5 } = {}): Pro
     corpus = await attachWritten(e, from, `${window.location.origin}${path}`);
     for (let i = 0; i < repeats; i++) {
       for (const grid of i % 2 === 0 ? [false, true] : [true, false]) {
-        (grid ? sample.with : sample.without).push(await viewerRun(e.coordinator, from, grid));
+        (grid ? sample.with : sample.without).push(await viewerRun(e, from, grid));
       }
     }
     return sample;

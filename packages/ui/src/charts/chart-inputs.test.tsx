@@ -1,3 +1,4 @@
+import { engineOver } from "../../test/engine";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -95,7 +96,7 @@ describe("ChartFilter", () => {
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <Page into={(s) => (crossfilter = s)} />
         <ChartFilter column="host" label="Host" relation="telemetry" />
       </MosaicProvider>,
@@ -125,7 +126,7 @@ describe("ChartFilter", () => {
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator} onFailure={onFailure}>
+      <MosaicProvider engine={engineOver(coordinator)} onFailure={onFailure}>
         <ChartFilter column="host" label="Host" relation="telemetry" />
       </MosaicProvider>,
     );
@@ -141,7 +142,7 @@ describe("ChartFilter", () => {
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <ChartFilter column="host" label="Host" relation={asTableRef(["jobs/7", "telemetry"])} />
       </MosaicProvider>,
     );
@@ -156,7 +157,7 @@ describe("ChartFilter", () => {
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <Page into={(s) => (crossfilter = s)} />
         <ChartFilter column="host" label="Host" relation="telemetry" />
       </MosaicProvider>,
@@ -179,7 +180,7 @@ describe("ChartFilter", () => {
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <Page into={(s) => (crossfilter = s)} />
         <ChartFilter column="host" label="Host" relation="telemetry" />
       </MosaicProvider>,
@@ -200,7 +201,7 @@ describe("ChartFilter", () => {
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <Page into={(s) => (crossfilter = s)} />
         <ChartFilter column="host" label="Host" relation="telemetry" />
       </MosaicProvider>,
@@ -229,7 +230,7 @@ describe("ChartFilter", () => {
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <ChartFilter column="host" label="Host" limit={3} relation="telemetry" />
       </MosaicProvider>,
     );
@@ -246,7 +247,7 @@ describe("ChartFilter", () => {
     const user = userEvent.setup({ delay: null });
 
     render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <ChartFilter column="host" label="Host" searchable relation="telemetry" />
       </MosaicProvider>,
     );
@@ -269,7 +270,7 @@ describe("ChartFilter", () => {
     const user = userEvent.setup({ delay: null });
 
     render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <ChartFilter column="host" label="Host" limit={3} searchable relation="telemetry" />
       </MosaicProvider>,
     );
@@ -288,7 +289,7 @@ describe("ChartFilter", () => {
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <Page into={(s) => (crossfilter = s)} />
         <ChartFilter column="host" label="Host" multiple={false} relation="telemetry" />
       </MosaicProvider>,
@@ -307,7 +308,7 @@ describe("ChartFilter", () => {
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <ChartFilter column="host" label="Host" items={[{ label: "Alpha", value: "alpha" }, { value: "beta" }]} />
       </MosaicProvider>,
     );
@@ -323,7 +324,7 @@ describe("ChartFilter", () => {
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <Page into={(s) => (crossfilter = s)} />
         <ChartFilter column="year" label="Year" items={[{ label: "Nineteen-ten", value: "1910" }]} />
       </MosaicProvider>,
@@ -342,7 +343,7 @@ describe("ChartFilter", () => {
     const { coordinator, connected } = stubCoordinator(() => HOST_COUNTS);
     const user = userEvent.setup();
     const page = (shown: boolean) => (
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <Page into={(s) => (crossfilter = s)} />
         {shown ? <ChartFilter column="host" label="Host" relation="telemetry" /> : null}
       </MosaicProvider>
@@ -375,7 +376,7 @@ describe("ChartSearch", () => {
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <Page into={(s) => (crossfilter = s)} />
         <ChartSearch column="host" debounce={0} label="Host" relation="telemetry" />
       </MosaicProvider>,
@@ -403,7 +404,7 @@ describe("ChartSearch", () => {
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <Page into={(s) => (crossfilter = s)} />
         <ChartSearch column="host" debounce={0} relation="telemetry" />
       </MosaicProvider>,
@@ -423,7 +424,7 @@ describe("ChartSearch", () => {
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <Page into={(s) => (crossfilter = s)} />
         <ChartSearch column="host" debounce={0} relation="telemetry" />
       </MosaicProvider>,
@@ -444,7 +445,7 @@ describe("ChartSearch", () => {
     const { coordinator, connected } = stubCoordinator(() => HOSTS);
     const user = userEvent.setup();
     const page = (shown: boolean) => (
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <Page into={(s) => (crossfilter = s)} />
         {shown ? <ChartSearch column="host" debounce={0} relation="telemetry" /> : null}
       </MosaicProvider>
@@ -475,7 +476,7 @@ describe("ChartSlider", () => {
     const user = userEvent.setup();
 
     const { container } = render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <Page into={(s) => (crossfilter = s)} />
         <ChartSlider column="latency" label="Latency" select="interval" relation="telemetry" />
       </MosaicProvider>,
@@ -503,7 +504,7 @@ describe("ChartSlider", () => {
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <Page into={(s) => (crossfilter = s)} />
         <ChartSlider column="latency" label="Latency" select="interval" relation="telemetry" />
       </MosaicProvider>,

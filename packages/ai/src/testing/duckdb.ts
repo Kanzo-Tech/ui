@@ -5,19 +5,19 @@
 
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
-import { Coordinator, type Engine } from "@kanzo-tech/mosaic";
+import { Coordinator, internalEngineOver, type Engine } from "@kanzo-tech/mosaic";
 import { decodeIPC, wasmConnector } from "@uwdata/mosaic-core";
 import type { DuckDBBindings, DuckDBConnection } from "@duckdb/duckdb-wasm/blocking";
 
 export interface TestDatabase {
-  /** The page's door: what the agent and the card are handed. */
-  coordinator: Coordinator;
   /**
-   * The engine's door beside the queue, as `engine()` builds it: the statement goes to the connector
-   * the coordinator holds and is decoded as the coordinator decodes, and an abort rejects with the
-   * signal's reason.
+   * The page's engine, as `engine()` builds it: what the agent, the card and `MosaicProvider` are
+   * handed. `query` goes to the connector the coordinator inside it holds and is decoded as the
+   * coordinator decodes, and an abort rejects with the signal's reason.
    */
-  engine: Pick<Engine, "query">;
+  engine: Engine;
+  /** The coordinator inside `engine`, for a test that asks it directly, as a chart would. */
+  coordinator: Coordinator;
   /** The test's own door: to set the database up and look at it afterwards. */
   run(sql: string): Record<string, unknown>[];
 }
@@ -44,9 +44,10 @@ export async function testDatabase(): Promise<TestDatabase> {
     signal.throwIfAborted();
     return decodeIPC(bytes as never) as never;
   };
+  const unused = () => Promise.reject(new Error("the test database registers no files"));
   return {
     coordinator,
-    engine: { query },
+    engine: internalEngineOver({ query, registerFiles: unused, registerFileBuffer: unused, dropFiles: unused }, coordinator),
     run: (sql) => connection.query(sql).toArray().map((row) => row.toJSON() as Record<string, unknown>),
   };
 }

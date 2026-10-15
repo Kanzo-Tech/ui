@@ -20,7 +20,7 @@ const relations = new Map<string, Promise<unknown>>();
  *
  * The load returns rather than resolving to nothing, because registering a relation and knowing
  * what it is called are the same act when the names are derived: opening a corpus hands back its
- * views and the spec written over them, and a caller that only got the coordinator back would have
+ * views and the spec written over them, and a caller that only got the engine back would have
  * to spell those names itself.
  */
 export function ensure<T>(key: string, load: (engine: Engine) => Promise<T>): Promise<T> {

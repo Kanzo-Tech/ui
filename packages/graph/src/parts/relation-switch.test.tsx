@@ -105,7 +105,7 @@ describe("a pick when the dashboard switches relation", { timeout: 60_000 }, () 
 
   it("stays on the page as a chip, filters the new relation by key, goes with its chip, and is drawn again where it was made", async () => {
     const corpus = await attach();
-    const joins: JoinGraph = await readJoinGraph(corpus.coordinator, corpus.from);
+    const joins: JoinGraph = await readJoinGraph(corpus.engine, corpus.from);
     const lives = joins.edges.find((e) => e.source === "Person" && e.destination === "Place")!;
     const relations = {
       A: { root: "Person", path: [{ edge: lives.name, direction: "out" }] },
@@ -113,7 +113,7 @@ describe("a pick when the dashboard switches relation", { timeout: 60_000 }, () 
     } as Record<"A" | "B", Relation>;
     const { container } = render(
       <Theme>
-        <QueryClientProvider client={queries}><MosaicProvider coordinator={corpus.coordinator} joins={joins}>
+        <QueryClientProvider client={queries}><MosaicProvider engine={corpus.engine} joins={joins}>
           <Page relations={relations} />
         </MosaicProvider></QueryClientProvider>
       </Theme>,
