@@ -7,6 +7,13 @@ description: How the dashboard is built — Mosaic's public surface and nothing 
 [the spec page](/docs/analytics/dashboard-spec) is what it stores. This page is why it is built
 the way it is.
 
+*Status: partly to be built.* The tree has `MosaicProvider` take a `coordinator` and build its
+selection inside `useMemo`, gives a chart a figure role, a label and a busy flag and no text
+alternative, and leaves a brush with no keyboard equivalent but the timeline's. The engine, the
+provider's purity, [the text alternative](#a-chart-has-a-text-alternative-and-the-page-announces-its-filters-once)
+and the keyboard rule below are decided and not built; the *Breaking* list below is what a consumer
+edits.
+
 **The product is discovery, not BI.** A dashboard here exists to show what a relation holds that
 nobody had looked at: which categories dominate, how a measure spreads, what moves over time, and
 what a brush on one of those does to the rest. It is not a report builder. Each rule below is
@@ -14,8 +21,9 @@ judged by that, and a feature that only a report builder needs is the one this p
 
 ## Mosaic does the work, through its public surface
 
-The charts are Mosaic clients on the page's coordinator, and where Mosaic already solves something
-the library calls it rather than repeating it:
+The charts are Mosaic clients on the page's `engine`, whose coordinator sits inside it
+([the engine](/docs/design/engine#one-door-and-the-coordinator-is-its-cache)), and where Mosaic
+already solves something the library calls it rather than repeating it:
 
 - `makeClient` is the client behind every chart input. It replaced a `MosaicClient` subclass of our
   own.
@@ -52,9 +60,10 @@ shipped set, so it covers `@kanzo-tech/graph` as well as the analytics.
 
 ## What a clause says is Mosaic's to answer
 
-`clauseParts(clause)` splits a clause into a field, an operator and a value, and `clauseLabel`
-joins those into the words of a chip. Both live in `@kanzo-tech/mosaic`, beside `clauseFor`, the
-function that builds the clause. `FilterBar`'s chips and a dashboard's filters both read them.
+`clauseParts(clause)` splits a clause into a field and a value, and `clauseLabel` joins those into
+the words of a chip. Both live in `@kanzo-tech/mosaic`, beside `clauseSemiJoin`, the function that
+builds the clause that is not Mosaic's own. `FilterBar`'s chips and a dashboard's filters both read
+them.
 
 **It replaced a reader inside the chip row**, which the dashboard's filters had to import a chip
 component to reach. Reading a clause is a question about Mosaic, not about a chip.
@@ -524,6 +533,11 @@ item's `value` is their text, and `ChartFilter` maps it back to the column's val
 it, and otherwise publishes the text, which DuckDB casts to the column's type as it casts any string
 literal it compares with one.
 
+The model of a graph is not Mosaic's, and has its own door: `JoinGraph`, `JoinResolver` and the
+crossfilter that rests on them come from `@kanzo-tech/relations`
+([relations](/docs/design/relations)), and a host importing them from `@kanzo-tech/mosaic` is the
+two-spellings case this rule exists to end.
+
 **What would reverse it:** a Mosaic name a host needs that `@kanzo-tech/mosaic` does not export —
 then mosaic exports it, and `/analytics` still does not. A host that writes an open expression
 builder the door does not hold (`gt`, `regexp_matches`) imports it from mosaic-sql, as the docs'
@@ -540,6 +554,107 @@ installed a validator it never ran. It joins `/analytics`' other optional peers 
 value or type"; `packages/ui/src/charts/chart-inputs.test.tsx`, "takes its items with their labels
 and skips the lookup", "publishes a ticked item's text, which it read no column value for"; `packages/ui/src/table/data-table-toolbar.test.tsx`, "honours its items and
 their labels".
+
+## `MosaicProvider` is pure, and its selection outlives the join graph
+
+**Rendering the provider changes nothing outside it, and its selection is made once per engine.**
+`setActiveCoordinator` and `preaggregateOwnRelation` ran inside `useMemo`: an effect in a render,
+which StrictMode and concurrent rendering run twice, and the first call sets a process-wide value.
+The same memo was keyed on `[coordinator, joins]`, so a `joins` that changed identity — a host
+rebuilding its graph in render, which nothing forbids — built a new `crossfilterOver(joins)` selection
+and orphaned every clause and every client attached to the old one: the chips, a brush, the graph's
+pick. The symptom class is already in `docs/CLAUDE.md` ("a second coordinator leaves the first set of
+charts empty"); this is the other way to get it.
+
+- **The selection is created once for the `engine`** and lives as long as the provider does.
+- **`joins` is read, not captured.** The resolver already reads it when it builds a predicate, so a
+  new `joins` is assigned to the resolver and the clients are asked to query again; no selection is
+  replaced and no clause is lost.
+- **The two process-wide effects run in an effect**, once, with the engine's coordinator made vgplot's
+  active one by the means the engine gives the provider (specified on the engine's page), and
+  `preaggregateOwnRelation` is applied to the clients as they connect, not as the provider renders.
+
+**What would reverse it:** a page on which two join graphs must coexist. Then two providers, as it is
+today, each with its own selection; vgplot's active coordinator is the one engine's either way. The
+alternative that was weighed, vgplot taking a coordinator per plot, is not established in the version
+used and is not relied on.
+
+*Not yet held:* `mosaic-provider.test.tsx` cases that a StrictMode render makes one selection, and that
+a new `joins` object keeps the clauses already published.
+
+## A chart has a text alternative, and the page announces its filters once
+
+**Every chart renders what it drew as a table a screen reader can read, from the rows it already
+holds, and the picture is hidden from assistive technology so a reader meets one of them.** A chart
+had `role="figure"`, a label and `aria-busy`, which names it and says when it is working and says
+nothing of what it shows (WCAG 2.2 SC 1.1.1: non-text content has a text alternative that serves the
+same purpose). The reference is the practice of Highcharts' accessibility module, which pairs a
+keyboard-navigable chart with a data table and a description; Observable Plot's own accessibility page
+did not load for this page and what Plot adds to its SVG was not read.
+
+- **One way, no per-chart prop.** `ChartRoot` renders it, from the answer its client received, not a
+  second query. The table has a `caption` (the chart's title), a column per channel the chart
+  encodes, in the words and the order its legend uses, and a row per mark. Where a chart draws a kept
+  layer over a context layer, as every crossfiltered chart does, both are columns, so what is in
+  colour and what is greyed is a number and not a shade (SC 1.4.1).
+- **Past `ALT_ROWS` rows it is a summary, not a table.** A table of 4,000 bars is not a text
+  alternative anyone reads. The summary says how many marks there are, the largest and the smallest
+  by label, and where the full rows are (the dashboard's data table, or a `ChartRoot` over the same
+  relation with a limit). `ALT_ROWS` starts at 50, a decision and not a measurement, and moves with
+  the screen-reader sessions below.
+- **It is not rendered while the chart is being brushed.** The table follows the *settled* answer
+  (`useDeferredValue`), because a brush stream of thirty updates a second rewriting a table that a
+  screen reader is not reading is DOM churn that buys nothing.
+- **The timeline's bins are the same table**: a label for each bin and its count, so the histogram
+  has a text alternative of the same kind, and its window is the control below.
+
+**Keyboard operation is by the same function through another control, and the timeline's window is
+two thumbs.** A brush or a pick is a pointer gesture, and SC 2.1.1 and 2.5.7 want the function without
+the gesture. The function of every interactor is a filter on a field, and the filter bar already has
+one by keyboard: *Add a filter* opens a field's facet or range control. A host that offers a brush
+offers that bar, and the brush's chip is where the filter is let go. The timeline's window is the
+exception worth a control of its own, because it is the page's most used filter and the play button
+already runs by keyboard ([the timeline](/docs/design/timeline#the-window-is-two-thumbs-and-the-bins-are-a-table)).
+
+**The filter bar's readout is the page's one live region for filter state.** It says *N of M match*
+politely when the filters change, once per settled answer; a chart announces nothing of its own. Two
+announcements for one change is the reader hearing the page twice, and the readout is already the one
+place the count is said ([the graph's counts](/docs/design/graph)).
+
+**What it deletes:** nothing, and that is the honest cost: a table per chart is DOM, up to `ALT_ROWS`
+rows by the columns, in every chart on a dashboard.
+
+**What would reverse it:** an audit in which `aria-hidden` on the picture loses information the table
+does not carry (an axis, an annotation), which keeps the picture exposed and the table as a
+description; or a chart whose marks outnumber `ALT_ROWS` in nearly every use, which makes the summary
+the rule and the table the exception.
+
+**How it is checked, before any claim of conformance:** axe-core over the example pages; a table
+per chart asserted in `chart-root.test.tsx`; and screen-reader sessions on a dashboard, NVDA with
+Firefox and VoiceOver with Safari, dated on this page when run. WCAG's criteria here are cited from
+the standard and were not re-read for this page. *Not yet held:* all of it.
+
+**WCAG 2.2 AA is a commitment for the charts, as for the graph canvas** (the owner's decision, 15 October
+2026): a failed criterion found by this check blocks the release of the package it is found in, and
+conformance is still claimed only after the check has run.
+
+## Production-grade axes
+
+| Axis | What this page commits to |
+| --- | --- |
+| Failure and recovery | The provider is pure and keeps its selection; a crossing that cannot be resolved is a failure ([crossfilter](/docs/design/crossfilter)); the signal reaches the statement a brush abandoned |
+| Security and privacy | A chart's failure carries the statement without literals ([the engine](/docs/design/engine)); the table shows data the page already shows |
+| Performance and size | The table follows the settled answer and is capped; gauges per entry; the engine's weight reported beside the gauge |
+| Stable API, accessibility, tests | One door per kind of name; one text alternative with no prop; a keyboard equivalent for every gesture; committed to WCAG 2.2 AA and not yet audited |
+
+## Breaking, in the consumer's words
+
+- `MosaicProvider` takes `engine`, not `coordinator`; it keeps its selection when `joins` changes
+  identity.
+- `JoinGraph`, `JoinResolver` and the crossfilter import from `@kanzo-tech/relations`.
+- A chart renders a table of its rows for assistive technology, and its picture is `aria-hidden`; a
+  test that queried the picture by role queries the table.
+- A host that offers a brush offers a `FilterBar` with *Add a filter* for the same field.
 
 ## A gauge per entry, measured as a consumer pays it
 
