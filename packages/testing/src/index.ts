@@ -13,7 +13,6 @@ export {
 export {
   promptOf,
   scripted,
-  type ChartProbe,
   type GraphProbe,
   type KanzoTestingHook,
   type ModelProbe,

@@ -88,5 +88,5 @@ export function TokenizedPlot({ render, deps, className }: TokenizedPlotProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tick, width, ...deps]);
 
-  return <div ref={container} data-slot="chart" className={cn("w-full text-foreground", className)} />;
+  return <div ref={container} aria-hidden data-slot="chart" className={cn("w-full text-foreground", className)} />;
 }

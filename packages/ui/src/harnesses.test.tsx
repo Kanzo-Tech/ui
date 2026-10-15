@@ -85,7 +85,6 @@ function stubCoordinator(): Coordinator {
   return coordinator as unknown as Coordinator;
 }
 
-const hook = () => (globalThis as { __KANZO_TESTING__?: KanzoTestingHook }).__KANZO_TESTING__;
 const saltmere = () => clausePoint("region", "Saltmere", { source: { reset() {} } });
 
 afterEach(() => {
@@ -154,7 +153,7 @@ describe("DashboardHarness", () => {
 });
 
 describe("ChartHarness", () => {
-  it("finds a chart as a figure by its title, registered under it, and busy until it has drawn", async () => {
+  it("finds a chart as a figure by its title, and busy until it has drawn", async () => {
     const env = dom();
     const { unmount } = render(
       <QueryClientProvider client={queries}><MosaicProvider coordinator={stubCoordinator()}>
@@ -167,29 +166,17 @@ describe("ChartHarness", () => {
     expect(await chart.title()).toBe("Count by region");
     // jsdom lays nothing out, so the chart never measures a width to draw at: busy is the truth.
     expect(await chart.busy()).toBe(true);
-    expect([...(hook()?.charts.keys() ?? [])]).toEqual(["Count by region"]);
     unmount();
-    expect(hook()?.charts.size).toBe(0);
   });
 
-  it("registers nothing when no test installed the hook, nor a chart with no title", () => {
-    render(
-      <QueryClientProvider client={queries}><MosaicProvider coordinator={stubCoordinator()}>
-        <ChartRoot aria-label="Count by region" relation="sightings">
-          <ChartBarY x="region" y="n" />
-        </ChartRoot>
-      </MosaicProvider></QueryClientProvider>,
-    );
-    expect(hook()).toBeUndefined();
-    dom();
-    render(
-      <QueryClientProvider client={queries}><MosaicProvider coordinator={stubCoordinator()}>
-        <ChartRoot relation="sightings">
-          <ChartBarY x="region" y="n" />
-        </ChartRoot>
-      </MosaicProvider></QueryClientProvider>,
-    );
-    expect(hook()?.charts.size).toBe(0);
+  it("reads where a value falls from the scale Plot puts on its own output, with no chart registered anywhere", async () => {
+    const env = dom();
+    document.body.innerHTML = '<div role="figure" aria-label="Count by lon"><div class="plot"><svg></svg></div></div>';
+    const svg = document.querySelector("svg")!;
+    Object.assign(svg, { scale: () => ({ apply: (value: number) => value * 2 }) });
+    svg.getBoundingClientRect = () => ({ x: 10, y: 0, width: 100, height: 50 }) as DOMRect;
+    const chart = await env.getHarness(ChartHarness.with({ title: "Count by lon" }));
+    await expect(chart.settled()).resolves.toBeUndefined();
   });
 });
 

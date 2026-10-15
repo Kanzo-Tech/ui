@@ -1,5 +1,4 @@
 import { ComponentHarness, type By, type HarnessQuery, type Point } from "../environment";
-import type { KanzoTestingHook } from "../hook";
 
 /** A range in data, along one channel. */
 export type Extent = readonly [unknown, unknown];
@@ -15,16 +14,15 @@ interface Measured {
  * on a band scale, offset by its SVG's box. Sent to the page as source text, so it closes over nothing.
  */
 const measure = (figure: Element, ask: { x: unknown[]; y: unknown[] }): Measured | null => {
-  const hook = (globalThis as { __KANZO_TESTING__?: KanzoTestingHook }).__KANZO_TESTING__;
-  const probe = hook?.charts.get(figure.getAttribute("aria-label") ?? "");
-  // vgplot's element is `.plot`; its first child is Plot's output, an SVG or a figure around one.
-  const output = figure.querySelector(".plot > *");
+  // vgplot's element is `.plot`; its first child is Plot's output, an SVG or a figure around one,
+  // and Plot puts `scale(channel)` on it: the scales the axes were drawn with, read off the DOM.
+  const output = figure.querySelector(".plot > *") as (Element & { scale?(channel: string): unknown }) | null;
   const svg = output?.tagName.toLowerCase() === "svg" ? output : output?.querySelector(":scope > svg:last-of-type");
-  if (!probe || !svg) return null;
+  if (!output || typeof output.scale !== "function" || !svg) return null;
   const { x, y, width, height } = svg.getBoundingClientRect();
   const along = (channel: "x" | "y", values: unknown[]) => {
     if (values.length === 0) return [];
-    const scale = probe.scale(channel) as { apply(value: unknown): number; bandwidth?: number };
+    const scale = output.scale!(channel) as { apply(value: unknown): number; bandwidth?: number };
     return values.map((value) => scale.apply(value) + (scale.bandwidth ?? 0) / 2);
   };
   return { box: { x, y, width, height }, x: along("x", ask.x).map((px) => x + px), y: along("y", ask.y).map((py) => y + py) };
@@ -49,7 +47,7 @@ const markAcross = (figure: Element, at: { channel: "x" | "y"; pixel: number }):
 
 /**
  * **A `ChartRoot`: a figure named by its title.** It is `aria-busy` while its query runs, and what a
- * value means in pixels comes from its own scales through the test hook — so a brush is written in
+ * value means in pixels comes from its own scales, which Plot puts on its output — so a brush is written in
  * data, *125°W to 100°W*, and never as a share of the chart's width.
  */
 export class ChartHarness extends ComponentHarness {
@@ -81,7 +79,7 @@ export class ChartHarness extends ComponentHarness {
   async brush(range: { x?: Extent; y?: Extent }): Promise<void> {
     await this.settled();
     const measured = await this.at({ x: range.x ? [...range.x] : [], y: range.y ? [...range.y] : [] });
-    if (!measured) throw new Error("the chart is not registered with the test hook");
+    if (!measured) throw new Error("the chart has not drawn");
     const { box } = measured;
     const [x0, x1] = range.x ? (measured.x as [number, number]) : [box.x + 1, box.x + box.width - 1];
     const [y0, y1] = range.y ? (measured.y as [number, number]) : [box.y + box.height / 2, box.y + box.height / 2];
@@ -95,7 +93,7 @@ export class ChartHarness extends ComponentHarness {
     const channel = "x" in value ? "x" : "y";
     const measured = await this.at(channel === "x" ? { x: [(value as { x: unknown }).x], y: [] } : { x: [], y: [(value as { y: unknown }).y] });
     const pixel = measured?.[channel][0];
-    if (pixel === undefined) throw new Error("the chart is not registered with the test hook");
+    if (pixel === undefined) throw new Error("the chart has not drawn");
     const point = await this.host.evaluate(markAcross, { channel, pixel });
     if (!point) throw new Error(`no mark is drawn at ${channel} = ${String(Object.values(value)[0])}`);
     await this.host.click({ at: point });

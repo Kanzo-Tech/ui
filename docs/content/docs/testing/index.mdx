@@ -147,16 +147,15 @@ keep their own, because CDK has none or its namesake does something else
 ```ts
 interface KanzoTestingHook {
   graphs: Map<string, GraphProbe>;  // by the canvas's id: screenOf(vertex), screenAt({ x, y })
-  charts: Map<string, ChartProbe>;  // by the chart's title: scale(channel) → { apply, invert? }
   models: Map<string, ModelProbe>;  // by model id: { script, prompts }
 }
 ```
 
-`window.__KANZO_TESTING__` is defined by the environment and never by a page. `GraphCanvas` and
-`ChartRoot` register themselves when they find it, and do nothing otherwise. A `GraphProbe` answers
-with cosmos.gl's own `spaceToScreenPosition`; a `ChartProbe` is Observable Plot's own
-`figure.scale(channel)`. A chart is registered under its `aria-label`, which a dashboard tile sets to
-its title; a chart with no title is not registered.
+`window.__KANZO_TESTING__` is defined by the environment and never by a page. `GraphCanvas`
+registers itself when it finds it, and does nothing otherwise; a `GraphProbe` answers with cosmos.gl's
+own `spaceToScreenPosition`. A chart registers nothing: `ChartHarness` reads Observable Plot's own
+`scale(channel)` off the output Plot drew, and finds the chart by its `aria-label`, which a dashboard
+tile sets to its title.
 
 ## A model double
 
