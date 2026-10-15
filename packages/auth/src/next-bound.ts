@@ -1,5 +1,6 @@
 import { DEFAULT_RENEW_WITHIN } from "./renew-within";
 import { relyingParty, type RelyingParty, type RelyingPartyConfig } from "./server";
+import type { SessionStore } from "./store";
 import type { Session } from "./types";
 import { cookieValue } from "./cookie-session";
 import { withoutTrailingSlashes } from "./issuer";
@@ -22,7 +23,7 @@ export interface TenantRequest {
   readonly cookies: { get(name: string): { readonly value: string } | undefined };
 }
 
-export interface KanzoAuthConfig extends RelyingPartyConfig {
+interface KanzoAuthSettings extends RelyingPartyConfig {
   /**
    * The organization a request addresses: a hostname's first label, a path segment, a cookie, or
    * one fixed alias for a deployment per tenant. Its answer is `Session.organization`, and the
@@ -72,16 +73,30 @@ export interface KanzoAuthConfig extends RelyingPartyConfig {
    * resource server per tenant, which is Keycloak's Organizations model — one client shared by
    * every organization — with the data still kept apart. `undefined` answers 404.
    */
-  readonly apis?: Readonly<
-    Record<
-      string,
-      {
-        readonly audience: string;
-        readonly target: string | ((organization: string | undefined) => string | undefined);
-      }
-    >
-  >;
+  readonly apis?: Apis;
 }
+
+type Apis = Readonly<
+  Record<
+    string,
+    {
+      readonly audience: string;
+      readonly target: string | ((organization: string | undefined) => string | undefined);
+    }
+  >
+>;
+
+/**
+ * What `kanzoAuth` is given. **`store` is required whenever `apis` is**: an application with an API
+ * carries an access token the stateless cookie cannot hold (6407 bytes against the 4096 a browser
+ * keeps, failing at the callback for a person in many organizations) and has a reason to revoke,
+ * which the cookie cannot do. An application with no `apis` keeps the stateless default.
+ */
+export type KanzoAuthConfig = Omit<KanzoAuthSettings, "apis" | "store"> &
+  (
+    | { readonly apis?: undefined; readonly store?: SessionStore }
+    | { readonly apis: Apis; readonly store: SessionStore }
+  );
 
 /** What a `kanzoAuth` instance is once its config has been read: one relying party and its settings. */
 export interface Bound {
@@ -174,6 +189,12 @@ function policy(directives: Readonly<Record<string, readonly string[]>>): (nonce
 }
 
 export function bind(config: KanzoAuthConfig): Bound {
+  // The types say it and a config built from untyped data does not hear them.
+  if (Object.keys(config.apis ?? {}).length > 0 && config.store === undefined) {
+    throw new Error(
+      "kanzoAuth: `store` is required when `apis` is configured: the stateless cookie cannot hold an access token or end a session. Give it a ticketStore.",
+    );
+  }
   const basePath = withoutTrailingSlashes(config.basePath ?? "/api/auth");
   const problemPage = config.problemPage ?? "/auth/problem";
   const apis: Api[] = Object.entries(config.apis ?? {})

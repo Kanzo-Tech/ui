@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BOUNDS } from "./deadline";
+import { statelessStore, ticketStore, type SessionStore } from "./store";
 import { kanzoAuth, type KanzoAuth, type KanzoAuthConfig } from "./next-auth";
 import {
   CLIENT_ID,
@@ -10,6 +11,7 @@ import {
   asRequestHeader,
   fromPage,
   fakeKeycloak,
+  inMemoryAdapter,
   type Realm,
 } from "./test/fake-keycloak";
 
@@ -17,7 +19,7 @@ const TARGET = "https://reports.internal/v1";
 
 describe("kanzoAuth().api", () => {
   let realm: Realm;
-  let config: KanzoAuthConfig;
+  let config: KanzoAuthConfig & { readonly store: SessionStore };
   let routes: KanzoAuth["routes"];
   /** The resource server, and every request that reached it. */
   let upstream: ReturnType<typeof vi.fn<typeof globalThis.fetch>>;
@@ -34,6 +36,7 @@ describe("kanzoAuth().api", () => {
       secret: SECRET,
       fetch: realm.fetchImpl,
       apis: { "/api/data": { audience: "reports", target: TARGET } },
+      store: ticketStore(inMemoryAdapter().adapter),
     };
     const auth = kanzoAuth(config);
     routes = auth.routes;
@@ -54,12 +57,12 @@ describe("kanzoAuth().api", () => {
     vi.unstubAllGlobals();
   });
 
-  async function signIn(): Promise<string> {
-    const started = await routes.GET(fromPage(`${ORIGIN}/api/auth/signin`));
+  async function signIn(through: KanzoAuth["routes"] = routes): Promise<string> {
+    const started = await through.GET(fromPage(`${ORIGIN}/api/auth/signin`));
     const away = new URL(started.headers.get("location") ?? "");
     realm.state.idTokenClaims = { nonce: away.searchParams.get("nonce"), sub: "u-1" };
 
-    const done = await routes.GET(
+    const done = await through.GET(
       fromPage(`${ORIGIN}/api/auth/callback?code=c&state=${away.searchParams.get("state")}`, {
         headers: { cookie: asRequestHeader(started.headers.getSetCookie()) },
       }),
@@ -363,12 +366,14 @@ describe("kanzoAuth().api", () => {
     expect(upstream).not.toHaveBeenCalled();
   });
 
+  /** The stateless store, chosen explicitly: the ticket is the record, so a renewal re-seals the cookie. */
   it("renews an expiring token and attaches the reissued cookie to the answer", async () => {
+    const stateless = kanzoAuth({ ...config, store: statelessStore() });
     realm.state.expiresIn = 20;
-    const cookie = await signIn();
+    const cookie = await signIn(stateless.routes);
 
     realm.state.accessToken = "renewed";
-    const response = await proxy.GET(
+    const response = await stateless.api.GET(
       fromPage(`${ORIGIN}/api/data/reports`, { headers: { cookie } }),
     );
 

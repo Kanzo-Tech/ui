@@ -412,7 +412,7 @@ Nothing here is invented; each piece is a reference system's answer or a standar
 | `public` | `readonly string[]` | nothing |
 | `redirectUri` | `string` | derived from the request |
 | `renewWithin` | `number` | `60`, in seconds |
-| `apis` | `Record<string, { audience: string; target: string \| ((organization: string \| undefined) => string \| undefined) }>`, by mount | none; `api` answers 404 |
+| `apis` | `Record<string, { audience: string; target: string \| ((organization: string \| undefined) => string \| undefined) }>`, by mount. **Requires `store`**: `kanzoAuth` throws when it is built with `apis` and no `store` | none; `api` answers 404 |
 
 ### `KanzoAuth`
 

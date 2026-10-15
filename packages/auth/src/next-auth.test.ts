@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { kanzoAuth, type KanzoAuth, type KanzoAuthConfig } from "./next-auth";
-import { ticketStore } from "./store";
+import { ticketStore, type SessionStore } from "./store";
 import {
   CLIENT_ID,
   ISSUER,
@@ -57,7 +57,7 @@ function navigation(path: string, cookie?: string, extra: Record<string, string>
 describe("kanzoAuth", () => {
   let realm: Realm;
   let backing: ReturnType<typeof inMemoryAdapter>;
-  let config: KanzoAuthConfig;
+  let config: KanzoAuthConfig & { readonly store: SessionStore };
   let auth: KanzoAuth;
 
   beforeEach(() => {
@@ -210,7 +210,7 @@ describe("kanzoAuth", () => {
      * `Set-Cookie` header would only reach the browser.
      */
     it("hands a re-sealed stateless cookie to this request's cookies(), not only to the browser", async () => {
-      const stateless = kanzoAuth({ ...config, store: undefined });
+      const stateless = kanzoAuth({ ...config, store: undefined } as KanzoAuthConfig);
       auth = stateless;
       realm.state.expiresIn = 30;
       const cookie = await signIn();
