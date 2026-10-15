@@ -53,8 +53,9 @@ export interface KanzoAuth {
    *
    * It renews an access token that is about to expire, ends a session the IdP refused to renew,
    * and sends a browser with no live session to sign in carrying the URL it asked for — or, for a
-   * request that is not a navigation, answers 401. `headers` are added to the request the page
-   * sees, for a CSP nonce.
+   * request that is not a navigation, answers 401. With `csp` configured it also draws a nonce per
+   * request and sends the policy (`KanzoAuthConfig.csp`); a server component reads the nonce as
+   * `x-nonce` from `headers()`. `headers` are added to the request the page sees.
    */
   proxy(request: NextRequest, options?: { readonly headers?: HeadersInit }): Promise<NextResponse>;
   /** `signin`, `callback`, `signout`, `session`, `refresh` and `backchannel-logout`, for `[...auth]/route.ts`. */

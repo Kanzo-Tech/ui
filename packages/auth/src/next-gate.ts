@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { addressedUrl, URL_HEADER, under, type Bound } from "./next-bound";
+import { addressedUrl, newNonce, NONCE_HEADER, URL_HEADER, under, type Bound } from "./next-bound";
 import { ended, problem } from "./problem";
 import type { Ended, Renewed } from "./server";
 import { AuthError } from "./types";
@@ -102,8 +102,20 @@ export async function gate(
     if (name.startsWith("x-kanzo-")) forwarded.delete(name);
   }
   forwarded.set(URL_HEADER, addressed.href);
+  // Never the browser's: whatever arrived as a nonce is deleted, and the one below is this request's.
+  forwarded.delete(NONCE_HEADER);
+  const nonce = bound.csp === undefined ? undefined : newNonce();
+  const policy = nonce === undefined ? undefined : bound.csp?.(nonce);
+  if (nonce !== undefined && policy !== undefined) {
+    forwarded.set(NONCE_HEADER, nonce);
+    forwarded.set("content-security-policy", policy);
+  }
   new Headers(extra).forEach((value, name) => forwarded.set(name, value));
-  const through = () => NextResponse.next({ request: { headers: forwarded } });
+  const through = () => {
+    const response = NextResponse.next({ request: { headers: forwarded } });
+    if (policy !== undefined) response.headers.set("content-security-policy", policy);
+    return response;
+  };
 
   if (isFile(pathname) || under(pathname, bound.open)) return through();
 

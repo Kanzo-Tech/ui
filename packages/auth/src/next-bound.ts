@@ -44,6 +44,15 @@ export interface KanzoAuthConfig extends RelyingPartyConfig {
    */
   readonly public?: readonly string[];
   /**
+   * The Content-Security-Policy `proxy` sends, as directives to their sources. `proxy` draws a nonce
+   * per request and adds `'nonce-…' 'strict-dynamic'` to `script-src` (the sources given here follow
+   * them), on the request it forwards (the header Next reads to nonce its own scripts), on the
+   * response, and as `x-nonce` for a server component that needs it. `'unsafe-inline'` in
+   * `script-src` is refused when the config is read: an inline script on this origin is API access
+   * (`/docs/design/auth-hardening`).
+   */
+  readonly csp?: Readonly<Record<string, readonly string[]>>;
+  /**
    * Override the callback URL. Absent, it is derived from the request: its `addressedUrl` origin,
    * the path the routes sit on, and `/callback`. Deriving it trusts `Host` and the proxy's
    * `X-Forwarded-*`, which is bounded — Keycloak refuses a `redirect_uri` it has not registered —
@@ -81,6 +90,8 @@ export interface Bound {
   readonly problemPage: string;
   readonly redirectUri?: string;
   readonly renewWithin: number;
+  /** The policy for one request's nonce, when `csp` was configured. */
+  readonly csp?: (nonce: string) => string;
   /** Every mount, the longest first, so a request is forwarded by the most specific one. */
   readonly apis: readonly Api[];
   /** Prefixes the proxy lets through: the routes, the forwarder, the problem page, and `public`. */
@@ -142,6 +153,26 @@ export function under(pathname: string, prefixes: readonly string[]): boolean {
 /** The request header the proxy forwards the URL on — AuthKit's `x-url` — for a server component to read. */
 export const URL_HEADER = "x-kanzo-url";
 
+/** The header Next reads a CSP nonce from, and the one a server component reads it from. */
+export const NONCE_HEADER = "x-nonce";
+
+/** 128 random bits, base64: one per request, never reused. */
+export function newNonce(): string {
+  return btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))));
+}
+
+/** `directives` with this request's nonce and `strict-dynamic` ahead of the host's own `script-src` sources. */
+function policy(directives: Readonly<Record<string, readonly string[]>>): (nonce: string) => string {
+  const scripts = directives["script-src"] ?? [];
+  if (scripts.some((source) => source.toLowerCase() === "'unsafe-inline'")) {
+    throw new Error("`csp` must not allow 'unsafe-inline' in script-src: the nonce is what admits a script");
+  }
+  return (nonce) =>
+    Object.entries({ ...directives, "script-src": [`'nonce-${nonce}'`, "'strict-dynamic'", ...scripts] })
+      .map(([name, sources]) => [name, ...sources].join(" "))
+      .join("; ");
+}
+
 export function bind(config: KanzoAuthConfig): Bound {
   const basePath = withoutTrailingSlashes(config.basePath ?? "/api/auth");
   const problemPage = config.problemPage ?? "/auth/problem";
@@ -162,6 +193,7 @@ export function bind(config: KanzoAuthConfig): Bound {
     problemPage,
     redirectUri: config.redirectUri,
     renewWithin: config.renewWithin ?? DEFAULT_RENEW_WITHIN,
+    csp: config.csp === undefined ? undefined : policy(config.csp),
     apis,
     open: [basePath, problemPage, ...apis.map((api) => api.mount), ...(config.public ?? [])].map(
       withoutTrailingSlashes,

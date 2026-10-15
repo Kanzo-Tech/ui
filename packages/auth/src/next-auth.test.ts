@@ -243,6 +243,45 @@ describe("kanzoAuth", () => {
       expect(forwarded(response, "x-nonce")).toBe("n-1");
     });
 
+    describe("csp", () => {
+      const csp = { "default-src": ["'self'"], "script-src": ["'wasm-unsafe-eval'"], "worker-src": ["'self'"] };
+      const nonceOf = (response: Response) => forwarded(response, "x-nonce") ?? "";
+
+      it("sends a fresh nonce on every request and names it in script-src with strict-dynamic, without unsafe-inline", async () => {
+        const guarded = kanzoAuth({ ...config, csp });
+        const cookie = await signIn();
+        const first = await guarded.proxy(navigation("/graphs", cookie, { "x-nonce": "forged" }));
+        const second = await guarded.proxy(navigation("/graphs", cookie));
+
+        const nonce = nonceOf(first);
+        expect(nonce).toMatch(/^[A-Za-z0-9+/]{22}==$/);
+        expect(nonce).not.toBe(nonceOf(second));
+        for (const response of [first, second]) {
+          const policy = forwarded(response, "content-security-policy") ?? "";
+          expect(policy).toBe(response.headers.get("content-security-policy"));
+          expect(policy).toContain(`script-src 'nonce-${nonceOf(response)}' 'strict-dynamic' 'wasm-unsafe-eval'`);
+          expect(policy).toContain("default-src 'self'; ");
+          expect(policy).toContain("worker-src 'self'");
+          expect(policy).not.toContain("unsafe-inline");
+        }
+      });
+
+      it("gives script-src when the host gave none, and sends no policy when csp is absent", async () => {
+        const cookie = await signIn();
+        const bare = await kanzoAuth({ ...config, csp: { "default-src": ["'self'"] } }).proxy(navigation("/graphs", cookie));
+        expect(bare.headers.get("content-security-policy")).toMatch(/script-src 'nonce-\S+' 'strict-dynamic'/);
+
+        const none = await auth.proxy(navigation("/graphs", cookie, { "x-nonce": "forged" }));
+        expect(none.headers.get("content-security-policy")).toBeNull();
+        expect(forwarded(none, "x-nonce")).toBeNull();
+      });
+
+      it("refuses unsafe-inline in script-src when the config is read", async () => {
+        const unsafe = kanzoAuth({ ...config, csp: { "script-src": ["'unsafe-inline'"] } });
+        await expect(unsafe.proxy(navigation("/graphs"))).rejects.toThrow(/unsafe-inline/);
+      });
+    });
+
     it("lets static files, the auth routes, the problem page, the api mount and public paths through unread", async () => {
       const mounted = kanzoAuth({
         ...config,
