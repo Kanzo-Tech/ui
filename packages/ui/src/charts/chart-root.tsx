@@ -12,7 +12,7 @@ import {
   type Coordinator,
   type SelectionClause,
 } from "@kanzo-tech/mosaic";
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
+import { createContext, useContext, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
 import * as vg from "@uwdata/vgplot";
@@ -34,6 +34,7 @@ import {
 import { claimPlace, heldClause, releasePlace, type ClausePlace } from "./clause-place.js";
 import { useClientsEnabled, useMosaic, useRelation } from "./mosaic-provider.js";
 import { resolveTokenColor } from "../lib/token-color.js";
+import { ChartAlternative, readAlternatives, type Alternative, type AlternativeMark } from "./chart-alternative.js";
 import { TokenizedPlot } from "./tokenized-plot.js";
 import { DenseStackMark } from "./dense-stack.js";
 
@@ -315,6 +316,10 @@ export function ChartRoot(props: ChartRootProps) {
   // Busy until the first render, so a chart that has not measured its width yet is not read as
   // drawn; where it never can, as under jsdom, it stays busy, which is what it is.
   const [busy, setBusy] = useState(true);
+  // What the plot drew, as rows. Read on the settled answer, so a brush at thirty updates a second
+  // does not rewrite a table nobody is reading.
+  const [answer, setAnswer] = useState<Alternative[]>([]);
+  const alternative = useDeferredValue(answer);
   const drawn = useRef<ChartPlot | null>(null);
   /** The grammar and relation the plot on screen was built from: what a rebuild hands over within. */
   const drawnFrom = useRef<string | null>(null);
@@ -460,6 +465,7 @@ export function ChartRoot(props: ChartRootProps) {
               await render();
               handed?.();
               handed = null;
+              setAnswer(readAlternatives(plot.marks as unknown as AlternativeMark[], config));
               setBusy(false);
               setAnswered(true);
             };
@@ -489,6 +495,7 @@ export function ChartRoot(props: ChartRootProps) {
             This chart could not be drawn.
           </p>
         </Show>
+        <ChartAlternative title={typeof title === "string" ? title : undefined} tables={failure === undefined ? alternative : []} />
         {children}
       </ark.div>
     </ChartContext.Provider>
