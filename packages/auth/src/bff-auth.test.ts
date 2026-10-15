@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { bffAuth, readSession } from "./bff-auth";
-import { AuthError } from "./types";
+import { Problem } from "@kanzo-tech/kernel";
+import { bffAuth } from "./bff-auth";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -27,66 +27,6 @@ function jsonOnce(value: unknown, status = 200) {
     headers: { "Content-Type": "application/json" },
   });
 }
-
-describe("readSession checks the wire instead of casting it", () => {
-  it("reads a well-formed body", () => {
-    const session = readSession(body);
-    expect(session?.user).toEqual({
-      id: "u-7",
-      email: "ada@example.com",
-      name: "Ada",
-      username: "ada",
-    });
-    expect(session?.roles).toEqual(["auditor"]);
-    expect(session?.organizations).toEqual([
-      { alias: "acme", id: "f8d3", roles: ["owner"], groups: ["g-research"], groupsOverage: false },
-      { alias: "globex", id: undefined, roles: [], groups: [], groupsOverage: true },
-    ]);
-    expect(session?.organization).toBe("acme");
-    expect(session?.expiresAt).toBe(Date.UTC(2099, 0, 1));
-  });
-
-  it("refuses anything that is not a session", () => {
-    // A deploy skew or a proxy's error page is what actually arrives here. Cast, and it becomes a
-    // `Session` whose `user` is undefined, failing three components away on a property read.
-    expect(readSession("<!DOCTYPE html><title>502 Bad Gateway</title>")).toBeNull();
-    expect(readSession(null)).toBeNull();
-    expect(readSession([])).toBeNull();
-    expect(readSession({})).toBeNull();
-    expect(readSession({ user: null })).toBeNull();
-    expect(readSession({ user: {} })).toBeNull();
-    expect(readSession({ user: { id: "" } })).toBeNull();
-    expect(readSession({ user: { id: 7 } })).toBeNull();
-  });
-
-  it("degrades the parts that are allowed to be missing", () => {
-    // Holding no roles and belonging to nothing are legitimate states — monotenant is this shape.
-    const session = readSession({ user: { id: "u-1" } });
-    expect(session).toEqual({
-      user: { id: "u-1", email: undefined, name: undefined, username: undefined },
-      roles: [],
-      organizations: [],
-      organization: undefined,
-      expiresAt: 0,
-    });
-  });
-
-  it("drops the members of a list it cannot read, and keeps the rest", () => {
-    const session = readSession({
-      user: { id: "u-1" },
-      roles: ["real", 7, null],
-      organizations: [
-        { alias: "acme", roles: ["owner", 3], groups: ["g-1", null] },
-        { id: "no-alias" },
-        "acme",
-      ],
-    });
-    expect(session?.roles).toEqual(["real"]);
-    expect(session?.organizations).toEqual([
-      { alias: "acme", id: undefined, roles: ["owner"], groups: ["g-1"], groupsOverage: false },
-    ]);
-  });
-});
 
 describe("bffAuth", () => {
   it("asks once for a burst of callers", async () => {
@@ -180,7 +120,7 @@ describe("bffAuth", () => {
 
     const failed = await auth.getSession().catch((error: unknown) => error);
 
-    expect(failed).toBeInstanceOf(AuthError);
+    expect(failed).toBeInstanceOf(Problem);
     expect(failed).toMatchObject({ code: "session/unavailable", data: { status: 502 } });
   });
 
@@ -203,7 +143,7 @@ describe("bffAuth", () => {
     const failed = await auth.getSession().catch((error: unknown) => error);
 
     expect(failed).toMatchObject({ code: "session/unavailable" });
-    expect((failed as AuthError).cause).toBe(offline);
+    expect((failed as Problem).cause).toBe(offline);
   });
 
   it("asks again after a failed read, rather than keeping the failure", async () => {
@@ -239,7 +179,7 @@ describe("bffAuth", () => {
 
     await vi.advanceTimersByTimeAsync(1);
     const failed = await read;
-    expect(failed).toBeInstanceOf(AuthError);
+    expect(failed).toBeInstanceOf(Problem);
     expect(failed).toMatchObject({ code: "session/silent", data: { after: 30_000 } });
     expect(signal?.aborted).toBe(true);
   });

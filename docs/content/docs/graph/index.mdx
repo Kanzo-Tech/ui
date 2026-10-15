@@ -565,23 +565,57 @@ on `dense_id` — [what the page sees](/docs/analytics/dashboard#what-the-page-s
 and joins an edge on its global ends"; `packages/graph/src/core/catalog.test.ts`,
 "takes an edge's label and its ends from graphar_edge_types, never from the view's name".
 
+### withMapping
+
+`withMapping(graph, model)` is a `JoinGraph` described by its mapping: the class, predicate, term type,
+datatype and `rdfs:label`s that an RML-Core mapping states and the graph's tables do not. `model` is
+what rudof's `Mapping.model()` answers — `MappingModel`, a structural type, so nothing here imports
+rudof. A table is the type of that name, a column of it the one its term is read from, and a relation
+the edge from that type to its parent's. A map over a query, as fossil writes a relation or a multi-valued property, is read by the table names its SQL quotes: a relation's edge by its edge table, a list by the one column it unnests. What the mapping states lands on the `iri`, `annotations`,
+`termType` and `datatype` every reader of a `JoinGraph` already reads, and no other part is told:
+
+```tsx
+import { withMapping, typeWords } from "@kanzo-tech/mosaic";
+
+const graph = withMapping(await readJoinGraph(coordinator, "archive"), mapping.model());
+
+<MosaicProvider coordinator={coordinator} joins={graph}>
+  <Dashboard relation={{ root: "Person", path: [] }} />
+</MosaicProvider>
+
+// The canvas takes its category names from the host (`categories`), and the host reads them off the graph:
+const categories = Object.fromEntries(graph.types.map((t) => [t.name, typeWords(graph, t.name)]));
+```
+
+Every label is kept, in every language; `labelOf(annotations, language)` picks one when it is read,
+`<html lang>` by default. `typeWords(graph, name, language?)` and `edgeWords(edge, language?)` are
+the one place a type's or an edge's words are chosen — the label, else the name split into words
+(`splitWords`) — and `RelationPicker`, Ask's chips and a column's `label` all read them. A year the
+mapping declares `xsd:gYear` is a time, whatever integer stores it.
+
+*Held by* `packages/mosaic/src/mapping.test.ts`, "puts the class, the predicates, the term types and the
+datatypes on the graph"; "keeps every language, and the reader chooses one: the same graph reads in
+either"; "describes an edge from the source's relation to the parent, the one its label names among
+several".
+
 ## Failures
 
 <ComponentPreview componentName="graph" fileName="example-failure" hasMaxHeight />
 
 **`onFailure` is required**, because unhandled, a browser with no WebGL context shows an empty box.
-It receives every failure **as it was thrown**, and the graph's own are a `GraphError`. The root
+It receives every failure **as it was thrown**, and the graph's own are a kernel `Problem`. The root
 reports `status: "failed"` beside it, so a part can render the failed state without holding the
 error. A failed `attachGraph` is the host's own — above, a coded refusal, routed to the
 same handler and drawn by [`Problem`](/docs/data-display/problem), which reads the code off whatever
 was thrown and takes the host's words for it.
 
-| `GraphError` code | When |
+| `Problem` code | When |
 | --- | --- |
 | `graph/no-webgl` | No WebGL context, or no GPU device came up. `data.after` is set when the 10 s device deadline fired. |
-| `graph/context-lost` | The browser took the WebGL context back. |
+| `graph/context-lost` | The browser took the WebGL context back and did not return it within 5 s. A context that returns is restored: the canvas is built again over what the store holds, and a layout that was running runs again. |
 | `graph/no-positions` | The device came up but holds no positions for the points it was given, found when the camera read them back. `cause` is what the read threw. |
 | `graph/nothing-to-draw` | The attached graph has no vertex. |
+| `graph/too-large` | The graph has more than 2²⁴ = 16,777,216 vertices, past which an id no longer fits a `Float32` link exactly. `data.count` and `data.limit`. Refused from the catalog's counts (`graphar_vertex_types.count`), before one link is read. |
 
 A part that reads on its own — the search's names, the inspector's row, a label's text — hands its
 failure to the same `onFailure` and shows it in place. A host keys its message on `code` and falls
@@ -773,6 +807,7 @@ The commands, stable for the root's life — `GraphCommands` plus the state's do
 | `reveal(vertex)` | Selects and focuses a vertex with its neighbours and frames them — zooms into a vertex with none — taking the camera from any fit. |
 | `frame()` | Frames what is in full colour: the canvas's selection within what the page's filter keeps, what the filter keeps when nothing is selected, or — when nothing is greyed out — the whole graph: the bound positions' extent, or where the points are once a layout has run, kept framed through a resize. |
 | `clear()` | Clears the selection and the focus. |
+| `retry()` | Runs the load again from the read that failed, and asks the filter again; a no-op unless the graph is `failed` because a read was. A `graph/too-large` fails again with the same code. |
 | `setFocus(vertex)` | Focuses a vertex, or none. |
 | `setTool(tool)` | Arms `"rect"`, `"lasso"`, or `null` for the reading posture. |
 | `subscribe(listener)` / `getState()` | The store, for a callback; a render uses `useGraphState`. |
@@ -805,5 +840,4 @@ are the parts' props, and `GraphCanvasTranslations`, `GraphLegendTranslations`,
 `GraphInspectorTranslations` and `GraphSearchTranslations` their words; `VertexDetail` — `vertex`, `table` and `fields` — is what the
 inspector's render prop receives. `Channels` (`fill`, `symbol`, `stroke`, `x`, `y`, `cluster`), `Placement`, `Look`, `LookPatch`,
 `Shape`, `Sim`, `Motion`, `VertexSelection`, `VertexSelectionSource`, `Tool`, `VertexId`,
-`GraphCommands`, `VertexPick`, `DataStatus` and `Drawn` are the vocabulary, and `GraphError` is the class of the
-graph's own failures.
+`GraphCommands`, `VertexPick`, `DataStatus` and `Drawn` are the vocabulary, and the graph's own failures are the kernel's `Problem`.

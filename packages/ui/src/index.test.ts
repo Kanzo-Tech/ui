@@ -19,8 +19,7 @@ import * as UI from "./index";
  * ## It is an enumeration, not a pin
  *
  * Read the assertions rather than the reputation. There is no `Object.keys(UI)` comparison and no
- * snapshot anywhere below — 141 names asserted present and 63 asserted absent (counted 2026-07-30),
- * every one typed out by hand. So **adding** an export never fails this file, and **removing** one
+ * snapshot anywhere below — every name asserted present or absent is typed out by hand. So **adding** an export never fails this file, and **removing** one
  * fails only if somebody had already written that name down. `Table` is the worked example: ours,
  * and `@tanstack/react-table`'s as well, and it appears in neither list here, so deleting it would
  * leave this green.
@@ -36,7 +35,7 @@ import * as UI from "./index";
  *
  * - **Nothing about the built artefact.** It imports `./index`, which is source. `docs/` resolves
  *   the package to `dist/`, which is how a rename typechecks clean and breaks the docs build.
- *   `documented-exports.test.ts` is the file that reads the emitted `.d.ts`; nothing installs the
+ *   `one-meaning.test.ts` is the file that reads the emitted `.d.ts`; nothing installs the
  *   tarball without the optional peers.
  * - **Nothing about shape.** `toBeTypeOf("function")` is satisfied by any function. A component
  *   that renders nothing, a hook that throws, a recipe whose variant keys were all renamed — each
@@ -364,7 +363,7 @@ describe("@kanzo-tech/ui public surface", () => {
     const surface = UI as Record<string, unknown>;
     // A question put to the person is one part, asked alone in a guided chat's turn or in a row by
     // `Questionnaire` (`/docs/design/admission`, *A question is one part, in `@kanzo-tech/ui`*).
-    // `@kanzo-tech/ai`'s `Question` is gone; `documented-exports.test.ts`'s one-meaning guard is
+    // `@kanzo-tech/ai`'s `Question` is gone; `one-meaning.test.ts`'s guard is
     // what fails if a second package exports the name again.
     for (const name of [
       "Question", "QuestionPrompt", "QuestionDescription", "QuestionChoices", "QuestionChoice",

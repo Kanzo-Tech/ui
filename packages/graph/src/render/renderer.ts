@@ -1,5 +1,5 @@
 import { Graph } from "@cosmos.gl/graph";
-import { GraphError } from "../core/error";
+import { Problem } from "@kanzo-tech/kernel";
 import { greyedOf } from "../core/kept";
 import type { Geometry } from "../core/load";
 import type { Arrangement, GraphStore } from "../core/store";
@@ -7,7 +7,8 @@ import type { GraphCommands, Motion, VertexId } from "../core/types";
 import { resolveLook, type Look } from "./graph-looks";
 import { appearance, forces, paint } from "./graph-model";
 import { resolveSim, type Sim } from "./graph-sim";
-import { createCamera, FIT_DURATION } from "./camera";
+import { createCamera, FIT_DURATION, glide } from "./camera";
+import { nearest } from "./direction";
 import { decayFor, highlighted, LINKS_WHILE_RUNNING, simulating } from "./motion";
 import { cornersOf, placed, placementOf } from "./placement";
 import { holdDevice, webglBox } from "./webgl";
@@ -17,6 +18,8 @@ export interface RendererEvents {
   onFrame?: () => void;
   /** Where the hovered point is in space, as cosmos.gl reports it: no GPU readback per hover. */
   onHover?: (position: [number, number] | null) => void;
+  /** The browser returned a lost context: the renderer is over, and the owner builds another over the store. */
+  onRestore?: () => void;
 }
 
 export interface Renderer extends GraphCommands {
@@ -25,6 +28,14 @@ export interface Renderer extends GraphCommands {
   repaint(): void;
   /** The drawn points inside a screen rectangle or polygon, once the device is ready. */
   hit(shape: { rect: [[number, number], [number, number]] } | { polygon: [number, number][] }): number[];
+  /** The kept, placed vertex nearest `from` the way `direction` points on screen (`from` unset: nearest the centre), or `null`. */
+  toward(from: VertexId | null, direction: readonly [number, number]): VertexId | null;
+  /** The vertex's neighbours, in id order. */
+  neighbours(vertex: VertexId): VertexId[];
+  /** Bring the vertex into view if it is out of it. */
+  show(vertex: VertexId): void;
+  /** Move the camera by a number of screen pixels. */
+  pan(dx: number, dy: number): void;
   destroy(): void;
 }
 
@@ -65,7 +76,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   };
   const box = webglBox();
   if (box === null) {
-    fail(new GraphError("graph/no-webgl", "This browser offers no WebGL context to draw with."));
+    fail(new Problem("graph/no-webgl", "This browser offers no WebGL context to draw with."));
     return null;
   }
 
@@ -141,7 +152,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       onBackgroundClick: () => clear(),
     });
   } catch (error) {
-    fail(new GraphError("graph/no-webgl", "The renderer failed to start.", {}, { cause: error }));
+    fail(new Problem("graph/no-webgl", "The renderer failed to start.", {}, { cause: error }));
     return null;
   }
   const { camera, taken } = createCamera(graph, host, fail);
@@ -275,7 +286,13 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   // two synchronous hit tests answer `[]` until then; only the canvas element has to wait for `ready`.
   graph.setConfigPartial(appearance(look, host));
   graph.render();
-  const release = holdDevice(graph, host, fail, camera.ready);
+  const release = holdDevice(graph, host, {
+    fail,
+    ready: camera.ready,
+    // The GPU's copy of the positions went with the context, so there is nothing for `keep` to read back.
+    lost: () => (shown = null),
+    restored: () => events.onRestore?.(),
+  });
   if (store.getSnapshot().arrangement === null) store.report("settled");
   schedule();
 
@@ -316,7 +333,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     },
     zoomBy(factor) {
       camera.take();
-      graph.setZoomLevel(graph.getZoomLevel() * factor, 220);
+      graph.setZoomLevel(graph.getZoomLevel() * factor, glide(220));
     },
     pause() {
       graph.pause();
@@ -335,17 +352,39 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       if (vertex >= size()) return;
       camera.take();
       const around = focusOn(vertex);
-      if (around.length > 0) graph.fitViewByPointIndices([vertex, ...around], FIT_DURATION, LOCATE_PADDING);
-      else graph.zoomToPointByIndex(vertex, FIT_DURATION, graph.getZoomLevel() * LOCATE_ZOOM, false);
+      if (around.length > 0) graph.fitViewByPointIndices([vertex, ...around], glide(FIT_DURATION), LOCATE_PADDING);
+      else graph.zoomToPointByIndex(vertex, glide(FIT_DURATION), graph.getZoomLevel() * LOCATE_ZOOM, false);
     },
     frame() {
       const visible = store.visible();
       if (visible === null || !greyedOf(store.getSnapshot())) return camera.fit();
       camera.take();
       const vertices = visible.filter((id) => id < size());
-      if (vertices.length > 0) graph.fitViewByPointIndices(vertices, FIT_DURATION, 0.25);
+      if (vertices.length > 0) graph.fitViewByPointIndices(vertices, glide(FIT_DURATION), 0.25);
     },
     clear,
+    toward(from, direction) {
+      const positions = graph.getPointPositions();
+      const [ox, oy] = graph.spaceToScreenPosition([0, 0]);
+      const [ux, uy] = graph.spaceToScreenPosition([1, 1]);
+      const start: [number, number] =
+        from === null
+          ? graph.screenToSpacePosition([host.clientWidth / 2, host.clientHeight / 2])
+          : [positions[2 * from] as number, positions[2 * from + 1] as number];
+      return nearest(positions, store.getSnapshot().kept, start, from === null ? null : direction, [ux - ox, uy - oy], from);
+    },
+    neighbours: (vertex) => [...new Set<number>(graph.getNeighboringPointIndices(vertex) ?? [])].sort((a, b) => a - b),
+    show(vertex) {
+      const positions = graph.getPointPositions();
+      const [x, y] = graph.spaceToScreenPosition([positions[2 * vertex] as number, positions[2 * vertex + 1] as number]);
+      if (x >= 0 && y >= 0 && x <= host.clientWidth && y <= host.clientHeight) return;
+      camera.take();
+      graph.zoomToPointByIndex(vertex, glide(FIT_DURATION), graph.getZoomLevel(), true);
+    },
+    pan(dx, dy) {
+      camera.take();
+      camera.restore({ center: graph.screenToSpacePosition([host.clientWidth / 2 + dx, host.clientHeight / 2 + dy]), zoom: graph.getZoomLevel() });
+    },
     destroy() {
       unsubscribe();
       keep();

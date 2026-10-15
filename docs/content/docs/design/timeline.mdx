@@ -10,6 +10,11 @@ graph's `time-by` setting chooses. The reference is Cosmograph's
 `CosmographTimeline`, read from `@cosmograph/ui` and `@cosmograph/cosmograph` 2.5.1. This page is
 why ours is shaped as it is.
 
+*Status: partly to be built.* The tree announces the window as a `group` carrying `aria-valuetext`,
+gives its brush no keyboard and its bars no text alternative. [The window as two thumbs](#the-window-is-two-thumbs-and-the-bins-are-a-table)
+is decided and not built; the *Breaking* list below is what a consumer edits. The rest of the
+page is the tree.
+
 ## A histogram whose brush owns one clause
 
 **A timeline is three layers of bars over `bin(field)` and an interval brush that publishes one
@@ -160,8 +165,8 @@ the foreground at 1 on hover and focus, and to 0.2 when there is nothing to play
 outlines the glyph alone. It is a plain `button`, not `Button`, whose recipe is the box. It is named *Play time* or *Pause time*, the same words as its
 tooltip, so it does not read as the canvas toolbar's layout transport. The bars take every pixel
 right of it. The window's range is not drawn beside them: the chip reads it, and a slot that changed
-width resized and so rebuilt the plot. It is still read, as a group whose `aria-valuetext` is the
-window. A pause and the end are announced; the steps are not, since one every 50 ms would flood a
+width resized and so rebuilt the plot. It is still read, as the two thumbs of
+[the window](#the-window-is-two-thumbs-and-the-bins-are-a-table). A pause and the end are announced; the steps are not, since one every 50 ms would flood a
 screen reader. Space on the focused figure plays and pauses.
 
 **A clause belongs to the source that published it, and only that source changes it, so play asks
@@ -207,7 +212,7 @@ first paint, as fossil's D4 decided — then a year is a time on the timeline ag
 before the first paint.
 
 **The column is a setting of the graph, not a selector of the part's.** `time-by` sits beside
-*X axis* and *Group by* in `GRAPH_SECTION`, and the root answers its options from the corpus's
+*X axis* and *Group by* in `GRAPH_SECTION`, and the root answers its options from the graph's
 temporal columns, as it answers theirs. Cosmograph's own app configures its timeline the same way, in
 its settings panel. A selector inside the part would have been a second door to a choice the graph
 already makes in one place. None, the default, draws no timeline. The histogram is the union of the
@@ -219,7 +224,7 @@ BETWEEN …` on `vertices`, and only the types with a date can answer it. The ca
 too, so it reads the window as published; a dashboard's relation, or a filter over a type with no
 date, reads it as the page's resolver crosses it — `dense_id IN (SELECT dense_id FROM vertices WHERE
 <the window>)` — the way a dashboard's tiles cross ([one selection across
-relations](/docs/design/crossfilter#step-3-one-selection-across-relations)). It names the key alone,
+relations](/docs/design/crossfilter#one-selection-across-relations)). It names the key alone,
 so every client answers it, without a Binder error. The chip reads *date 1910 – 1940*: the clause
 itself, on the page's one selection.
 
@@ -248,7 +253,7 @@ that the chip does not correct them; then the types without the column are drawn
 window's greyed-out vertices — fainter, or listed in the legend as having no time — and are still
 not kept whole.
 
-**What would reverse it:** a corpus whose times arrive as text with no datatype, such as one written
+**What would reverse it:** a graph whose times arrive as text with no datatype, such as one written
 without a shape. Then a column is offered when its values parse, and the parse is the rule. And for
 the setting: a page with two timelines over one graph, each on its own column. Then the column is a
 prop of the part again, and the setting is the default the root hands it.
@@ -272,22 +277,69 @@ other, is a vertex between its two ends: the W3C's n-ary relations, schema.org's
 `Award` with its `year` stands between the laureate and the category, and LDBC's `knows` is a
 `Knowing` with its `creationDate`. The timeline filters those vertices, and the edges into the
 greyed ones grey with them by the rule that a link needs both its ends. Cosmograph's `useLinksData`,
-a filter over the edges themselves, is not built. A fossil corpus has no edge properties, because a
+a filter over the edges themselves, is not built. A fossil graph has no edge properties, because a
 shape cannot declare one before SHACL 1.2 and Turtle 1.2 are Recommendations; fossil plans them in
 its own `design/later/edge-properties`.
 
-**What would reverse it:** a corpus that writes edge properties. Then an edge table lists its columns
+**What would reverse it:** a graph that writes edge properties. Then an edge table lists its columns
 as a vertex table does, a link gets an index as a vertex does, and a clause over an edge column keeps
 the edges it matches and their endpoints — Cosmograph's rule, `endpointPointsOf`.
+
+## The window is two thumbs, and the bins are a table
+
+**The brushed window is a group of two sliders, one for each edge, and the bars are also a table.**
+The window was announced as a `group` with `aria-valuetext`, an attribute ARIA defines for range roles
+and not for a group, and a pointer drag was the only way to make or move it: a keyboard user could
+play a range somebody else had brushed and could not brush one (WCAG 2.2 SC 2.1.1; and 2.5.7, which
+wants a way to do without dragging what dragging does). The reference is the APG's multi-thumb slider
+pattern, cited from the pattern and not re-read for this page.
+
+- **Two thumbs, always present once the bars are drawn.** `role="slider"` for the start and the end
+  of the window, each named by `translations` (*Start of the window*, *End of the window*) inside a
+  group named *Time window*, with `aria-valuemin` and `aria-valuemax` the extent's, `aria-valuenow`
+  the edge, and `aria-valuetext` the edge as the axis writes it, *1950*. With no window they sit at the
+  extent's ends and no clause exists; a clause exists once a thumb has moved.
+- **Keys.** Left and Right move an edge one bar; Page Up and Page Down a tenth of the bars; Home and
+  End to the extent's ends. An edge cannot cross the other, and the window stays at least one bar wide
+  and sticks to the bars' edges, as the pointer's does. Esc lets the window go, as the chip's × does.
+  Tab order is the start, the end, then Play.
+- **A key is a drag that publishes through the same clause.** It replaces the window's one clause, so a
+  held key collapses to its newest value in the selection's queue and the page is asked once per
+  settled answer, as play is.
+- **A click on a bar is a single-pointer way to set an edge.** It moves the nearer edge to that bar,
+  and Shift extends the window to it (SC 2.5.7). The drag stays; it is not the only way.
+- **The bins are the chart's table** ([the text alternative](/docs/design/analytics#a-chart-has-a-text-alternative-and-the-page-announces-its-filters-once)):
+  a label for each bin and its count in what the page keeps and in the whole, capped like any chart's.
+- **Play starts only when it is pressed**, so it is outside SC 2.2.2's rule for motion that starts by
+  itself, and pause is one press away; under `prefers-reduced-motion` a step takes 500 ms at least,
+  above.
+
+**What it costs:** two tab stops and a key handler on a part that had one button; and a window the
+reader can now make with the keyboard, which publishes a clause with no pointer to reveal it, so the
+chip in the bar is how it is seen and let go.
+
+**What would reverse it:** a screen-reader session in which two sliders read worse than the group
+did, which swaps the role and keeps the keys; or a dragging judged essential by an audit, which drops
+the click-to-set rule and keeps the keys. Conformance is committed to and not audited; the checks are
+those of the analytics page, and the key path is a Playwright case on `TimelineHarness`.
+
+*Not yet held:* `chart-timeline.test.tsx` cases that an edge moves a bar on each arrow key and cannot
+cross the other, that Esc lets the window go, and that the window is two sliders in a named group.
+
+## Breaking, in the consumer's words
+
+- The timeline's window is two `slider`s in a group, not a group with `aria-valuetext`; a test that
+  found the window by the group reads the sliders.
+- The timeline takes focus twice before Play; a host that bound the arrow keys on an ancestor loses
+  them while a thumb has focus.
 
 ## What a test reads
 
 The part is accessible first, in [the testing rule's](/docs/design/testing) order. Play and pause are
 one button, *Play time* or *Pause time*, with `aria-pressed`, disabled and described with no range;
-the chart is `aria-busy` while its query runs; the window the clause holds is a group whose
-`aria-valuetext` reads *1950 – 1960*; and a pause or the end is a status, *Paused at 1950 – 1955*.
-`ChartTimeline` registers its `x` scale under its title in `window.__KANZO_TESTING__.charts` when a
-test has installed the hook. `TimelineHarness` then brushes in data and plays.
+the chart is `aria-busy` while its query runs; the window the clause holds is two sliders whose
+`aria-valuetext` read *1950* and *1960*; and a pause or the end is a status, *Paused at 1950 – 1955*.
+`TimelineHarness` brushes in data through the `x` scale Plot puts on the chart's output, and plays.
 
 *Held by* `packages/ui/src/charts/chart-timeline.test.tsx` ("reads a brushed range as the edges it
 spans, in axis order — the frames play shows"; "has nothing to play without a range, as

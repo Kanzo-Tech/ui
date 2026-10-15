@@ -28,6 +28,26 @@ resource "keycloak_realm" "kanzo" {
 
   ssl_required = "external" # `all` would break plain-http localhost development
 
+  # The baseline, set explicitly so the posture does not rest on a default nobody read. The shape
+  # is here and the production figures are the deployment's (variables.tf), as for hostnames.
+  # Second factor: none is required by the platform. Passkeys below carry user verification, and a
+  # deployment that wants OTP for everyone declares it in its own flow; the package asks for none.
+  password_policy = var.password_policy
+
+  security_defenses {
+    # Temporary lockout, escalating: permanent lockout would let anyone who knows a username lock
+    # that person out for good, which is a denial of service handed to a stranger.
+    brute_force_detection {
+      permanent_lockout                = false
+      max_login_failures               = var.max_login_failures
+      wait_increment_seconds           = 60
+      quick_login_check_milli_seconds  = 1000
+      minimum_quick_login_wait_seconds = 60
+      max_failure_wait_seconds         = var.lockout_max_wait_seconds
+      failure_reset_time_seconds       = 43200
+    }
+  }
+
   # Passkeys beside the password, never instead of it. The username step offers the
   # passkeys a browser holds for this site as autofill (conditional mediation, the
   # default) and a "Sign in with Passkey" button; a passkey skips the password step.
@@ -41,4 +61,18 @@ resource "keycloak_realm" "kanzo" {
     user_verification_requirement = "required"
     discoverable_credential       = "required" # what autofill lists: no username needed
   }
+}
+
+# Login events and admin events, kept for `events_retention_seconds`. The listener is Keycloak's
+# own log, which a deployment ships wherever it ships its logs; the realm stores what the admin
+# console shows and prunes it at the retention.
+resource "keycloak_realm_events" "kanzo" {
+  realm_id = keycloak_realm.kanzo.id
+
+  events_enabled    = true
+  events_expiration = var.events_retention_seconds
+  events_listeners  = ["jboss-logging"]
+
+  admin_events_enabled         = true
+  admin_events_details_enabled = true
 }

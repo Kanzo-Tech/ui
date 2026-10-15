@@ -124,6 +124,19 @@ groups_are() {  # groups_are TOKEN ALIAS NAME...: the token's ids there are exac
 check "every organization's groups are ids, never paths" \
   "$(jq -r '[.organization // {} | .[] | .groups // [] | .[] | startswith("/") | not] | all' <<<"$AT")"
 
+# The realm's baseline (realm/realm.tf), read back through the admin API rather than assumed: the
+# figures are the deployment's, so this checks that each protection is ON, not what it is set to.
+REALM_JSON=$(admin "")
+EVENTS_JSON=$(admin "/events/config")
+check "brute-force detection is on, with a temporary lockout" \
+  "$(jq -r '.bruteForceProtected == true and .permanentLockout == false' <<<"$REALM_JSON")"
+check "a password policy is set" \
+  "$(jq -r '(.passwordPolicy // "") | test("length\\([0-9]+\\)")' <<<"$REALM_JSON")"
+check "login events and admin events are on, with a retention" \
+  "$(jq -r '.eventsEnabled == true and .adminEventsEnabled == true and (.eventsExpiration // 0) > 0' <<<"$EVENTS_JSON")"
+check "$CLIENT does not carry offline_access among its optional scopes" \
+  "$(jq -r '(.[0].optionalClientScopes // []) | index("offline_access") == null' <<<"$(admin "/clients?clientId=$CLIENT")")"
+
 case "$USERNAME" in
   ana)
     check "acme: the ids of Admins and Research, and no name" "$(groups_are "$AT" acme Admins Research)"

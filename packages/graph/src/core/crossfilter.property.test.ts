@@ -60,7 +60,7 @@ async function mapped() {
 
 /**
  * Every clause the page holds at the end, the canvas's included. `null` is no clause; an empty set is
- * a clause that keeps nothing, as `clauseSemiJoin` builds it (`/docs/design/crossfilter`, divergence 10).
+ * a clause that keeps nothing, as `clauseSemiJoin` builds it (`/docs/design/crossfilter#formal-semantics`).
  */
 const held = (state: Record<Source, number[] | null>, canvas: number[] | null) =>
   [...SOURCES.map((s) => state[s]), canvas].filter((set): set is number[] => set !== null);

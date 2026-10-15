@@ -28,32 +28,35 @@ const STATS_KEY = "fossil:stats";
  * Four statements at once, then the footers in two more, each through the page's coordinator and its
  * cache, so the canvas and a join graph built on one page read the catalog once.
  */
-export async function readCatalog(coordinator: Coordinator, from: string): Promise<Structure> {
+export async function readCatalog(coordinator: Coordinator, from: string, signal?: AbortSignal): Promise<Structure> {
   const [types, edgeTypes, properties, engine, chunks] = await Promise.all([
-    ask(coordinator, Query.select("type", { count: cast("count", "DOUBLE") }).from(relation(from, "graphar_vertex_types")).orderby(asc("ordinal"))),
+    ask(coordinator, Query.select("type", { count: cast("count", "DOUBLE") }).from(relation(from, "graphar_vertex_types")).orderby(asc("ordinal")), signal),
     ask(
       coordinator,
       Query.select("name", "src_type", "edge_type", "dst_type", { count: cast("count", "DOUBLE") })
         .from(relation(from, "graphar_edge_types"))
         .orderby(asc("ordinal")),
+      signal,
     ),
     ask(
       coordinator,
       Query.select("type", "property", "is_primary", "is_nullable").from(relation(from, "graphar_properties")).orderby("type", "ordinal"),
+      signal,
     ),
     ask(
       coordinator,
       Query.select("table_name", "column_name", { data_type: cast("data_type", "VARCHAR") })
         .from(sql`duckdb_columns()`)
         .where(and(eq("database_name", literal(from)), eq("schema_name", literal("main")))),
+      signal,
     ),
-    ask(coordinator, Query.select("type", "path").from(relation(from, "graphar_chunks")).where(eq("kind", literal("vertex")))),
+    ask(coordinator, Query.select("type", "path").from(relation(from, "graphar_chunks")).where(eq("kind", literal("vertex"))), signal),
   ]);
 
   const at = (table: unknown, name: unknown) => `${String(table)}\u0000${String(name)}`;
   const engineTypes = new Map<string, string>();
   each(engine, (row) => engineTypes.set(at(row("table_name"), row("column_name")), String(row("data_type"))));
-  const counted = await readCounts(coordinator, chunks, engineTypes);
+  const counted = await readCounts(coordinator, chunks, engineTypes, signal);
 
   const byType = new Map<string, Map<string, Column>>();
   each(properties, (row) => {
@@ -131,6 +134,7 @@ async function readCounts(
   coordinator: Coordinator,
   chunks: Answer,
   engineTypes: ReadonlyMap<string, string>,
+  signal?: AbortSignal,
 ): Promise<Map<string, JoinColumnStats>> {
   const paths: { type: string; path: string }[] = [];
   each(chunks, (row) => paths.push({ type: String(row("type")), path: String(row("path")) }));
@@ -146,6 +150,7 @@ async function readCounts(
             .where(eq(sql`decode(key)`, literal(STATS_KEY))),
         ),
       ),
+      signal,
     ),
     ask(
       coordinator,
@@ -161,6 +166,7 @@ async function readCounts(
           }).from(sql`parquet_metadata(${literal(path)})`),
         ),
       ),
+      signal,
     ),
   ]);
 

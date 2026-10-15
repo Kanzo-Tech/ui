@@ -1,0 +1,223 @@
+---
+title: The layers, and the one rule at each seam
+description: Five layers with imports pointing down, a dependency-free kernel at the bottom, one rule for each place two packages meet, and the guards that make the direction a test instead of a sentence.
+---
+
+The family is nine packages that import each other in one direction and agree on that by
+convention. `theme`, `mosaic`, `llm`, `auth` and `navigation` sit at the bottom, `ui` over them, and
+`ai` and `graph` over `ui`. No import cycle exists. Nothing walks the edges, so nothing would notice
+one, and the sentences that describe the direction have already been wrong once. This page says what
+the direction is, what the lowest layer holds, which rule governs each seam between two packages, and
+which guard holds each rule.
+
+<Callout type="warn">
+**Status: to be built.** The layer map, the kernel, the split of `mosaic` and the guards below are
+decided and not yet in the tree. Where this page and the tree disagree the tree wins, and the
+disagreement is the work. *Breaking*, at the end, lists the changes in a consumer's words; the
+pages named there carry the rest.
+</Callout>
+
+## Five layers, imports point down
+
+| Layer | Holds | Imports |
+| --- | --- | --- |
+| **L0** | `@kanzo-tech/kernel` | nothing |
+| **L1** | `theme`, the `@uwdata/*` door (`@kanzo-tech/mosaic`), `llm`, `auth`, `navigation` | L0 |
+| **L2** | the engine (`@kanzo-tech/mosaic/engine`), `@kanzo-tech/relations` | L0, L1 |
+| **L3** | `ui` (its root, `/table`, `/editor`) | L0, L1, L2 |
+| **L4** | `ai`, `graph`, `ui/analytics` | L0 to L3, and the edges named below |
+
+**A package imports only from a lower layer.** The same layer is a sibling, and a sibling edge exists
+only where this table names it: `ai/data` reads `ui/analytics`, and `graph` reads `ui/analytics`.
+Nothing else at L4 reaches sideways, and nothing at any layer reaches up. `@kanzo-tech/testing` is
+outside the map: production code imports nothing from it, and only a `./testing` entry or a test
+imports it.
+
+**The layer belongs to an entry, not only to a package.** A package's `exports` map spans layers
+when its entries have different reasons to exist: `mosaic` is the door at its root and the engine at
+`/engine`; `ui` is the design system at its root and a Mosaic client at `/analytics`. Each package
+declares one `kanzo.layers` field in its own `package.json` mapping each entry to its layer, so the
+table above is derived from the manifests and has no second copy.
+
+**Why five, and not the concentric circles.** Cockburn's hexagon names *ports* defined by the party
+driving the conversation, and Martin's rule is that source dependencies point inward and what crosses
+is "isolated, simple, data structures" (both read). Both reduce here to a direction and a shape for
+what crosses a seam, and four or five bands carry that. A finer ladder would be a taxonomy nobody
+could test; each band here is tested by one import walk.
+
+**What it deletes.** The sentence in the philosophy page that said `ui` "depends on none of" its
+sibling packages. It was false by the manifest: `ui` depends on `@kanzo-tech/theme` and declares
+`@kanzo-tech/mosaic` as an optional peer, because `ui/analytics` is a Mosaic client. The philosophy
+page now states the narrower rule, and the guard below asserts it: **`ui` imports only a lower layer
+(`theme` everywhere, the `@uwdata` door from `/analytics` alone), never `graph`, `ai` or any package
+beside it, and nothing at a lower layer imports `ui`.** The first draft of this rule said `ui`'s root
+imports no sibling; that was false too, since the root imports `theme`, which is why the sentence was
+written against the manifest and not from memory.
+
+**What would reverse it.** A second package that needs to import upward and cannot be moved: a layer
+whose members all import one another. Then the layers are not layers, and the guard becomes an
+allow-list of edges with no table above it. Until then the ladder costs one field per manifest.
+
+No test holds this yet; the package-layers guard, below, is to be added.
+
+## The kernel holds what four packages each wrote
+
+`@kanzo-tech/kernel` has no dependency, no peer, no React, no DOM and no side effect at import. It
+holds the five things that two or more packages already define for themselves, and nothing else.
+It is the family's counterpart of OpenTelemetry's API package: library code imports a small package
+with nothing behind it, and the application owner installs an implementation (the overview, read:
+"Instrumentation authors MUST NOT directly reference any SDK package"). The budget is about three
+hundred lines, held by a gauge of its own.
+
+| Piece | Is | Replaces |
+| --- | --- | --- |
+| `Problem`, `isProblem` | the one error class, in the shape of RFC 9457's problem details: `code`, `title`, `detail`, `data`, `cause`, `help`, `related`, `severity`; and the structural predicate that narrows an `unknown` | `EngineError` in `mosaic`, `GraphError` in `graph`, `LlmError` in `llm`, `AuthError` in `auth`, and the regex in `ui`'s `Problem` composite |
+| `within` | the bounded wait: `within(ms, work, { signal })`, rejecting with a `Problem` on `AbortSignal.any` composition | the 60 s timer in the engine boot, the 30 s `deadline.ts` in `auth`, the 10 s timer in `graph`'s renderer |
+| `Queryable` and its Arrow-like `Table`, `Vector` | the read-only port: `query(sql, { signal })` resolving to columns | `Table` and `Vector` in `mosaic`, `Answer` in `graph`, the `Pick<Engine, "query">` in `ai/data` |
+| the disposal convention | a `Disposable` type and the symbols `Symbol.dispose` and `Symbol.asyncDispose` for every handle a caller must give back | `release` and `serial` in the engine, each package's own unsubscribe closure |
+| `mark` | `mark(name, start, detail?)`: a `kanzo:`-prefixed `performance.measure` and nothing more | the `kanzo:llm:*` spans written by hand in `llm` |
+
+Each piece has its rule, its motivating failure, its reference and its reversal on
+[the kernel page](/docs/design/kernel) and nowhere else: [`Problem`](/docs/design/kernel#problem),
+[`within`](/docs/design/kernel#within), [`Queryable`](/docs/design/kernel#queryable) (whose contract
+is [the engine's](/docs/design/engine)), [disposal](/docs/design/kernel#disposable) and
+[`mark`](/docs/design/kernel#mark). What this page adds is the direction: every package may import
+the kernel, the kernel imports none of them, and the registry of codes the one class carries is
+[the failure page's](/docs/design/failure#the-registry-is-generated).
+
+## The seams, one rule each
+
+A *seam* is any place two packages, or a package and its host, meet. Each has one rule and one place
+the rule is written.
+
+| Seam | The rule | Owner |
+| --- | --- | --- |
+| a failure crosses a package | a `Problem`, thrown whole, `area/kind` | [kernel](/docs/design/kernel); [failure](/docs/design/failure) |
+| a wait | `within`, by the party that makes the request, once | kernel; [failure](/docs/design/failure) |
+| a read of the database | `Queryable`, and an abort **interrupts the statement** in the engine; an adapter that cannot says so and fails loudly | kernel type; [engine](/docs/design/engine) |
+| a lifecycle | the dispose symbols | kernel |
+| a library reads data | a query on the host's client | [reads](/docs/design/reads) |
+| the engine reaches a chart or a graph | the component takes `engine`; the coordinator is the engine's internal cache and no component accepts one | engine; [analytics](/docs/design/analytics), [graph](/docs/design/graph) |
+| a catalog becomes a model | `JoinGraph` is the one read-model; a reader is a typed `CatalogReader` taking a `Queryable` | `relations` |
+| a model | the AI SDK's `LanguageModel`, with its middleware as the extension point; one registry | `llm`; [ai](/docs/design/ai) |
+| an identity | the `Auth` port with a `SessionStore`; a server door that reaches no React | `auth`; [auth](/docs/design/auth) |
+| a router | the root knows none; a subpath adapts one | `navigation`; [navigation](/docs/design/navigation) |
+| an optional dependency | a subpath for the engine that needs it, per entry, never the root | [naming](/docs/design/naming), the guard below |
+| a test seam | the double goes through the registry production uses; production ships no probe | [testing](/docs/design/testing) |
+| a global | one documented owner per global; a new one is a design decision | the guard below |
+
+The row that moves most is the engine. `mosaic` carried five reasons to change in about fifteen
+hundred lines, so it splits where those lines run: the door stays `@kanzo-tech/mosaic` at L1, the
+engine is `@kanzo-tech/mosaic/engine` at L2 with the DuckDB-WASM dependency declared for that entry
+alone, and the model, the crossfilter and the words move to `@kanzo-tech/relations`. The reasoning for
+each part, and the rule that an abort interrupts the statement, are [the engine's](/docs/design/engine)
+and [relations'](/docs/design/relations); the layer is this page's.
+
+**What would reverse the seam rows.** A row that no host ever branches on, which folds into its
+neighbour; and a second implementation of one row that cannot honour its rule, which makes the
+rule a conformance test and not a sentence. The table is the roster; `ls` of the guards is the
+check that it has not grown a row without one.
+
+## The catalog is a port, and it was not named
+
+The only constructor of a `JoinGraph`, which `ui/analytics`, `ai/data` and `graph` all consume,
+lived in `graph`, the heaviest of the three: a host that wants a dashboard and no canvas installed
+`@kanzo-tech/graph` and `@cosmos.gl/graph` to build a model. The model sat below the code that builds
+it, and the relation names a catalog is read from were swapped for another producer's in exactly one
+function between two releases, which measures that the seam is real and single and shows it was typed
+nowhere. It is typed now: a `CatalogReader`, in `relations`, whose rule and reversal are
+[that page's](/docs/design/relations#a-catalog-is-read-by-a-catalogreader).
+
+## Packaging follows the entry
+
+npm peer declarations are per package, not per entry. `ai/task` imports only `llm` and the AI SDK, its
+file says "No React and no tools", and the package declares `@kanzo-tech/ui` and `@ai-sdk/react` as
+required peers, so the headless task runtime cannot be installed without the design system. The same
+shape had `graph` requiring a WebGL renderer for a model builder and `mosaic` a database for a
+crossfilter.
+
+The rule is that **an entry's static closure reaches only the peers that entry declares**, and a
+package declares them in `kanzo.entryPeers`, a map from entry to the peers it needs. A peer that every
+entry needs is required; a peer that only some need is optional in `peerDependenciesMeta`, and the
+map says which entries need it. `ai` therefore makes `@kanzo-tech/ui` and `@ai-sdk/react` optional
+peers with `./task` needing neither. It extends what the root-only guard already asserts: an optional
+peer is reached from no root entry. A TanStack Query listing (read) shows the core as its own
+package, `query-core`, and Zag ships each machine as a package (intro, read). The family does not
+split the headless cores into packages: it has one adapter, React, and the layer guard makes the split
+real in a directory. It takes the packaging half, which is to say which peer which entry pulls.
+
+**What would reverse it.** A non-React consumer of `ai/task` or `graph/core`: an evaluation runner in
+Node, a worker. Then the core is a package, because a peer map cannot give a consumer a version of its
+own. Today the evaluation harness imports `ai/task` from a React app only.
+
+*Held by* `packages/ui/src/optional-peers.test.ts`, "are reached from no package's root entry",
+for the root entry. Every other entry is to be added with the entry-peers guard, below.
+
+## What dies
+
+- **The test probes that ship.** `charts/testing-probe.ts` in `ui` and `parts/testing-probe.ts` in
+  `graph` are seams in production source reading a global that production "never defines". `llm/local`
+  already removed that pattern and wrote the reason; the rule was applied there and not here. The hook
+  in `@kanzo-tech/testing` becomes an observer of the entries `mark` writes, and the probes are
+  deleted. The line count is about eighty. **What would reverse it:** an assertion that needs a live
+  object an event cannot carry; the chart's Plot scale was the candidate and is not one: Plot puts
+  `scale(channel)` on the output it returns, so `ChartHarness` reads it off the DOM and the chart's
+  probe is deleted. Then the graph's, if it needs one, is the one that stays.
+- **`EngineError`, `GraphError`, `LlmError`, `AuthError`**, and `auth/src/deadline.ts`, the 10 s timer
+  in `graph`'s renderer and the engine's `abandon`: replaced by `Problem` and `within`.
+- **The four definitions of the engine's table type** and the `Pick<Engine, "query">` in `ai/data`.
+  `LocalModelRegistry`, declared twice, once structurally in `testing`.
+- **`Engine.coordinator` as a public field and `registerFileBuffer` in the port** consumers see.
+- **`ai`'s required peers on `ui` and `@ai-sdk/react`** for `./task`.
+
+## The guards
+
+All are specified in `packages/ui/src/` beside `optional-peers.test.ts`, over `SHIPPED` from
+`guard-corpus.ts`, never copied into a second package. Each says what it cannot prove. None exists
+yet, so no *Held by* line cites one by title, and `documented-evidence.test.ts` will not accept a
+citation until it is a real `it()`.
+
+| Guard | Asserts | Cannot prove |
+| --- | --- | --- |
+| `package-layers.test.ts` | the layer table is derived from `kanzo.layers`; every static import in a shipped `src/` is of a lower layer or a named sibling edge; `@kanzo-tech/ui` is imported from no layer below L3 | dynamic `import()` and type-only imports, as `optional-peers.test.ts` skips them; a re-export through a workspace alias |
+| `entry-peers.test.ts` | the static closure of every `exports` entry reaches only the peers `kanzo.entryPeers` lists for it; replaces the root-only walk in `optional-peers.test.ts`, which is deleted when this lands | a peer reached only by a dynamic import |
+| `one-failure-model.test.ts` | every class extending the built-in Error in `SHIPPED` is the kernel's `Problem` or on a short allow-list, and the count of plain `new Error(` per file may not rise | a failure thrown by a dependency; a `Problem` built with a wrong code; that a plain error is a fault and not a condition |
+| `one-deadline.test.ts` | no `setTimeout(` whose callback aborts or rejects, outside the kernel | a wait built on `setInterval` or a promise race; fossil holds the same rule with a lint rule in its own repo |
+| `no-ambient.test.ts` | `Symbol.for(`, `globalThis` and `window.__` appear only in the files that own a documented global: the engine, the local-model registry, the testing hook | a global assigned through a computed key |
+| `client-boundary.test.ts` widened | the corpus becomes every package that declares `react` as a peer, not those that declare `tailwind-variants`, closing the hole [the auth page](/docs/design/auth) names | a directive that survives the source but is lost in `dist/`: only the docs build evaluates that |
+| `stale-citation.test.ts` | every backticked repository path in a design page resolves in the tree, and no page cites `path:NN`: a line number is a claim about a revision | a path that resolves to the wrong file; a symbol renamed inside a real file |
+
+The last row is the architecture's own: this page cites files and symbols and no line numbers, because
+the evidence it was written from was read at one revision and a line number is true only there.
+
+**What would reverse them.** A guard that costs more to keep than the defect costs to fix. The
+cheapest to reverse is `no-ambient`: if the allow-list grows past a handful of files the rule is a
+list, and the list should be a rule of its own.
+
+## References, and how far each was read
+
+| Source | Status | Used for |
+| --- | --- | --- |
+| OpenTelemetry overview | read | the API and SDK split behind the kernel; that the API ships a no-op default is **unverified** |
+| RFC 9457 | read | the shape of `Problem` |
+| ADBC specification | read | the shape of `Queryable` |
+| Cockburn, hexagonal architecture; Martin, dependency rule | read | ports owned by the driver of the conversation; plain data across a seam |
+| TanStack Query package listing; Zag introduction | read | headless core and adapters, and why the family does not split them yet |
+| Auth.js adapter guide; Better Auth database page | read | `SessionStore` as an object of methods |
+| TC39 explicit resource management | read | the dispose symbols |
+| MDN `AbortSignal.any` | read | `within` |
+| Hyrum's Law | read | why a behaviour two repositories state differently is one that diverges |
+| Radix, TanStack Table and Virtual, Parnas, Hickey, SemVer | **unverified** | cited nowhere above as authority |
+
+## Breaking
+
+- `EngineError`, `GraphError`, `LlmError` and `AuthError` are gone. Catch a `Problem`, or narrow with
+  `isProblem`, and read `code`.
+- Crossfilter, `JoinGraph`, the relation words and `readJoinGraph` import from
+  `@kanzo-tech/relations`, not from `@kanzo-tech/mosaic` or `@kanzo-tech/graph`.
+- The engine imports from `@kanzo-tech/mosaic/engine`; `@duckdb/duckdb-wasm` is installed for that
+  entry only.
+- `MosaicProvider`, `GraphRoot` and the analytics components take `engine`, not `coordinator`.
+- `@kanzo-tech/ai` no longer requires `@kanzo-tech/ui` or `@ai-sdk/react` to import `ai/task`.
+- `registerChartForTesting` and its graph twin are gone; `@kanzo-tech/testing` observes the library's
+  `kanzo:` entries instead.

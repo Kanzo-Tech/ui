@@ -54,4 +54,3 @@ export type { DataStatus, Drawn, GraphState } from "./core/state";
 export type { VertexDetail } from "./core/source";
 // The corpus as the join graph `@kanzo-tech/mosaic`'s relations are built over.
 export { readJoinGraph } from "./core/join-graph";
-export { GraphError } from "./core/error";

@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Query,
   and,
@@ -17,6 +19,7 @@ import {
   type ExprNode,
   type FilterExpr,
 } from "@kanzo-tech/mosaic";
+import { until } from "@kanzo-tech/kernel";
 import { DST, KEY, SRC, VERTEX_INDEX, tableOf, type Structure, type VertexTable } from "./structure";
 
 /**
@@ -40,9 +43,16 @@ export interface Answer {
   getChild(name: string): { toArray(): ArrayLike<unknown>; get(index: number): unknown } | null;
 }
 
-/** Run `query` on the coordinator, in Arrow. */
-export const ask = (coordinator: Coordinator, query: Query): Promise<Answer> =>
-  coordinator.query(query, { type: "arrow" }) as Promise<Answer>;
+/**
+ * Run `query` on the coordinator, in Arrow. An abort rejects with the signal's reason and takes the
+ * request off the coordinator's queue; a statement already running is not interrupted, since the
+ * coordinator has no way to say so.
+ */
+export function ask(coordinator: Coordinator, query: Query, signal?: AbortSignal): Promise<Answer> {
+  const result = coordinator.query(query, { type: "arrow" });
+  signal?.addEventListener("abort", () => coordinator.cancel([result]), { once: true });
+  return until(result as Promise<Answer>, signal);
+}
 
 const values = (answer: Answer, name: string): ArrayLike<unknown> => answer.getChild(name)?.toArray() ?? [];
 
@@ -54,23 +64,25 @@ export async function readColumns(
   coordinator: Coordinator,
   structure: Structure,
   select: readonly string[],
+  signal?: AbortSignal,
 ): Promise<{ table: VertexTable; answer: Answer }[]> {
   return Promise.all(
     structure.vertices.map(async (table) => {
       const projection = Object.fromEntries(select.map((c) => [c, table.columns.has(c) ? c : literal(null)]));
-      const answer = await ask(coordinator, Query.select(projection).from(table.table).orderby(KEY));
+      const answer = await ask(coordinator, Query.select(projection).from(table.table).orderby(KEY), signal);
       return { table, answer };
     }),
   );
 }
 
 /** `[src, dst, …]` over every relation, as cosmos.gl takes links. */
-export async function readLinks(coordinator: Coordinator, structure: Structure): Promise<Float32Array> {
+export async function readLinks(coordinator: Coordinator, structure: Structure, signal?: AbortSignal): Promise<Float32Array> {
   const answers = await Promise.all(
     structure.edges.map((edge) =>
       ask(
         coordinator,
         Query.select({ src: float64(SRC), dst: float64(DST) }).from(edge.table),
+        signal,
       ),
     ),
   );

@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import { sealedCookie } from "./cookie-session";
 import { statelessStore, ticketStore, type SessionRecord, type SessionStore } from "./store";
 import { inMemoryAdapter } from "./test/fake-keycloak";
-import { AuthError, type Session } from "./types";
+import { Problem } from "@kanzo-tech/kernel";
+import type { Session } from "./types";
 
 const SESSION: Session = {
   user: { id: "u-1", email: "ada@example.test", name: "Ada" },
@@ -62,7 +63,7 @@ describe("SessionStore", () => {
   it("is satisfied by a store that enforces one live session per person", async () => {
     // The interface exists for a product that allows one session per user and revokes on
     // sign-out. Forty lines here is the whole of what that costs, and writing it is the check
-    // that the five methods are the right five.
+    // that the six methods are the right six.
     const records = new Map<string, SessionRecord>();
     const live = new Map<string, string>();
     let next = 0;
@@ -91,6 +92,9 @@ describe("SessionStore", () => {
         const ticket = live.get(sub);
         if (ticket !== undefined) records.delete(ticket);
       },
+      async seen() {
+        return false;
+      },
     };
 
     const first = await oneEach.put(RECORD);
@@ -112,7 +116,7 @@ describe("ticketStore", () => {
    * and a deployment that forgot to race its client must not hang a page on a store that stopped
    * answering.
    */
-  it("gives up on an adapter call that never answers, after 30 s and not before, as session/silent", async () => {
+  it("gives up on an adapter call that never answers, after 5 s and not before, as session/silent", async () => {
     vi.useFakeTimers();
     try {
       const hung = new Promise<never>(() => {});
@@ -136,12 +140,12 @@ describe("ticketStore", () => {
           settled(error);
           return error;
         });
-        await vi.advanceTimersByTimeAsync(29_999);
+        await vi.advanceTimersByTimeAsync(4_999);
         expect(settled).not.toHaveBeenCalled();
         await vi.advanceTimersByTimeAsync(1);
         const failed = await outcome;
-        expect(failed).toBeInstanceOf(AuthError);
-        expect(failed).toMatchObject({ code: "session/silent", data: { after: 30_000 } });
+        expect(failed).toBeInstanceOf(Problem);
+        expect(failed).toMatchObject({ code: "session/silent", data: { after: 5_000 } });
       }
     } finally {
       vi.useRealTimers();

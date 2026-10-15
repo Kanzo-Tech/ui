@@ -203,10 +203,22 @@ report, in one callback, for a host that learns from it:
 ```ts
 interface AssistEvent {
   kind: "shown" | "accepted" | "partial" | "rejected" | "ignored";
-  proposal: Proposal<string>; // the Task's: { value, target, rationale?, … }
   field: string;      // the field's accessible name
+  proposal?: Proposal<string>; // the Task's: { value, target, rationale?, … } — only with `includeText`
 }
 ```
+
+An event carries no text a person wrote or the model wrote from it unless the provider sets
+`includeText`: a host that sends events to analytics turns that on knowing what its telemetry then
+holds. *Held by* `packages/ai/src/assist.test.tsx`, "reports what happened to a field, never the
+text, unless the provider opts in".
+
+## Secrets
+
+A password input, and any control whose `autocomplete` is `cc-*`, `one-time-code`,
+`current-password` or `new-password`, gets no ✨, asks nothing and is never read for the model,
+whatever `Assist` wraps. *Held by* `packages/ai/src/assist.test.tsx`, "offers nothing on %s, and
+reads none of it".
 
 ## When asking fails
 
@@ -214,8 +226,8 @@ A refused call, a broken stream or a model that goes silent does not read as "No
 The field says it failed under itself — the error's own message, or the `failed` translation when it
 has none — and `onFailure` on the provider receives what was thrown, whole. Each ask is made once:
 a failure is not retried, so what arrives is the first attempt's own error. A page that cannot run
-the model arrives as `@kanzo-tech/llm`'s `LlmError`, `code` `"llm/unavailable"` — see
-[`@kanzo-tech/llm`](/docs/ai/llm#llmerror); anything else as the model threw it, so a host branches on
+the model arrives as a `Problem` from `@kanzo-tech/llm`, `code` `"llm/unavailable"` — see
+[`@kanzo-tech/llm`](/docs/ai/llm#failures); anything else as the model threw it, so a host branches on
 `error.code`.
 
 *Held by* `packages/ai/src/assist.test.tsx`, "says so under the field and hands the provider's
@@ -230,6 +242,7 @@ onFailure the thrown value", "asks once: an error the SDK would retry is the fai
 | `model` | `LanguageModel` | What every field below asks — `localModel(…)` |
 | `context` | `string \| () => string \| undefined` | What the rest of the form says; a function is read when a field asks |
 | `onEvent` | `(event: AssistEvent) => void` | Each proposal's life |
+| `includeText` | `boolean` | Whether an event carries the `proposal` text. Default `false` |
 | `onFailure` | `(error: unknown) => void` | What a field's ask threw, whole |
 | `translations` | `Partial<AssistTranslations>` | Every word the fields below draw or announce |
 

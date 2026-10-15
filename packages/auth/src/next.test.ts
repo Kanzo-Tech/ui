@@ -98,4 +98,29 @@ describe("@kanzo-tech/auth/next", () => {
     expect(source("next-auth")).toContain('from "next/headers"');
     expect(source("next-auth")).toContain('from "next/navigation"');
   });
+
+  /**
+   * An application with an API carries an access token the stateless cookie cannot hold (6407 bytes
+   * against 4096, failing at the callback after a successful login) and has a reason to revoke. The
+   * types say so; this is for a config built from data the types never saw. A deployment fault, so a
+   * plain `Error`, thrown when the config is first read.
+   */
+  it("refuses to be built with an API and no store", async () => {
+    const config = {
+      issuer: "https://id.example.test/realms/kanzo",
+      clientId: "board",
+      secret: "a-secret-nobody-chose-by-hand",
+      apis: { "/api/data": { audience: "reports", target: "https://reports.internal" } },
+    };
+
+    await expect(door.kanzoAuth(config as never).api.GET(new Request("https://app.example.test/api/data/x"))).rejects.toThrow(
+      /`store` is required when `apis` is configured/,
+    );
+    // And an application that calls no API keeps the stateless default.
+    await expect(
+      door
+        .kanzoAuth({ ...config, apis: undefined })
+        .routes.GET(new Request("https://app.example.test/api/auth/session", { headers: { "sec-fetch-site": "same-origin" } })),
+    ).resolves.toHaveProperty("status", 401);
+  });
 });

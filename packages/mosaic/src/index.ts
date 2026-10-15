@@ -136,7 +136,7 @@ export { type TableExpr } from "./table.js";
  * the only door to `wasmConnector`, which is why that is no longer re-exported: a second boot is a
  * second database, and every host that wrote its own boot also wrote its own registry policy.
  */
-export { engine, EngineError, type Engine } from "./engine.js";
+export { engine, type Engine } from "./engine.js";
 
 /** Ours: what a query threw, from the `QueryError` mosaic-core hands a client's `queryError`. */
 export { queryFailure } from "./failure.js";
@@ -167,4 +167,5 @@ export {
  * Ours: a thing's words are its labels — its `rdfs:label` in the page's language, a type named by its
  * naming column, and the identifier split as the last resort, never inflected. `words.ts`.
  */
-export { labelOf, namingColumn, splitWords } from "./words.js";
+export { edgeWords, labelOf, namingColumn, splitWords, typeWords } from "./words.js";
+export { withMapping, type MappingModel } from "./mapping.js";

@@ -1,5 +1,7 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { BOUNDS } from "./deadline";
+import { statelessStore, ticketStore, type SessionStore } from "./store";
 import { kanzoAuth, type KanzoAuth, type KanzoAuthConfig } from "./next-auth";
 import {
   CLIENT_ID,
@@ -7,7 +9,9 @@ import {
   ORIGIN,
   SECRET,
   asRequestHeader,
+  fromPage,
   fakeKeycloak,
+  inMemoryAdapter,
   type Realm,
 } from "./test/fake-keycloak";
 
@@ -15,7 +19,7 @@ const TARGET = "https://reports.internal/v1";
 
 describe("kanzoAuth().api", () => {
   let realm: Realm;
-  let config: KanzoAuthConfig;
+  let config: KanzoAuthConfig & { readonly store: SessionStore };
   let routes: KanzoAuth["routes"];
   /** The resource server, and every request that reached it. */
   let upstream: ReturnType<typeof vi.fn<typeof globalThis.fetch>>;
@@ -32,6 +36,7 @@ describe("kanzoAuth().api", () => {
       secret: SECRET,
       fetch: realm.fetchImpl,
       apis: { "/api/data": { audience: "reports", target: TARGET } },
+      store: ticketStore(inMemoryAdapter().adapter),
     };
     const auth = kanzoAuth(config);
     routes = auth.routes;
@@ -52,13 +57,13 @@ describe("kanzoAuth().api", () => {
     vi.unstubAllGlobals();
   });
 
-  async function signIn(): Promise<string> {
-    const started = await routes.GET(new Request(`${ORIGIN}/api/auth/signin`));
+  async function signIn(through: KanzoAuth["routes"] = routes): Promise<string> {
+    const started = await through.GET(fromPage(`${ORIGIN}/api/auth/signin`));
     const away = new URL(started.headers.get("location") ?? "");
     realm.state.idTokenClaims = { nonce: away.searchParams.get("nonce"), sub: "u-1" };
 
-    const done = await routes.GET(
-      new Request(`${ORIGIN}/api/auth/callback?code=c&state=${away.searchParams.get("state")}`, {
+    const done = await through.GET(
+      fromPage(`${ORIGIN}/api/auth/callback?code=c&state=${away.searchParams.get("state")}`, {
         headers: { cookie: asRequestHeader(started.headers.getSetCookie()) },
       }),
     );
@@ -75,7 +80,7 @@ describe("kanzoAuth().api", () => {
     const cookie = await signIn();
 
     const response = await proxy.GET(
-      new Request(`${ORIGIN}/api/data/reports/7?format=csv`, { headers: { cookie } }),
+      fromPage(`${ORIGIN}/api/data/reports/7?format=csv`, { headers: { cookie } }),
     );
 
     expect(sent().url.href).toBe("https://reports.internal/v1/reports/7?format=csv");
@@ -95,7 +100,7 @@ describe("kanzoAuth().api", () => {
       },
     });
 
-    await tenanted.api.GET(new Request("https://acme.app.test/api/data/reports/7", { headers: { cookie } }));
+    await tenanted.api.GET(fromPage("https://acme.app.test/api/data/reports/7", { headers: { cookie } }));
 
     expect(sent().url.href).toBe("https://acme.reports.internal/v1/reports/7");
   });
@@ -110,7 +115,7 @@ describe("kanzoAuth().api", () => {
       },
     });
 
-    const response = await tenanted.api.GET(new Request("https://app.test/api/data/reports/7", { headers: { cookie } }));
+    const response = await tenanted.api.GET(fromPage("https://app.test/api/data/reports/7", { headers: { cookie } }));
 
     expect(response.status).toBe(404);
     expect(upstream).not.toHaveBeenCalled();
@@ -120,7 +125,7 @@ describe("kanzoAuth().api", () => {
     realm.state.accessToken = "session";
     const cookie = await signIn();
 
-    await proxy.GET(new Request(`${ORIGIN}/api/data/reports`, { headers: { cookie } }));
+    await proxy.GET(fromPage(`${ORIGIN}/api/data/reports`, { headers: { cookie } }));
 
     expect(sent().headers.get("authorization")).toBe("Bearer session>reports");
   });
@@ -129,7 +134,7 @@ describe("kanzoAuth().api", () => {
     const cookie = await signIn();
     const tenanted = kanzoAuth({ ...config, organization: (request) => request.url.hostname.split(".")[0] });
 
-    await tenanted.api.GET(new Request("https://acme.app.test/api/data/reports", { headers: { cookie } }));
+    await tenanted.api.GET(fromPage("https://acme.app.test/api/data/reports", { headers: { cookie } }));
 
     expect(sent().headers.get("authorization")).toBe("Bearer at-1>reports@acme");
   });
@@ -141,11 +146,11 @@ describe("kanzoAuth().api", () => {
     const cookie = await signIn();
     const tenanted = kanzoAuth({ ...config, organization: (request) => request.url.hostname.split(".")[0] });
 
-    const response = await tenanted.api.GET(new Request("https://acme.app.test/api/data/reports", { headers: { cookie } }));
+    const response = await tenanted.api.GET(fromPage("https://acme.app.test/api/data/reports", { headers: { cookie } }));
 
     expect(response.status).toBe(403);
     expect(response.headers.get("content-type")).toBe("application/problem+json");
-    expect(await response.json()).toMatchObject({ status: 403, title: "Forbidden", code: "organization/denied" });
+    expect(await response.json()).toMatchObject({ status: 403, title: "The organization is not permitted", code: "organization/denied" });
     expect(upstream).not.toHaveBeenCalled();
   });
 
@@ -153,7 +158,7 @@ describe("kanzoAuth().api", () => {
     const cookie = await signIn();
     realm.state.refusingExchange = true;
 
-    const response = await proxy.GET(new Request(`${ORIGIN}/api/data/reports`, { headers: { cookie } }));
+    const response = await proxy.GET(fromPage(`${ORIGIN}/api/data/reports`, { headers: { cookie } }));
 
     expect(response.status).toBe(502);
     expect(await response.json()).toMatchObject({ code: "token/exchange-failed" });
@@ -170,8 +175,8 @@ describe("kanzoAuth().api", () => {
       },
     });
 
-    await both.api.POST(new Request(`${ORIGIN}/api/search/query`, { method: "POST", headers: { cookie } }));
-    await both.api.GET(new Request(`${ORIGIN}/api/searches/7`, { headers: { cookie } }));
+    await both.api.POST(fromPage(`${ORIGIN}/api/search/query`, { method: "POST", headers: { cookie } }));
+    await both.api.GET(fromPage(`${ORIGIN}/api/searches/7`, { headers: { cookie } }));
 
     const [search, reports] = upstream.mock.calls.map(([url, init]) => ({
       url: String(url),
@@ -190,7 +195,7 @@ describe("kanzoAuth().api", () => {
   it("does not forward the session cookie", async () => {
     const cookie = await signIn();
 
-    await proxy.GET(new Request(`${ORIGIN}/api/data/reports`, { headers: { cookie } }));
+    await proxy.GET(fromPage(`${ORIGIN}/api/data/reports`, { headers: { cookie } }));
 
     expect(sent().headers.has("cookie")).toBe(false);
     expect(JSON.stringify([...sent().headers])).not.toContain("kanzo-session");
@@ -200,7 +205,7 @@ describe("kanzoAuth().api", () => {
     const cookie = await signIn();
 
     await proxy.GET(
-      new Request(`${ORIGIN}/api/data/reports`, {
+      fromPage(`${ORIGIN}/api/data/reports`, {
         headers: {
           cookie,
           connection: "keep-alive",
@@ -230,7 +235,7 @@ describe("kanzoAuth().api", () => {
     const cookie = await signIn();
 
     await proxy.POST(
-      new Request(`${ORIGIN}/api/data/reports`, {
+      fromPage(`${ORIGIN}/api/data/reports`, {
         method: "POST",
         headers: {
           cookie,
@@ -256,7 +261,7 @@ describe("kanzoAuth().api", () => {
     const cookie = await signIn();
 
     await proxy.GET(
-      new Request(`${ORIGIN}/api/data/reports`, {
+      fromPage(`${ORIGIN}/api/data/reports`, {
         headers: { cookie, authorization: "Bearer somebody-elses" },
       }),
     );
@@ -278,7 +283,7 @@ describe("kanzoAuth().api", () => {
     const cookie = await signIn();
 
     const response = await proxy.GET(
-      new Request(`${ORIGIN}/api/data/reports`, { headers: { cookie } }),
+      fromPage(`${ORIGIN}/api/data/reports`, { headers: { cookie } }),
     );
 
     expect(response.headers.has("content-encoding")).toBe(false);
@@ -297,7 +302,7 @@ describe("kanzoAuth().api", () => {
     const cookie = await signIn();
 
     const response = await proxy.GET(
-      new Request(`${ORIGIN}/api/data/reports`, { headers: { cookie } }),
+      fromPage(`${ORIGIN}/api/data/reports`, { headers: { cookie } }),
     );
 
     expect(response.headers.getSetCookie()).toEqual([]);
@@ -310,7 +315,7 @@ describe("kanzoAuth().api", () => {
     const cookie = await signIn();
 
     const response = await proxy.GET(
-      new Request(`${ORIGIN}/api/data/reports`, { headers: { cookie } }),
+      fromPage(`${ORIGIN}/api/data/reports`, { headers: { cookie } }),
     );
 
     expect(sent().init.redirect).toBe("manual");
@@ -323,7 +328,7 @@ describe("kanzoAuth().api", () => {
     const body = new Blob(["a".repeat(64)]).stream();
 
     await proxy.POST(
-      new Request(`${ORIGIN}/api/data/imports`, { method: "POST", body, headers: { cookie }, duplex: "half" } as RequestInit),
+      fromPage(`${ORIGIN}/api/data/imports`, { method: "POST", body, headers: { cookie }, duplex: "half" } as RequestInit),
     );
 
     const { init } = sent();
@@ -332,7 +337,7 @@ describe("kanzoAuth().api", () => {
   });
 
   it("answers 401 without asking upstream when there is no session", async () => {
-    const response = await proxy.GET(new Request(`${ORIGIN}/api/data/reports`));
+    const response = await proxy.GET(fromPage(`${ORIGIN}/api/data/reports`));
 
     expect(response.status).toBe(401);
     expect(await response.json()).toMatchObject({ code: "session/absent" });
@@ -343,7 +348,7 @@ describe("kanzoAuth().api", () => {
     const cookie = await signIn();
 
     const response = await proxy.GET(
-      new Request(`${ORIGIN}/api/data/reports`, {
+      fromPage(`${ORIGIN}/api/data/reports`, {
         headers: { cookie, "sec-fetch-site": "cross-site" },
       }),
     );
@@ -352,13 +357,24 @@ describe("kanzoAuth().api", () => {
     expect(upstream).not.toHaveBeenCalled();
   });
 
-  it("renews an expiring token and attaches the reissued cookie to the answer", async () => {
-    realm.state.expiresIn = 20;
+  it("answers 403 without asking upstream when the request carries neither Sec-Fetch-Site nor Origin", async () => {
     const cookie = await signIn();
 
+    const response = await proxy.GET(new Request(`${ORIGIN}/api/data/reports`, { headers: { cookie } }));
+
+    expect(response.status).toBe(403);
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  /** The stateless store, chosen explicitly: the ticket is the record, so a renewal re-seals the cookie. */
+  it("renews an expiring token and attaches the reissued cookie to the answer", async () => {
+    const stateless = kanzoAuth({ ...config, store: statelessStore() });
+    realm.state.expiresIn = 20;
+    const cookie = await signIn(stateless.routes);
+
     realm.state.accessToken = "renewed";
-    const response = await proxy.GET(
-      new Request(`${ORIGIN}/api/data/reports`, { headers: { cookie } }),
+    const response = await stateless.api.GET(
+      fromPage(`${ORIGIN}/api/data/reports`, { headers: { cookie } }),
     );
 
     expect(response.status).toBe(200);
@@ -373,7 +389,7 @@ describe("kanzoAuth().api", () => {
     const cookie = await signIn();
     realm.state.refusingRefresh = true;
 
-    const response = await proxy.GET(new Request(`${ORIGIN}/api/data/reports`, { headers: { cookie } }));
+    const response = await proxy.GET(fromPage(`${ORIGIN}/api/data/reports`, { headers: { cookie } }));
 
     expect(response.status).toBe(401);
     expect(response.headers.getSetCookie()[0]).toContain("Max-Age=0");
@@ -391,7 +407,7 @@ describe("kanzoAuth().api", () => {
       new TypeError("fetch failed", { cause: Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }) }),
     );
 
-    const response = await proxy.GET(new Request(`${ORIGIN}/api/data/reports?q=secret`, { headers: { cookie } }));
+    const response = await proxy.GET(fromPage(`${ORIGIN}/api/data/reports?q=secret`, { headers: { cookie } }));
 
     expect(response.status).toBe(502);
     expect(response.headers.get("content-type")).toBe("application/problem+json");
@@ -400,11 +416,82 @@ describe("kanzoAuth().api", () => {
     expect(JSON.stringify(body)).not.toContain("reports.internal");
   });
 
+  /** An upstream that connected and says nothing, and goes when its request is aborted. */
+  function hang(): void {
+    upstream.mockImplementation(
+      (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
+        }),
+    );
+  }
+
+  it("answers 504, as a problem naming api/silent, when the API sends no headers within the bound", async () => {
+    const cookie = await signIn();
+    hang();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const pending = proxy.GET(fromPage(`${ORIGIN}/api/data/reports`, { headers: { cookie } }));
+      let settled = false;
+      void pending.then(() => (settled = true));
+      await vi.waitFor(() => expect(upstream).toHaveBeenCalledTimes(1));
+      await vi.advanceTimersByTimeAsync(BOUNDS.forwarder - 1_000);
+      expect(settled).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      const response = await pending;
+
+      expect(response.status).toBe(504);
+      expect(response.headers.get("content-type")).toBe("application/problem+json");
+      expect(await response.json()).toMatchObject({
+        status: 504,
+        code: "api/silent",
+        data: { after: BOUNDS.forwarder },
+      });
+      expect(upstream.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("aborts the upstream request when the client's signal aborts", async () => {
+    const cookie = await signIn();
+    hang();
+    const client = new AbortController();
+
+    const pending = proxy.GET(fromPage(`${ORIGIN}/api/data/reports`, { headers: { cookie }, signal: client.signal }));
+    await vi.waitFor(() => expect(upstream).toHaveBeenCalledTimes(1));
+    const signal = upstream.mock.calls[0]?.[1]?.signal;
+    expect(signal?.aborted).toBe(false);
+
+    client.abort();
+
+    await expect(pending).rejects.toBeDefined();
+    expect(signal?.aborted).toBe(true);
+  });
+
+  it("does not end a response body on the clock once the headers have arrived", async () => {
+    const cookie = await signIn();
+    let stream: ReadableStreamDefaultController<Uint8Array> | undefined;
+    upstream.mockResolvedValue(new Response(new ReadableStream({ start: (c) => void (stream = c) })));
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const response = await proxy.GET(fromPage(`${ORIGIN}/api/data/events`, { headers: { cookie } }));
+      await vi.advanceTimersByTimeAsync(BOUNDS.forwarder * 4);
+      expect(upstream.mock.calls[0]?.[1]?.signal?.aborted).toBe(false);
+      stream?.enqueue(new TextEncoder().encode("late"));
+      stream?.close();
+      expect(await response.text()).toBe("late");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("passes an API's own 500 through, because an answer with an error status is still its answer", async () => {
     const cookie = await signIn();
     upstream.mockResolvedValue(new Response("upstream broke", { status: 500, headers: { "x-from": "upstream" } }));
 
-    const response = await proxy.GET(new Request(`${ORIGIN}/api/data/reports`, { headers: { cookie } }));
+    const response = await proxy.GET(fromPage(`${ORIGIN}/api/data/reports`, { headers: { cookie } }));
 
     expect(response.status).toBe(500);
     expect(await response.text()).toBe("upstream broke");
@@ -421,12 +508,12 @@ describe("kanzoAuth().api", () => {
     });
 
     await expect(
-      proxy.GET(new Request(`${ORIGIN}/api/data/reports`, { headers: { cookie }, signal: client.signal })),
+      proxy.GET(fromPage(`${ORIGIN}/api/data/reports`, { headers: { cookie }, signal: client.signal })),
     ).rejects.toBe(aborted);
   });
 
   it("answers 404 when kanzoAuth was given no apis", async () => {
-    const response = await kanzoAuth({ ...config, apis: undefined }).api.GET(new Request(`${ORIGIN}/api/data/reports`));
+    const response = await kanzoAuth({ ...config, apis: undefined }).api.GET(fromPage(`${ORIGIN}/api/data/reports`));
 
     expect(response.status).toBe(404);
   });
@@ -442,7 +529,7 @@ describe("kanzoAuth().api", () => {
       }) as typeof globalThis.fetch,
     }).api;
 
-    const response = await down.GET(new Request(`${ORIGIN}/api/data/reports`, { headers: { cookie } }));
+    const response = await down.GET(fromPage(`${ORIGIN}/api/data/reports`, { headers: { cookie } }));
 
     expect(response.status).toBe(502);
     expect(upstream).not.toHaveBeenCalled();
@@ -459,7 +546,7 @@ describe("kanzoAuth().api", () => {
     const cookie = await signIn();
 
     for (const path of ["/api/data/../admin", "/api/data/%2e%2e/admin", "/api/data/a/%2E%2E/%2E%2E/admin"]) {
-      const response = await proxy.GET(new Request(`${ORIGIN}${path}`, { headers: { cookie } }));
+      const response = await proxy.GET(fromPage(`${ORIGIN}${path}`, { headers: { cookie } }));
       expect(response.status).toBe(400);
     }
     expect(upstream).not.toHaveBeenCalled();
@@ -468,7 +555,7 @@ describe("kanzoAuth().api", () => {
   it("cannot be steered onto another host by a path that looks like one", async () => {
     const cookie = await signIn();
 
-    await proxy.GET(new Request(`${ORIGIN}/api/data//evil.test/collect`, { headers: { cookie } }));
+    await proxy.GET(fromPage(`${ORIGIN}/api/data//evil.test/collect`, { headers: { cookie } }));
 
     // `//evil.test/collect` parsed as a *URL* is protocol-relative and names another host, which
     // is what composing this as a string rather than assigning `pathname` would have produced.

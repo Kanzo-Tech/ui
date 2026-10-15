@@ -50,8 +50,7 @@ when it is applied.
 
 An export whose only consumer is one `docs/examples/<slug>/` directory has not met admission rule 2.
 Delete the export. Keep the symbol when its own root renders it. An example is the page proving the
-part exists, not a consumer choosing it — and there is no compatibility question, because nothing is
-published.
+part exists, not a consumer choosing it.
 
 The care this needs is the whole finding. A naive sweep breaks components: an export can have no
 *export* consumer purely because its own root renders it — `SheetOverlay`, `SheetPositioner`,
@@ -390,8 +389,7 @@ never shipped. The conclusion survived its premise — which is the shape
 would make the engine public in a third package rather than move it back.
 
 *Held by* `packages/ui/src/index.test.ts`, "drops components superseded by composition or a merge",
-`!SuggestRoot`, `!CompleteRoot`, `!useAiStream`; `packages/ui/src/documented-exports.test.ts`,
-"resolves every entry point and every declared peer".
+`!SuggestRoot`, `!CompleteRoot`, `!useAiStream`.
 
 ## AI assist wraps the pure inputs
 
@@ -463,9 +461,13 @@ outside consumer; if it lands on inventing its own `<pre>` too, that is the seco
 two call sites that each wrote the reading by hand — a host's error view, over `Diagnostic`'s parts,
 and the graph docs' failure overlay, a `code` lookup over an `Alert` — and it reads **a shape, not a
 class**: `code` in `area/kind`, `title`, `message`, `data`, `cause`, and `severity`, `help` and
-`related` where they are present. Every library here already throws that shape (`AuthError`,
-`GraphError`, `EngineError`, `LlmError`, fossil's `FossilError`, a host's `ApiError`), so importing
-none of them is what lets one component show all of them, and one more nobody has written yet.
+`related` where they are present. The library is to throw one class, the kernel's
+[`Problem`](/docs/design/kernel#problem), and the four it throws today are to go (*to be built*; the
+tree wins until then), and the shape is still what is read: fossil's `FossilError`, a host's `ApiError` and a `Problem` rebuilt from a worker's
+message are other objects of the same shape, so the composite imports no class and tests with
+`isCode`. That is what lets one component show all of them, and one more nobody has written yet. The
+composite and the class share a name; [the kernel page](/docs/design/kernel#one-name-two-things) says
+how a file that needs both spells it.
 
 **The words are the host's, through one function.** `describe(code, data)` returns a title, a
 detail, a link and the page that explains the code, or nothing. It is not a translation — it is the
@@ -560,7 +562,7 @@ only the sequence around it", `!QuestionnaireItem`, `!QuestionnaireChoice`;
 `packages/ui/src/composites/question.test.tsx`, "is a radio group named by its prompt, a choice per
 radio, outside any questionnaire"; `packages/ui/src/composites/Questionnaire.test.tsx`, "says every
 word in the root's translations, and a question's own win for that question";
-`packages/ui/src/documented-exports.test.ts`, "gives each name one meaning across every entry, and
+`packages/ui/src/one-meaning.test.ts`, "gives each name one meaning across every entry, and
 shadows none of the language's".
 
 ## A composite stays where a product calls it

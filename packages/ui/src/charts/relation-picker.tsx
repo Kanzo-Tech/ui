@@ -1,6 +1,6 @@
 "use client";
 
-import { labelOf, relationHops, type Hop, type JoinEdge, type JoinGraph, type Relation, type RelationHop } from "@kanzo-tech/mosaic";
+import { edgeWords, relationHops, typeWords, type Hop, type JoinEdge, type JoinGraph, type Relation, type RelationHop } from "@kanzo-tech/mosaic";
 import { useId, useMemo } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
@@ -73,21 +73,6 @@ export interface RelationPickerProps extends Omit<React.ComponentProps<typeof ar
 /** Above this many rows per row of the type a hop leaves, its fan-out warns. */
 const WARN = 10;
 
-/**
- * A name in words, where nothing labels it — the last resort, and it never inflects:
- * `isLocatedIn` → `is located in`, `TagClass` → `tag class`; an acronym keeps its case.
- */
-const split = (name: string) =>
-  name
-    .split(/(?<=[a-z0-9])(?=[A-Z])|[_\s]+/)
-    .filter(Boolean)
-    .map((w) => (w.length > 1 && w === w.toUpperCase() ? w : w.toLowerCase()))
-    .join(" ");
-
-/** What a type is called: its `rdfs:label` in the page's language, else its name in words. */
-const typeWords = (graph: JoinGraph, name: string) => labelOf(graph.types.find((t) => t.name === name)?.annotations) ?? split(name);
-/** What an edge is called: its `rdfs:label`, else its label in words. */
-const edgeWords = (edge: JoinEdge) => labelOf(edge.annotations) ?? split(edge.label);
 function capital(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }

@@ -36,6 +36,8 @@ describe("fieldStats", () => {
       column("dense_id", "UBIGINT", { role: "address" }),
       column("subject", "VARCHAR", { role: "identity", termType: "rr:IRI" }),
       column("homepage", "VARCHAR", { termType: "rr:IRI" }),
+      // A mapping states RML-Core's spelling.
+      column("website", "VARCHAR", { termType: "IRI" }),
       column("email", "VARCHAR", { candidateKey: true }),
       column("country", "VARCHAR", { stats: counted(951) }),
       column("user_id", "BIGINT", { stats: counted(1000, { minValue: "1", maxValue: "1000" }) }),
@@ -47,6 +49,7 @@ describe("fieldStats", () => {
       ["dense_id", "numeric", "identifier"],
       ["subject", "categorical", "identifier"],
       ["homepage", "categorical", "identifier"],
+      ["website", "categorical", "identifier"],
       ["email", "categorical", "identifier"],
       // Neither a name nor a count makes an identifier: 951 countries are a dimension, an id a measure.
       ["country", "categorical", "dimension"],

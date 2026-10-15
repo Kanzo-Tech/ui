@@ -51,8 +51,23 @@ describe("the graph store", () => {
     );
     const { onFailure, store } = await graph({}, corpus);
     await settle(corpus);
-    expect(onFailure.mock.calls[0]?.[0]).toMatchObject({ name: "GraphError", code: "graph/nothing-to-draw" });
+    expect(onFailure.mock.calls[0]?.[0]).toMatchObject({ name: "Problem", code: "graph/nothing-to-draw" });
     expect(store.getSnapshot().structure).toBeNull();
+  });
+
+  it("refuses more than 2^24 vertices as graph/too-large, from the GraphAr catalog's counts and before one link is read", async () => {
+    const corpus = await attach();
+    await corpus.coordinator.exec(
+      `ALTER VIEW ${corpus.from}.graphar_vertex_types RENAME TO written;
+       CREATE VIEW ${corpus.from}.graphar_vertex_types AS SELECT * REPLACE (CASE WHEN type = 'Person' THEN 16777207::UBIGINT ELSE count END AS count) FROM ${corpus.from}.written;`,
+    );
+    const { onFailure, store } = await graph({}, corpus);
+    await settle(corpus);
+    expect(onFailure).toHaveBeenCalledTimes(1);
+    expect(onFailure.mock.calls[0]?.[0]).toMatchObject({ name: "Problem", code: "graph/too-large", data: { count: 2 ** 24 + 1, limit: 2 ** 24 } });
+    expect(store.getSnapshot().status).toBe("failed");
+    expect(store.getSnapshot().geometry).toBeNull();
+    expect(corpus.sent.some((sql) => sql.includes("Person_knows_Person"))).toBe(false);
   });
 
   it("starts a layout from a seeded square when x and y are unbound, the same start every time", async () => {
@@ -211,6 +226,71 @@ describe("the graph store", () => {
     expect(onFailure).not.toHaveBeenCalled();
   });
 
+  it("takes every read of a load off the coordinator when the corpus changes, and the root goes, and says nothing", async () => {
+    const first = await attach();
+    const second = await attach();
+    const cancel = vi.spyOn(first.coordinator, "cancel");
+    const { onFailure, store, unsubscribe } = await graph({}, first);
+    store.setOptions({ ...store.getOptions(), from: second.from, coordinator: second.coordinator });
+    // The catalog's five statements, each taken off the queue.
+    expect(cancel).toHaveBeenCalledTimes(5);
+    cancel.mockClear();
+    store.setOptions({ ...store.getOptions(), from: first.from, coordinator: first.coordinator });
+    unsubscribe();
+    await settle(first);
+    await settle(second);
+    expect(onFailure).not.toHaveBeenCalled();
+    expect(store.getSnapshot().geometry).toBeNull();
+  });
+
+  it("starts the reads again for the subscriber that follows a root that went, as StrictMode does", async () => {
+    const { corpus, store, unsubscribe } = await graph();
+    unsubscribe();
+    store.subscribe(() => {});
+    await settle(corpus);
+    expect(store.getSnapshot().drawn?.vertices).toBe(20);
+  });
+
+  it("retries a failed read from the stage that failed, with the stages before it left alone", async () => {
+    const corpus = await attach();
+    corpus.refuse(/Person_knows_Person/, refusal());
+    const { onFailure, store } = await graph({}, corpus);
+    await settle(corpus);
+    expect(store.getSnapshot()).toMatchObject({ status: "failed", geometry: null });
+    const catalog = corpus.sent.filter((sql) => sql.includes("fossil_tables")).length;
+    store.retry();
+    expect(store.getSnapshot().status).toBe("loading");
+    await settle(corpus);
+    expect(store.getSnapshot().drawn?.vertices).toBe(20);
+    expect(corpus.sent.filter((sql) => sql.includes("fossil_tables"))).toHaveLength(catalog);
+    expect(onFailure).toHaveBeenCalledOnce();
+  });
+
+  it("does nothing on retry unless a read failed", async () => {
+    const { corpus, store } = await graph();
+    await settle(corpus);
+    const before = corpus.sent.length;
+    store.retry();
+    await settle(corpus);
+    expect(corpus.sent).toHaveLength(before);
+    expect(store.getSnapshot().status).not.toBe("failed");
+  });
+
+  it("fails a graph too large again with the same code on retry", async () => {
+    const corpus = await attach();
+    await corpus.coordinator.exec(
+      `ALTER VIEW ${corpus.from}.graphar_vertex_types RENAME TO written;
+       CREATE VIEW ${corpus.from}.graphar_vertex_types AS SELECT * REPLACE (CASE WHEN type = 'Person' THEN 16777207::UBIGINT ELSE count END AS count) FROM ${corpus.from}.written;`,
+    );
+    const { onFailure, store } = await graph({}, corpus);
+    await settle(corpus);
+    store.retry();
+    await settle(corpus);
+    expect(onFailure).toHaveBeenCalledTimes(2);
+    expect(onFailure.mock.calls[1]?.[0]).toMatchObject({ code: "graph/too-large" });
+    expect(store.getSnapshot().status).toBe("failed");
+  });
+
   it("remembers what the search went to, newest first, once each and five at most, until the corpus changes", async () => {
     const { corpus, store } = await graph();
     await settle(corpus);
@@ -263,6 +343,21 @@ describe("the page's crossfilter", () => {
     await settle(corpus);
     // Tag lacks `name`, so the clause keeps none of it: only the one Place that matched is kept.
     expect(ids(store.getSnapshot().kept)).toEqual([13]);
+  });
+
+  it("goes to failed when the survivors cannot be read, keeps its picture, and asks again on retry", async () => {
+    const { corpus, crossfilter, onFailure, store } = await filtered();
+    const { geometry } = store.getSnapshot();
+    const refused = refusal();
+    corpus.refuse(/"score"/, refused);
+    crossfilter.update(clauseInterval("score", [2, 5], { source: chart }));
+    await settle(corpus);
+    expect(onFailure).toHaveBeenCalledExactlyOnceWith(refused);
+    expect(store.getSnapshot()).toMatchObject({ status: "failed", geometry });
+    store.retry();
+    await settle(corpus);
+    expect(store.getSnapshot().status).not.toBe("failed");
+    expect(ids(store.getSnapshot().kept)).toEqual([1, 2, 3, 4]);
   });
 
   it("keeps nothing under a clause no vertex type can answer, and fails nothing", async () => {
@@ -352,17 +447,5 @@ describe("the page's crossfilter", () => {
     await settle(corpus);
     expect(first.clauses.map((c) => c.meta)).toEqual([]);
     expect(second.clauses.map((c) => c.meta)).toEqual([{ type: "semijoin", label: "Lasso", relation: "vertices" }]);
-  });
-
-  it("keeps the last picture and reports the thrown value when a filter's read rejects", async () => {
-    const { corpus, crossfilter, onFailure, store } = await filtered();
-    const { geometry, encoding } = store.getSnapshot();
-    const refused = refusal();
-    corpus.refuse(/score/, refused);
-    crossfilter.update(clauseInterval("score", [2, 5], { source: chart }));
-    await settle(corpus);
-    expect(onFailure.mock.calls.map(([error]) => error)).toEqual([refused]);
-    expect(store.getSnapshot()).toMatchObject({ geometry, encoding, kept: null });
-    expect(store.getSnapshot().status).not.toBe("failed");
   });
 });

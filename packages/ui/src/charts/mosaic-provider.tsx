@@ -2,6 +2,7 @@
 
 import {
   crossfilterOver,
+  type JoinResolver,
   preaggregateOwnRelation,
   readOf,
   type JoinGraph,
@@ -11,7 +12,7 @@ import {
   type Coordinator,
   type Selection,
 } from "@kanzo-tech/mosaic";
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ark } from "@ark-ui/react/factory";
 import { cn } from "../lib/cn.js";
@@ -60,8 +61,8 @@ export interface MosaicProviderProps {
    * The types and the edges between them that the page's relations are read over —
    * `@kanzo-tech/graph`'s `readJoinGraph` for a fossil corpus. A part's `relation` names a type or a
    * path over them, and a clause on one relation reaches a part on another through them. Without it
-   * every relation is a table of its own, and a clause crosses to no other. Keep it stable: a new
-   * graph is a new page selection.
+   * every relation is a table of its own, and a clause crosses to no other. A new graph is read by the page's
+   * selection from then on; the selection itself stays.
    */
   joins?: JoinGraph | null;
   /**
@@ -78,15 +79,25 @@ export function MosaicProvider({ coordinator, joins = null, onFailure, children 
   const latest = useRef(onFailure);
   latest.current = onFailure;
 
-  const value = useMemo<MosaicContextValue>(() => {
-    // Register the caller's coordinator as vgplot's active one. `coordinator(instance)` is
-    // mosaic-core's global setter — the same call a host's boot makes, except the instance
-    // arrives as a prop here instead of being built in the library.
+  // One selection per coordinator: a new `joins` graph is read by the selection's resolver, not a new
+  // selection, which would orphan every clause and every client attached to the old one.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const selection = useMemo(() => crossfilterOver(joins), [coordinator]);
+  // Before any child's own effect asks a query, and outside render: the two process-wide things this
+  // provider sets are vgplot's active coordinator (`coordinator(instance)` is mosaic-core's global
+  // setter, the same call a host's boot makes) and that a clause crossed in from another relation is
+  // never pre-aggregated against the client's table.
+  useLayoutEffect(() => {
     setActiveCoordinator(coordinator);
-    // A clause crossed in from another relation is never pre-aggregated against the client's table.
     preaggregateOwnRelation(coordinator);
-    return { coordinator, selection: crossfilterOver(joins), joins, onFailure: (error) => latest.current?.(error) };
-  }, [coordinator, joins]);
+  }, [coordinator]);
+  useLayoutEffect(() => {
+    (selection.resolver as JoinResolver).joins = joins;
+  }, [selection, joins]);
+  const value = useMemo<MosaicContextValue>(
+    () => ({ coordinator, selection, joins, onFailure: (error) => latest.current?.(error) }),
+    [coordinator, selection, joins],
+  );
 
   // The page's slots are the outermost provider's: a provider nested for another relation draws in
   // them too.

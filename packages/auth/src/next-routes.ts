@@ -1,7 +1,8 @@
 import { addressedUrl, tenantRequest, withTenant, type Bound } from "./next-bound";
-import { ended, problem, statusOf } from "./problem";
+import { ended, problem } from "./problem";
 import { isSameSite } from "./same-site";
-import { AuthError, type Session } from "./types";
+import { Problem, isProblem } from "@kanzo-tech/kernel";
+import type { Session } from "./types";
 
 /**
  * The six routes a Backend For Frontend needs, as one App Router catch-all: `kanzoAuth().routes`.
@@ -33,11 +34,11 @@ import { AuthError, type Session } from "./types";
  *
  * ## A failure on a navigation is a page, not a body
  *
- * `signin`, `callback` and `signout` are reached by the browser's address bar, so an `AuthError`
+ * `signin`, `callback` and `signout` are reached by the browser's address bar, so a `Problem`
  * there answers with a redirect to the product's `problemPage`, the code in `?code=`, where the
  * product renders it in its own words. `session`, `refresh` and `backchannel-logout` are reached by
  * `fetch`, and answer a refusal as an RFC 9457 problem, `application/problem+json`, whose `code` is
- * the `AuthErrorCode` — `problem.ts` has the shape and the one status table.
+ * the registry's code — `problem.ts` has the shape and `problems.bnf` the one status table.
  *
  * ## Back-channel logout
  *
@@ -120,14 +121,33 @@ function bare(status: number, headers: Record<string, string> = {}): Response {
 }
 
 /**
- * An `AuthError` as a problem a product can route on.
+ * A `Problem` as a problem a product can route on.
  *
  * Anything else is rethrown: a failure this module has no reading of is Next's to report, and
  * flattening it into a 400 here would hide a misconfiguration behind a message about credentials.
  */
 function failure(error: unknown): Response {
-  if (!(error instanceof AuthError)) throw error;
+  if (!isProblem(error)) throw error;
   return problem(error);
+}
+
+/** Bytes a back-channel logout body may be: a logout token is under 2 KB, and anyone may post. */
+const LOGOUT_BODY_LIMIT = 8192;
+
+/** The body as text, or `null` once it passes `limit` bytes — counted as it arrives, not as it claims to be. */
+async function capped(request: Request, limit: number): Promise<string | null> {
+  const reader = request.body?.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (let read = await reader?.read(); read !== undefined && !read.done; read = await reader?.read()) {
+    size += read.value.byteLength;
+    if (size > limit) {
+      void reader?.cancel();
+      return null;
+    }
+    chunks.push(read.value);
+  }
+  return new Blob(chunks as BlobPart[]).text();
 }
 
 export function routes(instance: () => Promise<Bound>): RouteHandlers {
@@ -139,9 +159,9 @@ export function routes(instance: () => Promise<Bound>): RouteHandlers {
     const auth = bound.party;
     const redirectUri = bound.redirectUri ?? `${url.origin}${base}/callback`;
 
-    /** An `AuthError` on a navigation, as the product's page; anything else rethrown, as in `failure`. */
+    /** A `Problem` on a navigation, as the product's page; anything else rethrown, as in `failure`. */
     const toPage = (error: unknown): Response => {
-      if (!(error instanceof AuthError)) throw error;
+      if (!isProblem(error)) throw error;
       const page = new URL(bound.problemPage, url.origin);
       page.searchParams.set("code", error.code);
       return redirect(page.href, []);
@@ -227,19 +247,24 @@ export function routes(instance: () => Promise<Bound>): RouteHandlers {
 
       case "backchannel-logout": {
         if (request.method !== "POST") return bare(405, { allow: "POST" });
+        // The route is unauthenticated by design, so what it reads is bounded before it is parsed.
         // §2.5: `application/x-www-form-urlencoded`, one parameter.
-        const token = new URLSearchParams(await request.text()).get("logout_token");
         // §2.8 fixes the answers: 400 for a logout that failed, 501 for one this store cannot do.
         // A refusal is therefore 400 whatever its code's own status; an outage keeps its 5xx.
-        if (token === null || token === "") {
-          return problem({ code: "token/refused", message: "no `logout_token`" }, { status: 400 });
+        const refused = (message: string) => problem(new Problem("token/refused", message), { status: 400 });
+        if (!/^application\/x-www-form-urlencoded\s*(;|$)/i.test(request.headers.get("content-type") ?? "")) {
+          return refused("a logout request is `application/x-www-form-urlencoded`");
         }
+        const body = await capped(request, LOGOUT_BODY_LIMIT);
+        if (body === null) return refused(`a logout request is at most ${LOGOUT_BODY_LIMIT} bytes`);
+        const token = new URLSearchParams(body).get("logout_token");
+        if (token === null || token === "") return refused("no `logout_token`");
         try {
           await auth.logout(token);
           return bare(200);
         } catch (error) {
-          if (!(error instanceof AuthError)) throw error;
-          return problem(error, statusOf(error.code) >= 500 ? {} : { status: 400 });
+          if (!isProblem(error)) throw error;
+          return problem(error, (error.status ?? 500) >= 500 ? {} : { status: 400 });
         }
       }
 

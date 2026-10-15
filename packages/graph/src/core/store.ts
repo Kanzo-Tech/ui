@@ -2,16 +2,23 @@ import { MosaicClient, Selection, firstDrawsPending, onFirstDraws, type Coordina
 import { domainOf } from "./categories";
 import { bindingOf } from "./channels";
 import { GraphClient, publish } from "./client";
-import { GraphError } from "./error";
+import { Problem } from "@kanzo-tech/kernel";
 import { loadEncoding, loadGeometry, type Encoding, type Geometry } from "./load";
 import { readCatalog } from "./catalog";
 import { VERTICES } from "./source";
 import { KEY, type Structure } from "./structure";
-import type { VertexId } from "./types";
 import { drawnOf, idsOf, keptOf, maskOf } from "./kept";
-import type { Arrangement, Drawn, GraphOptions, GraphSnapshot, DataStatus, GraphStore, PickSource } from "./state";
+import { memo } from "./memo";
+import { createReads, type Kind } from "./reads";
+import { blank, type Arrangement, type GraphOptions, type GraphSnapshot, type DataStatus, type GraphStore, type PickSource } from "./state";
 
 export type { Arrangement, Drawn, GraphOptions, GraphSnapshot, GraphState, DataStatus, GraphStore, View } from "./state";
+
+/**
+ * The most vertices the graph draws: 2²⁴, the last integer a `Float32` link end holds exactly. Past it
+ * an id rounds to its neighbour and a link attaches to the wrong vertex, with no error.
+ */
+const LIMIT = 2 ** 24;
 
 /** How many vertices `recent` keeps: a palette's short list, not a history. */
 const RECENT = 5;
@@ -21,6 +28,8 @@ export function createGraph(initial: GraphOptions): GraphStore {
   const listeners = new Set<() => void>();
 
   let failed = false, unrenderable = false;
+  /** Whether `destroy` stopped the reads, so the next subscriber starts them again (StrictMode mounts twice). */
+  let stopped = false;
   // Until shown once, the load also waits for every chart on the page yet to draw (`holdFirstDraw`).
   let shownOnce = false, unwatch: (() => void) | null = null;
   let binding = bindingOf(initial);
@@ -31,9 +40,8 @@ export function createGraph(initial: GraphOptions): GraphStore {
   let mask: Uint8Array | null = null;
   let arrangement: Arrangement | null = null;
   let uploaded: readonly unknown[] = [];
-  /** One read per kind in flight; a newer one makes an older one's answer stale. */
-  const reading = { structure: 0, geometry: 0, encoding: 0 };
-  const pending = { structure: false, geometry: false, encoding: false };
+  /** Aborted when the corpus changes, the root goes and a retry starts the load anew. */
+  const reads = createReads();
   let client: GraphClient | null = null;
   let connected: Coordinator | null = null;
   /** Where the client's pick is published, so a reconnect withdraws it from there. */
@@ -55,70 +63,33 @@ export function createGraph(initial: GraphOptions): GraphStore {
     else options.onFailure(error);
   };
 
-  let snapshot: GraphSnapshot = {
-    status: "none",
-    total: undefined,
-    matching: null,
-    drawn: null,
-    domain: [],
-    selection: null,
-    focus: null,
-    hovered: null,
-    tool: null,
-    motion: "settled",
-    progress: 1,
-    options,
-    structure: null,
-    binding,
-    geometry: null,
-    encoding: null,
-    kept: null,
-    recent: [],
-    arrangement: null,
-  };
+  let snapshot = blank(options, binding);
 
-  let domain: { key: unknown[]; value: readonly unknown[] } = { key: [], value: [] };
-  function domainNow(): readonly unknown[] {
-    const tables = structure?.vertices ?? [];
-    const key = [tables, binding.byTable, binding.category, options.categories];
-    if (key.some((part, i) => part !== domain.key[i])) domain = { key, value: domainOf(tables, binding, options.categories) };
-    return domain.value;
-  }
-
-  /** What is kept, `keptOf`: the one reading every view of the graph draws. The same array until the filter or the pick changes. */
-  let keptMask: { key: unknown[]; value: Uint8Array | null } = { key: [], value: null };
-  function keptNow(): Uint8Array | null {
-    const key = [geometry, mask, snapshot.selection];
-    if (key.some((part, i) => part !== keptMask.key[i])) {
-      keptMask = { key, value: keptOf(geometry?.size ?? 0, mask, snapshot.selection?.vertices ?? null, snapshot.selection?.excludes) };
-    }
-    return keptMask.value;
-  }
-
-  let drawn: { key: unknown[]; value: Drawn | null } = { key: [], value: null };
-  function drawnNow(): Drawn | null {
-    const kept = keptNow();
-    const key = [geometry, encoding, kept];
-    if (key.some((part, i) => part !== drawn.key[i])) {
-      drawn = { key, value: geometry && encoding ? drawnOf(geometry, encoding, kept) : null };
-    }
-    return drawn.value;
-  }
-
-  let visible: { key: unknown[] | undefined; value: readonly VertexId[] | null } = { key: undefined, value: null };
-  function visibleNow(): readonly VertexId[] | null {
-    const kept = keptNow();
-    const key = [kept, geometry];
-    if (key.some((part, i) => part !== (visible.key as unknown[] | undefined)?.[i])) visible = { key, value: idsOf(kept, geometry?.positions ?? null) };
-    return visible.value;
-  }
+  // Each view of the graph is derived once per change of what it reads: the same array until then.
+  const domainNow = memo(
+    () => [structure?.vertices, binding.byTable, binding.category, options.categories],
+    () => domainOf(structure?.vertices ?? [], binding, options.categories),
+  );
+  /** What is kept, `keptOf`: the one reading every view of the graph draws. */
+  const keptNow = memo(
+    () => [geometry, mask, snapshot.selection],
+    () => keptOf(geometry?.size ?? 0, mask, snapshot.selection?.vertices ?? null, snapshot.selection?.excludes),
+  );
+  const drawnNow = memo(
+    () => [geometry, encoding, keptNow()],
+    () => (geometry && encoding ? drawnOf(geometry, encoding, keptNow()) : null),
+  );
+  const visibleNow = memo(
+    () => [keptNow(), geometry],
+    () => idsOf(keptNow(), geometry?.positions ?? null),
+  );
 
   function statusOf(): DataStatus {
     if (failed || unrenderable) return "failed";
     if (options.from === null || options.coordinator === null) return "none";
     const current = [geometry, encoding, mask];
     const shown = geometry !== null && current.every((part, i) => part === uploaded[i]);
-    if (pending.structure || pending.geometry || pending.encoding || !shown) return "loading";
+    if (reads.busy() || !shown) return "loading";
     if (!shownOnce && firstDrawsPending(scope()) > 0) return "loading";
     shownOnce = true;
     return "idle";
@@ -157,23 +128,15 @@ export function createGraph(initial: GraphOptions): GraphStore {
     for (const listener of listeners) listener();
   }
 
-  /**
-   * Read `kind`, and keep the answer only if no newer read of the same kind started meanwhile. The
-   * coordinator cannot be told to stop a statement, so a stale answer is dropped rather than aborted.
-   */
-  function read<T>(kind: keyof typeof reading, ask: () => Promise<T>, done: (value: T) => void): void {
-    const ticket = ++reading[kind];
-    pending[kind] = true;
-    ask().then(
+  function read<T>(kind: Kind, ask: (signal: AbortSignal) => Promise<T>, done: (value: T) => void): void {
+    reads.run(
+      kind,
+      ask,
       (value) => {
-        if (reading[kind] !== ticket) return;
-        pending[kind] = false;
         done(value);
         notify();
       },
-      (error: unknown) => {
-        if (reading[kind] !== ticket) return;
-        pending[kind] = false;
+      (error) => {
         failed = true;
         fail(error);
         notify();
@@ -181,13 +144,25 @@ export function createGraph(initial: GraphOptions): GraphStore {
     );
   }
 
+  /** Run the first stage the load has not reached: the one that failed, or the one a stop cut short. */
+  function resume(): void {
+    if (structure === null) loadStructure();
+    else if (geometry === null) loadPositions();
+    else if (encoding === null) loadChannels();
+  }
+
   function loadStructure(): void {
     const { coordinator, from } = options;
     if (coordinator === null || from === null) return;
-    read("structure", () => readCatalog(coordinator, from), (next) => {
+    read("structure", (signal) => readCatalog(coordinator, from, signal), (next) => {
       if (next.size === 0) {
         failed = true;
-        fail(new GraphError("graph/nothing-to-draw", `the graph attached as ${from} has no vertex`));
+        fail(new Problem("graph/nothing-to-draw", `the graph attached as ${from} has no vertex`));
+        return;
+      }
+      if (next.size > LIMIT) {
+        failed = true;
+        fail(new Problem("graph/too-large", `the graph attached as ${from} has ${next.size} vertices; the graph draws at most ${LIMIT}`, { count: next.size, limit: LIMIT }));
         return;
       }
       structure = next;
@@ -200,7 +175,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     const { coordinator } = options;
     const given = structure;
     if (coordinator === null || given === null) return;
-    read("geometry", () => loadGeometry(coordinator, given, binding), (next) => {
+    read("geometry", (signal) => loadGeometry(coordinator, given, binding, signal), (next) => {
       geometry = next;
       arrangement = null;
       mask = kept ? maskOf(next.size, kept) : null;
@@ -213,16 +188,13 @@ export function createGraph(initial: GraphOptions): GraphStore {
     const given = geometry;
     if (coordinator === null || given === null) return;
     const seed = domainNow();
-    read("encoding", () => loadEncoding(coordinator, given, binding, seed), (next) => {
+    read("encoding", (signal) => loadEncoding(coordinator, given, binding, seed, signal), (next) => {
       encoding = next;
     });
   }
 
   function reset(): void {
-    for (const kind of Object.keys(reading) as (keyof typeof reading)[]) {
-      reading[kind]++;
-      pending[kind] = false;
-    }
+    reads.stop();
     failed = false;
     shownOnce = false;
     // A new corpus: the old one's pick goes from the page with its vertices.
@@ -253,7 +225,12 @@ export function createGraph(initial: GraphOptions): GraphStore {
         mask = ids && geometry ? maskOf(geometry.size, ids) : null;
         notify();
       },
-      (error) => fail(error),
+      // A filter that cannot be answered is a failure, not a picture that claims to be current.
+      (error) => {
+        failed = true;
+        fail(error);
+        notify();
+      },
       () => {
         if (snapshot.selection === null) return;
         notify({ selection: null });
@@ -291,6 +268,10 @@ export function createGraph(initial: GraphOptions): GraphStore {
       if (!active) {
         active = true;
         connect();
+        if (stopped) {
+          stopped = false;
+          resume();
+        }
         if (held !== null) {
           const { error } = held;
           held = null;
@@ -326,8 +307,18 @@ export function createGraph(initial: GraphOptions): GraphStore {
       }
       notify();
     },
+    retry() {
+      if (!failed) return;
+      reads.stop();
+      failed = false;
+      resume();
+      client?.requestQuery();
+      notify();
+    },
     destroy() {
       active = false;
+      stopped = true;
+      reads.stop();
       disconnect();
       listeners.clear();
     },

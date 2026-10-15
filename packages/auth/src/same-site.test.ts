@@ -48,11 +48,15 @@ describe("isSameSite", () => {
   });
 
   /**
-   * The honest end of the ladder. A request carrying no evidence of where it came from carries no
-   * evidence that it came from a *page* either, and a page is the attack. Refusing here would
-   * refuse every server-to-server call and every health probe — a real outage for no real attacker.
+   * The end of the ladder is a refusal. A request carrying no evidence of where it came from is a
+   * `curl`, a probe, a stripped proxy or an attacker's control, and `refresh` and `signout` are
+   * what this exists to protect. Only the browser calls this server, and there is no option.
    */
-  it("allows a request that says nothing about where it came from", () => {
-    expect(isSameSite(asking({}))).toBe(true);
+  it("refuses a request with neither Sec-Fetch-Site nor Origin", () => {
+    expect(isSameSite(asking({}))).toBe(false);
+  });
+
+  it("refuses Origin: null, which no origin equals", () => {
+    expect(isSameSite(asking({ origin: "null" }))).toBe(false);
   });
 });

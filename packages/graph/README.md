@@ -100,9 +100,9 @@ graph, a second main view and a dock of panels.
 No part takes a callback of its own: what a click means is `onSelect`, `onFocus` and `onFailure` on
 the root. The graph's settings are no part: they are `GRAPH_SECTION` on `@kanzo-tech/graph/section`,
 drawn by `@kanzo-tech/ui`'s `PreferencesSections`.
-`onFailure` is required and receives every failure as thrown — the engine's and the host's, and the graph's
-own `GraphError` (`graph/no-webgl`, `graph/context-lost`, `graph/no-positions`,
-`graph/nothing-to-draw`).
+`onFailure` is required and receives every failure as thrown — the engine's and the host's coded errors, and the graph's
+own `Problem`s (`graph/no-webgl`, `graph/context-lost`, `graph/no-positions`,
+`graph/nothing-to-draw`, `graph/too-large`).
 
 - `usePick(id)` — a place beside the canvas picking vertices as a clause of its own:
   `pick(ids | null, label)`, `picked`, and `predicate()`, the subset as that place sees it.

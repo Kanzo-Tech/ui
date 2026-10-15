@@ -36,3 +36,29 @@ variable "declarations" {
   default     = "/declarations"
 }
 
+
+# ── The baseline (realm.tf) ───────────────────────────────────────────────────
+# Safe defaults; a deployment's figures are its own, like its hostnames and passwords.
+variable "password_policy" {
+  description = "Keycloak's password policy string. The development seed's password must satisfy it."
+  type        = string
+  default     = "length(12) and notUsername and notEmail"
+}
+
+variable "max_login_failures" {
+  description = "Failed logins before Keycloak starts making a user wait (brute-force detection, temporary lockout)."
+  type        = number
+  default     = 5
+}
+
+variable "lockout_max_wait_seconds" {
+  description = "The longest a user is made to wait after repeated failures."
+  type        = number
+  default     = 900
+}
+
+variable "events_retention_seconds" {
+  description = "How long login and admin events are kept. Default thirty days."
+  type        = number
+  default     = 2592000
+}

@@ -1,8 +1,9 @@
 import { tenantRequest, under, type Bound } from "./next-bound";
+import { BOUNDS, deadline } from "./deadline";
 import { ended, problem } from "./problem";
 import { isSameSite } from "./same-site";
 import type { Ended, Token } from "./server";
-import { AuthError } from "./types";
+import { Problem, isProblem } from "@kanzo-tech/kernel";
 
 /**
  * The BFF half of the *token-mediating backend*: the browser's request goes out again carrying a
@@ -28,8 +29,8 @@ import { AuthError } from "./types";
  *
  * ## What it answers without asking upstream
  *
- * A refusal with a code is an RFC 9457 problem whose `code` is the `AuthErrorCode`, at the status
- * `problem.ts`'s one table gives it — the same body the auth routes send, so a host's registry reads
+ * A refusal with a code is an RFC 9457 problem whose `code` is the registry's code, at the status
+ * `problems.bnf` gives it — the same body the auth routes send, so a host's registry reads
  * `organization/denied` here rather than coining a code for a bare 403:
  *
  * - **401** when there is no session, or when the renewal was refused (`session/absent`,
@@ -42,6 +43,8 @@ import { AuthError } from "./types";
  * - **502** when the realm would not exchange the token at all (`token/exchange-failed`): the
  *   application is not allowed to ask for that audience, which is the deployment's to fix. An IdP
  *   or a store that did not answer is its 5xx.
+ * - **504** when the API connected and sent no headers within 25 s (`api/silent`); the client leaving
+ *   ends the hop too, and then nothing is answered.
  * - **502** when the API itself did not answer — the connection was refused, its name did not
  *   resolve, it reset before a status line (`api/unreachable`). An API that answers, with any
  *   status, has answered, and that answer is passed through as it came.
@@ -188,7 +191,7 @@ export function forward(instance: () => Promise<Bound>): ApiHandlers {
       // that did not answer is an outage, and anything else is a fault this module has no reading
       // of: hiding either behind a 401 would send a person to sign in again over something that
       // will still be there when they get back.
-      if (!(error instanceof AuthError)) throw error;
+      if (!isProblem(error)) throw error;
       return problem(error);
     }
     if (held.ended) return ended(held.code, held.cookies);
@@ -199,19 +202,28 @@ export function forward(instance: () => Promise<Bound>): ApiHandlers {
     const body = request.method === "GET" || request.method === "HEAD" ? null : request.body;
     let answer: Response;
     try {
-      answer = await send(upstream, {
-        method: request.method,
-        headers,
-        body,
-        // The body is a stream and is forwarded as one: an upload is not read into this server's
-        // memory on its way past, and a server-sent event stream is not buffered until it ends —
-        // which for an SSE endpoint means never. `duplex` is what Node requires to allow it.
-        ...(body === null ? {} : { duplex: "half" }),
-        // A 302 from the upstream is the upstream's answer and belongs to the caller. Following it
-        // here would send the bearer token to whatever host the `Location` names.
-        redirect: "manual",
-      } as RequestInit);
+      // Bounded until the upstream's headers, and no longer: a server-sent event stream or an upload
+      // is alive after them and is not ours to end on a clock. The client leaving ends either one.
+      answer = await deadline("api/silent", BOUNDS.forwarder, (signal) =>
+        send(upstream, {
+          method: request.method,
+          headers,
+          body,
+          // The body is a stream and is forwarded as one: an upload is not read into this server's
+          // memory on its way past, and a server-sent event stream is not buffered until it ends —
+          // which for an SSE endpoint means never. `duplex` is what Node requires to allow it.
+          ...(body === null ? {} : { duplex: "half" }),
+          // A 302 from the upstream is the upstream's answer and belongs to the caller. Following it
+          // here would send the bearer token to whatever host the `Location` names.
+          redirect: "manual",
+          // The person navigating away cancels the hop, or N tabs against one hung API hold N sockets.
+          signal: AbortSignal.any([request.signal, signal]),
+        } as RequestInit),
+      );
     } catch (error) {
+      if (isProblem(error) && !request.signal.aborted) {
+        return problem(error, { cookies: held.cookies });
+      }
       // `fetch` rejects with a `TypeError` for a network error and for nothing else it can meet
       // here: a refused connection, a name that did not resolve, a reset before the status line.
       // That API did not answer, and it is the forwarder's to name, not a bare 500's. An upstream
@@ -219,7 +231,7 @@ export function forward(instance: () => Promise<Bound>): ApiHandlers {
       // away is not the upstream's failure, so its abort is thrown as it was.
       if (!(error instanceof TypeError) || request.signal.aborted) throw error;
       return problem(
-        { code: "api/unreachable", message: `the API mounted at ${api.mount} did not answer` },
+        new Problem("api/unreachable", `the API mounted at ${api.mount} did not answer`),
         { cookies: held.cookies },
       );
     }

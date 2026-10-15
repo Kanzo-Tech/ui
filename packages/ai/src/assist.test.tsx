@@ -168,14 +168,21 @@ describe("Assist on a Textarea — a continuation at the caret", () => {
   });
 });
 
-function Title(props: { model: ReturnType<typeof scriptedModel>; onEvent?: (e: AssistEvent) => void }) {
-  const [value, setValue] = useState("Bog-hounds took the herd dog");
+function Title(props: {
+  model: ReturnType<typeof scriptedModel>;
+  onEvent?: (e: AssistEvent) => void;
+  includeText?: boolean;
+  type?: string;
+  autoComplete?: string;
+  initial?: string;
+}) {
+  const [value, setValue] = useState(props.initial ?? "Bog-hounds took the herd dog");
   return (
-    <AssistProvider model={props.model} onEvent={props.onEvent}>
+    <AssistProvider includeText={props.includeText} model={props.model} onEvent={props.onEvent}>
       <Field>
         <FieldLabel>Title</FieldLabel>
         <Assist onValueChange={setValue} value={value}>
-          <Input />
+          <Input autoComplete={props.autoComplete} type={props.type} />
         </Assist>
       </Field>
       <output data-testid="value">{value}</output>
@@ -209,6 +216,41 @@ describe("Assist on an Input — whole values, as chips", () => {
     await user.click(chip);
     expect(value()).toBe("Herd dog taken at the ford");
     expect(onEvent.mock.calls.map(([e]) => e.kind)).toEqual(["shown", "shown", "accepted"]);
+  });
+
+  it("reports what happened to a field, never the text, unless the provider opts in", async () => {
+    const run = async (includeText: boolean) => {
+      const onEvent = vi.fn();
+      const { unmount } = render(<Title includeText={includeText} model={scriptedModel({ turns: [{ reply: CANDIDATES }] })} onEvent={onEvent} />);
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("textbox", { name: "Title" }));
+      await user.click(mark());
+      await user.click(await screen.findByRole("button", { name: "Herd dog taken at the ford" }));
+      unmount();
+      return onEvent.mock.calls.map(([e]) => e as AssistEvent);
+    };
+    const quiet = await run(false);
+    expect(quiet.map((e) => e.kind)).toEqual(["shown", "shown", "accepted"]);
+    expect(quiet.every((e) => e.field === "Title" && !("proposal" in e))).toBe(true);
+    const loud = await run(true);
+    expect(loud.at(-1)?.proposal?.value).toBe("Herd dog taken at the ford");
+  });
+
+  it.each([
+    ["a password input", { type: "password" }],
+    ["a card number", { autoComplete: "cc-number" }],
+    ["a one-time code", { autoComplete: "one-time-code" }],
+    ["a new password", { autoComplete: "new-password" }],
+    ["a current password", { autoComplete: "section-a current-password" }],
+  ])("offers nothing on %s, and reads none of it", async (_, props) => {
+    const model = scriptedModel({ turns: [{ reply: CANDIDATES }] });
+    const { container } = render(<Title {...props} initial="hunter2" model={model} />);
+    expect(container.querySelector("[data-slot=assist-mark]")).toBeNull();
+    const user = userEvent.setup();
+    await user.click(container.querySelector("input")!);
+    await user.keyboard("x");
+    expect(model.doGenerateCalls).toHaveLength(0);
+    expect(model.doStreamCalls).toHaveLength(0);
   });
 
   it("drops a chip with its ✕, as a rejection", async () => {

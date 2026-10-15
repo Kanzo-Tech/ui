@@ -147,16 +147,15 @@ keep their own, because CDK has none or its namesake does something else
 ```ts
 interface KanzoTestingHook {
   graphs: Map<string, GraphProbe>;  // by the canvas's id: screenOf(vertex), screenAt({ x, y })
-  charts: Map<string, ChartProbe>;  // by the chart's title: scale(channel) → { apply, invert? }
   models: Map<string, ModelProbe>;  // by model id: { script, prompts }
 }
 ```
 
-`window.__KANZO_TESTING__` is defined by the environment and never by a page. `GraphCanvas` and
-`ChartRoot` register themselves when they find it, and do nothing otherwise. A `GraphProbe` answers
-with cosmos.gl's own `spaceToScreenPosition`; a `ChartProbe` is Observable Plot's own
-`figure.scale(channel)`. A chart is registered under its `aria-label`, which a dashboard tile sets to
-its title; a chart with no title is not registered.
+`window.__KANZO_TESTING__` is defined by the environment and never by a page. `GraphCanvas`
+registers itself when it finds it, and does nothing otherwise; a `GraphProbe` answers with cosmos.gl's
+own `spaceToScreenPosition`. A chart registers nothing: `ChartHarness` reads Observable Plot's own
+`scale(channel)` off the output Plot drew, and finds the chart by its `aria-label`, which a dashboard
+tile sets to its title.
 
 ## A model double
 
@@ -207,3 +206,30 @@ const prompts = await page.evaluate(
 
 A page that cannot run the model at all needs no double: take `navigator.gpu` away before it loads,
 and `localModel` fails as `llm/unavailable`, its own answer.
+
+## An engine, held to what a reader needs
+
+`queryableConformance(make, options?)` returns the cases an engine, or a double of one, has to pass to
+be handed to anything that reads through DuckDB: a statement answers in columns (`numRows`,
+`schema.fields`, `getChild`) with SQL `NULL` read as `null`; a refusal rejects `engine/failed` and no
+literal of the statement is on it; a signal aborted before the call rejects with its reason and the
+statement is never sent; a signal aborted during a long statement rejects with its reason and the
+connection answers the next statement within 200 ms; and an engine that dies rejects what it held,
+and every later statement, with `engine/lost`. It names no test runner: register each case with yours.
+
+```ts
+import { queryableConformance } from "@kanzo-tech/testing";
+
+const make = async () => {
+  const worker = await startMyWorker();
+  return { queryable: await myEngine(worker), kill: () => worker.terminate() };
+};
+for (const { name, run } of queryableConformance(make)) it(name, run, 60_000);
+```
+
+`make` is called for each case, so a case that kills the engine does not spoil the next. An engine that
+cannot interrupt a statement passes `{ cancels: false }` and is held to refusing a statement handed a
+signal with `engine/cannot-cancel`, at the call, instead of accepting the signal and ignoring it; one
+that cannot die passes `{ dies: false }`. The statements are DuckDB's, and a DuckDB-WASM engine runs
+them in Node with no `XMLHttpRequest` global: vitest's `jsdom` installs one that breaks the instance,
+so a test file that opens an engine runs under `// @vitest-environment node`.

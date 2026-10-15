@@ -18,7 +18,7 @@ import { attach, type Attached } from "../../test/corpus";
 import { readJoinGraph } from "./join-graph";
 
 /**
- * **The page's one selection across relations, as properties** — `/docs/design/crossfilter#step-3`.
+ * **The page's one selection across relations, as properties** — `/docs/design/crossfilter#one-selection-across-relations`.
  * Each run takes two random relations over the corpus's joins (a type, the union of every vertex, or
  * a path of up to two hops from either), publishes a random clause on the first, and reads the second
  * through the page's resolver — against an oracle that is not the resolver: DuckDB asked for each

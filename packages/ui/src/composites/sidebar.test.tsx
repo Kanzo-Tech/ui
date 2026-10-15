@@ -25,7 +25,6 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  // biome-ignore lint/suspicious/noDocumentCookie: Expire what the provider wrote.
   document.cookie = `${SIDEBAR_COOKIE_NAME}=; path=/; max-age=0`;
 });
 

@@ -18,6 +18,8 @@ Agents and new contributors start at [`CLAUDE.md`](CLAUDE.md). It names everythi
 | `@kanzo-tech/graph` | A whole fossil corpus drawn with cosmos.gl inside the page's Mosaic crossfilter. |
 | `@kanzo-tech/auth` | Keycloak sessions, role evaluation and an authenticated fetch. |
 | `@kanzo-tech/navigation` | The unsaved-changes guard, with a `/next` adapter. |
+| `@kanzo-tech/llm` | The two doors to a model's answer (`stream`, `generate`), and a model in the page at `/local`. |
+| `@kanzo-tech/testing` | Component harnesses for a page built with Kanzo UI, run by Playwright or Testing Library. |
 
 ## Services
 
@@ -65,7 +67,7 @@ export function Root({ children }) {
 }
 ```
 
-Drop in `<Preferences />` for a live theme editor, or drive the axes yourself with `useKanzoTheme()`.
+Mount `PreferencesSections` for a live theme editor (`/docs/layout/preferences`), or drive the axes yourself with `useKanzoTheme()`.
 Dark mode belongs to the host: pass your theme manager in as `appearance={{ resolvedTheme, setTheme }}`
 (the next-themes shape), or omit it and the provider toggles `.dark` itself. For SSR, render
 `themeScript()` in `<head>` and pair it with `cookieStorageAdapter()` so the server reads the same

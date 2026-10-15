@@ -13,7 +13,6 @@ export {
 export {
   promptOf,
   scripted,
-  type ChartProbe,
   type GraphProbe,
   type KanzoTestingHook,
   type ModelProbe,
@@ -23,6 +22,7 @@ export {
   type PromptedCall,
 } from "./hook";
 export { playwright, type EnvironmentOptions } from "./playwright";
+export { queryableConformance } from "./queryable";
 export { AnswerHarness } from "./harnesses/answer";
 export { ChartHarness, type Extent } from "./harnesses/chart";
 export { DashboardHarness, TileHarness } from "./harnesses/dashboard";

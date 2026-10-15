@@ -319,11 +319,14 @@ Not everything belongs in the library, and that is not a loss:
   nothing.
 - **The products** — anything that knows a domain, any router integration, any validation engine,
   any persistence.
-- **Sibling packages** — what several products need and `ui` must not know, released beside it;
-  `ui` depends on none of them. `@kanzo-tech/auth` is the first admission rule's *auth*, by name.
-  `@kanzo-tech/graph` is its *graphs*: it draws a [fossil](/docs/graph) corpus with `ui`'s parts,
-  so it depends on `ui` and not the other way round; fossil attaches the corpus and the graph reads
-  it as one more client of the page's coordinator.
+- **Sibling packages** — what several products need and `ui` must not know, released beside it.
+  `ui` imports the packages below it and no package above or beside it: `@kanzo-tech/theme`, a
+  dependency, and `@kanzo-tech/mosaic` from `/analytics` alone, an optional peer. It imports none of
+  `graph`, `ai`, `auth`, `navigation` or `llm`, and none of them is imported by what lies below `ui`
+  ([the layers](/docs/design/architecture#five-layers-imports-point-down)). `@kanzo-tech/auth` is the first admission rule's *auth*, by name.
+  `@kanzo-tech/graph` is its *graphs*: it draws a [fossil](/docs/graph) graph with `ui`'s parts,
+  so it depends on `ui` and not the other way round; fossil attaches the graph and the graph reads
+  it as one more client of the page's engine.
   `@kanzo-tech/navigation` is a router integration that earned a package: a host wrote its
   unsaved-changes guard as a `history` patch, and doing it without one takes the Navigation API, a
   door into Next's public router and an end-to-end fixture in three engines — none of which a

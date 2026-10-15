@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { LlmError } from "@kanzo-tech/llm";
+import { Problem } from "@kanzo-tech/kernel";
 import { ToolLoopAgent } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, it } from "vitest";
@@ -8,7 +8,7 @@ import { useAgentChat } from "./agent-chat.js";
 import { Chat } from "./chat.js";
 import { scriptedModel } from "@kanzo-tech/llm/testing";
 
-const limited = new LlmError("llm/unavailable", "This browser cannot run the model: it has no WebGPU", { reason: "webgpu" });
+const limited = new Problem("llm/unavailable", "This browser cannot run the model: it has no WebGPU", { reason: "webgpu" });
 
 function Harness(props: { agent: ToolLoopAgent; seen?: (error: unknown) => void }) {
   const chat = useAgentChat(props.agent);

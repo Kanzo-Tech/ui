@@ -19,8 +19,8 @@ const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
  *
  * `output: "export"` removes `next start`, and `scripts/measure-previews.mjs` drives a running
  * server: `pnpm check:previews` is the guard that caught seven clipped preview frames and it would
- * simply have no server to point at. So the default build stays exactly what it was, and CI sets
- * `DOCS_STATIC_EXPORT=1` for the artefact it publishes.
+ * simply have no server to point at. So the default build stays exactly what it was, and `pnpm build:static`
+ * sets `DOCS_STATIC_EXPORT=1` for the artefact that is published.
  *
  * The cost is honest and worth naming: the thing that ships is then not the thing the local chain
  * builds. `pnpm --filter @kanzo-tech/docs build:static` exists so that difference is one command
@@ -54,14 +54,13 @@ const config: NextConfig = {
         trailingSlash: true,
       }
     : {}),
-  // The design system is consumed from source here so a change shows up without a rebuild,
-  // and — more importantly — so this app exercises the REAL client/server boundary of the
-  // library. Vite ignores "use client" entirely, which is why the stripped-directive bug
-  // survived every hour spent in the old playground.
-  // `@kanzo-tech/mosaic` belongs here for a different reason than the other two: nothing in this
-  // app imports it directly, but `@kanzo-tech/ui/analytics` re-exports its coordinator, clients and
-  // Arrow reader, so every chart page reaches it one hop in.
-  transpilePackages: ["@kanzo-tech/ui", "@kanzo-tech/theme", "@kanzo-tech/mosaic"],
+  // The design system is consumed from `dist/` here, so this app exercises the REAL client/server
+  // boundary of the library. Vite ignores "use client" entirely, which is why a stripped directive
+  // survives every test and fails only in this build.
+  // `@kanzo-tech/mosaic` is listed for a different reason than the other two: nothing in this app
+  // imports it directly, but `@kanzo-tech/ui/analytics` imports it, so every chart page reaches it
+  // one hop in. `@kanzo-tech/kernel` is the same case one hop further: mosaic imports it.
+  transpilePackages: ["@kanzo-tech/ui", "@kanzo-tech/theme", "@kanzo-tech/mosaic", "@kanzo-tech/kernel"],
   /**
    * The one thing the browser build needs that the browser never runs.
    *

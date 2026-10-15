@@ -3,18 +3,16 @@ title: Crossfilter
 description: Why everything that narrows the page is a filter — one clause on one page selection, the timeline and the canvas included — why "kept" is decided once and only drawn differently per view, why a position is an encoding and "no position" a state of its own, and what that changes in the graph, the timeline and the gestures.
 ---
 
-**Decided 11 October 2026.** The thesis is approved, with the decisions at the end of the page. It
-is being implemented in the migration order below, one pull request per step; [Step 3](#step-3-one-selection-across-relations)
-is designed in full here and [Status](#status) says where each step is. The page maps how the
-page filtered before, names every place where two parts disagreed, and states the abstraction that
-replaces them.
+**Decided 11 October 2026.** The page states the abstraction every part of the page that narrows
+what is shown follows, and the definitions its rules and tests refer to.
 
 ## The thesis: everything is a filter
 
 **A lasso, a click, a marquee, a chart's pick or brush, a search, the timeline's window, a filter
 bar control and a rule's "Show" are all the same thing: one clause, from one source, on the page's
 one selection.** No source is special, and none decides on its own what is kept. The clauses
-intersect, Mosaic's model, which [#112 chose](/docs/design/graph#the-canvass-tools-edit-the-canvass-own-clause):
+intersect, which is Mosaic's model
+([the canvas's tools](/docs/design/graph#the-canvass-tools-edit-the-canvass-own-clause)):
 every interactor publishes one clause from one source, and a crossfilter is their conjunction
 ([Mosaic, Selection](https://idl.uw.edu/mosaic/api/core/selection.html)).
 
@@ -32,94 +30,14 @@ they *draw* what is not kept, never in deciding it:
 not been filtered out; it has nowhere to be drawn. That is a state of its own, and it is shown as
 one.
 
-## How the page filtered before
+**Only a missing position hides.** Under Map placement a vertex whose `x` or `y` is `NaN` is not
+drawn and is counted under "No position"; every other vertex is drawn, in colour when kept and
+greyed when not. A range on `lat` from the filter bar greys the airports outside it; it does not
+unplace them, because positions are bound once from the columns and never from the filtered rows.
 
-Every source already publishes into a Mosaic `Selection`, and most consumers read it. The paths
-differ, though, and that is where the parts disagree.
-
-| Source | Publishes | Form | Into |
-| --- | --- | --- | --- |
-| Canvas click, marquee, lasso | `publish()`, `core/client.ts:110` | `key IN (ids)` | the page, from the graph's own client, which is exempt from it |
-| Search | `publish()` | `key IN (ids)` | the page |
-| Dashboard tile pick, brush; filter bar controls | the tile's clause | column (`"Person.country" = …`) | the dashboard's own crossfilter, bridged to the page by `semiJoinOf(rootKey, relation)` (keasy `dashboard-view.tsx:50`) |
-| Timeline window | `ChartTimeline`'s brush | column (`date BETWEEN …`) | the timeline's own crossfilter, bridged by `semiJoinOf(key, timeline)` (`parts/graph-timeline.tsx:39-40`, `core/source.ts:371-377`) |
-| Rules "Show N", "Show what conforms" | keasy `rules-validation.ts:210,246` | column (`subject IN (SELECT …)`) | the page |
-| Ask's answer | `key IN (…)` | identity | the page |
-| Map placement | not a clause | — | `x`/`y` bindings; a vertex missing either is `NaN` (`render/placement.ts:29`) |
-
-| Consumer | Reads |
-| --- | --- |
-| Canvas colour | `highlighted()` → `visibleOf(mask, pick)` (`render/motion.ts:34`) |
-| Counts, legend | `litOf(mask, pick)` → `drawnOf` (`core/kept.ts:56`, since #167) |
-| Toolbar, `frame()` | `store.visible()` → `visibleOf` |
-| Search results | its own `inside`, by the clause rule (`core/source.ts:266-290`) |
-| Timeline bars | the page minus its own clause (crossfilter exemption), clipped to the window |
-| Dashboard tiles | the page minus their own clauses |
-| Ask | the page's clauses, skipping those its relation cannot answer, and saying so |
-
-### Where the parts disagree
-
-1. **"Kept" is computed in more than one place.** The store holds `mask`, the page *without* the
-   canvas's own clause, because Mosaic exempts a client from the clause it publishes. Then
-   `visibleOf` (canvas, toolbar, `frame()`) and `litOf` (counts, legend) each narrow it to the pick
-   again (`core/kept.ts:34-64`): two functions for one answer. Until #167 the counts read `mask`
-   alone and said *40 match* while the toolbar said *31*. The design page already claims "what is
-   in full colour is computed once"; the code has drifted from it.
-2. **A clause a type cannot answer means two opposite things.** In column form, a vertex table
-   without the column is *not filtered by it* and stays in colour (`core/client.ts:73-87`, the
-   clause rule, `core/source.ts:252-257`). In semi-join form, the same type is *not kept* and is
-   greyed (`core/source.ts:360-365`). The timeline uses the second on purpose
-   ([why](/docs/design/timeline)); a column clause published straight to the page (the rules'
-   `subject IN …`, any host's raw clause) uses the first. Two chips that look alike in the bar
-   grey different things.
-3. **The timeline and the dashboard are islands.** Each owns a crossfilter and a bridge; the
-   graph's search and the canvas publish straight to the page; the rules publish a column clause to
-   the page. Four routes into one selection. The timeline is the same mechanism as a dashboard
-   tile, with its own copy of the wiring (`parts/graph-timeline.tsx:39-40`).
-4. **The search decides "kept" itself.** It evaluates the subset with its own `inside`, by the
-   column rule, so a table that answers none of the clauses is "wholly inside"
-   (`core/source.ts:281-282`): divergence 2 again, in a third place.
-5. **Ask and the dashboard answer the same clause differently.** A dashboard over a relation that
-   cannot answer the timeline's window shows *no rows*; Ask skips the clause and says it did. One
-   of them is drawing "not kept" and the other is deciding it.
-6. **⌘ and Alt copy other sources' result into the canvas's clause.** With no canvas clause, a
-   modified gesture starts from `getVisible()` (`parts/gesture.ts:158`), so the canvas's clause
-   becomes "what the search kept, less Madrid": the canvas computes the other sources' result and
-   stores it as its own. It reads right while those sources hold, and goes stale when one changes.
-7. **What a filter greys is drawn so faint it reads as hidden.** Points greyed out are drawn at
-   `pointGreyoutOpacity: 0.1` and links at `0.025` (`render/graph-model.ts:132-133`). On a map, with
-   small marks on a light background, a greyed point is close to invisible. See below.
-
-8. **The labels read the filter without the canvas's clause.** `topOf` and `labelled` are handed
-   the store's `mask` (`parts/graph-canvas.tsx:66,94,98`), so under a lasso a vertex outside it can
-   still be labelled while it is drawn greyed.
-9. **"Match" counted vertices that are not drawn.** On a map, the counts read *N match · P of T
-   placed* with `N = |kept|`, and the toolbar `|visible|`, both including kept vertices with no
-   position, while the edges count only placed ends (`core/kept.ts`). On the Nobel map, a window
-   counted prizes with no affiliation that are nowhere on the canvas. Neither count is drawn now:
-   what the filters keep is the `FilterBar` readout's, over the page's relation.
-
-10. **An empty set means opposite things.** `clauseSemiJoin(key, [])` keeps nothing; the graph's
-   `publish` turns no ids into a withdrawal (`core/client.ts:110-120`), which keeps everything. The
-   property tests found it: a source that publishes an empty pick through one constructor or the
-   other changes the page in opposite directions.
-
-## Does a filter hide anything under Map placement?
-
-**No. Only a missing position hides.** `drawnOf` (`core/kept.ts:68-96`) and the renderer agree: a
-vertex whose `x` or `y` is `NaN` is not drawn and is counted under "No position"; every other vertex
-is drawn, in colour when kept and greyed when not. A range on `lat` from the filter bar greys the
-airports outside it; it does not unplace them, because positions are bound once from the columns
-and never from the filtered rows.
-
-What makes it look like hiding is real, though, and it is two things together:
-
-- **The greyout is a tenth.** At 0.1 opacity a greyed point on a light map is nearly invisible, so a
-  window over 1900–1960 on the Nobel map seems to remove every other prize.
-- **The timeline greys every type without the column.** On the Nobel map, universities have no
-  date, so with a window set they are all greyed (*0 of 370*), and at 0.1 they vanish with the rest.
-
-So the behaviour is already one rule. The picture does not show it.
+**What would reverse it.** Readers taking a greyed mark for a hidden one, or a filter that has to
+decide placement. Then the greyout is measured again ([The greyout](#the-greyout)); placement stays
+out of the predicate.
 
 ## Formal semantics
 
@@ -129,7 +47,7 @@ definitions. They are Mosaic's model, written out
 [Selection](https://idl.uw.edu/mosaic/api/core/selection.html)), with the two rules this page adds:
 what a clause means for a type that cannot answer it, and position.
 
-**Vertices and types.** The corpus is a finite set of vertices *V*, partitioned into types; every
+**Vertices and types.** The graph is a finite set of vertices *V*, partitioned into types; every
 vertex *v* belongs to exactly one type *T(v)*, a table with a set of columns *cols(T)*. Each vertex has
 a key *k(v)*, unique in *V*.
 
@@ -240,13 +158,13 @@ No value here is chosen by eye. Each is a cited default or follows from a stated
 **Every source publishes one clause on the page's one selection, on the relation it reads.** A
 client of the same relation reads it as published; a client of another reads it crossed into
 identity form, `key IN (SELECT key FROM <relation> WHERE …)`, by the page's resolver — the timeline,
-a dashboard and the canvas alike, with no route of their own ([Step 3](#step-3-one-selection-across-relations)).
+a dashboard and the canvas alike, with no route of their own ([below](#one-selection-across-relations)).
 The timeline stops being a special path: it is `ChartTimeline` over `vertices`.
 
 **A clause a type cannot answer keeps none of that type, everywhere.** It is the timeline's rule and
 Cosmograph's (a point with no value answers `isBetween` false and is greyed,
 [Timeline](/docs/design/timeline)). `GraphClient` asks only the vertex tables that answer every
-clause, under all of them, and the search's `inside` reads the same rule (#174); a clause on another
+clause, under all of them, and the search's `inside` reads the same rule; a clause on another
 relation reaches the graph already crossed by key, which every vertex table answers. The rule is held
 per table rather than by the `NULL` a type without the column holds in the `vertices` union: a
 clause that tests for `NULL` would keep that type, and a column whose type differs across tables is
@@ -254,7 +172,7 @@ not in the union at all.
 
 ### One "kept", derived once
 
-**The store exposes one `kept()`; nothing else reads `mask`.** It is the page's predicate with every
+**The store exposes one `kept()`; no consumer reads a mask that leaves a source out.** It is the page's predicate with every
 clause in it, the canvas's own included. Mosaic's exemption is how a *chart* draws its own brush
 (a dimension's group ignores its own filter, as
 [crossfilter.js](https://github.com/crossfilter/crossfilter/wiki/API-Reference#dimension_filter)
@@ -262,7 +180,7 @@ does, so the bars it is brushing do not vanish under the brush). It is a drawing
 view. The canvas does not need it: its pick is drawn in colour exactly because it is kept. Whether
 the canvas's clause is folded in by the coordinator or as a local bitmask is an implementation
 detail; there is one function, and the canvas, the counts, the legend, the toolbar, `frame()` and
-the search's results all call it. `visibleOf` and `litOf` become that one function.
+the search's results all call it.
 
 ### One visibility rule
 
@@ -276,9 +194,11 @@ the search's results all call it. `visibleOf` and `litOf` become that one functi
 for a `NaN` position, Vega-Lite drops invalid `x`/`y` from a continuous scale by default
 ([`invalid`](https://vega.github.io/vega-lite/docs/invalid-data.html)), and Kepler.gl does not plot
 rows without coordinates. What we add is that it is never mistaken for a filter: the legend's
-**No position** group and the counts' *placed* already say it (#156); a filter never moves a vertex
-into it, and it is counted apart from what a filter keeps. The alternative, parking unplaced vertices
-in a margin strip, is listed under decisions.
+**No position** group and the counts' *placed* say it; a filter never moves a vertex
+into it, and it is counted apart from what a filter keeps.
+
+**What would reverse it.** Readers who cannot find the vertices with no position in the legend and
+the counts. Then they are parked in a margin strip, still counted apart from what a filter keeps.
 
 ### The verbs act on their own source's clause, nothing more
 
@@ -292,17 +212,21 @@ in a margin strip, is listed under decisions.
 | Clear | every clause |
 | `frame()` | what is kept |
 
-The one change is the second half of ⌘ and Alt. Today they start from what is in full colour
-(divergence 6). Under the thesis, Alt over a search's Spain publishes *not Madrid* from the canvas,
-which intersects with *Spain* and reads the same, *Spain less Madrid*, but stays right when the
-search changes, because the canvas never copied it. ⌘ with no canvas clause adds nothing a filter
-holds back, as today: a filter filters, and `GraphCounts`' *N hidden by other filters* says why.
+⌘ and Alt never start from what is in full colour, because that would copy another source's result
+into the canvas's clause, which goes stale when that source changes. Alt over a search's Spain
+publishes *not Madrid* from the canvas, which intersects with *Spain* and reads *Spain less Madrid*,
+and stays right when the search changes, because the canvas never copied it. ⌘ with no canvas clause
+adds nothing a filter holds back: a filter filters, and `GraphCounts`' *N hidden by other filters*
+says why.
+
+**What would reverse it.** Readers expecting Alt to subtract from what they see in full colour.
+Then Alt copies it, and the clause goes stale when another source changes.
 
 ### The greyout
 
-**Decided 11 October 2026: each theme derives its own greyout opacity from its tokens** — the largest
-that keeps every kept colour at 3 : 1 from itself greyed out. It replaces *cosmos.gl's defaults*,
-which measured 2.03 – 2.65 : 1 on the shipped themes.
+**Each theme derives its own greyout opacity from its tokens** — the largest that keeps every kept
+colour at 3 : 1 from itself greyed out. It replaces *cosmos.gl's defaults*, which measured
+2.03 – 2.65 : 1 on the shipped themes.
 
 **The model.** For a colour *c* the canvas paints and the background *b*, both sRGB in 0..1:
 
@@ -349,9 +273,12 @@ Where a palette sits barely over 3 : 1 to its background — Nord, Catppuccin La
 leaves almost no room for context: the greyed marks are just distinguishable from the page (1.014 –
 1.016 : 1). That is the palette's margin, not the greyout's; widening it is the theme's decision.
 
-**Links** keep cosmos.gl's default, `linkGreyoutOpacity = 0.1`, in place of our earlier `0.025`. A kept
+**Links** keep cosmos.gl's default, `linkGreyoutOpacity = 0.1`. A kept
 link is drawn under 3 : 1 to the background on purpose — `linkOpacity` and the distance fade — so SC
 1.4.11 sets no value to derive the greyed one from.
+
+**What would reverse it.** A palette whose category colours sit so near its background that the
+criterion leaves no room for context. That is the theme's decision to widen, not the greyout's.
 
 *Held by* `packages/graph/src/render/greyout.test.ts`, which reads the eight themes' tokens from
 `@kanzo-tech/theme` and checks *P* with that package's own WCAG `contrast` at *α\** and at every
@@ -360,32 +287,11 @@ the background at *α\**; `packages/graph/src/render/renderer.test.ts`, "greys
 out at the opacity derived from the colours it painted and its background, links at cosmos.gl's
 default".
 
-## What changes, and what disappears
+## One selection across relations
 
-- `@kanzo-tech/graph`: `GraphStore.kept()` replaces `mask`, `visible()`, `visibleOf`, `litOf`;
-  `GraphClient` reads `vertices` and keeps none of a table that cannot answer a clause, and
-  `graph/unfilterable` goes; `GraphTimeline` goes
-  for `ChartTimeline relation="vertices"`; `gesture.ts`'s Alt-with-no-clause publishes an exclusion;
-  the greyout values change.
-- `@kanzo-tech/mosaic`: the page's resolver, `crossfilterOver(joins)`, with a clause's relation
-  (`onRelation`) and a client's; `bridgeSelection` and `semiJoinOf` go; a `clauseExclude(key, ids)`
-  beside `clauseSemiJoin`.
-- keasy: the rules publish on `vertices`; Ask's skipped clauses become *the answer's relation keeps
-  none of them* (no rows, as a dashboard), or Ask states it the same way the dashboard does. That is
-  decision 3.
-
-**Migration, in order:** one `kept()` and its tests (no behaviour change); the greyout measured and
-set; one selection across relations, the timeline on it; the graph's, the search's and Ask's
-column rule keeping none instead of skipping; Alt's exclusion clause. Each step is its own PR with the gesture, renderer and
-counts tests that hold the rule today.
-
-## Step 3: one selection across relations
-
-**Decided 11 October 2026, and implemented.** The principle is the owner's: *leave the magic to
-vgplot and Mosaic; a host does not manage selections, bridges or keys.* It replaces the proposal
-that stood here — `GraphTimeline` as a `ChartTimeline` inside a `Crossing` of a *source*, a selection
-per group of clients bridged to the page, and one way to retract through the clause's source — which
-still had a selection per group, a bridge per selection and a retraction path across them.
+The principle is the owner's: *leave the magic to vgplot and Mosaic; a host does not manage
+selections, bridges or keys.* There is one selection per page, and no selection per group of clients,
+no bridge between selections and no second way to retract a clause.
 
 ### What a host writes
 
@@ -399,7 +305,7 @@ still had a selection per group, a bridge per selection and a retraction path ac
 </MosaicProvider>
 ```
 
-No selection, no bridge, no key. `joins` is the corpus's join graph (`readJoinGraph`), which holds
+No selection, no bridge, no key. `joins` is the graph's join graph (`readJoinGraph`), which holds
 one more type, `vertices`: every vertex table as one relation, `NULL` where a table has no such
 column.
 
@@ -434,7 +340,7 @@ row where *a* and *b* hold is not a root with a row where *a* and one where *b*.
 that names no relation is Mosaic's: the clause as published. *kept* is then the conjunction of
 [Formal semantics](#formal-semantics), read per client: *ans(c, v)* is false for a type with no step
 of *A*'s root type, and over `vertices` a column clause keeps none of a type without the column,
-because `GraphClient` asks only the tables that answer every clause (#174).
+because `GraphClient` asks only the tables that answer every clause.
 
 ### A relation that changes
 
@@ -456,25 +362,23 @@ one rather than sitting beside it. A key is held by one part at a time; a twin o
 place of its own. Where a chart's grammar changes in place, its old clause stays the page's and the
 new interactor takes the place its own key names.
 
-**It replaced withdrawal on unmount**, which had every chart and control take what it published off
-the page when it unmounted or its relation changed, so that a filter on one relation never reached
-the next. In Keasy, recording a demo: a pick of *Physics* on a dashboard over
-`LaureateAward > category > Category`, Ask answering *under the page's filter: Category.name
-Physics*, then the dashboard switched to `LaureateAward > university > University` — and the pick
-was gone. The chip went with the chart, and the next answer was over every category, with nothing on
-screen to say so. The reference is Kibana: a filter in its filter bar belongs to the app, not to the
-visualization that added it, and stays across visualizations until it is removed. It is also what
-this page already claimed — one selection for the page, [one count](#the-thesis-everything-is-a-filter)
-of what it keeps — and what the canvas already did: a pick belongs to the page, and is retracted
-where it shows, its chip.
+**A part does not withdraw on unmount.** Withdrawing would take a filter off the page whenever its
+chart unmounted or its relation changed, so that a filter on one relation never reached the next: a
+pick of *Physics* on a dashboard over `LaureateAward > category > Category`, Ask answering *under the
+page's filter: Category.name Physics*, then the dashboard switched to
+`LaureateAward > university > University` — and the pick would be gone, the chip with it, and the next
+answer over every category with nothing on screen to say so. The reference is Kibana: a filter in its
+filter bar belongs to the app, not to the visualization that added it, and stays across
+visualizations until it is removed. It is also what this page claims — one selection for the page,
+[one count](#the-thesis-everything-is-a-filter) of what it keeps — and what the canvas does: a pick
+belongs to the page, and is retracted where it shows, its chip.
 
-**What withdrawal guarded against does not come back.** It kept a chart that unmounted from leaving
-its clause filtering the page with nothing on screen to clear it. The `FilterBar` draws every clause
+**Nothing is left filtering with nothing to clear it.** The `FilterBar` draws every clause
 on the page as a chip with a ×, whoever published it and whether or not it is mounted, so there is
 something on screen to clear it — on a page with a `FilterBar`, which is the condition: a page that
 filters and draws no bar has nothing but the part's remount and `selection.reset()` to clear a
-clause whose part has gone. And the two windows a rebuild once left on the timeline cannot return
-across a remount, because a remount publishes under the source it published under before.
+clause whose part has gone. And two windows cannot pile up on the timeline across a remount, because a remount publishes under
+the source it published under before.
 
 **What would reverse it:** readers taking a kept filter for a wrong answer — a chip from a view they
 left read as noise rather than as the filter they set. Then a clause carries the view it was made in
@@ -506,21 +410,11 @@ people reads `[]` with the guard, and **`lon` 1–3 of people — three wrong ro
 
 The graph's first load waits for every chart on its page that has not drawn its first answer: a
 chart holds the page's first draw (`holdFirstDraw` on the page's selection) until its first answer
-is drawn, fails, or stops asking under a `MosaicClients` that is off. It replaces the hold the
-graph's own timeline part took on the store.
-
-### What went
-
-`MosaicProvider`'s `crossfilter`, `selected`, `registerSelection`, `reset` and `retract` (the
-registry walk upstream); `useCrossfilter` and `useSelected`; `ChartRoot`'s `table`, `as` and
-`filterBy` and `ChartTimeline`'s `table`, `as`, `filterBy` and `paceBy` — `relation`, and the page's
-selection; `Dashboard`'s `publish` and the selection per dashboard; `bridgeSelection`, `bridged`,
-`clauseReadings` and `semiJoinOf`; `GraphTimeline` and `timelineOf`; `graph/unfilterable`
-(with #174).
+is drawn, fails, or stops asking under a `MosaicClients` that is off.
 
 ### What would reverse it
 
-- **A relation whose keys do not share a space** — two corpora on one page, whose `dense_id`s
+- **A relation whose keys do not share a space** — two graphs on one page, whose `dense_id`s
   collide: then a key is a pair and the crossing a tuple semi-join.
 - **A path ambiguous enough to need choosing** — a relation with two steps of the clause's root type
   where the first is the wrong one often enough to matter: then a clause names the step it crosses
@@ -528,7 +422,7 @@ selection; `Dashboard`'s `publish` and the selection per dashboard; `bridgeSelec
 - **Mosaic exposing a per-client pre-aggregation veto, or a resolver hook it calls before
   pre-aggregating**: then `preaggregateOwnRelation`, which wraps the pre-aggregator's public
   `request`, goes for it.
-- **A measured cost of the crossing subquery** at the largest corpus — it reads the relation the
+- **A measured cost of the crossing subquery** at the largest graph — it reads the relation the
   clause was published on once per crossed client per update: then the keys are materialised once
   per clause. At 200,000 people in DuckDB-WASM under Node the canvas's query over the `vertices`
 union measured the same as over the per-table union it keeps for the clause rule (median of 15:
@@ -553,45 +447,80 @@ as the root vertices they keep";
 as any chart on its page, and mounts its band once", "crosses a window on it into every other
 relation, keeping none of a type without the column".
 
-## Status
-
-| Step | Pull request | State |
-| --- | --- | --- |
-| One `kept()`, labels and counts read it (divergences 1, 8, 9) | #173 | merged |
-| The greyout, derived per theme | #177 | merged |
-| One selection across relations — the timeline, the dashboard and the graph on it (divergence 3) | this branch | implemented, merged over #174, #175, #177 and #179 |
-| A clause a type cannot answer keeps none of it — graph, search, Ask (divergences 2, 4, 5) | #174 | merged |
-| Alt's exclusion, and an empty set keeps nothing (divergences 6, 10) | #175 | merged; its exclusion is published on `vertices` |
-
-## Risks
-
-- **Keeping none instead of skipping changes what a host's raw column clause does to types without
-  the column**: they go from in colour to greyed. Every in-repo source publishes on its relation; a host
-  that publishes raw columns would see the change, and the changeset says it.
-- **An exclusion clause is a second kind of canvas clause.** The chip has to read it (*not 3
-  vertices*), and Clear and Esc treat it like any other.
-- **Folding the canvas's clause into `kept` without the exemption** must not cost a round trip per
-  lasso: the canvas's clause is `key IN (ids)`, so the local bitmask stays; only the number of
-  functions changes.
-
 ## Decided
 
 1. **Everything is a filter.** One clause per source on the page's one selection, one `kept`,
    per-view drawing only.
 2. **A clause a type cannot answer keeps none of that type, everywhere, Ask included.** On the
-   canvas the type is greyed; a dashboard tile shows no rows; Ask no longer skips such a clause and
-   reads around it: its answer is read under every clause, so it has no rows, and it says which
+   canvas the type is greyed; a dashboard tile shows no rows; Ask does not skip such a clause and
+   read around it: its answer is read under every clause, so it has no rows, and it says which
    clause its relation cannot answer, as a dashboard's chip does.
-3. **Alt with no canvas clause publishes `key NOT IN (caught)`.** This reverses part of #112's
-   decision, which started ⌘ and Alt from what is in full colour
-   ([the canvas's tools](/docs/design/graph#the-canvass-tools-edit-the-canvass-own-clause)): Alt now
-   acts on the canvas's own clause only, and the result stays right when another source changes.
-   ⌘ with no canvas clause is what it caught.
+3. **Alt with no canvas clause publishes `key NOT IN (caught)`.** Alt acts on the canvas's own clause
+   only ([the canvas's tools](/docs/design/graph#the-canvass-tools-edit-the-canvass-own-clause)), and
+   the result stays right when another source changes. ⌘ with no canvas clause is what it caught.
 4. **"No position" is not drawn, is explicit in the legend and the counts, and no filter ever moves
    a vertex into it.**
 5. **The greyout is derived per theme** from its own tokens — the largest opacity that keeps every
    kept colour at 3 : 1 from itself greyed — replacing *cosmos.gl's defaults*, which measured 2.03 –
    2.65 : 1 ([The greyout](#the-greyout)). Links keep cosmos.gl's default, 0.1.
+
+## The crossing rests on three hooks Mosaic does not publish, and fails out loud
+
+**Three things the cross-relation crossfilter reaches are not in mosaic-core's documented surface, and
+nothing today notices when one moves.** The Selection page of Mosaic's documentation lists four
+resolution strategies, `cross` and `empty`; it lists no custom resolver and no clause `meta`.
+
+| Hook | What the crossing does with it | Why it is not public |
+| --- | --- | --- |
+| The resolver class | `JoinResolver` subclasses it, reached as `Selection.crossfilter().resolver.constructor`, and `new Selection(resolver)` is the extension point | mosaic-core 0.32.0 declares `SelectionResolver` as a type only |
+| `meta.relation` on a clause, `relation` on a client | read by the subclass in `predicate(clauses, active, client)` | undocumented upstream |
+| `preaggregator.request` | `preaggregateOwnRelation` wraps it to veto a pre-aggregate for a client the clause crosses into | no per-client veto exists |
+
+The guard that sees Mosaic's private members, `mosaic-public-api.test.ts`, forbids names that begin
+with `_`; none of the three is one, so a mosaic-core release that changes the resolver's constructor,
+the `predicate` signature or `request` does not fail a build. It fails a page, silently: the
+predicate is `FALSE` or `undefined`, not a throw. The peer range `^0.32.0` on a `0.x` package is a
+pin, so every Mosaic release is a coordinated one; that is the right range and it is also the only
+protection.
+
+**The plan is both of the two ways out, started together, and neither waits for the other.**
+
+- **A behavioural guard, in the package that holds the crossfilter**, which runs the three against
+  the installed mosaic-core on every build: a resolver subclass receives the client and the clauses
+  and a clause crosses; `meta.relation` is the value the subclass reads; the `request` wrapper is the
+  one the pre-aggregator calls. An upgrade fails in the pull request that makes it. *To be added*;
+  it cannot prove the next release's behaviour, only that this one's still holds.
+- **Upstream**: a request to `uwdata/mosaic` to make `SelectionResolver` a value and to document
+  `predicate(clauses, active, client)` and a per-client pre-aggregation veto. If the first lands, the
+  constructor trick is deleted; if the veto does, `preaggregateOwnRelation` is.
+- **The mosaic README states the three**, in place of "all of it is on Mosaic's public API", which
+  they contradict.
+
+The formal model of selections is also the subject of Heer, Moritz and Pechuk, *Mosaic Selections*
+(arXiv:2507.19690, July 2025), which this page does not cite above and which was read here as an
+abstract only. [Formal semantics](#formal-semantics) is a parallel formalisation; reconciling the two,
+and replacing what merely restates the paper by a pointer and the delta (answerability, *placed*, the
+*keeps none* rule), is owed, and nothing here claims they agree.
+
+**A crossing that cannot be resolved is a failure, not a chart with no rows.** `FALSE` is the answer
+for exactly one case, the decided one: the relation has no step whose type meets the clause's root,
+so nothing of it can be read across and it keeps none. The resolver also swallowed *every* error into
+`FALSE` — an unknown relation name, a step lookup that threw — so a typo rendered as "no rows" and no
+`onFailure` was called, which is one state shown as another. A name that resolves to nothing throws a
+`Problem` (`relations/no-step`, [relations](/docs/design/relations#a-path-reads-as-malloys-dots-and-sparqls-inverse)),
+and the `catch` is deleted. A throw from `predicate` happens while Mosaic builds the client's query, so
+it should reach that client's `queryError`, which the provider already routes to `onFailure`; that is
+read from mosaic-core's request path and not run, and a test through the real coordinator is owed
+before the rule is relied on.
+
+**What would reverse it:** upstream accepting the three, which deletes the hooks and keeps the guard
+for the public ones; or rejecting them, which leaves them a documented fork point with the guard as its
+permanent test. The failure rule reverses only for a host that legitimately switches relations
+faster than its joins refresh: then the gap is a transient state the provider names, never a
+catch-all.
+
+*Not yet held:* the behavioural guard; a `crossfilter.test.ts` case that an unknown relation rejects
+with `relations/no-step` and keeps no `FALSE` behind it.
 
 ## References
 

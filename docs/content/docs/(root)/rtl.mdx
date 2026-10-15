@@ -46,14 +46,14 @@ Tailwind box-model code.
 
 ## Where mirroring stops
 
-The allowlist holds six entries, in five shapes, and they are worth knowing because they are the
+The allowlist holds five files, in five shapes, and they are worth knowing because they are the
 places where a mirror is imperfect or delegated:
 
 | Where | What | Why |
 | --- | --- | --- |
-| `InstanceSwitcher`, `SidebarUser` | `right-start`, `right-end` | Ark/floating-ui placements are physical by API — there is no `placement="start"`. |
 | `Calendar` | `left-1/2` | Centring, not sidedness: undone by `-translate-x-1/2`. |
 | `SegmentGroup` | `left-(--left)`, `border-l` | Ark measures the indicator into `--left` / `--width` as physical pixels, so the utility consuming them must be physical too. Mirroring needs Ark to publish logical vars first. |
+| `ImageCropper` | `left-0`, `border-l`, `border-r` | A photograph does not mirror, and neither do the eight compass points Ark writes as `data-position` on the crop box handles: `e` is the box's right edge on screen in both directions. |
 | `Table` | `text-left`, `text-right` | The physical default is paired with an explicit `rtl:` override. |
 | `Toast` | `left-[calc(var(--viewport-offset-right)/2)]` | Ark's viewport offsets are physical measurements of the toast region. |
 

@@ -3,6 +3,15 @@ title: What a field is
 description: Why a field's facts come from the data's own catalog — what it is from what the catalog declares, what it holds from counts where something counted it — and reach every reader through JoinGraph, so nothing in the library guesses them from a column's name or a threshold; and what would reverse each part.
 ---
 
+*Status: partly to be built.* The tree takes these facts from fossil's four manifest relations
+(`fossil_tables`, `fossil_columns`, `fossil_annotations`, `fossil_stats`), through graph's
+`readCatalog` and a `joinGraphOf` that renames its `Structure` into a `JoinGraph`. Decided: a
+`CatalogReader` over an attached GraphAr graph makes the `JoinGraph`, `withMapping` fills the labels
+and datatypes the catalog does not say, and the shape before a run is the compiler's
+([relations](/docs/design/relations)). Where a source for a fact is not yet stated, the table says so
+and the fact is absent until one does; nothing derives it. The *Breaking* list at the end is what a
+consumer edits.
+
 A dashboard, Ask, an answer's card and keasy's assistant each need to know two things about a
 column: **what it is** — a number, a date, a key, called *birth date* in English and *fecha de
 nacimiento* in Spanish — and **what it holds** — how many distinct values, how many missing, its
@@ -130,7 +139,7 @@ role is what the data declares, and where it declares nothing, the kind's.** No 
 | anything else | its DuckDB type | categorical, a dimension |
 
 A year stored as its integer is a time with its extent as the years' first days, and a trend over it
-bins the number it is. A relation with no corpus behind it has no role and no datatype, so the last
+bins the number it is. A relation with no graph behind it has no role and no datatype, so the last
 two rows decide it, and nothing is an identifier because nothing said so; a host says it in the
 joins it hands the provider.
 
@@ -201,14 +210,64 @@ lookup, then an untagged one"; "is the column whose property labels, preferred a
 never one because it is called name"; "are its own label, or its type's for the type's naming column,
 and absent where nothing labels it".
 
+**A mapping states what GraphAr cannot, and the words come from it onto the same graph.** A GraphAr
+graph states tables, column types and edges, and no word, class or predicate; the RML-Core mapping
+written beside it states them. `withMapping(graph, model)` puts the mapping's class, predicate, term
+type, datatype and `rdfs:label`s on the `JoinGraph`'s own `iri`, `annotations`, `termType` and
+`datatype`, which `labelOf`, `relationColumns`, `fieldStats`, `RelationPicker` and Ask already read —
+so there is no second lookup keyed by IRI for a part to consult, and a host passes the mapping once,
+where it passes the graph. The language is not chosen there; every label is kept and the reader's
+`labelOf` chooses. `model` is a structural type cut to what is read (`MappingModel`), the shape of
+rudof's `Mapping.model()`, so the library imports no RDF code, and it is kept to the tables the graph
+has: a table is a type by its source's name, a column by the column its term reads, a relation by its
+parent's table, and among several edges between the same two types by the predicate's local name.
+A column read from a template and a relation no edge matches are left out.
+
+**A query-sourced map is read by the tables its SQL names.** fossil writes a relation, and a
+multi-valued or language-tagged property, as a triples map over an `rml:SQL2008Query` — a relation
+joins the adjacency table to both end tables, a set unnests its list once — never as a
+`parentTriplesMap`, and the mapping does not state that a query and a table are the same rows. So
+the match is by the quoted identifiers in the SQL (`"Person_awarded_Prize"`, `unnest("name")`),
+under three rules: a map whose SQL names exactly one edge's table is that edge's, and its predicate
+and annotations are the edge's `iri` and `annotations`; otherwise a map whose SQL names a type's
+table is described onto the one non-key column of that type the SQL also names; and a name two
+edges, or two columns, share describes nothing. The language column of a tagged value is data and
+no description of the column, so it is not read; the label's own language is kept as it is.
+
+The same change made the words one function. `RelationPicker` and Ask each wrote *the label, else the
+name* — the picker split the name into words and Ask showed it as written, so *laureate award* and
+*LaureateAward* named one type — and `splitWords` was the picker's by its docs and not by its code.
+`typeWords`, `edgeWords` and `splitWords` are `@kanzo-tech/mosaic`'s, and both read them; Ask's chips
+now say *laureate* where nothing labels `Laureate`. `termType` is RML-Core's spelling (`IRI`) from a
+mapping and R2RML's (`rr:IRI`) from a fossil corpus, and a field reads both until the corpus's reader
+goes. The canvas's legend and inspector are not changed: the legend takes names from the host
+(`categories`), which a host builds with `typeWords`, and the inspector still prints a property by its
+name.
+
+**What would reverse it:** a mapping that states which table a query reads — an `rml:source` that names
+it, or a `rml:logicalSource` shared by the maps of one table — then the match is by that statement and
+the SQL is no longer searched; or a query shape whose text names a table and a column that are not the
+ones it describes (a join on a second type's column), then the match is by a rule fossil states and
+the quoted-identifier test goes. Or a GraphAr graph whose info carries the IRIs itself — a vertex type's class
+and a property's predicate — then the catalog states them and `withMapping` is left with the labels;
+or a mapping whose tables are not named as the graph's types are, then the match is by the class IRI
+and a host says which type is which. Or a second consumer that needs a label for a thing the graph
+has no type, edge or column for — a value, say — then the lookup by IRI this avoided is the minimal
+way to state it.
+
+*Held by* `packages/mosaic/src/mapping.test.ts`, "keeps every language, and the reader chooses one: the same graph reads in either"; "falls back to the name in words where the mapping labels nothing, and a blank node labels nothing"; "labels the edge a relation's query joins, by the edge table the SQL names"; "describes the list a query unnests onto its type's one column the SQL names"; "describes nothing a query names ambiguously"; `packages/ai/src/data/ask.test.ts`, "words a type by the label a mapping states, in the page's language, and by its name in words where it states none".
+
 ## What it changed for a consumer
 
-- A `JoinGraph` type's `columns` are `JoinColumn` descriptions, not names. Build one from a corpus
-  with `readJoinGraph`; a graph of your own describes at least each column's `name` and `type`.
+- A `JoinGraph` type's `columns` are `JoinColumn` descriptions, not names. Build one from a graph
+  with `@kanzo-tech/relations`' reader, and fill its labels and datatypes with `withMapping`; a graph
+  of your own describes at least each column's `name` and `type`.
+- A term's type, an IRI and a column's role beyond the key are absent until the catalog or the
+  mapping states them; nothing in the library guesses them.
 - A column named `id`, `uri` or `iri` is no longer an identifier because of its name, and a text of
   more than 50 values is no longer one because of its count. Declare a key in the shape, or in the
   joins you hand the provider.
-- `useFieldStats` takes the relation as `ChartRoot` does, reads a counted corpus's facts, and runs one
+- `useFieldStats` takes the relation as `ChartRoot` does, reads a counted graph's facts, and runs one
   `SUMMARIZE` only for a relation nothing counted. `fieldStats` takes column descriptions;
   `SummarizeRow` is gone.
 - `answerRelationsOf`, `readAnswerRelations`, `AnswerField`, `AskInput.types` and

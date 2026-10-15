@@ -16,6 +16,7 @@ import { scaleOf } from "../render/graph-model";
 import { cursorChip, useGesture } from "./gesture";
 import { labelled, topOf, useInView, useTitles } from "./labels";
 import { useOverlays } from "./overlays";
+import { useKeyboard } from "./keyboard";
 import { ShapeGlyph } from "./shape-glyph";
 import { registerForTesting } from "./testing-probe";
 
@@ -25,11 +26,25 @@ export interface GraphCanvasTranslations {
   loading: string;
   /** Beside the pointer while a marquee or a lasso is drawn, given how many it holds, formatted, and the number. */
   holds: (count: string, n: number) => string;
+  /** The canvas's accessible name; a host replaces it with the graph's own. */
+  name: string;
+  /** What kind of widget it is, for a screen reader: `aria-roledescription`. */
+  roledescription: string;
+  /** What the canvas holds and how to read it, given how many vertices and links are drawn and how many the filters keep (`null`: none filtered). */
+  summary: (vertices: string, edges: string, matching: string | null) => string;
+  /** The focused vertex, in words: its text, type, neighbours, whether the filters keep it, and — walking its neighbours — the place `[k, n]` reached. */
+  focused: (title: string, type: string, neighbours: number, kept: boolean, walk: readonly [number, number] | null) => string;
 }
 
 const ENGLISH: GraphCanvasTranslations = {
   loading: "Loading the graph…",
   holds: (count, n) => `${count} node${n === 1 ? "" : "s"}`,
+  name: "Graph",
+  roledescription: "graph canvas",
+  summary: (vertices, edges, matching) =>
+    `${vertices} vertices and ${edges} links drawn${matching === null ? "" : `, ${matching} kept by the filters`}. Arrow keys move between vertices, ] and [ walk a vertex's neighbours, Enter selects, F frames, P pauses the layout. The search finds a vertex by name and the inspector reads its row.`,
+  focused: (title, type, neighbours, kept, walk) =>
+    `${title}${type ? `, ${type}` : ""}${walk ? `, neighbour ${walk[0]} of ${walk[1]}` : `, ${neighbours} neighbour${neighbours === 1 ? "" : "s"}`}${kept ? "" : ", greyed out by the filters"}`,
 };
 
 export interface GraphCanvasProps extends React.ComponentProps<typeof ark.div> {
@@ -49,8 +64,8 @@ const ORIGIN: React.CSSProperties = { left: 0, top: 0 };
 
 const graphCanvas = tv({
   slots: {
-    root: "relative isolate size-full overflow-hidden bg-background",
-    layer: "pointer-events-none absolute inset-0",
+    root: "relative isolate size-full overflow-hidden bg-background outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-inset",
+    layer: "pointer-events-none absolute inset-0 size-full",
     surface: "relative size-full",
     labels: "pointer-events-none absolute inset-0 overflow-hidden",
     label: [
@@ -76,7 +91,8 @@ const graphCanvas = tv({
  * `z-index` on a child cannot escape into the page.
  *
  * The grid is the one layer under the surface, which is positioned so tree order decides: cosmos.gl
- * clears to a transparent background (`appearance`) and this element paints the colour.
+ * clears to a transparent background (`appearance`) and this element paints the colour. It is a
+ * `<canvas>` drawn by `overlays.ts` when the camera moved — `/docs/design/graph`, "The reference grid".
  *
  * The surface is never gated on the first answer: rendered behind a placeholder it deadlocks — no
  * element, no renderer, no camera, no question. Waiting is an overlay over an empty canvas.
@@ -100,7 +116,12 @@ export function GraphCanvas({ children, className, slot, translations, ...rest }
   const busy = useGraphState((s) => s.drawn === null && s.status !== "failed");
   const look = useMemo(() => resolveLook(options.look), [options.look]);
   const getGraph = useCallback(() => renderer()?.graph ?? null, [renderer]);
-  const overlays = useOverlays({ getGraph });
+  const themeTick = useThemeTick();
+  const overlays = useOverlays({ getGraph, theme: themeTick });
+  const summaryId = `${id}-summary`;
+  const drawn = useGraphState((s) => s.drawn);
+  const matching = useGraphState((s) => s.matching);
+  const { heard, onKeyDown } = useKeyboard(t.focused);
   const { cardRef, gridRef, hostRef, hoverAt, labelRef, schedule, setHovered, setLabelOrder, track } = overlays;
   const surfaceRef = useRef<HTMLDivElement>(null);
   const geometry = useGraphSnapshot((s) => s.geometry);
@@ -127,7 +148,6 @@ export function GraphCanvas({ children, className, slot, translations, ...rest }
     [api, getGraph, id],
   );
 
-  const themeTick = useThemeTick();
   useEffect(() => {
     renderer()?.repaint();
   }, [renderer, themeTick]);
@@ -165,7 +185,16 @@ export function GraphCanvas({ children, className, slot, translations, ...rest }
 
   return (
     <ark.div
+      aria-describedby={summaryId}
+      aria-label={t.name}
+      aria-roledescription={t.roledescription}
+      role="application"
+      tabIndex={0}
       {...rest}
+      onKeyDown={(event) => {
+        rest.onKeyDown?.(event);
+        if (!event.defaultPrevented) onKeyDown(event);
+      }}
       aria-busy={busy || undefined}
       className={cn(styles.root(), className)}
       data-frame={0}
@@ -174,12 +203,7 @@ export function GraphCanvas({ children, className, slot, translations, ...rest }
       ref={hostRef}
     >
       <Show when={look.grid}>
-        <div
-          className={styles.layer()}
-          ref={gridRef}
-          // `--input`, not `--border`: a one-pixel dot in a border's colour is gone on a light page.
-          style={{ backgroundImage: "radial-gradient(var(--input) 1px, transparent 1px)" }}
-        />
+        <canvas className={styles.layer()} data-slot="graph-canvas-grid" ref={gridRef} />
       </Show>
       <div className={styles.surface()} data-slot="graph-canvas-surface" ref={surfaceRef} />
       <Show when={look.vignette}>
@@ -252,6 +276,12 @@ export function GraphCanvas({ children, className, slot, translations, ...rest }
           {t.loading}
         </p>
       </Show>
+      <p className="sr-only" id={summaryId}>
+        {drawn ? t.summary(drawn.vertices.toLocaleString(), drawn.edges.toLocaleString(), matching === null ? null : matching.toLocaleString()) : ""}
+      </p>
+      <div aria-live="polite" className="sr-only" role="status">
+        {heard}
+      </div>
       {children}
     </ark.div>
   );

@@ -41,8 +41,8 @@ export interface GraphOptions extends Channels {
    */
   simulate?: boolean;
   /**
-   * Every failure, as it was thrown: the engine's and the host's errors arrive whole, with their `code`, and the
-   * graph's are `GraphError`s. Required: unhandled, a browser with no WebGL context shows an empty box.
+   * Every failure, as it was thrown: fossil's own errors arrive whole, with their `code`, and the
+   * graph's are `Problem`s coded `graph/*`. Required: unhandled, a browser with no WebGL context shows an empty box.
    */
   onFailure: (error: unknown) => void;
   onSelect?: (selection: VertexSelection | null) => void;
@@ -162,6 +162,11 @@ export interface GraphStore {
   setOptions(options: GraphOptions): void;
   destroy(): void;
   /**
+   * Run the load again from the stage that failed, under a new signal, and ask the filter again; a
+   * no-op unless `status` is `failed` because a read was. A refusal that is deterministic fails again.
+   */
+  retry(): void;
+  /**
    * The ids the snapshot's `kept` keeps that have a position, ascending — what the toolbar counts and
    * `frame()` fits; `null` when no clause is set. The same array until `kept` or the geometry changes.
    */
@@ -191,3 +196,26 @@ export interface GraphStore {
   /** The renderer uploaded this snapshot's geometry, encoding and kept. */
   reportDrawn(snapshot: GraphSnapshot): void;
 }
+
+/** The snapshot of a store that has read nothing. */
+export const blank = (options: GraphOptions, binding: Binding): GraphSnapshot => ({
+  status: "none",
+  total: undefined,
+  matching: null,
+  drawn: null,
+  domain: [],
+  selection: null,
+  focus: null,
+  hovered: null,
+  tool: null,
+  motion: "settled",
+  progress: 1,
+  options,
+  structure: null,
+  binding,
+  geometry: null,
+  encoding: null,
+  kept: null,
+  recent: [],
+  arrangement: null,
+});
