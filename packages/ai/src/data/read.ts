@@ -1,6 +1,7 @@
 "use client";
 
-import { clauseLabel, literal, type Engine, type Selection, type SelectionClause } from "@kanzo-tech/mosaic";
+import { clauseLabel, literal, type Selection, type SelectionClause } from "@kanzo-tech/mosaic";
+import type { Engine } from "@kanzo-tech/mosaic/engine";
 import { JoinResolver, relationQuery, type JoinGraph } from "@kanzo-tech/relations";
 import { plotRelation, TILE_ROWS, tileQuery } from "@kanzo-tech/ui/analytics";
 import type { QueryClient } from "@tanstack/react-query";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { engine } from "@kanzo-tech/mosaic";
+import { engine } from "@kanzo-tech/mosaic/engine";
 import { readJoinGraph, JoinResolver, relationKey, type JoinGraph, type Relation } from "@kanzo-tech/relations";
 import { Skeleton } from "@kanzo-tech/ui";
 import {

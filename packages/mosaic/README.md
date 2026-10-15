@@ -15,7 +15,7 @@ Mosaic are two coordinators, and two coordinators are two crossfilters that neve
 ```ts
 import { Coordinator, Selection, MosaicClient, clausePoints, clauseSemiJoin } from "@kanzo-tech/mosaic";
 import { numbers } from "@kanzo-tech/mosaic";
-import { engine } from "@kanzo-tech/mosaic";
+import { engine } from "@kanzo-tech/mosaic/engine";
 ```
 
 - **`engine()`** — the page's one DuckDB-WASM database: `{ coordinator, query, registerFiles, registerFileBuffer, dropFiles }`,

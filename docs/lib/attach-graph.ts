@@ -1,4 +1,4 @@
-import type { Engine } from "@kanzo-tech/mosaic";
+import type { Engine } from "@kanzo-tech/mosaic/engine";
 import { attachGraph, type GraphAttachment } from "@kanzo-tech/graphar-duckdb";
 
 /**

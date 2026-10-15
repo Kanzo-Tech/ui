@@ -1,6 +1,7 @@
 "use client";
 
-import { engine, type Coordinator } from "@kanzo-tech/mosaic";
+import type { Coordinator } from "@kanzo-tech/mosaic";
+import { engine } from "@kanzo-tech/mosaic/engine";
 import { useEffect, useState } from "react";
 import { attachWritten } from "@/lib/attach-graph";
 

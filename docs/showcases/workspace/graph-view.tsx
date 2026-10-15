@@ -65,9 +65,9 @@ import {
   numbers,
   sql,
   verbatim,
-  type Engine,
   type ExprNode,
 } from "@kanzo-tech/mosaic";
+import type { Engine } from "@kanzo-tech/mosaic/engine";
 import { type JoinGraph, readJoinGraph } from "@kanzo-tech/relations";
 import { MosaicProvider, useChartQuery, useMosaic } from "@kanzo-tech/ui/analytics";
 import {

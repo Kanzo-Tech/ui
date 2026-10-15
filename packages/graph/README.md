@@ -23,7 +23,7 @@ crossfilter, cosmos.gl draws, and the parts are built from `@kanzo-tech/ui` and 
 
 ```tsx
 import { attachGraph } from "@kanzo-tech/graphar-duckdb";
-import { engine } from "@kanzo-tech/mosaic";
+import { engine } from "@kanzo-tech/mosaic/engine";
 import { GraphCanvas, GraphCounts, GraphInspector, GraphLegend, GraphRoot, GraphStatus, GraphToolbar } from "@kanzo-tech/graph";
 
 const e = await engine();

@@ -1,6 +1,7 @@
 "use client";
 
-import { type Engine, type Selection } from "@kanzo-tech/mosaic";
+import type { Selection } from "@kanzo-tech/mosaic";
+import type { Engine } from "@kanzo-tech/mosaic/engine";
 import { relationOf, type JoinGraph } from "@kanzo-tech/relations";
 import { createUIMessageStream, type ChatTransport, type InferUIMessageChunk, type LanguageModel, type UIMessage } from "ai";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
