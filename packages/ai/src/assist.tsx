@@ -260,7 +260,7 @@ const briefOf = (
  */
 const SECRET = /^(cc-|one-time-code$|current-password$|new-password$)/;
 const sensitive = (el: Control | null) =>
-  (el instanceof HTMLInputElement && el.type === "password") ||
+  el?.type === "password" ||
   (el?.getAttribute("autocomplete") ?? "").split(/\s+/).some((token) => SECRET.test(token.toLowerCase()));
 
 /** An ask that offers nothing, and so reads nothing. */
