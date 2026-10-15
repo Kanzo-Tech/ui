@@ -593,13 +593,13 @@ several".
 <ComponentPreview componentName="graph" fileName="example-failure" hasMaxHeight />
 
 **`onFailure` is required**, because unhandled, a browser with no WebGL context shows an empty box.
-It receives every failure **as it was thrown**, and the graph's own are a `GraphError`. The root
+It receives every failure **as it was thrown**, and the graph's own are a kernel `Problem`. The root
 reports `status: "failed"` beside it, so a part can render the failed state without holding the
 error. A failed `attach` is the host's own — above, fossil's coded `corpus/unreadable`, routed to the
 same handler and drawn by [`Problem`](/docs/data-display/problem), which reads the code off whatever
 was thrown and takes the host's words for it.
 
-| `GraphError` code | When |
+| `Problem` code | When |
 | --- | --- |
 | `graph/no-webgl` | No WebGL context, or no GPU device came up. `data.after` is set when the 10 s device deadline fired. |
 | `graph/context-lost` | The browser took the WebGL context back. |
@@ -828,5 +828,4 @@ are the parts' props, and `GraphCanvasTranslations`, `GraphLegendTranslations`,
 `GraphInspectorTranslations` and `GraphSearchTranslations` their words; `VertexDetail` — `vertex`, `table` and `fields` — is what the
 inspector's render prop receives. `Channels` (`fill`, `symbol`, `stroke`, `x`, `y`, `cluster`), `Placement`, `Look`, `LookPatch`,
 `Shape`, `Sim`, `Motion`, `VertexSelection`, `VertexSelectionSource`, `Tool`, `VertexId`,
-`GraphCommands`, `VertexPick`, `DataStatus` and `Drawn` are the vocabulary, and `GraphError` is the class of the
-graph's own failures.
+`GraphCommands`, `VertexPick`, `DataStatus` and `Drawn` are the vocabulary, and the graph's own failures are the kernel's `Problem`.

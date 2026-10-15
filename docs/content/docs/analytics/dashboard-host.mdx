@@ -153,7 +153,7 @@ written whole — [the shape, and how it is read back](/docs/analytics/dashboard
 
 Pass `onFailure` to the `MosaicProvider`. A dashboard reports a `SUMMARIZE` that fails, and every
 card, tile and input reports its own query, with the thrown value — DuckDB's error, or `engine()`'s
-`EngineError` with its `code`. Each part also says so in its own frame, so the callback is for
+`Problem` with its `code`. Each part also says so in its own frame, so the callback is for
 telemetry and toasts, not for keeping the page legible.
 
 ```tsx

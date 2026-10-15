@@ -487,14 +487,14 @@ what a path is resolved by.
 - **`paths(root, hops = 3)`** is every field path from a type within `hops`, in the graph's order,
   never back along the edge just taken: what [Ask](/docs/ai/data)'s model may write.
 - **`relation(root, shown)`** is the one relation the `shown` paths lie on, each its own column there
-  (a path that ends on a step names that step), or a miss: `join/no-step`, `join/no-field`, or
-  `join/branches` for two paths that leave each other.
+  (a path that ends on a step names that step), or a miss: `relations/no-step`, `relations/unmatched`, or
+  `relations/invalid` for two paths that leave each other.
 - **`field(on, path)`** is where `path`, written from `on`'s root, is read: on `on`, or through the
   branch that leaves it at `at`, with the column as the branch names it.
 - **`at(to, from)`** and **`crossing(from, predicates, to, at?)`**: the step a clause on `from` crosses
   into `to` at — the first whose type meets `from`'s root, or the step `at` names — and the clause
   crossed, `key IN (SELECT key FROM from WHERE …)`, or `FALSE` where there is none. A relation the
-  joins cannot walk is not none: `crossing` throws a `JoinError`, `code` `"join/no-step"`, so a part
+  joins cannot walk is not none: `crossing` throws a `Problem`, `code` `"relations/no-step"`, so a part
   reads a failure and not an empty chart. *Held by* `packages/mosaic/src/crossfilter.test.ts`, "fails,
   coded, on a relation the joins cannot walk, rather than keeping none of it".
 
@@ -700,9 +700,9 @@ interface RelationHop { hop: Hop; label: string; to: string; fanOut?: number }
 interface JoinStep { path: string; type: string; key: string }
 interface JoinField { relation: Relation; column: string; at: string }
 type JoinMiss =
-  | { code: "join/no-step"; path: string; segment: string; at: string }
-  | { code: "join/no-field"; path: string; type: string; column: string }
-  | { code: "join/branches"; paths: readonly [string, string] };
+  | { code: "relations/no-step"; path: string; segment: string; at: string }
+  | { code: "relations/unmatched"; path: string; type: string; column: string }
+  | { code: "relations/invalid"; paths: readonly [string, string] };
 interface JoinGraph { types: readonly JoinType[]; edges: readonly JoinEdge[] }
 interface JoinType {
   name: string; table: TableExpr; key: string; columns: readonly JoinColumn[]; rows?: number; of?: readonly string[];

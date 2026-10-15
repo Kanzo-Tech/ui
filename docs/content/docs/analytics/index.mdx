@@ -45,7 +45,7 @@ stay independent of each other.
 
 `onFailure` is the single path a failed query takes to the host. Every chart, stat, input and
 dashboard under the provider calls it with the thrown value, whole — DuckDB's error, or `engine()`'s
-`EngineError` with its `code` — and also says it failed in its own frame, so a failed part is never a
+`Problem` with its `code` — and also says it failed in its own frame, so a failed part is never a
 blank one.
 
 ### One selection

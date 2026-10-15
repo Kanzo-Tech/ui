@@ -41,7 +41,7 @@ export interface GraphOptions extends Channels {
   simulate?: boolean;
   /**
    * Every failure, as it was thrown: fossil's own errors arrive whole, with their `code`, and the
-   * graph's are `GraphError`s. Required: unhandled, a browser with no WebGL context shows an empty box.
+   * graph's are `Problem`s coded `graph/*`. Required: unhandled, a browser with no WebGL context shows an empty box.
    */
   onFailure: (error: unknown) => void;
   onSelect?: (selection: VertexSelection | null) => void;

@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import { sealedCookie } from "./cookie-session";
 import { statelessStore, ticketStore, type SessionRecord, type SessionStore } from "./store";
 import { inMemoryAdapter } from "./test/fake-keycloak";
-import { AuthError, type Session } from "./types";
+import { Problem } from "@kanzo-tech/kernel";
+import type { Session } from "./types";
 
 const SESSION: Session = {
   user: { id: "u-1", email: "ada@example.test", name: "Ada" },
@@ -140,7 +141,7 @@ describe("ticketStore", () => {
         expect(settled).not.toHaveBeenCalled();
         await vi.advanceTimersByTimeAsync(1);
         const failed = await outcome;
-        expect(failed).toBeInstanceOf(AuthError);
+        expect(failed).toBeInstanceOf(Problem);
         expect(failed).toMatchObject({ code: "session/silent", data: { after: 30_000 } });
       }
     } finally {

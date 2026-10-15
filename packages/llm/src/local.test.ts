@@ -88,7 +88,6 @@ vi.stubGlobal("fetch", async (url: URL) => {
 });
 
 const { loadLocalModel, localModel, localModelLoad, localProvider, setLocalProvider, watchLocalModel } = await import("./local");
-const { LlmError } = await import("./error");
 const { dom } = await import("@kanzo-tech/testing/dom");
 
 const REGISTRY = Symbol.for("@kanzo-tech/llm/local");
@@ -181,7 +180,6 @@ describe("localModel", () => {
     setLocalProvider(localProvider({ baseURL: "/models" }));
     const before = fetched.length;
     const call = generateText({ model: localModel("Qwen3-1.7B-q4f16_1-MLC"), prompt: "?" });
-    await expect(call).rejects.toBeInstanceOf(LlmError);
     await expect(call).rejects.toMatchObject({ code: "llm/unavailable", data: { reason: "webgpu" } });
     expect(fetched.length).toBe(before);
   });
@@ -216,7 +214,6 @@ describe("localModel, honest about how a generation ended", () => {
   it("rejects as llm/truncated a structured answer the context cut off, not as JSON that does not parse", async () => {
     generating = finished('{"x": 1, "y": ', "length");
     const call = generateText({ model: model(), prompt: "?", output: Output.object({ schema: jsonSchema<{ x: number; y: number }>({ type: "object", properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"] }) }), maxRetries: 0 });
-    await expect(call).rejects.toBeInstanceOf(LlmError);
     await expect(call).rejects.toMatchObject({ code: "llm/truncated" });
   });
 

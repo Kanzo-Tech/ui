@@ -1,3 +1,4 @@
+import { Problem } from "@kanzo-tech/kernel";
 import { Selection, type ClauseMetadata, type Coordinator, type MosaicClient, type SelectionClause } from "@uwdata/mosaic-core";
 import { InOpNode, Query, ScalarSubqueryNode, column, literal, type ExprNode, type FilterExpr } from "@uwdata/mosaic-sql";
 import { columnPath, joinPath, meets, relationHops, relationQuery, segmentOf, stepsOf, typeOf, type Hop, type JoinGraph, type Relation } from "./relation.js";
@@ -103,23 +104,14 @@ export interface JoinField {
 /** Why a path is not one the joins have — said at the field, before anything runs. */
 export type JoinMiss =
   /** `segment`, after `at`, is no edge that leaves the type reached there. */
-  | { readonly code: "join/no-step"; readonly path: string; readonly segment: string; readonly at: string }
+  | { readonly code: "relations/no-step"; readonly path: string; readonly segment: string; readonly at: string }
   /** The path reaches `type`, which has no `column`. */
-  | { readonly code: "join/no-field"; readonly path: string; readonly type: string; readonly column: string }
+  | { readonly code: "relations/unmatched"; readonly path: string; readonly type: string; readonly column: string }
   /** Two paths a relation must show both of leave each other: a relation is one path. */
-  | { readonly code: "join/branches"; readonly paths: readonly [string, string] };
+  | { readonly code: "relations/invalid"; readonly paths: readonly [string, string] };
 
 /** Whether `value` is a miss rather than what was asked. */
 const isJoinMiss = (value: object): value is JoinMiss => "code" in value;
-
-/** The one failure a crossing names: a relation the joins cannot walk (`join/no-step`, as {@link JoinMiss} says it at the field). */
-export class JoinError extends Error {
-  override readonly name = "JoinError";
-  readonly code = "join/no-step";
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, options);
-  }
-}
 
 /** A relation as a crossing reads it: its rows, and each step's key. */
 interface Read {
@@ -221,7 +213,7 @@ export class JoinResolver extends MosaicResolver {
   /**
    * **The one relation the `shown` paths lie on**, rooted at `root`, each of them its own column
    * there — or a step, for a path that ends on one (a path's count). Paths that leave each other are
-   * `join/branches`: a relation is one path, so what it shows is too.
+   * `relations/invalid`: a relation is one path, so what it shows is too.
    */
   relation(root: string, shown: readonly string[]): Relation | JoinMiss {
     const walks: [string, Walk][] = [];
@@ -234,7 +226,7 @@ export class JoinResolver extends MosaicResolver {
     if (!longest) return { root, path: [] };
     const on = (walk: Walk) => walk.hops.every((h, i) => h.edge === longest[1].hops[i]!.edge && h.direction === longest[1].hops[i]!.direction);
     const off = walks.find(([, walk]) => !on(walk));
-    if (off) return { code: "join/branches", paths: [longest[0], off[0]] };
+    if (off) return { code: "relations/invalid", paths: [longest[0], off[0]] };
     return { root, path: [...longest[1].hops] };
   }
 
@@ -270,7 +262,7 @@ export class JoinResolver extends MosaicResolver {
   /**
    * `predicates` on `from`, as a filter of `to`: a semi-join on the key of `to`'s step `at` — by
    * default the step {@link at} finds — or `FALSE` where there is none. A relation the joins cannot
-   * walk is not "none": it throws a {@link JoinError}, so a part reads a failure, not an empty chart.
+   * walk is not "none": it throws a `Problem` coded `relations/no-step`, so a part reads a failure, not an empty chart.
    */
   crossing(from: RelationRef, predicates: readonly ExprNode[], to: RelationRef, at?: string): ExprNode {
     try {
@@ -280,14 +272,14 @@ export class JoinResolver extends MosaicResolver {
       if (!root || !step) return literal(false);
       return new InOpNode(column(step.key), new ScalarSubqueryNode(Query.select(root.key).from(source.table).where([...predicates])));
     } catch (cause) {
-      throw new JoinError(`cannot cross a clause on ${JSON.stringify(from)}: ${cause instanceof Error ? cause.message : String(cause)}`, { cause });
+      throw new Problem("relations/no-step", `cannot cross a clause on ${JSON.stringify(from)}: ${cause instanceof Error ? cause.message : String(cause)}`, {}, { cause });
     }
   }
 
   /** `path`'s segments walked from `root`: each an edge that leaves the type reached, the last a column of it or an edge. */
   private walk(root: string, path: string): Walk | JoinMiss {
     const joins = this.joins;
-    if (!joins?.types.some((t) => t.name === root)) return { code: "join/no-step", path, segment: root, at: "" };
+    if (!joins?.types.some((t) => t.name === root)) return { code: "relations/no-step", path, segment: root, at: "" };
     const segments = path === "" ? [] : path.split(".");
     const hops: Hop[] = [];
     const paths = [""];
@@ -305,8 +297,8 @@ export class JoinResolver extends MosaicResolver {
       const edge = named.length === 1 ? named[0] : labelled.length === 1 ? labelled[0] : undefined;
       if (!edge) {
         return i === segments.length - 1
-          ? { code: "join/no-field", path, type, column: segment }
-          : { code: "join/no-step", path, segment, at: paths.at(-1)! };
+          ? { code: "relations/unmatched", path, type, column: segment }
+          : { code: "relations/no-step", path, segment, at: paths.at(-1)! };
       }
       const hop: Hop = { edge: edge.name, direction: inward ? "in" : "out" };
       hops.push(hop);

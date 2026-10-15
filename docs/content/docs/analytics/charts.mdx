@@ -144,13 +144,13 @@ export default function Analytics({ children }: { children: React.ReactNode }) {
 }
 ```
 
-`engine()` always settles. A worker that will not load, or a boot slower than 60 s, rejects with an
-`EngineError` whose `code` is `"engine/unavailable"` (with `data.after` when the deadline fired), and
+`engine()` always settles. A worker that will not load, or a boot slower than 60 s, rejects with a
+`Problem` whose `code` is `"engine/unavailable"` (with `data.after` when the deadline fired), and
 the failure is not kept: the next `engine()` boots again. `engine({ signal })` ends your own wait
 without stopping the boot other islands share.
 
 A worker that dies after the boot (the tab ran out of memory, the browser took it) is a state the
-engine handles: every request it held rejects with an `EngineError` whose `code` is `"engine/lost"`
+engine handles: every request it held rejects with a `Problem` whose `code` is `"engine/lost"`
 and `data.reason` is `"worker"` or `"memory"`, every later statement rejects with the same, and the
 engine forgets itself. Call `engine()` again for a new one and attach again — a catalog, registered
 files and a `mount`'s secrets lived in the dead worker, and nothing carries them over. A count a host
@@ -688,7 +688,7 @@ await (await env.getHarness(ChartHarness.with({ title: "Sightings by beast" })))
 | `joins` | `JoinGraph \| null` — the graph a part's `relation` names a type or a path over, and a clause crosses relations through | `null` |
 | `onFailure` | `(error: unknown) => void` | — |
 
-`onFailure` receives what a failed query threw, whole — DuckDB's error, or `engine()`'s `EngineError`
+`onFailure` receives what a failed query threw, whole — DuckDB's error, or `engine()`'s `Problem`
 with its `code` — from every chart, `ChartStat` and input beneath the provider. The part also says it
 failed in its own frame: a failed chart reads *This chart could not be drawn.*, never a blank plot.
 `useChartQuery` and `useMosaicInput` return the same value as `error`.
@@ -860,7 +860,7 @@ reaches for is here.
 | Expressions | `and` `not` `eq` `isIn` `isNotNull` `isAggregateExpression` `cast` `float64` `length` `literal` `div` `mul` `binDate` `binHistogram` |
 | Aggregates | `count` `sum` `avg` `min` `max` `median` `quantile` `stddev` `mode` |
 | Loaders | `loadObjects` `loadCSV` `loadJSON` `loadParquet` `loadSpatial` `loadExtension` |
-| The engine | `engine` `Engine` `EngineError` `queryFailure` `numbers` `TableExpr` |
+| The engine | `engine` `Engine` `Problem` `queryFailure` `numbers` `TableExpr` |
 | The clause rule, ours | `clauseSemiJoin` `clauseAntiJoin` `clauseColumns` `clauseParts` `clauseLabel` `ClauseParts` `SemiJoinMembers` `SemiJoinMetadata` `SemiJoinOptions` `AntiJoinMetadata` |
 | The page's crossfilter | `crossfilterOver` `JoinResolver` `JoinStep` `JoinField` `JoinMiss` `onRelation` `relationOf` `sameRelation` `readOf` `preaggregateOwnRelation` `relaySelection` `RelayOptions` `RelationClient` `RelationExpr` `RelationRef` `RelationMetadata` |
 | First draws | `holdFirstDraw` `firstDrawsPending` `onFirstDraws` |

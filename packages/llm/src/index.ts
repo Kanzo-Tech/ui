@@ -9,7 +9,6 @@
  * optional, so neither is on this barrel.
  */
 
-export { LlmError } from "./error.js";
 export { generate, type Generated, type GenerateOptions } from "./generate.js";
 export { stream, type Stream, type StreamOptions } from "./stream.js";
 export type { ModelLoad } from "./load.js";

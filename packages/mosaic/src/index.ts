@@ -103,7 +103,6 @@ export {
  * type, the relation a set of paths lies on, and where a path off it is crossed in. `crossfilter.ts`.
  */
 export {
-  JoinError,
   JoinResolver,
   crossfilterOver,
   onRelation,
@@ -137,7 +136,7 @@ export { type TableExpr } from "./table.js";
  * the only door to `wasmConnector`, which is why that is no longer re-exported: a second boot is a
  * second database, and every host that wrote its own boot also wrote its own registry policy.
  */
-export { engine, EngineError, type Engine } from "./engine.js";
+export { engine, type Engine } from "./engine.js";
 
 /** Ours: what a query threw, from the `QueryError` mosaic-core hands a client's `queryError`. */
 export { queryFailure } from "./failure.js";

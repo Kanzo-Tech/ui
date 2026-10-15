@@ -1,4 +1,5 @@
 import { AsyncDuckDB, DuckDBDataProtocol, VoidLogger, selectBundle } from "@duckdb/duckdb-wasm";
+import { Problem, isProblem } from "@kanzo-tech/kernel";
 import { Coordinator, decodeIPC, type Connector } from "@uwdata/mosaic-core";
 import { isSecret, redact } from "./redact.js";
 
@@ -54,7 +55,7 @@ export interface Engine {
    * decoded as the coordinator decodes, because the queue batches every Arrow request behind
    * `requestAnimationFrame` — the consolidation the charts want — and a hidden tab never fires one:
    * fossil's attach waited forever there with no error, and a host's DDL sat behind chart batches.
-   * Nothing is cached: these are statements with effects. A failure is `EngineError` `engine/failed`,
+   * Nothing is cached: these are statements with effects. A failure is `Problem` `engine/failed`,
    * DuckDB's message and the statement with every literal replaced by `?`.
    *
    * **An abort stops the statement.** While it runs, the signal interrupts it in DuckDB and the call
@@ -156,31 +157,6 @@ const HELD = Symbol("held");
 const BOOT_DEADLINE = 60_000;
 
 /**
- * What the engine names. `engine/unavailable`: it would not boot, `data.after` set when the deadline
- * fired. `engine/lost`: the worker died after boot, `data.reason` `"worker"` or `"memory"`; the engine
- * forgets itself, and the next `engine()` boots another one with nothing attached. `engine/failed`: DuckDB
- * refused a statement. Its `message` and `data.statement` are the DuckDB's message and the statement
- * with every literal replaced by `?` (see {@link redact}); a `CREATE SECRET` is not echoed at all. The
- * original text is on no field, and not on `cause`, and not on the coordinator's logger, so what a
- * host's `onFailure` hands to its telemetry carries no user's value and no credential.
- */
-export class EngineError extends Error {
-  override readonly name = "EngineError";
-  constructor(
-    readonly code: "engine/unavailable" | "engine/lost" | "engine/failed" | "engine/cannot-cancel",
-    message: string,
-    readonly data: {
-      readonly after?: number;
-      readonly reason?: "worker" | "memory";
-      readonly statement?: string;
-    } = {},
-    options?: ErrorOptions,
-  ) {
-    super(message, options);
-  }
-}
-
-/**
  * DuckDB-WASM 1.33's `onError` logs a worker's `error` event and clears its pending requests without
  * settling them, so a worker that fails to load leaves `instantiate` waiting forever, and one that dies
  * later leaves every request it held waiting forever. This rejects them first: as `engine/unavailable`
@@ -191,7 +167,7 @@ export class EngineError extends Error {
  */
 class Duck extends AsyncDuckDB {
   /** Set when the boot is over: called once, with the failure every pending request was rejected with. */
-  lost?: (failure: EngineError) => void;
+  lost?: (failure: Problem) => void;
 
   protected override attach(worker: Worker): void {
     super.attach(worker);
@@ -201,24 +177,30 @@ class Duck extends AsyncDuckDB {
   protected override onError(event: ErrorEvent): void {
     const message = event.message || (this.lost ? "it stopped answering" : "it did not load");
     const failure = this.lost
-      ? new EngineError(
+      ? new Problem(
           "engine/lost",
           `the DuckDB worker died: ${message}`,
           { reason: /memory|oom/i.test(message) ? "memory" : "worker" },
           { cause: event.error },
         )
-      : new EngineError("engine/unavailable", `the DuckDB worker failed: ${message}`, {}, { cause: event.error });
+      : new Problem("engine/unavailable", `the DuckDB worker failed: ${message}`, {}, { cause: event.error });
     for (const task of this._pendingRequests.values()) task.promiseRejecter(failure);
     super.onError(event);
     this.lost?.(failure);
   }
 }
 
-/** What DuckDB refusing `sql` is to a caller: the refusal with no literal of either in it. A loss passes as it is. */
-function failed(sql: string, error: unknown): EngineError {
-  if (error instanceof EngineError) return error;
-  if (isSecret(sql)) return new EngineError("engine/failed", "CREATE SECRET failed");
-  return new EngineError("engine/failed", redact(error instanceof Error ? error.message : String(error)), {
+/**
+ * What DuckDB refusing `sql` is to a caller: `engine/failed`, whose `message` and `data.statement` are
+ * DuckDB's message and the statement with every literal replaced by `?` (see {@link redact}); a
+ * `CREATE SECRET` is not echoed at all. The original text is on no field, not on `cause`, and not on
+ * the coordinator's logger, so what a host's `onFailure` hands to its telemetry carries no user's
+ * value and no credential. A loss passes as it is.
+ */
+function failed(sql: string, error: unknown): Problem {
+  if (error instanceof Problem) return error;
+  if (isSecret(sql)) return new Problem("engine/failed", "CREATE SECRET failed");
+  return new Problem("engine/failed", redact(error instanceof Error ? error.message : String(error)), {
     statement: redact(sql),
   });
 }
@@ -244,12 +226,12 @@ async function boot(forget: () => void): Promise<Engine> {
     );
   } catch (error) {
     void duckdb?.terminate();
-    if (error instanceof EngineError && error.code !== "engine/failed") throw error;
+    if (isProblem(error) && error.code !== "engine/failed") throw error;
     const after = deadline.signal.aborted ? { after: BOOT_DEADLINE } : {};
     const message = deadline.signal.aborted
       ? `DuckDB did not boot within ${BOOT_DEADLINE / 1000} s`
       : "DuckDB did not boot";
-    throw new EngineError("engine/unavailable", message, after, { cause: error });
+    throw new Problem("engine/unavailable", message, after, { cause: error });
   } finally {
     clearTimeout(timer);
   }
@@ -271,7 +253,7 @@ async function start(forget: () => void, made: (duckdb: Duck) => void): Promise<
 
   // Set when the worker died; every step that has not started then refuses with it instead of waiting
   // on a worker that will not answer, and the request that was in flight was rejected with it already.
-  let lost: EngineError | undefined;
+  let lost: Problem | undefined;
   const inOrder = () => {
     let tail: Promise<unknown> = Promise.resolve();
     return <T>(step: () => Promise<T>): Promise<T> => {

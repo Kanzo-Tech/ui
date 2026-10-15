@@ -1,3 +1,4 @@
+import { Problem } from "@kanzo-tech/kernel";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { tableFromArrays, tableToIPC } from "@uwdata/flechette";
 
@@ -100,7 +101,7 @@ vi.mock("@duckdb/duckdb-wasm", async (original) => ({
   },
 }));
 
-const { engine, EngineError } = await import("./engine.js");
+const { engine } = await import("./engine.js");
 
 beforeEach(() => {
   calls.length = 0;
@@ -211,7 +212,7 @@ describe("engine", () => {
       const e = await engine();
       db.startPendingQuery.mockRejectedValueOnce(refusal);
       const failure = await e.query(asked, { signal: new AbortController().signal }).catch((error: unknown) => error);
-      expect(failure).toBeInstanceOf(EngineError);
+      expect(failure).toBeInstanceOf(Problem);
       expect(failure).toMatchObject({
         code: "engine/failed",
         data: { statement: "SELECT * FROM nowhere WHERE name = ? AND id IN (?)" },

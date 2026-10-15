@@ -1,5 +1,6 @@
 import { deadline } from "./deadline";
-import { AuthError, type Session } from "./types";
+import { Problem } from "@kanzo-tech/kernel";
+import type { Session } from "./types";
 
 /**
  * Where the server keeps what it knows about a signed-in person.
@@ -110,7 +111,7 @@ export interface SessionStore {
   /**
    * Forget every session of `sub`, or only the one Keycloak calls `sid` — a back-channel logout.
    *
-   * A store that cannot find a person's sessions rejects with `AuthError` `session/irrevocable`
+   * A store that cannot find a person's sessions rejects with `Problem` `session/irrevocable`
    * rather than answering as though it had: a logout that ends nothing must not report success to
    * the identity provider.
    */
@@ -162,7 +163,7 @@ export function statelessStore(): SessionStore {
       /* Nothing to forget: see above, and mean it. */
     },
     async dropAll() {
-      throw new AuthError(
+      throw new Problem(
         "session/irrevocable",
         "a stateless session lives in the cookie, so no server can end it: give relyingParty a ticketStore",
       );
@@ -284,7 +285,7 @@ function opaqueTicket(): string {
  * ## Every wait on the adapter is bounded here
  *
  * Each `read`, `write` and `delete` is raced against `DEADLINE` (30 s), and one that has not
- * answered by then rejects as `AuthError` `session/silent` with `{ after }` — which the server
+ * answered by then rejects as `Problem` `session/silent` with `{ after }` — which the server
  * reports as `session/unavailable`, with that as its cause, like any other failure of the store.
  * The library makes the wait, so the library bounds it: a deployment that forgot to race its
  * Redis client would otherwise hang a page on a store that stopped answering.
@@ -344,7 +345,7 @@ export function ticketStore(adapter: TicketAdapter, config: TicketStoreConfig = 
     async dropAll(subject) {
       const keys = adapter.keys?.bind(adapter);
       if (keys === undefined) {
-        throw new AuthError(
+        throw new Problem(
           "session/irrevocable",
           "the ticket adapter has no `keys`, so a person's sessions cannot be found to end them",
         );

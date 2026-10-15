@@ -29,7 +29,7 @@ keeps the agent of its first render, as `useChat` keeps its first transport: a h
 waits on something draws [`ChatSkeleton`](#before-it-can-be-drawn) until it can build it.
 
 **It keeps what the agent threw.** `useChat` hands back a sentence: the transport writes a failure
-into the stream as text and the chat rebuilds an `Error` from the words, so an `LlmError`'s `code`
+into the stream as text and the chat rebuilds an `Error` from the words, so a `Problem`'s `code`
 and `data` are gone before a host could branch on them. `useAgentChat`'s `error` is the value the
 agent threw, whole — the same value every other surface in the library hands over
 ([failure](/docs/design/failure)).
