@@ -374,11 +374,11 @@ when you clear it — clear it on sign-out, as you would any other data of the p
 `fieldStats(columns, options)` is the classification on its own: column descriptions in — a
 `FieldColumn` is a `JoinColumn` and whether its type's writer found it a key — the same
 `{ fields, columns }` out, nothing queried. Reach for it with a join graph of your own and no page:
-`relationColumns(graph, relation)`, from `@kanzo-tech/mosaic`, describes a relation's columns under
+`relationColumns(graph, relation)`, from `@kanzo-tech/relations`, describes a relation's columns under
 the names it reads them by.
 
 ```ts
-const graph = await readJoinGraph(coordinator, jobId);
+const graph = await readJoinGraph(engine, jobId, { signal });
 const { fields, columns } = fieldStats(relationColumns(graph, { root: "Person", path: [] }), { exclude: ["dense_id"] });
 ```
 
@@ -427,7 +427,7 @@ with no hops, so there is no second path for it.
 <ComponentPreview componentName="dashboard" fileName="example-relations" hasMaxHeight={false} />
 
 ```tsx
-import { JoinResolver, relationKey } from "@kanzo-tech/mosaic";
+import { JoinResolver, relationKey } from "@kanzo-tech/relations";
 import { Dashboard, MosaicProvider, RelationPicker } from "@kanzo-tech/ui/analytics";
 
 <MosaicProvider coordinator={coordinator} joins={graph}>
@@ -495,7 +495,7 @@ what a path is resolved by.
   into `to` at — the first whose type meets `from`'s root, or the step `at` names — and the clause
   crossed, `key IN (SELECT key FROM from WHERE …)`, or `FALSE` where there is none. A relation the
   joins cannot walk is not none: `crossing` throws a `Problem`, `code` `"relations/no-step"`, so a part
-  reads a failure and not an empty chart. *Held by* `packages/mosaic/src/crossfilter.test.ts`, "fails,
+  reads a failure and not an empty chart. *Held by* `packages/relations/src/crossfilter.test.ts`, "fails,
   coded, on a relation the joins cannot walk, rather than keeping none of it".
 
 ```ts

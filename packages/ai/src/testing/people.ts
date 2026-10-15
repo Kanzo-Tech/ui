@@ -1,7 +1,7 @@
 // A small graph for the answer tests: people who know each other, as a join graph over two tables
 // of the test database. Not part of the published build (`vite.config.ts` excludes `src/testing`).
 
-import type { JoinColumnStats, JoinGraph, Relation } from "@kanzo-tech/mosaic";
+import type { JoinColumnStats, JoinGraph, Relation } from "@kanzo-tech/relations";
 import type { TestDatabase } from "./duckdb.js";
 
 const counted = (distinctCount: number, more: Partial<JoinColumnStats> = {}): JoinColumnStats => ({

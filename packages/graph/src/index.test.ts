@@ -26,7 +26,6 @@ const VALUES = [
   "GraphStatus",
   "GraphToolbar",
   "lookFrom",
-  "readJoinGraph",
   "simFrom",
   "useGraph",
   "useGraphContext",

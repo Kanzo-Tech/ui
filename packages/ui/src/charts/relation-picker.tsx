@@ -1,6 +1,15 @@
 "use client";
 
-import { edgeWords, relationHops, typeWords, type Hop, type JoinEdge, type JoinGraph, type Relation, type RelationHop } from "@kanzo-tech/mosaic";
+import {
+  edgeWords,
+  relationHops,
+  typeWords,
+  type Hop,
+  type JoinEdge,
+  type JoinGraph,
+  type Relation,
+  type RelationHop,
+} from "@kanzo-tech/relations";
 import { useId, useMemo } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";

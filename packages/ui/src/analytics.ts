@@ -133,10 +133,10 @@ export { parseDashboards, parseTile } from "./charts/dashboard-spec.js";
 export type { Dashboards } from "./charts/dashboard-spec.js";
 
 // The picker that walks a relation over a join graph. The relation and its algebra — `Relation`,
-// `JoinGraph`, `relationKey` and the rest — are `@kanzo-tech/mosaic`'s, imported from there; the graph
-// is whatever a reader built from its catalog (`@kanzo-tech/graph`'s `readJoinGraph`, for a fossil
-// corpus), handed to `MosaicProvider` as its `joins`. What every part's `relation` takes is
-// `@kanzo-tech/mosaic`'s `RelationExpr`: a table by name, a path, or SQL.
+// `JoinGraph`, `relationKey` and the rest — are `@kanzo-tech/relations`'s, imported from there; the
+// graph is whatever a reader built from its catalog (`@kanzo-tech/relations`'s `readJoinGraph`, for an
+// attached GraphAr graph), handed to `MosaicProvider` as its `joins`. What every part's `relation`
+// takes is `@kanzo-tech/relations`'s `RelationExpr`: a table by name, a path, or SQL.
 export { RelationPicker } from "./charts/relation-picker.js";
 export type { RelationPickerProps, RelationPickerTranslations } from "./charts/relation-picker.js";
 export { useFieldStats, fieldStats } from "./charts/field-stats.js";

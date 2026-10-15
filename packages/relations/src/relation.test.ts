@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Query, asTableRef } from "@uwdata/mosaic-sql";
-import { clauseColumns, clauseSemiJoin } from "./clause.js";
+import { clauseColumns, clauseSemiJoin } from "@kanzo-tech/mosaic";
 import { relationColumns, relationHops, relationKey, relationQuery, type JoinGraph } from "./relation.js";
 
 const at = (table: string) => asTableRef(["jobs/7", table])!;

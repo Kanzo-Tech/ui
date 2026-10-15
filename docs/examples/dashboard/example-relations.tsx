@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { readJoinGraph } from "@kanzo-tech/graph";
+import { engine } from "@kanzo-tech/mosaic/engine";
+import { readJoinGraph, JoinResolver, relationKey, type JoinGraph, type Relation } from "@kanzo-tech/relations";
 import { Skeleton } from "@kanzo-tech/ui";
-import { JoinResolver, relationKey, type JoinGraph, type Relation } from "@kanzo-tech/mosaic";
 import {
   Dashboard,
   FilterBar,
@@ -28,7 +28,13 @@ export default function Example() {
   const [specs, setSpecs] = useState<Record<string, DashboardSpec>>({});
 
   useEffect(() => {
-    if (coordinator) readJoinGraph(coordinator, FROM).then(setGraph, setFailure);
+    if (!coordinator) return;
+    // The archive is attached to the page's one engine; its catalog is read through it.
+    const controller = new AbortController();
+    engine()
+      .then((e) => readJoinGraph(e, FROM, { signal: controller.signal }))
+      .then(setGraph, (error: unknown) => !controller.signal.aborted && setFailure(error));
+    return () => controller.abort();
   }, [coordinator]);
   const drawn = useMemo(
     () => {

@@ -1,8 +1,20 @@
 import { Problem } from "@kanzo-tech/kernel";
-import { Selection, type ClauseMetadata, type Coordinator, type MosaicClient, type SelectionClause } from "@uwdata/mosaic-core";
-import { InOpNode, Query, ScalarSubqueryNode, column, literal, type ExprNode, type FilterExpr } from "@uwdata/mosaic-sql";
+import {
+  InOpNode,
+  Query,
+  ScalarSubqueryNode,
+  Selection,
+  column,
+  literal,
+  type ClauseMetadata,
+  type Coordinator,
+  type ExprNode,
+  type FilterExpr,
+  type MosaicClient,
+  type SelectionClause,
+  type TableExpr,
+} from "@kanzo-tech/mosaic";
 import { columnPath, joinPath, meets, relationHops, relationQuery, segmentOf, stepsOf, typeOf, type Hop, type JoinGraph, type Relation } from "./relation.js";
-import type { TableExpr } from "./table.js";
 
 /**
  * **The page's one crossfilter, across relations** — Mosaic's own `Selection.crossfilter()`, with the

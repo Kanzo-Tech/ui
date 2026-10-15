@@ -48,7 +48,7 @@ export interface Answer {
  * request off the coordinator's queue; a statement already running is not interrupted, since the
  * coordinator has no way to say so.
  */
-export function ask(coordinator: Coordinator, query: Query, signal?: AbortSignal): Promise<Answer> {
+export function ask(coordinator: Coordinator, query: Query | string, signal?: AbortSignal): Promise<Answer> {
   const result = coordinator.query(query, { type: "arrow" });
   signal?.addEventListener("abort", () => coordinator.cancel([result]), { once: true });
   return until(result as Promise<Answer>, signal);
@@ -299,37 +299,6 @@ export async function matchingIds(
   return Array.from(values(await ask(coordinator, Query.select("id").from(union).where("inside")), "id") as ArrayLike<number>);
 }
 
-/** The name every vertex as one relation goes by: in the corpus's join graph, and as what the canvas reads. */
+/** The name every vertex as one relation goes by: the union type `@kanzo-tech/relations`'s `readJoinGraph` makes, and what the canvas reads. */
 export const VERTICES = "vertices";
 
-const unions = new WeakMap<Structure, { table: Query; columns: string[] }>();
-
-/**
- * **Every vertex as one relation** — each vertex type's rows under the global id, with every
- * column some table has: `NULL` in a table without it, so a clause on a column keeps none of a type
- * that has no such column (`/docs/design/crossfilter`). A column two tables declare with different
- * types is not one column, and is left out. What the canvas reads, what a timeline over the graph
- * counts (`<ChartTimeline relation="vertices" field=… />`), and the `vertices` type of the corpus's
- * join graph.
- */
-export function verticesOf(structure: Structure): { table: Query; columns: string[] } {
-  const found = unions.get(structure);
-  if (found) return found;
-  const types = new Map<string, string | null>();
-  for (const table of structure.vertices) {
-    for (const [name, column] of table.columns) {
-      if (name === KEY) continue;
-      const seen = types.get(name);
-      types.set(name, seen === undefined || seen === column.type ? column.type : null);
-    }
-  }
-  const columns = [...types].flatMap(([name, type]) => (type === null ? [] : [name]));
-  const table = Query.unionAll(
-    structure.vertices.map((t) =>
-      Query.select({ [KEY]: KEY, ...Object.fromEntries(columns.map((c) => [c, t.columns.has(c) ? c : literal(null)])) }).from(t.table),
-    ),
-  );
-  const union = { table, columns };
-  unions.set(structure, union);
-  return union;
-}

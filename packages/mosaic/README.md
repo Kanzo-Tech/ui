@@ -60,17 +60,9 @@ import { engine } from "@kanzo-tech/mosaic/engine";
   relation whose rows carry the key, whatever the subquery reads. `clauseColumns(filter)` is the
   columns a clause names on the relation it filters — a subquery's are another relation's — which is
   how a client knows whether its relation answers it.
-- **`crossfilterOver(joins)`** — the page's one selection: Mosaic's crossfilter, with a resolver
-  (`JoinResolver`, on mosaic-core's own `new Selection(resolver)`) that crosses a clause published on
-  one relation into a client of another. A clause says its relation (`onRelation(clause, relation)`,
-  read back by `relationOf`); a client says the one it reads now (`relation` on the client). The same
-  relation gets the clause as published; another one the joins reach gets `key IN (SELECT key FROM
-  T WHERE …)` into its step of the clause's root type; one with no such step gets `FALSE`. A clause
-  or a client that names no relation is Mosaic's, untouched. `readOf(joins, relation)` is what a
-  relation reads — a table by name, a path compiled with `relationQuery`, or SQL as written.
-  `preaggregateOwnRelation(coordinator)` keeps Mosaic's pre-aggregator to a client of the active
-  clause's own relation, so a crossed client is asked the plain query rather than a view indexed by
-  columns of another relation's.
+- **The join graph, the relations over it and the crossfilter across them** (`JoinGraph`,
+  `crossfilterOver`, `JoinResolver`, `readJoinGraph`, the relation words) are
+  `@kanzo-tech/relations`'s, which reaches Mosaic through this package.
 - **`holdFirstDraw(page)` / `firstDrawsPending` / `onFirstDraws`** — what a page has yet to draw for
   the first time, counted on its selection: a chart holds it until its first answer is drawn, and the
   graph's first load waits for it.

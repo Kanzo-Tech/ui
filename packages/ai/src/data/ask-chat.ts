@@ -1,7 +1,8 @@
 "use client";
 
-import { relationOf, type JoinGraph, type Selection } from "@kanzo-tech/mosaic";
+import type { Selection } from "@kanzo-tech/mosaic";
 import type { Engine } from "@kanzo-tech/mosaic/engine";
+import { relationOf, type JoinGraph } from "@kanzo-tech/relations";
 import { createUIMessageStream, type ChatTransport, type InferUIMessageChunk, type LanguageModel, type UIMessage } from "ai";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import * as React from "react";
@@ -49,7 +50,7 @@ const ENGLISH: AskChatTranslations = {
 export interface AskChatOptions {
   readonly model: LanguageModel;
   readonly engine: Pick<Engine, "query">;
-  /** The data: what its types and fields are and hold is the graph's — `readJoinGraph` for a fossil corpus. */
+  /** The data: what its types and fields are and hold is the graph's — `@kanzo-tech/relations`'s `readJoinGraph` for an attached graph. */
   readonly graph: JoinGraph;
   /** The page's crossfilter: an answer is read under it, and must reach the relations its chips are on. */
   readonly selection?: Selection;

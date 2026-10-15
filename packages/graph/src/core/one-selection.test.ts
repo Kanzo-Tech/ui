@@ -3,22 +3,23 @@ import {
   Query,
   clauseInterval,
   clausePoint,
-  crossfilterOver,
   float64,
-  onRelation,
-  preaggregateOwnRelation,
-  readOf,
   type Coordinator,
   type FilterExpr,
-  type Relation,
-  type RelationClient,
-  type RelationRef,
   type Selection,
   type TableExpr,
 } from "@kanzo-tech/mosaic";
+import {
+  crossfilterOver,
+  onRelation,
+  preaggregateOwnRelation,
+  readOf,
+  type Relation,
+  type RelationClient,
+  type RelationRef,
+} from "@kanzo-tech/relations";
 import { describe, expect, it, vi } from "vitest";
-import { attach, settle } from "../../test/corpus";
-import { readJoinGraph } from "./join-graph";
+import { attach, settle, readJoins } from "../../test/corpus";
 import { createGraph } from "./store";
 
 /**
@@ -62,7 +63,7 @@ const LIVES: Relation = { root: "Person", path: [{ edge: "Person_livesIn_Place",
 async function discover() {
   const corpus = await attach();
   const coordinator: Coordinator = corpus.coordinator;
-  const joins = await readJoinGraph(coordinator, corpus.from);
+  const joins = await readJoins(coordinator, corpus.from);
   preaggregateOwnRelation(coordinator);
   const page = crossfilterOver(joins);
   const onFailure = vi.fn();

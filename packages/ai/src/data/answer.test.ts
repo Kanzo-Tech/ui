@@ -1,5 +1,6 @@
 // @vitest-environment node
-import { clausePoints, clauseSemiJoin, JoinResolver, literal, Query, relationQuery, Selection } from "@kanzo-tech/mosaic";
+import { clausePoints, clauseSemiJoin, literal, Query, Selection } from "@kanzo-tech/mosaic";
+import { JoinResolver, relationQuery } from "@kanzo-tech/relations";
 import { plotRelation, tileQuery } from "@kanzo-tech/ui/analytics";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { testDatabase, type TestDatabase } from "../testing/duckdb.js";

@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 /**
  * The layers of `/docs/design/graph`, held where they can be read off the source: the graph reads a
  * GraphAr graph `attachGraph` attached as a catalog, with SQL through the page's coordinator, and
- * imports nothing of graphar's or fossil's; every statement is built from mosaic-sql's nodes, in the three modules that read, and none
+ * imports nothing of graphar's or fossil's; every statement is built from mosaic-sql's nodes, in the two modules that read rows, and none
  * is written in a string; no module past the size a named reference is the shape of; and a core that
  * knows nothing of React or cosmos.gl.
  *
@@ -31,8 +31,8 @@ const parse = (name: string, text: string) =>
  */
 const SQL = /\b(SELECT|FROM|WHERE|JOIN|CREATE (OR REPLACE )?(VIEW|TABLE))\s|read_parquet/;
 
-/** The three modules that read: the catalog, once (`readCatalog`); the rows; and the crossfilter's client. */
-const READERS = new Set(["core/catalog.ts", "core/source.ts", "core/client.ts"]);
+/** The two modules that build a statement: the rows, and the crossfilter's client. The catalog is `@kanzo-tech/relations`'s reader's. */
+const READERS = new Set(["core/source.ts", "core/client.ts"]);
 
 describe("the graph's layers", () => {
   it("scans a corpus that has not quietly shrunk", () => {

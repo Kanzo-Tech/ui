@@ -1,12 +1,5 @@
-import {
-  clauseColumns,
-  JoinResolver,
-  relationOf,
-  sameRelation,
-  type ExprNode,
-  type Relation,
-  type SelectionClause,
-} from "@kanzo-tech/mosaic";
+import { clauseColumns, type ExprNode, type SelectionClause } from "@kanzo-tech/mosaic";
+import { JoinResolver, relationOf, sameRelation, type Relation } from "@kanzo-tech/relations";
 import type { FieldStat, Tile } from "@kanzo-tech/ui/analytics";
 
 /**

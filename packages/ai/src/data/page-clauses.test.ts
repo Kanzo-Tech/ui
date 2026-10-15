@@ -1,5 +1,6 @@
 import { asTableRef } from "@uwdata/mosaic-sql";
-import { clausePoints, crossfilterOver, onRelation, type JoinGraph, type Relation } from "@kanzo-tech/mosaic";
+import { clausePoints } from "@kanzo-tech/mosaic";
+import { crossfilterOver, onRelation, type JoinGraph, type Relation } from "@kanzo-tech/relations";
 import { describe, expect, it } from "vitest";
 import { pageClauses } from "./answer.js";
 

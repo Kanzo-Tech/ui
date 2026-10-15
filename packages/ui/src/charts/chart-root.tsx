@@ -2,16 +2,14 @@
 
 import {
   holdFirstDraw,
-  onRelation,
   queryFailure,
   relaySelection,
-  type RelationExpr,
-  type RelationRef,
   type TableExpr,
   Selection,
   type Coordinator,
   type SelectionClause,
 } from "@kanzo-tech/mosaic";
+import { onRelation, type RelationExpr, type RelationRef } from "@kanzo-tech/relations";
 import { createContext, useContext, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";

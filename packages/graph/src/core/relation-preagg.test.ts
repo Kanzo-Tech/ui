@@ -1,9 +1,9 @@
-import { MosaicClient, Query, Selection, clauseIntervals, relationQuery, type FilterExpr, type TableExpr } from "@kanzo-tech/mosaic";
+import { MosaicClient, Query, Selection, clauseIntervals, type FilterExpr, type TableExpr } from "@kanzo-tech/mosaic";
+import { relationQuery } from "@kanzo-tech/relations";
 import { regrCount, regrSlope, variance } from "@uwdata/mosaic-sql";
 import { describe, expect, it, vi } from "vitest";
-import { attach, settle } from "../../test/corpus";
-import { readJoinGraph } from "./join-graph";
-import type { Relation } from "@kanzo-tech/mosaic";
+import { attach, settle, readJoins } from "../../test/corpus";
+import type { Relation } from "@kanzo-tech/relations";
 
 /**
  * **A regression tile over a relation, under a 2-D brush**, through a real coordinator with its
@@ -61,7 +61,7 @@ async function fit(relation: Relation) {
   const { coordinator } = corpus;
   const error = vi.fn();
   coordinator.logger({ error, warn: () => {}, info: () => {}, debug: () => {}, log: () => {} } as never);
-  const table = relationQuery(await readJoinGraph(coordinator, corpus.from), relation);
+  const table = relationQuery(await readJoins(coordinator, corpus.from), relation);
   const own = Selection.crossfilter();
   const tile = new Fit(own, table);
   coordinator.connect(tile);

@@ -1,21 +1,7 @@
-import {
-  MosaicClient,
-  Query,
-  clauseInterval,
-  count,
-  crossfilterOver,
-  onRelation,
-  preaggregateOwnRelation,
-  readOf,
-  type FilterExpr,
-  type RelationClient,
-  type RelationRef,
-  type Selection,
-  type TableExpr,
-} from "@kanzo-tech/mosaic";
+import { MosaicClient, Query, clauseInterval, count, type FilterExpr, type Selection, type TableExpr } from "@kanzo-tech/mosaic";
+import { crossfilterOver, onRelation, preaggregateOwnRelation, readOf, type RelationClient, type RelationRef } from "@kanzo-tech/relations";
 import { describe, expect, it, vi } from "vitest";
-import { attach, settle } from "../../test/corpus";
-import { readJoinGraph } from "./join-graph";
+import { attach, settle, readJoins } from "../../test/corpus";
 
 /**
  * **Pre-aggregation on the page's one selection**, through a real coordinator with its pre-aggregator
@@ -55,7 +41,7 @@ async function brushPlaces(guarded: boolean) {
   const { coordinator } = corpus;
   const error = vi.fn();
   coordinator.logger({ error, warn: () => {}, info: () => {}, debug: () => {}, log: () => {} } as never);
-  const joins = await readJoinGraph(coordinator, corpus.from);
+  const joins = await readJoins(coordinator, corpus.from);
   if (guarded) preaggregateOwnRelation(coordinator);
   const page = crossfilterOver(joins);
   // A tile of places, which publishes the brush, and one beside it: same relation, pre-aggregated.

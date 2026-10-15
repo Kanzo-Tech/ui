@@ -1,18 +1,14 @@
 "use client";
 
+import { type Coordinator, type TableExpr, Query, jsType, sql } from "@kanzo-tech/mosaic";
 import {
-  type Coordinator,
   type JoinAnnotation,
   type JoinColumn,
   type JoinGraph,
   type Relation,
   type RelationExpr,
-  type TableExpr,
-  Query,
-  jsType,
   relationColumns,
-  sql,
-} from "@kanzo-tech/mosaic";
+} from "@kanzo-tech/relations";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo } from "react";
 import { chartTableKey } from "./chart-spec.js";
