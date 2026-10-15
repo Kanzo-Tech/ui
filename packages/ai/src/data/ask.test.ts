@@ -89,7 +89,7 @@ describe("askAlternatives", () => {
   it("words a type by the label a mapping states, in the page's language, and by its name in words where it states none", () => {
     const EX = "https://example.org/";
     const label = (value: string, language: string) => ({ subject: `${EX}Award`, predicate: "http://www.w3.org/2000/01/rdf-schema#label", value: { termType: "Literal", value, language } });
-    const mapping = { tables: [{ id: "_:a", source: { kind: "table", name: "LaureateAward" }, classes: [`${EX}Award`], annotations: [label("prize", "en")], columns: [], relations: [] }] };
+    const mapping = { tables: [{ id: "_:a", source: { kind: "table", name: "LaureateAward" }, subject: { kind: "column" }, classes: [`${EX}Award`], annotations: [label("prize", "en")], columns: [], relations: [] }] };
     const chips = (graph: JoinGraph) => askAlternatives(byUniversity, input("", { graph })).find((c) => c.slot === "of")!;
     expect(chips(withMapping(NOBEL, mapping)).value).toBe("prize");
     expect(chips(NOBEL).value).toBe("laureate award");
