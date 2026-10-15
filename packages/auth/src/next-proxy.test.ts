@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { BOUNDS } from "./deadline";
 import { kanzoAuth, type KanzoAuth, type KanzoAuthConfig } from "./next-auth";
 import {
   CLIENT_ID,
@@ -398,6 +399,77 @@ describe("kanzoAuth().api", () => {
     const body = await response.json();
     expect(body).toMatchObject({ status: 502, code: "api/unreachable" });
     expect(JSON.stringify(body)).not.toContain("reports.internal");
+  });
+
+  /** An upstream that connected and says nothing, and goes when its request is aborted. */
+  function hang(): void {
+    upstream.mockImplementation(
+      (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
+        }),
+    );
+  }
+
+  it("answers 504, as a problem naming api/silent, when the API sends no headers within the bound", async () => {
+    const cookie = await signIn();
+    hang();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const pending = proxy.GET(new Request(`${ORIGIN}/api/data/reports`, { headers: { cookie } }));
+      let settled = false;
+      void pending.then(() => (settled = true));
+      await vi.waitFor(() => expect(upstream).toHaveBeenCalledTimes(1));
+      await vi.advanceTimersByTimeAsync(BOUNDS.forwarder - 1_000);
+      expect(settled).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      const response = await pending;
+
+      expect(response.status).toBe(504);
+      expect(response.headers.get("content-type")).toBe("application/problem+json");
+      expect(await response.json()).toMatchObject({
+        status: 504,
+        code: "api/silent",
+        data: { after: BOUNDS.forwarder },
+      });
+      expect(upstream.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("aborts the upstream request when the client's signal aborts", async () => {
+    const cookie = await signIn();
+    hang();
+    const client = new AbortController();
+
+    const pending = proxy.GET(new Request(`${ORIGIN}/api/data/reports`, { headers: { cookie }, signal: client.signal }));
+    await vi.waitFor(() => expect(upstream).toHaveBeenCalledTimes(1));
+    const signal = upstream.mock.calls[0]?.[1]?.signal;
+    expect(signal?.aborted).toBe(false);
+
+    client.abort();
+
+    await expect(pending).rejects.toBeDefined();
+    expect(signal?.aborted).toBe(true);
+  });
+
+  it("does not end a response body on the clock once the headers have arrived", async () => {
+    const cookie = await signIn();
+    let stream: ReadableStreamDefaultController<Uint8Array> | undefined;
+    upstream.mockResolvedValue(new Response(new ReadableStream({ start: (c) => void (stream = c) })));
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const response = await proxy.GET(new Request(`${ORIGIN}/api/data/events`, { headers: { cookie } }));
+      await vi.advanceTimersByTimeAsync(BOUNDS.forwarder * 4);
+      expect(upstream.mock.calls[0]?.[1]?.signal?.aborted).toBe(false);
+      stream?.enqueue(new TextEncoder().encode("late"));
+      stream?.close();
+      expect(await response.text()).toBe("late");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("passes an API's own 500 through, because an answer with an error status is still its answer", async () => {

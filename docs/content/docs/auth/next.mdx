@@ -118,13 +118,30 @@ will hold. A raw `Set-Cookie` header would reach the browser and not the page.
 Every request leaves the proxy with `x-kanzo-url` set to the URL it arrived at — AuthKit's `x-url`
 — after every incoming `x-kanzo-*` header is deleted, so a browser cannot choose what a server
 component reads there. `session({ required: true })` signs in back to it, and the tenant resolver
-reads it. Extra request headers a product needs on the page, such as a CSP nonce, go in the second
-argument:
+reads it. Extra request headers a product needs on the page go in the second argument,
+`auth.proxy(request, { headers })`.
 
-```ts title="proxy.ts"
-export const proxy = (request: NextRequest) =>
-  auth.proxy(request, { headers: { "x-nonce": nonce } });
+### The CSP nonce
+
+Give `kanzoAuth` the policy as `csp`, and `proxy` draws 128 random bits per request and names them:
+
+```ts title="lib/auth.ts"
+kanzoAuth(async () => ({
+  /* … */
+  csp: {
+    "default-src": ["'self'"],
+    "script-src": ["'wasm-unsafe-eval'"], // your extras; the nonce and 'strict-dynamic' are added
+    "worker-src": ["'self'"],
+    "connect-src": ["'self'"],
+  },
+}));
 ```
+
+The `script-src` it sends is `'nonce-…' 'strict-dynamic'` followed by your sources, never
+`'unsafe-inline'` (which throws when the config is read). The policy rides on the request the page
+sees, which is the header Next reads to put the nonce on its own scripts, and on the response; a
+server component that needs the nonce reads `x-nonce` from `headers()`. A page that carries a nonce
+renders per request, and a browser without CSP Level 3 does not run its scripts.
 
 ### The matcher
 
@@ -237,7 +254,7 @@ status, everywhere:
 | `session/irrevocable` | 501 |
 | `idp/unreachable`, `api/unreachable`, `token/exchange-failed`, `claims/no-subject` | 502 |
 | `session/unavailable` | 503 |
-| `idp/silent`, `session/silent` | 504 |
+| `idp/silent`, `session/silent`, `api/silent` | 504 |
 
 `/backchannel-logout` is the one exception, because its specification fixes its answers: a refusal
 there is 400, whatever its code. `bffAuth` reads only a 401 from `/session` as *nobody is signed
@@ -348,7 +365,7 @@ session or the renewal was refused, **403** when the person is not a member of t
 request addresses (`organization/denied`), and **502** when the realm will not exchange the token
 for that audience at all (`token/exchange-failed`) — the application does not list the API, which
 is the deployment's to fix — or when the API itself does not answer (`api/unreachable`): the
-connection is refused, its name does not resolve, it resets before a status line. An API that
+connection is refused, its name does not resolve, it resets before a status line — or **504** when it connected and sent no headers within 25 s (`api/silent`). An API that
 answers, whatever the status, has answered, and its answer is passed through as it came. Without a body, **403** when the request is not same-site, **400** for a
 path under no mount, and **404** when `kanzoAuth` was given no `apis`. The proxy leaves every
 mount alone.

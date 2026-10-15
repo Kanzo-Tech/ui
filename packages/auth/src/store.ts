@@ -1,4 +1,4 @@
-import { deadline } from "./deadline";
+import { BOUNDS, deadline } from "./deadline";
 import { AuthError, type Session } from "./types";
 
 /**
@@ -283,8 +283,9 @@ function opaqueTicket(): string {
  *
  * ## Every wait on the adapter is bounded here
  *
- * Each `read`, `write` and `delete` is raced against `DEADLINE` (30 s), and one that has not
- * answered by then rejects as `AuthError` `session/silent` with `{ after }` — which the server
+ * Each command, which is each `read`, `write`, `replace`, `delete` and step of a `keys` scan, is
+ * raced against five seconds (`BOUNDS.store`, inside the browser's 30 s, which
+ * `deadline.test.ts` holds), and one that has not answered by then rejects as `AuthError` `session/silent` with `{ after }` — which the server
  * reports as `session/unavailable`, with that as its cause, like any other failure of the store.
  * The library makes the wait, so the library bounds it: a deployment that forgot to race its
  * Redis client would otherwise hang a page on a store that stopped answering.
@@ -308,7 +309,7 @@ function opaqueTicket(): string {
  */
 export function ticketStore(adapter: TicketAdapter, config: TicketStoreConfig = {}): SessionStore {
   const ttl = config.ttl ?? DEFAULT_TTL;
-  const bounded = <T>(call: () => Promise<T>) => deadline("session/silent", call);
+  const bounded = <T>(call: () => Promise<T>) => deadline("session/silent", BOUNDS.store, call);
 
   return {
     async put(record) {
@@ -349,9 +350,13 @@ export function ticketStore(adapter: TicketAdapter, config: TicketStoreConfig = 
           "the ticket adapter has no `keys`, so a person's sessions cannot be found to end them",
         );
       }
-      await bounded(async () => {
-        for await (const key of keys(prefixOf(subject))) await adapter.delete(key);
-      });
+      // One bound per command and not one around the scan: a person with many sessions is a long
+      // loop of short commands, and the loop is not what is waited on.
+      const scan = keys(prefixOf(subject))[Symbol.asyncIterator]();
+      for (let step = await bounded(() => scan.next()); step.done !== true; step = await bounded(() => scan.next())) {
+        const key = step.value;
+        await bounded(() => adapter.delete(key));
+      }
     },
   };
 }

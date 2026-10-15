@@ -504,7 +504,9 @@ by its code, and within a bound.
 So a session that cannot be read is a fourth status, `"failed"`, carrying the thrown value
 untouched; *no session* is said only by whoever can know it — a 401 from `/session`, or the IdP's
 own `invalid_grant` to a refresh token. Every wait on
-another party ends in 30 s and is coded by who did not answer, `idp/silent` or `session/silent`;
+another party ends within a bound that nests inside the one around it (a `ticketStore` command 5 s, an
+IdP request 10 s, the forwarder until the upstream's headers 25 s, the browser's `/session` and `/refresh` 30 s)
+and is coded by who did not answer, `idp/silent`, `session/silent` or `api/silent`;
 where `openid-client` or `jose` makes the wait, the figure is handed to its own timeout
 rather than wrapped around it. A failed sign-in, callback or sign-out is a redirect to the product's
 `problemPage` with the code in the URL, because those routes are reached through the address bar and
@@ -513,7 +515,7 @@ a JSON body there is what a person reads.
 **What would reverse it:** a product that wants an outage to look like a sign-out — a public site
 where an unreadable session should degrade to the anonymous view, and nobody is ever sent to sign
 in. That product branches `"failed"` into its anonymous view itself; the library still does not
-make the choice for it. The 30 s figure moves with the table on the failure page, not here.
+make the choice for it. The figures move with the table on the failure page, not here.
 
 *Held by* `packages/auth/src/auth-provider.test.tsx`, "settles on failed when the read fails,
 holding exactly what was thrown"; `packages/auth/src/bff-auth.test.ts`, "reads a 5xx from the
@@ -581,7 +583,8 @@ Back-Channel Logout §2.8 fixes it. An answer about the request rather than a cr
 cross-site request's 403, a 405, a path under no mount, no API configured — has no code to name, and
 no body.
 
-The forwarder names one party besides the IdP: an API that does not answer is `api/unreachable`,
+The forwarder names one party besides the IdP: an API that does not answer is `api/unreachable`, or
+`api/silent` when it connected and sent no headers in time,
 502, by the same rule that makes an IdP that does not answer `idp/unreachable`. It answered with
 nothing — Next turned the rejected `fetch` into a bare 500 — so keasy, migrating, could not drop its
 own `bff/failed`. *Did not answer* means `fetch` rejected with a network error: a refused

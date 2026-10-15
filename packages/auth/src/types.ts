@@ -186,7 +186,12 @@ export type AuthErrorCode =
    * refused, its name did not resolve, it reset before a status line. An API that answers with an
    * error status has answered, and `api` passes that answer through.
    */
-  | "api/unreachable";
+  | "api/unreachable"
+  /**
+   * A forwarded API sent no response headers within `data.after` milliseconds. The connection was
+   * made and nothing came back; a stream that is alive after its headers is not ended by this.
+   */
+  | "api/silent";
 
 export class AuthError extends Error {
   override readonly name = "AuthError";

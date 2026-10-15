@@ -1,4 +1,4 @@
-import { deadline } from "./deadline";
+import { BOUNDS, deadline } from "./deadline";
 import { DEFAULT_RENEW_WITHIN } from "./renew-within";
 import { singleFlight } from "./single-flight";
 import { AuthError, type Auth, type Organization, type Session, type SignInOptions } from "./types";
@@ -178,7 +178,7 @@ export function bffAuth(config: BffAuthConfig = {}): Auth {
   // — a 5xx, a proxy's page, no answer at all — is a failure, and reading it as "signed out" would
   // send the person to sign in over an outage that will still be there when they get back.
   const read = singleFlight(() =>
-    deadline("session/silent", async (signal): Promise<Session | null> => {
+    deadline("session/silent", BOUNDS.browser, async (signal): Promise<Session | null> => {
       const response = await send(`${base}/session`, { headers: { Accept: "application/json" }, signal });
       if (response.status === 401) return null;
       if (!response.ok) throw unavailable(`${base}/session`, response.status);
@@ -199,7 +199,7 @@ export function bffAuth(config: BffAuthConfig = {}): Auth {
    * something is one prefetch away from spending it unasked.
    */
   const renew = singleFlight(() =>
-    deadline("session/silent", async (signal): Promise<Session | null> => {
+    deadline("session/silent", BOUNDS.browser, async (signal): Promise<Session | null> => {
       const response = await send(`${base}/refresh`, {
         method: "POST",
         headers: { Accept: "application/json" },

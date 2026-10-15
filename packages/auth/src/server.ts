@@ -13,7 +13,7 @@ import {
 import { jwtVerify, type JWTPayload } from "jose";
 import { claims } from "./claims";
 import { sealedCookie, type SealedCookie } from "./cookie-session";
-import { DEADLINE } from "./deadline";
+import { BOUNDS } from "./deadline";
 import { DEFAULT_RENEW_WITHIN } from "./renew-within";
 import { issuer, type IssuerConfig } from "./issuer";
 import { keyedSingleFlight } from "./single-flight";
@@ -412,7 +412,7 @@ interface Transaction {
 export function relyingParty(config: RelyingPartyConfig): RelyingParty {
   const provider = issuer(config);
   const store = reachable(config.store ?? statelessStore());
-  const after = DEADLINE;
+  const after = BOUNDS.idp;
 
   /** A failure to reach the IdP, coded by who did not answer; anything else as `fallback`. */
   const fromIdp = (error: unknown, fallback: AuthErrorCode, message: string): AuthError => {

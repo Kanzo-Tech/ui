@@ -37,6 +37,7 @@ const STATUS: Record<AuthErrorCode, number> = {
   "idp/unreachable": 502,
   "idp/silent": 504,
   "api/unreachable": 502,
+  "api/silent": 504,
 };
 
 /** The HTTP status an `AuthErrorCode` is answered with. */

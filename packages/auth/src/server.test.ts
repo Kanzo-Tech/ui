@@ -1230,7 +1230,7 @@ describe("relyingParty names who did not answer", () => {
 
     await expect(auth.refresh(asRequestHeader(done.cookies))).rejects.toMatchObject({
       code: "idp/silent",
-      data: { after: 30_000 },
+      data: { after: 10_000 },
     });
     // And the session survives the outage: nothing was refused.
     expect(await auth.read(asRequestHeader(done.cookies))).not.toBeNull();
