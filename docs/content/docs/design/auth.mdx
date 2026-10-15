@@ -374,9 +374,12 @@ entry adds about 5.2 KB to a token of about 1.5 KB, under nginx's default 8 KB
 one entry would cross it near 120. Okta's group functions stop at the same 100. **The figure was set
 for an exchanged token, which named one organization; the token the edge forwards names every
 organization the person is in**, and it travels as a header twice — `X-Forwarded-Access-Token` into
-the application and `Authorization` out of it. Two full entries already cross 8 KB. Not measured on
-the edge: a person in several large organizations is the case to measure, and a lower threshold or a
-larger header buffer on the edge and the API is what it would decide. **An overage is a question, never an answer**: an empty `groups` beside `groupsOverage`
+the application and `Authorization` out of it. Two full entries already cross 8 KB. Measured on the
+edge on 15 October 2026 (Keycloak 26.8.0, keasy's client, `organization:*`): 1,750 bytes for one
+organization and two groups, 1,981 for two organizations and four, about 230 bytes an organization and
+15 a group as paths. The seed has no large organization, so a person in several near the threshold is
+still the case to measure, and a lower threshold or a larger header buffer on the edge and the API is
+what it would decide. **An overage is a question, never an answer**: an empty `groups` beside `groupsOverage`
 means *look it up*, and reading it as *in no group* is Entra's documented trap. The lookup is the
 application's (a service account with `view-organizations` and `view-users` the package does not hold);
 `organizationGroups`, a sketch with no caller, went on 14 October 2026. *Back if* a second product
