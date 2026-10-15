@@ -36,7 +36,6 @@ import { useClientsEnabled, useMosaic, useRelation } from "./mosaic-provider.js"
 import { resolveTokenColor } from "../lib/token-color.js";
 import { TokenizedPlot } from "./tokenized-plot.js";
 import { DenseStackMark } from "./dense-stack.js";
-import { registerChartForTesting, type PlotOutput } from "./testing-probe.js";
 
 /**
  * What `vg.plot` returns: its element, carrying the `Plot` as `value`. vgplot's marks are Mosaic
@@ -285,8 +284,8 @@ const EMPTY_CONFIG: ChartConfig = {};
  * whose load should appear with the charts — the graph's canvas — waits for it.
  *
  * ARIA: the root is a `figure`, named by the caller's `aria-label` — a tile passes its title — and
- * `aria-busy` until it has drawn and while a query runs. Its title is also its key in
- * `@kanzo-tech/testing`'s hook, when a test has installed one.
+ * `aria-busy` until it has drawn and while a query runs. A test reads where a value falls from the
+ * `scale` Plot puts on its own output, so the chart registers nothing with anyone.
  */
 export function ChartRoot(props: ChartRootProps) {
   const {
@@ -316,15 +315,12 @@ export function ChartRoot(props: ChartRootProps) {
   // Busy until the first render, so a chart that has not measured its width yet is not read as
   // drawn; where it never can, as under jsdom, it stays busy, which is what it is.
   const [busy, setBusy] = useState(true);
-  // Plot's output on screen, for the test hook's scales.
-  const output = useRef<PlotOutput | null>(null);
   const drawn = useRef<ChartPlot | null>(null);
   /** The grammar and relation the plot on screen was built from: what a rebuild hands over within. */
   const drawnFrom = useRef<string | null>(null);
   /** The clause source of each of the plot's interactors, kept across rebuilds. */
   const slots = useRef<Slot[]>([]);
   const title = rest["aria-label"];
-  useEffect(() => registerChartForTesting(title, () => output.current), [title]);
   // A plain union, so it hides nothing from its own publisher — a crossfilter would, and
   // `ChartHighlight` would read an empty predicate and dim nothing.
   const [highlight] = useState(() => Selection.union());
@@ -464,7 +460,6 @@ export function ChartRoot(props: ChartRootProps) {
               await render();
               handed?.();
               handed = null;
-              output.current = plot.element.firstElementChild as PlotOutput | null;
               setBusy(false);
               setAnswered(true);
             };
