@@ -331,7 +331,7 @@ async function start(forget: () => void, made: (duckdb: Duck) => void): Promise<
    * two million rows.
    */
   const statement = async (sql: string, signal: AbortSignal): Promise<Table> => {
-    const interrupt = () => void duckdb.cancelPendingQuery(id).catch(() => {});
+    const interrupt = () => void duckdb.cancelPendingQuery(id).catch(() => {}); // a cancel that fails is a dead worker, which rejects the statement itself
     signal.addEventListener("abort", interrupt, { once: true });
     try {
       if (signal.aborted) throw signal.reason;
