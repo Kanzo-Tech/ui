@@ -108,7 +108,7 @@ export { firstDrawsPending, holdFirstDraw, onFirstDraws } from "./drawing.js";
 export { relaySelection } from "./relay.js";
 
 /** Ours: turning an Arrow answer into values, which the client protocol does not do for you. */
-export { numbers } from "./arrow.js";
+export { numbers, rowsOf } from "./arrow.js";
 
 /** Ours: what every `table` here and in the charts takes — one identifier, or a relation named in SQL. */
 export { type TableExpr } from "./table.js";

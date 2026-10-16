@@ -32,3 +32,15 @@ export function engineOver(coordinator: Coordinator | object): Engine {
   }
   return engine;
 }
+
+/** An answer in columns, as `Engine.query` hands one back, holding `rows`. */
+export function answerOf(rows: readonly object[]) {
+  const records = rows as readonly Record<string, unknown>[];
+  const names = Object.keys(records[0] ?? {});
+  return {
+    numRows: records.length,
+    schema: { fields: names.map((name) => ({ name })) },
+    getChild: (name: string) =>
+      names.includes(name) ? { length: records.length, get: (i: number) => records[i]![name], toArray: () => records.map((r) => r[name]) } : null,
+  };
+}

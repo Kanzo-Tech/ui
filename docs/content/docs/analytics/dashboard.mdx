@@ -368,7 +368,9 @@ Where a summary is read, it is a TanStack Query query on the host's `QueryClient
 provider shares one read — the dashboard, a part you placed yourself, an Ask answer's card — and
 `exclude` is applied to that read, so two parts that hide different columns still read once. It
 never retries and is kept for the page's life; a new relation is a new read, and a failed read is
-not kept, so the next part to ask reads again. The reads appear in your client's devtools and go
+not kept, so the next part to ask reads again. It goes to the engine's own door,
+`engine.query(sql, { signal })`, with the query's signal: when every part that asked has unmounted
+while it runs, the engine interrupts the `SUMMARIZE`. The reads appear in your client's devtools and go
 when you clear it — clear it on sign-out, as you would any other data of the person's.
 
 `fieldStats(columns, options)` is the classification on its own: column descriptions in — a

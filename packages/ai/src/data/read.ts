@@ -1,6 +1,6 @@
 "use client";
 
-import { clauseLabel, literal, type Selection, type SelectionClause } from "@kanzo-tech/mosaic";
+import { clauseLabel, literal, rowsOf, type Selection, type SelectionClause } from "@kanzo-tech/mosaic";
 import type { Engine } from "@kanzo-tech/mosaic/engine";
 import { JoinResolver, relationQuery, type JoinGraph } from "@kanzo-tech/relations";
 import { plotRelation, TILE_ROWS, tileQuery } from "@kanzo-tech/ui/analytics";
@@ -64,11 +64,8 @@ function statementOf(answer: Answer, about: AnswerRelation, page: AnswerPage) {
 }
 
 /** The rows of a statement, read on the engine's own door, as plain values. */
-async function rowsOf(engine: Pick<Engine, "query">, sql: string, signal: AbortSignal): Promise<QueryRow[]> {
-  const read = await engine.query(sql, { signal });
-  const names = read.schema.fields.map((f) => f.name);
-  const columns = names.map((name) => read.getChild(name)!);
-  return Array.from({ length: read.numRows }, (_, i) => Object.fromEntries(names.map((name, j) => [name, plain(columns[j]!.get(i))])));
+async function readRows(engine: Pick<Engine, "query">, sql: string, signal: AbortSignal): Promise<QueryRow[]> {
+  return rowsOf(await engine.query(sql, { signal })).map((row) => Object.fromEntries(Object.entries(row).map(([name, value]) => [name, plain(value)])));
 }
 
 function outputOf(answer: Answer, rows: readonly QueryRow[], clauses: ReturnType<typeof statementOf>["clauses"]): AnswerOutput {
@@ -88,7 +85,7 @@ function outputOf(answer: Answer, rows: readonly QueryRow[], clauses: ReturnType
  */
 export async function readAnswer(answer: Answer, about: AnswerRelation, page: AnswerPage): Promise<AnswerOutput> {
   const { sql, clauses } = statementOf(answer, about, page);
-  return outputOf(answer, await rowsOf(page.engine, sql, page.signal ?? new AbortController().signal), clauses);
+  return outputOf(answer, await readRows(page.engine, sql, page.signal ?? new AbortController().signal), clauses);
 }
 
 /** Which engine a read was made on, as a key can say it: a key is hashed as JSON, and an engine is not. */
@@ -116,7 +113,7 @@ export async function readAnswerQuery(client: QueryClient, answer: Answer, about
   try {
     const rows = await client.fetchQuery({
       queryKey,
-      queryFn: ({ signal: read }) => rowsOf(engine, sql, read),
+      queryFn: ({ signal: read }) => readRows(engine, sql, read),
       retry: false,
       staleTime: Infinity,
       gcTime: Infinity,

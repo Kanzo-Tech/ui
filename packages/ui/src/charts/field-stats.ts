@@ -1,7 +1,7 @@
 "use client";
 
-import { type TableExpr, Query, jsType, sql } from "@kanzo-tech/mosaic";
-import { type Engine, internalCoordinatorOf } from "@kanzo-tech/mosaic/engine";
+import { type TableExpr, Query, jsType, rowsOf, sql } from "@kanzo-tech/mosaic";
+import type { Engine } from "@kanzo-tech/mosaic/engine";
 import { type JoinAnnotation, type JoinColumn, type JoinGraph, type Relation, type RelationExpr, relationColumns } from "@kanzo-tech/relations";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo } from "react";
@@ -180,10 +180,10 @@ export interface FieldStatsState {
 }
 
 /**
- * **A relation's fields** — from the page's join graph where the relation is over it and the corpus
- * counted every column, with nothing read; otherwise with one `SUMMARIZE` on the provider's
- * coordinator, the graph's descriptions kept over its counts. The read is a TanStack Query query on
- * the host's `QueryClient`, so every part of the page that asks for the same relation shares one
+ * **A relation's fields** — from the page's join graph where the relation is over it and the graph
+ * counted every column, with nothing read; otherwise with one `SUMMARIZE` on the provider's engine,
+ * the graph's descriptions kept over its counts, and stopped when every part that asked has
+ * unmounted. The read is a TanStack Query query on the host's `QueryClient`, so every part of the page that asks for the same relation shares one
  * (`/docs/design/reads`), and `exclude` is applied to it afterwards, so two parts that hide different
  * columns still read once.
  *
@@ -216,15 +216,9 @@ export function useFieldStats(relation: RelationExpr, options?: FieldStatsOption
   const read = useQuery({
     // The keys are the library's, not an API: what was read, and on which engine.
     queryKey: ["@kanzo-tech/ui", "summarize", engineKey(engine), key],
-    queryFn: async ({ signal }) => {
-      const coordinator = internalCoordinatorOf(engine);
-      // The coordinator takes a statement as a string or a `Query`; a fragment is neither, and
-      // renders to the same text either way.
-      const result = coordinator.query(String(summarizeQuery(table!)));
-      // Every part that asked has gone: a read still queued is taken off the coordinator's queue.
-      signal.addEventListener("abort", () => coordinator.cancel([result]), { once: true });
-      return Array.from((await result) as Iterable<SummarizeRow>);
-    },
+    // On the engine's own door with TanStack's signal, which aborts when every part that asked has
+    // unmounted while it runs: the engine interrupts the statement, not only the wait.
+    queryFn: async ({ signal }) => rowsOf(await engine.query(String(summarizeQuery(table!)), { signal })) as unknown as SummarizeRow[],
     select,
     enabled: !counted,
     retry: false,
