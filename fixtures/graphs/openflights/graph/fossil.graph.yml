@@ -1,0 +1,6 @@
+name: fossil
+vertices:
+  - Airport.vertex.yml
+edges:
+  - Airport_routeTo_Airport.edge.yml
+version: gar/v1

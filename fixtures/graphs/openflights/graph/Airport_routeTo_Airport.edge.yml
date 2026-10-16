@@ -1,0 +1,14 @@
+src_type: Airport
+edge_type: routeTo
+dst_type: Airport
+chunk_size: 376
+src_chunk_size: 54
+dst_chunk_size: 54
+prefix: edge/Airport_routeTo_Airport/
+directed: true
+adj_lists:
+  - ordered: true
+    aligned_by: src
+    prefix: ordered_by_source/
+    file_type: parquet
+version: gar/v1

@@ -1193,7 +1193,7 @@ or readers asking for a named starting point the axes' defaults do not give them
   canvas on it.
 - The canvas is a focusable `role="application"` with the keys above; a host that bound `F`, `P`, `[`
   or `]` on an ancestor loses them while the canvas has focus.
-- A host that kept the graph's `window.__KANZO_TESTING__` hook for its end-to-end tests reads the
-  accessibility tree instead.
+- A host that kept the graph's `window.__KANZO_TESTING__` hook for its end-to-end tests reads where
+  the canvas draws off its element, `screenOf(vertex)` and `screenAt({ x, y })`: the global is gone.
 - keasy's own run codes leave the `graph/` area, which the package owns.
 

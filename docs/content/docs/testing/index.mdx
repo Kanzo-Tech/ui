@@ -14,7 +14,7 @@ pnpm add -D @kanzo-tech/testing
 ```
 
 It imports none of the components. A harness knows one by its roles, its accessible names and its
-text, and what a canvas knows comes through a hook only a test installs, so it runs against whatever
+text, and what a graph canvas knows — where it draws — its element says, so it runs against whatever
 version of the components the page loaded.
 
 ## In Playwright
@@ -22,7 +22,7 @@ version of the components the page loaded.
 ```ts
 import { ChartHarness, FilterBarHarness, GraphCanvasHarness, playwright } from "@kanzo-tech/testing";
 
-const env = await playwright(page); // before the page loads: it installs the test hook
+const env = await playwright(page);
 await page.goto("/archive");
 
 const graph = await env.getHarness(GraphCanvasHarness);
@@ -35,9 +35,9 @@ const bar = await env.getHarness(FilterBarHarness);
 await expect.poll(() => bar.readout()).toBe("611 of 3,218 airports");
 ```
 
-**`playwright(page, options?)`** resolves with a `HarnessEnvironment` once it has installed the test
-hook with `addInitScript`, so make it **before** the page navigates: a chart or a graph registers with
-the hook while it mounts. `options` is an `EnvironmentOptions`: `timeout`, how long a harness waits
+**`playwright(page, options?)`** resolves with a `HarnessEnvironment`. A [model double](#a-model-double)
+is registered with `addInitScript`, before the page's own scripts run, so make the environment
+**before** the page navigates. `options` is an `EnvironmentOptions`: `timeout`, how long a harness waits
 for a state before it fails — 10 000 ms by default — and `models`, a [model double](#a-model-double)
 per model id. It imports nothing of Playwright's at run time; `playwright-core` is an optional peer
 for its types, and a suite on `@playwright/test` has it already.
@@ -48,7 +48,7 @@ for its types, and a suite on `@playwright/test` has it already.
 import { FilterBarHarness } from "@kanzo-tech/testing";
 import { dom } from "@kanzo-tech/testing/dom";
 
-const env = dom(); // before render: the hook is installed at once
+const env = dom();
 render(<Page />);
 const bar = await env.getHarness(FilterBarHarness);
 expect(await bar.readout()).toBe("10 sightings");
@@ -112,7 +112,7 @@ keep their own, because CDK has none or its namesake does something else
   in the canvas's pixels. `counts()` reads `GraphCounts`' sentence wherever the page put it.
 - **`ChartHarness`** — `brush` takes an `Extent` per channel; a channel left out spans the plot, so
   `{ x }` is a horizontal brush. `pick` clicks the mark drawn at a value — a bar by its category. Both
-  scroll the chart into view first and read its own scales through the hook.
+  scroll the chart into view first and read its own scales, which Plot puts on the output it drew.
 - **`FilterBarHarness`** — `chips()` lists each clause by its label, *region Saltmere*, and each
   dashboard filter as *column: value*. `remove(field)` takes everything on `field` off the bar: a
   clause chip retracts its clause, and a dashboard's filter is removed from its spec, which retracts
@@ -142,20 +142,13 @@ keep their own, because CDK has none or its namesake does something else
 [Writing a harness](/docs/testing/writing-harnesses) is how to add one for a part of your own, and
 [Organising an end-to-end suite](/docs/testing/end-to-end) is how to put them together.
 
-## The test hook
+## Where a canvas draws
 
-```ts
-interface KanzoTestingHook {
-  graphs: Map<string, GraphProbe>;  // by the canvas's id: screenOf(vertex), screenAt({ x, y })
-  models: Map<string, ModelProbe>;  // by model id: { script, prompts }
-}
-```
-
-`window.__KANZO_TESTING__` is defined by the environment and never by a page. `GraphCanvas`
-registers itself when it finds it, and does nothing otherwise; a `GraphProbe` answers with cosmos.gl's
-own `spaceToScreenPosition`. A chart registers nothing: `ChartHarness` reads Observable Plot's own
-`scale(channel)` off the output Plot drew, and finds the chart by its `aria-label`, which a dashboard
-tile sets to its title.
+`GraphCanvas`'s element — the one with `data-frame` — says where it draws, in pixels from its top-left
+corner, from cosmos.gl's own `spaceToScreenPosition`: `screenOf(vertex)` and `screenAt({ x, y })`, a
+point in the values bound to `x` and `y`. Both answer `NaN` before the canvas has drawn. It is there on
+every page, as Observable Plot's `scale(channel)` is on the output it drew, and `ChartHarness` reads a
+chart the same way: nothing in either looks for a test.
 
 ## A model double
 
@@ -193,13 +186,10 @@ branch for it ([why](/docs/design/testing#a-model-is-resolved-through-one-regist
 - **`load`** — `{ fail }`: the model's load fails with these words, as WebLLM's does when a shard
   cannot be fetched.
 
-What the double was asked is on the hook, in order:
+What the double was asked, every call's prompt flattened, in order, is the environment's to read:
 
 ```ts
-const prompts = await page.evaluate(
-  (id) => (window as { __KANZO_TESTING__?: KanzoTestingHook }).__KANZO_TESTING__?.models.get(id)?.prompts ?? [],
-  "Qwen3-4B-q4f16_1-MLC",
-);
+const prompts = await env.prompts("Qwen3-4B-q4f16_1-MLC");
 ```
 
 `promptOf(call)` is the same flattening for a unit test's call: a `PromptedCall`, any call whose `prompt` is the AI SDK's messages.

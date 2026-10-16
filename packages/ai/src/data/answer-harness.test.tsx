@@ -1,11 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { AnswerHarness, type KanzoTestingHook } from "@kanzo-tech/testing";
+import { AnswerHarness } from "@kanzo-tech/testing";
 import { dom } from "@kanzo-tech/testing/dom";
 import type { Selection } from "@kanzo-tech/mosaic";
 import { MosaicProvider, useMosaic, type Dashboards } from "@kanzo-tech/ui/analytics";
 import { render, screen } from "@testing-library/react";
 import { useState } from "react";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { testDatabase, type TestDatabase } from "../testing/duckdb.js";
 import { PEOPLE, PERSON, seedPeople } from "../testing/people.js";
 import { PromptInput, PromptInputTextarea } from "../prompt-input.js";
@@ -34,11 +34,6 @@ beforeAll(async () => {
     show: { kind: "stat", title: "Mean age", measure: { op: "avg", field: "age" } },
   });
 });
-
-afterEach(() => {
-  delete (globalThis as { __KANZO_TESTING__?: KanzoTestingHook }).__KANZO_TESTING__;
-});
-
 
 type Adding = Pick<AnswerCardProps, "dashboards" | "onAdd" | "onOpen">;
 

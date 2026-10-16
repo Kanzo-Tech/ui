@@ -1,14 +1,13 @@
-// A real DuckDB for tests: DuckDB-WASM's blocking Node build, over the same `.wasm` module the page
-// boots, behind the page's own connector (`wasmConnector`) and a mosaic `Coordinator`, so its Arrow is
-// decoded exactly as the page's is, and an answer is compiled and read as the page reads it. Not part
-// of the published build (`vite.config.ts` excludes `src/testing`).
+// A real DuckDB for tests: `@kanzo-tech/fixtures`' — DuckDB-WASM's blocking Node build, one per test
+// file, over the same `.wasm` module the page boots — behind the page's own connector
+// (`wasmConnector`) and a mosaic `Coordinator`, so its Arrow is decoded exactly as the page's is, and
+// an answer is compiled and read as the page reads it. Not part of the published build
+// (`vite.config.ts` excludes `src/testing`).
 
-import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
+import { connection, database } from "@kanzo-tech/fixtures";
 import { Coordinator } from "@kanzo-tech/mosaic";
 import { internalEngineOver, type Engine } from "@kanzo-tech/mosaic/engine";
 import { decodeIPC, wasmConnector } from "@uwdata/mosaic-core";
-import type { DuckDBBindings, DuckDBConnection } from "@duckdb/duckdb-wasm/blocking";
 
 export interface TestDatabase {
   /**
@@ -24,19 +23,9 @@ export interface TestDatabase {
 }
 
 export async function testDatabase(): Promise<TestDatabase> {
-  const require = createRequire(import.meta.url);
-  const blocking = require("@duckdb/duckdb-wasm/blocking") as typeof import("@duckdb/duckdb-wasm/blocking");
-  const dist = dirname(require.resolve("@duckdb/duckdb-wasm/dist/duckdb-node-blocking.cjs"));
-  const bundles = {
-    mvp: { mainModule: join(dist, "duckdb-mvp.wasm"), mainWorker: "" },
-    eh: { mainModule: join(dist, "duckdb-eh.wasm"), mainWorker: "" },
-  };
-  const db: DuckDBBindings = await blocking.createDuckDB(bundles, new blocking.VoidLogger(), blocking.NODE_RUNTIME);
-  await db.instantiate(() => {});
-  const connection: DuckDBConnection = db.connect();
   connection.query("SET autoload_known_extensions = false");
   // The blocking connection answers the one call the connector makes of it, synchronously.
-  const connector = wasmConnector({ duckdb: db as never, connection: connection as never });
+  const connector = wasmConnector({ duckdb: database as never, connection: connection as never });
   const coordinator = new Coordinator(connector, { logger: null });
   // The blocking connection answers before an abort could land, so the signal is read either side.
   const query: Engine["query"] = async (sql, { signal }) => {

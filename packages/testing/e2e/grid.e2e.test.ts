@@ -1,6 +1,6 @@
 import { chromium, type Browser, type Page } from "playwright-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { GraphCanvasHarness, playwright, type KanzoTestingHook } from "../src";
+import { GraphCanvasHarness, playwright } from "../src";
 
 /**
  * **The reference grid paints dots, in both modes and at both pixel ratios** — read from the grid
@@ -153,15 +153,13 @@ async function see(dark: boolean, deviceScaleFactor: number): Promise<Seen> {
     if (!box) throw new Error("the grid canvas has no box");
     const clip = { x: Math.round(box.x), y: Math.round(box.y), width: Math.round(box.width), height: Math.round(box.height) };
     const [background, input] = [await token(page, "--background"), await token(page, "--input")];
-    // Every vertex's position in one call: the hook is cosmos.gl's own space-to-screen conversion.
+    // Every vertex's position in one call: the canvas's element says it, with cosmos.gl's own space-to-screen conversion.
     const placed = await page.evaluate((limit) => {
-      const hook = (globalThis as { __KANZO_TESTING__?: KanzoTestingHook }).__KANZO_TESTING__;
-      const id = document.querySelector("[data-frame]")?.id ?? "";
-      const probe = hook?.graphs.get(id);
+      const canvas = document.querySelector("[data-frame]") as (Element & { screenOf?(vertex: number): [number, number] }) | null;
       const found: [number, number][] = [];
       for (let vertex = 0; vertex < limit; vertex++) {
         try {
-          const at = probe?.screenOf(vertex);
+          const at = canvas?.screenOf?.(vertex);
           if (at && !at.some(Number.isNaN)) found.push([at[0], at[1]]);
         } catch {
           // a vertex not placed has no position

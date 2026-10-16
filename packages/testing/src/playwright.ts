@@ -1,6 +1,6 @@
 import type { Locator, Page } from "playwright-core";
 import { HarnessEnvironment, type By, type Driver, type Modifier, type Point, type TestElement } from "./environment";
-import { initScript, type ModelScript } from "./hook";
+import { initScript, type ModelScript } from "./model";
 
 export interface EnvironmentOptions {
   /** How long a harness waits for a state before it fails, in milliseconds. Default 10 000. */
@@ -18,10 +18,10 @@ export interface EnvironmentOptions {
 const POLL = 50;
 
 /**
- * **The environment for a Playwright page.** It installs the test hook with `addInitScript`, so it
- * is called *before* the page navigates: the canvases register while they mount, and a page already
- * loaded has mounted without it — and a provider per scripted model, which `localModel` resolves when
- * it is first asked. It imports nothing of Playwright's at run time, only its types.
+ * **The environment for a Playwright page.** It registers a provider per scripted model with
+ * `addInitScript`, before the page's own scripts run, which `localModel` resolves when it is first
+ * asked — so it is called *before* the page navigates. It imports nothing of Playwright's at run
+ * time, only its types.
  */
 export async function playwright(page: Page, options: EnvironmentOptions = {}): Promise<HarnessEnvironment> {
   await page.addInitScript({ content: initScript(options.models ?? {}) });

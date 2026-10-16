@@ -1,8 +1,16 @@
 import { ComponentHarness, type By, type TestElement, type Modifier, type Point } from "../environment";
-import type { KanzoTestingHook } from "../hook";
 
-const UNREGISTERED =
-  "the graph canvas is not registered with the test hook, or has not drawn: was the environment made before the page loaded?";
+/**
+ * What `GraphCanvas` puts on its element, as Observable Plot puts `scale` on its output: where a vertex,
+ * or a point in the data's `x`/`y`, is drawn now, in pixels from the canvas's top-left corner. Declared
+ * by shape, because this package imports nothing of the components'.
+ */
+type Placed = Element & {
+  screenOf?(vertex: number): [number, number];
+  screenAt?(point: { x: number; y: number }): [number, number];
+};
+
+const UNDRAWN = "the graph canvas has not drawn, or is not a GraphCanvas that says where it draws";
 
 export interface GestureOptions {
   /**
@@ -17,8 +25,8 @@ export interface GestureOptions {
 /**
  * **`GraphCanvas`, and the `GraphToolbar` drawn inside it.** The canvas is found by `data-frame`, the count of
  * frames it has drawn — the one attribute here with no accessible equivalent, and the only way to
- * see that a WebGL canvas moved. Where a point is drawn comes through the test hook, from cosmos.gl's
- * own space-to-screen conversion; everything else is ARIA: the canvas is `aria-busy` until its first
+ * see that a WebGL canvas moved. Where a point is drawn the canvas's element says, from cosmos.gl's
+ * own space-to-screen conversion, as Plot's output says what its scales are; everything else is ARIA: the canvas is `aria-busy` until its first
  * drawn frame, and the toolbar's buttons are named and `aria-pressed`.
  */
 export class GraphCanvasHarness extends ComponentHarness {
@@ -73,11 +81,8 @@ export class GraphCanvasHarness extends ComponentHarness {
 
   /** Where a vertex is drawn now, in the canvas's pixels — what `{ in: "screen" }` takes. */
   async screenOf(vertex: number): Promise<Point> {
-    const at = await this.host.evaluate((canvas, v) => {
-      const hook = (globalThis as { __KANZO_TESTING__?: KanzoTestingHook }).__KANZO_TESTING__;
-      return hook?.graphs.get(canvas.id)?.screenOf(v) ?? null;
-    }, vertex);
-    if (!at || at.some(Number.isNaN)) throw new Error(UNREGISTERED);
+    const at = await this.host.evaluate((canvas, v) => (canvas as Placed).screenOf?.(v) ?? null, vertex);
+    if (!at || at.some(Number.isNaN)) throw new Error(UNDRAWN);
     return at;
   }
 
@@ -118,11 +123,8 @@ export class GraphCanvasHarness extends ComponentHarness {
   private async toScreen([x, y]: Point, space: "data" | "screen"): Promise<Point> {
     const offset = await this.host.getDimensions();
     if (space === "screen") return [offset.left + x, offset.top + y];
-    const at = await this.host.evaluate((canvas, point) => {
-      const hook = (globalThis as { __KANZO_TESTING__?: KanzoTestingHook }).__KANZO_TESTING__;
-      return hook?.graphs.get(canvas.id)?.screenAt(point) ?? null;
-    }, { x, y });
-    if (!at || at.some(Number.isNaN)) throw new Error(UNREGISTERED);
+    const at = await this.host.evaluate((canvas, point) => (canvas as Placed).screenAt?.(point) ?? null, { x, y });
+    if (!at || at.some(Number.isNaN)) throw new Error(UNDRAWN);
     return [offset.left + at[0], offset.top + at[1]];
   }
 }

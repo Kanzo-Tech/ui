@@ -1,0 +1,20 @@
+type: Forum
+chunk_size: 37
+prefix: vertex/Forum/
+property_groups:
+  - prefix: subject_title_creationDate/
+    file_type: parquet
+    properties:
+      - name: subject
+        data_type: string
+        is_primary: true
+        is_nullable: false
+      - name: title
+        data_type: string
+        is_primary: false
+        is_nullable: false
+      - name: creationDate
+        data_type: timestamp
+        is_primary: false
+        is_nullable: false
+version: gar/v1

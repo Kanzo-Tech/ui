@@ -18,7 +18,7 @@ import { labelled, topOf, useInView, useTitles } from "./labels";
 import { useOverlays } from "./overlays";
 import { useKeyboard } from "./keyboard";
 import { ShapeGlyph } from "./shape-glyph";
-import { registerForTesting } from "./testing-probe";
+import { place } from "./screen";
 
 /** The words the canvas writes over itself. */
 export interface GraphCanvasTranslations {
@@ -99,7 +99,8 @@ const graphCanvas = tv({
  *
  * What a test reads (`/docs/design/testing`): the element is `aria-busy` until the graph's first drawn
  * frame, and `data-frame` counts the frames drawn — the one attribute with no accessible equivalent,
- * and the only way to see that a WebGL canvas moved. Its `id` is its key in the test hook.
+ * and the only way to see that a WebGL canvas moved. Where it draws a vertex, or a point of the data,
+ * its element says: `screenOf(vertex)` and `screenAt({ x, y })` (`./screen`).
  */
 export function GraphCanvas({ children, className, slot, translations, ...rest }: GraphCanvasProps) {
   const t = { ...ENGLISH, ...translations };
@@ -143,10 +144,10 @@ export function GraphCanvas({ children, className, slot, translations, ...rest }
     };
     return attach(surface, { onFrame, onHover: hoverAt });
   }, [attach, hoverAt, hostRef, moved, schedule]);
-  useEffect(
-    () => registerForTesting(id, getGraph, () => internalsOf(api).store.getSnapshot().geometry),
-    [api, getGraph, id],
-  );
+  useLayoutEffect(() => {
+    const host = hostRef.current;
+    return host ? place(host, getGraph, () => internalsOf(api).store.getSnapshot().geometry) : undefined;
+  }, [api, getGraph, hostRef]);
 
   useEffect(() => {
     renderer()?.repaint();

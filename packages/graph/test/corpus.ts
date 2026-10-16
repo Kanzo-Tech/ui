@@ -1,8 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
-import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { ConsoleLogger, LogLevel, NODE_RUNTIME, createDuckDB } from "@duckdb/duckdb-wasm/blocking";
+import { join } from "node:path";
+import { connection as conn } from "@kanzo-tech/fixtures";
 import { afterAll } from "vitest";
 import { decodeIPC } from "@uwdata/mosaic-core";
 import { Coordinator } from "@kanzo-tech/mosaic";
@@ -27,56 +26,21 @@ import { internalEngineOver, type Engine } from "@kanzo-tech/mosaic/engine";
  *   `Person_tagged_Tag` links `0 → 16` (1). Each holds GraphAr's per-type indices.
  */
 
-const require = createRequire(import.meta.url);
-
-/**
- * **One database per test file, instantiated when this module is imported.** Compiling DuckDB-WASM
- * is the cost here, not a catalog: about 0.3 s alone, and several seconds when `pnpm verify` runs
- * every package's suite at once on a CI runner's few cores. Paid inside `attach`, it landed on
- * whichever test of the file ran first and pushed that one past vitest's 5 s budget, so the same
- * tests timed out on CI and never locally. Top-level `await` pays it while the file is collected,
- * before any test's clock starts, and only in the files that import a corpus.
- */
-const { conn } = await (async () => {
-  const dist = dirname(require.resolve("@duckdb/duckdb-wasm"));
-  const db = await createDuckDB(
-    {
-      mvp: { mainModule: resolve(dist, "duckdb-mvp.wasm"), mainWorker: resolve(dist, "duckdb-node-mvp.worker.cjs") },
-      eh: { mainModule: resolve(dist, "duckdb-eh.wasm"), mainWorker: resolve(dist, "duckdb-node-eh.worker.cjs") },
-    },
-    new ConsoleLogger(LogLevel.ERROR),
-    NODE_RUNTIME,
-  );
-  await db.instantiate();
-  return { conn: db.connect() };
-})();
-
 /**
  * **Footers are real.** Every vertex chunk is a Parquet file this module writes with DuckDB-WASM
  * (`COPY … TO … (FORMAT parquet, COMPRESSION zstd, KV_METADATA {'fossil:stats': …})`), so
  * `parquet_kv_metadata` and `parquet_metadata` read what a writer's file holds. The key under which a
- * writer states its counts is a Parquet `key_value_metadata` key; a chunk's row group states each
- * column's nulls, bounds and whether they are exact.
+ * writer states its counts is a Parquet `key_value_metadata` key, its value fossil's document of
+ * version 1 (`{"version":1,"columns":{…}}`); a chunk's row group states each column's nulls, bounds
+ * and whether they are exact.
  *
- * **Parquet opens in Node only without an `XMLHttpRequest` global.** DuckDB-WASM loads its `parquet`
- * extension on first use, and when the global exists it downloads the extension with a synchronous
- * request; jsdom's `XMLHttpRequest` (this package's test environment) refuses one, and the instance
- * is broken from then on. With no such global the extension is already part of the build, so nothing
- * is fetched. It is therefore loaded here once, with the global taken away, before any test runs.
+ * The database is `@kanzo-tech/fixtures`' — one per test file, Parquet loaded before any test runs — and
+ * so is the engine every fixture graph is read on; this graph is the one stated here.
  */
 const STATS_KEY = "fossil:stats";
 /** Where the chunks are written: DuckDB-WASM's Node runtime writes through the file system, so not the working directory. */
 const chunks = mkdtempSync(join(tmpdir(), "graph-chunks-"));
 afterAll(() => rmSync(chunks, { force: true, recursive: true }));
-const host = globalThis as { XMLHttpRequest?: unknown };
-const xhr = host.XMLHttpRequest;
-host.XMLHttpRequest = undefined;
-try {
-  conn.query(`COPY (SELECT 1 AS x) TO '${join(chunks, "warm.parquet")}' (FORMAT parquet); SELECT * FROM parquet_metadata('${join(chunks, "warm.parquet")}');`);
-} finally {
-  host.XMLHttpRequest = xhr;
-}
-
 /**
  * Write `type`'s rows of the catalog `from` as the Parquet chunk `file`, stating `stats` under the
  * writer's key, or nothing when it is `null`.
@@ -176,9 +140,9 @@ export async function attach(people = 10): Promise<Attached> {
   conn.query(FIXTURE(from, people));
   const json = conn
     .query(
-      `SELECT table_name, '{' || string_agg('"' || column_name || '":{"distinct_count":' || distinct_count || ',"most_common_vals":['
+      `SELECT table_name, '{"version":1,"columns":{' || string_agg('"' || column_name || '":{"distinct_count":' || distinct_count || ',"most_common_vals":['
         || array_to_string(list_transform(most_common_vals, x -> '"' || replace(x, '"', '\\"') || '"'), ',')
-        || '],"most_common_freqs":[' || array_to_string(most_common_freqs, ',') || ']}', ',') || '}' AS stats
+        || '],"most_common_freqs":[' || array_to_string(most_common_freqs, ',') || ']}', ',') || '}}' AS stats
        FROM ${from}.footer_stats GROUP BY table_name`,
     )
     .toArray() as { table_name: string; stats: string }[];

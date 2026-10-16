@@ -8,14 +8,13 @@ import {
   FindingsBadgeHarness,
   FindingsItemHarness,
   RelationPickerHarness,
-  type KanzoTestingHook,
 } from "@kanzo-tech/testing";
 import { dom } from "@kanzo-tech/testing/dom";
 import { act, render } from "@testing-library/react";
 import { clausePoint, Selection, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
 import { InfoIcon, MessageCircleIcon } from "lucide-react";
 import { useState } from "react";
-import { afterEach, describe, expect, expectTypeOf, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import { ChartBarY } from "./charts/chart-marks.js";
 import { ChartRoot } from "./charts/chart-root.js";
 import { Dashboard } from "./charts/dashboard.js";
@@ -87,10 +86,6 @@ function stubCoordinator(): Coordinator {
 }
 
 const saltmere = () => clausePoint("region", "Saltmere", { source: { reset() {} } });
-
-afterEach(() => {
-  delete (globalThis as { __KANZO_TESTING__?: KanzoTestingHook }).__KANZO_TESTING__;
-});
 
 describe("FilterBarHarness", () => {
   it("reads the readout once it has counted, and a clause as a chip it removes by its field", async () => {

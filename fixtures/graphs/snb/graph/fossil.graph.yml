@@ -1,0 +1,27 @@
+name: fossil
+vertices:
+  - Place.vertex.yml
+  - Organisation.vertex.yml
+  - TagClass.vertex.yml
+  - Tag.vertex.yml
+  - Person.vertex.yml
+  - Forum.vertex.yml
+  - Post.vertex.yml
+  - Comment.vertex.yml
+  - Knowing.vertex.yml
+edges:
+  - Place_isPartOf_Place.edge.yml
+  - Organisation_isLocatedIn_Place.edge.yml
+  - TagClass_isSubclassOf_TagClass.edge.yml
+  - Tag_hasType_TagClass.edge.yml
+  - Person_isLocatedIn_Place.edge.yml
+  - Forum_hasModerator_Person.edge.yml
+  - Post_hasCreator_Person.edge.yml
+  - Post_isLocatedIn_Place.edge.yml
+  - Comment_hasCreator_Person.edge.yml
+  - Comment_isLocatedIn_Place.edge.yml
+  - Comment_replyOfPost_Post.edge.yml
+  - Comment_replyOfComment_Comment.edge.yml
+  - Knowing_knower_Person.edge.yml
+  - Knowing_known_Person.edge.yml
+version: gar/v1

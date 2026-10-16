@@ -1,0 +1,32 @@
+type: Comment
+chunk_size: 212
+prefix: vertex/Comment/
+property_groups:
+  - prefix: subject_creationDate_locationIP_browserUsed_content_length/
+    file_type: parquet
+    properties:
+      - name: subject
+        data_type: string
+        is_primary: true
+        is_nullable: false
+      - name: creationDate
+        data_type: timestamp
+        is_primary: false
+        is_nullable: false
+      - name: locationIP
+        data_type: string
+        is_primary: false
+        is_nullable: false
+      - name: browserUsed
+        data_type: string
+        is_primary: false
+        is_nullable: false
+      - name: content
+        data_type: string
+        is_primary: false
+        is_nullable: false
+      - name: length
+        data_type: int64
+        is_primary: false
+        is_nullable: false
+version: gar/v1

@@ -1,0 +1,48 @@
+type: Airport
+chunk_size: 54
+prefix: vertex/Airport/
+property_groups:
+  - prefix: subject_name_iataCode_icaoCode_lat_long_altitude_city_country_timezone/
+    file_type: parquet
+    properties:
+      - name: subject
+        data_type: string
+        is_primary: true
+        is_nullable: false
+      - name: name
+        data_type: string
+        is_primary: false
+        is_nullable: false
+      - name: iataCode
+        data_type: string
+        is_primary: false
+        is_nullable: false
+      - name: icaoCode
+        data_type: string
+        is_primary: false
+        is_nullable: false
+      - name: lat
+        data_type: double
+        is_primary: false
+        is_nullable: false
+      - name: long
+        data_type: double
+        is_primary: false
+        is_nullable: false
+      - name: altitude
+        data_type: int64
+        is_primary: false
+        is_nullable: false
+      - name: city
+        data_type: string
+        is_primary: false
+        is_nullable: false
+      - name: country
+        data_type: string
+        is_primary: false
+        is_nullable: false
+      - name: timezone
+        data_type: string
+        is_primary: false
+        is_nullable: false
+version: gar/v1
