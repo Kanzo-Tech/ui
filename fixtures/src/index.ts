@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { ConsoleLogger, LogLevel, NODE_RUNTIME, createDuckDB } from "@duckdb/duckdb-wasm/blocking";
+import { ConsoleLogger, LogLevel, NODE_RUNTIME, createDuckDB, type DuckDBBindings } from "@duckdb/duckdb-wasm/blocking";
 import { attachGraph, type GraphAttachment } from "@kanzo-tech/graphar-duckdb";
 import type { Queryable, Table } from "@kanzo-tech/kernel";
 
@@ -24,7 +24,7 @@ const require = createRequire(import.meta.url);
  * pushed it past vitest's 5 s budget. Top-level `await` pays it while the file is collected, before
  * any test's clock starts, and only in the files that import this module.
  */
-export const database = await createDuckDB(
+export const database: DuckDBBindings = await createDuckDB(
   (() => {
     const dist = dirname(require.resolve("@duckdb/duckdb-wasm"));
     return {
@@ -35,7 +35,7 @@ export const database = await createDuckDB(
   new ConsoleLogger(LogLevel.ERROR),
   NODE_RUNTIME,
 );
-await database.instantiate();
+await database.instantiate(() => {});
 
 /**
  * The blocking connection every engine of this file answers through. DuckDB-WASM's Node runtime
