@@ -13,14 +13,11 @@ export {
 export {
   promptOf,
   scripted,
-  type GraphProbe,
-  type KanzoTestingHook,
-  type ModelProbe,
   type ModelReply,
   type ModelScript,
   type ModelTurn,
   type PromptedCall,
-} from "./hook";
+} from "./model";
 export { playwright, type EnvironmentOptions } from "./playwright";
 export { queryableConformance } from "./queryable";
 export { AnswerHarness } from "./harnesses/answer";

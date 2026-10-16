@@ -1,30 +1,12 @@
 /**
- * **What a canvas knows and the DOM does not**, reached through a global only a test defines — and
- * what a scripted model was asked. `GraphCanvas` registers itself here when they
- * find it on `window`, and do nothing otherwise, so production never has it. React DevTools'
- * `__REACT_DEVTOOLS_GLOBAL_HOOK__` is the shape: the tool defines the global, the library registers
- * with it.
- *
- * A model is not registered here: the environment registers a scripted one in `@kanzo-tech/llm/local`'s
- * provider registry, as any provider is ({@link install}), and records each prompt here.
- *
- * The type is declared once, here, because this package is what installs it: `@kanzo-tech/ui` and
- * `@kanzo-tech/graph` import it as a type from a devDependency.
+ * **The one model double**, as data and as the answering of it: a `ModelScript` crosses into a page,
+ * and `scripted` answers from one as the AI SDK's `LanguageModelV4` spec answers a call. The
+ * environment registers a scripted model per id in `@kanzo-tech/llm/local`'s provider registry, as any
+ * provider is registered ({@link install}), and the model it registers records each prompt it is
+ * asked. Nothing here is a global of its own: the registry is the one production resolves every model
+ * through, and the page's code never learns a test is running
+ * (`/docs/design/testing#a-model-is-resolved-through-one-registry`).
  */
-export interface KanzoTestingHook {
-  /** By the canvas element's `id`. Both answers are in pixels from the canvas's top-left corner. */
-  graphs: Map<string, GraphProbe>;
-  /**
-   * By model id: the script a test registered, which `localModel(id)` answers from in place of that
-   * model, and every prompt it was asked, flattened, in order.
-   */
-  models: Map<string, ModelProbe>;
-}
-
-export interface ModelProbe {
-  readonly script: ModelScript;
-  readonly prompts: string[];
-}
 
 /**
  * **What a model double answers**, as data: it crosses into the page as `addInitScript`'s argument,
@@ -63,13 +45,6 @@ export type ModelReply =
   | { fail: string; after?: string }
   /** The call never answers, until it is stopped. */
   | { hang: true };
-
-export interface GraphProbe {
-  /** Where a vertex is drawn now, read from cosmos.gl's own space-to-screen conversion. */
-  screenOf(vertex: number): [number, number];
-  /** Where a point in the data's `x`/`y` is drawn now; a layout that binds neither is its space. */
-  screenAt(point: { x: number; y: number }): [number, number];
-}
 
 /**
  * What a model call carries that the double reads: its messages, and the signal that stops it. The
@@ -224,22 +199,20 @@ interface LocalModelRegistry {
 }
 
 /**
- * Defines the hook on the page it runs in, once, and **registers a provider per scripted model id**
- * in `@kanzo-tech/llm/local`'s registry — `Symbol.for("@kanzo-tech/llm/local")` on `globalThis` — which
- * answers from the script with {@link scripted}, records each prompt on the hook, and loads as the
- * script says. `localModel(id)` resolves it there as it resolves any provider; nothing in the page's
- * code knows a test is running.
+ * **Registers a provider per scripted model id** in `@kanzo-tech/llm/local`'s registry —
+ * `Symbol.for("@kanzo-tech/llm/local")` on `globalThis` — which answers from the script with
+ * {@link scripted}, records each prompt on the model it registers (`prompts`, what
+ * `HarnessEnvironment.prompts(id)` reads), and loads as the script says. `localModel(id)` resolves it there as it
+ * resolves any provider; nothing in the page's code knows a test is running.
  *
  * Self-contained but for {@link scripted} and {@link promptOf}: {@link initScript} sends the three
  * into the page as source text.
  */
 export function install(models: Readonly<Record<string, ModelScript>> = {}): void {
-  const scope = globalThis as { __KANZO_TESTING__?: KanzoTestingHook } & { [key: symbol]: LocalModelRegistry | undefined };
-  const hook = (scope.__KANZO_TESTING__ ??= { graphs: new Map(), models: new Map() });
+  const scope = globalThis as { [key: symbol]: LocalModelRegistry | undefined };
   const registry = (scope[Symbol.for("@kanzo-tech/llm/local")] ??= { languageModels: new Map() });
   for (const [id, script] of Object.entries(models)) {
-    const probe: ModelProbe = { script, prompts: [] };
-    hook.models.set(id, probe);
+    const prompts: string[] = [];
     const calls = scripted(script);
     registry.languageModels.set(id, {
       model: {
@@ -247,8 +220,9 @@ export function install(models: Readonly<Record<string, ModelScript>> = {}): voi
         provider: "kanzo-testing",
         modelId: id,
         supportedUrls: {},
-        doGenerate: (call: PromptedCall) => (probe.prompts.push(promptOf(call)), calls.doGenerate(call)),
-        doStream: (call: PromptedCall) => (probe.prompts.push(promptOf(call)), calls.doStream(call)),
+        prompts,
+        doGenerate: (call: PromptedCall) => (prompts.push(promptOf(call)), calls.doGenerate(call)),
+        doStream: (call: PromptedCall) => (prompts.push(promptOf(call)), calls.doStream(call)),
       },
       load: async () => {
         if (script.load) throw new Error(script.load.fail);

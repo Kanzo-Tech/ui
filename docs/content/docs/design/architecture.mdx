@@ -156,13 +156,13 @@ for the root entry. Every other entry is to be added with the entry-peers guard,
 ## What dies
 
 - **The test probes that ship.** `charts/testing-probe.ts` in `ui` and `parts/testing-probe.ts` in
-  `graph` are seams in production source reading a global that production "never defines". `llm/local`
-  already removed that pattern and wrote the reason; the rule was applied there and not here. The hook
-  in `@kanzo-tech/testing` becomes an observer of the entries `mark` writes, and the probes are
-  deleted. The line count is about eighty. **What would reverse it:** an assertion that needs a live
-  object an event cannot carry; the chart's Plot scale was the candidate and is not one: Plot puts
-  `scale(channel)` on the output it returns, so `ChartHarness` reads it off the DOM and the chart's
-  probe is deleted. Then the graph's, if it needs one, is the one that stays.
+  `graph` were seams in production source reading a global that production "never defines",
+  `window.__KANZO_TESTING__`. `llm/local` had already removed that pattern and written the reason. Both
+  probes are deleted, and the global with them: Plot puts `scale(channel)` on the output it returns,
+  so `ChartHarness` reads it off the DOM, and `GraphCanvas` does the same with the live answer a
+  WebGL canvas alone holds — `screenOf(vertex)` and `screenAt({ x, y })` on its element, in every page
+  ([Testing](/docs/design/testing#a-canvas-says-where-it-draws-on-its-element)). **What would
+  reverse it:** an assertion that needs a live object no element of the component can carry.
 - **`EngineError`, `GraphError`, `LlmError`, `AuthError`**, and `auth/src/deadline.ts`, the 10 s timer
   in `graph`'s renderer and the engine's `abandon`: replaced by `Problem` and `within`.
 - **The four definitions of the engine's table type** and the `Pick<Engine, "query">` in `ai/data`.

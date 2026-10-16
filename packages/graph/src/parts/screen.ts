@@ -1,24 +1,29 @@
 import type { Graph } from "@cosmos.gl/graph";
-import type { GraphProbe, KanzoTestingHook } from "@kanzo-tech/testing";
 import type { Geometry } from "../core/load";
 import { placementOf } from "../render/placement";
 
 /**
- * **Registers a canvas with `@kanzo-tech/testing`'s hook, when a test installed one**, and does
- * nothing otherwise: production never defines `window.__KANZO_TESTING__`. What it answers is
- * cosmos.gl's own `spaceToScreenPosition`, so a harness lassos *over Madrid* rather than at a share
- * of the canvas's width; before the canvas has drawn, it answers `NaN`.
+ * **Where the canvas draws, said on its element** — as Observable Plot puts `scale(channel)` on the
+ * output it drew: `screenOf(vertex)` and `screenAt({ x, y })`, in pixels from the canvas's top-left
+ * corner, from cosmos.gl's own `spaceToScreenPosition`. What a WebGL canvas knows and its DOM does not,
+ * read by whoever holds the element — `@kanzo-tech/testing`'s `GraphCanvasHarness` lassos *over
+ * Madrid* with it rather than at a share of the canvas's width. Always there, in every page: nothing
+ * looks for a test. Before the canvas has drawn, both answer `NaN`.
  *
  * Data reaches space through the renderer's placement, which is rebuilt here from the extent and the
  * `spaceSize` the renderer gave cosmos.gl — `placementOf` maps a side back to the same `k`, since the
  * side is the extent's longest edge times `k`. A layout that binds neither `x` nor `y` has no data
  * coordinates, and its space is what a point means.
  */
-export function registerForTesting(id: string, graph: () => Graph | null, geometry: () => Geometry | null): () => void {
-  const hook = (globalThis as { __KANZO_TESTING__?: KanzoTestingHook }).__KANZO_TESTING__;
-  if (!hook) return () => {};
+export interface Placed {
+  screenOf(vertex: number): [number, number];
+  screenAt(point: { x: number; y: number }): [number, number];
+}
+
+/** Puts {@link Placed}'s two answers on `element`, and takes them off again. */
+export function place(element: HTMLElement, graph: () => Graph | null, geometry: () => Geometry | null): () => void {
   const nowhere: [number, number] = [Number.NaN, Number.NaN];
-  const probe: GraphProbe = {
+  const placed: Placed = {
     screenOf(vertex) {
       const drawn = graph();
       const positions = drawn?.getPointPositions() ?? [];
@@ -34,8 +39,10 @@ export function registerForTesting(id: string, graph: () => Graph | null, geomet
       return drawn.spaceToScreenPosition([x * at.k + at.dx, y * at.k + at.dy]);
     },
   };
-  hook.graphs.set(id, probe);
+  Object.assign(element, placed);
   return () => {
-    if (hook.graphs.get(id) === probe) hook.graphs.delete(id);
+    const own = element as HTMLElement & Partial<Placed>;
+    if (own.screenOf === placed.screenOf) delete own.screenOf;
+    if (own.screenAt === placed.screenAt) delete own.screenAt;
   };
 }

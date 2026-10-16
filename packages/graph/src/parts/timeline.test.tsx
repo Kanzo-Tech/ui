@@ -412,7 +412,6 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
   const readWindow = ([from, to]: [number, number]) => `${Math.round(from)} – ${Math.round(to)}`;
 
   it("is driven by TimelineHarness: the window the group reads, and play and pause through the one button", async () => {
-    // Before anything renders: the environment installs the hook a chart registers with as it mounts.
     const env = dom(document.body, WAIT);
     const corpus = await attach();
     const { brush, ready } = await drawn(corpus);
