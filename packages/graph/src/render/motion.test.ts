@@ -35,12 +35,12 @@ describe("the layout's rules", () => {
     expect(decayFor(200_001)).toBe(240);
   });
 
-  it("runs when the positions are a start, stands when they are data, and simulate overrides both", () => {
+  it("runs when the positions are a start unless simulate says not, and never when they are data", () => {
     const options = { from: "c", engine: null, onFailure: () => {} };
     expect(simulating(options, path)).toBe(true);
     expect(simulating(options, { ...path, bound: true })).toBe(false);
     expect(simulating({ ...options, simulate: false }, path)).toBe(false);
-    expect(simulating({ ...options, simulate: true }, { ...path, bound: true })).toBe(true);
+    expect(simulating({ ...options, simulate: true }, { ...path, bound: true })).toBe(false);
     expect(simulating(options, null)).toBe(false);
   });
 });

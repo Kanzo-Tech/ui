@@ -16,6 +16,7 @@ import { greyedOf } from "../core/kept";
 import type { Motion } from "../core/types";
 import { useGraphContext } from "../react/graph-root";
 import { tv } from "tailwind-variants";
+import { placedByData } from "../render/motion";
 import { useGraphState } from "../react/use-graph-state";
 
 /** Every name and hint the toolbar's buttons and clusters carry. */
@@ -117,6 +118,8 @@ export function GraphToolbar({ className, orientation = "horizontal", slot, tran
   const greyed = greyedOf({ selection, matching, total });
   const frame = greyed ? t.frameKept : t.frameAll;
   const motion = useGraphState((s) => s.motion);
+  // The data places the points: there is no layout to run, pause or re-run.
+  const placed = useGraphState((s) => placedByData(s.options, s));
   const transport = TRANSPORT[motion];
   const cluster = styles.cluster();
 
@@ -165,8 +168,8 @@ export function GraphToolbar({ className, orientation = "horizontal", slot, tran
       <ButtonGroup aria-label={t.layout} className={cluster} orientation={orientation}>
         <Button
           aria-label={t[transport.label]}
-          aria-pressed={motion === "paused"}
-          disabled={!ready}
+          aria-pressed={!placed && motion === "paused"}
+          disabled={!ready || placed}
           onClick={() => (transport.pause ? api.pause() : api.resume())}
           size="icon-sm"
           title={t[transport.label]}
@@ -175,7 +178,7 @@ export function GraphToolbar({ className, orientation = "horizontal", slot, tran
           {motion === "running" ? <PauseIcon /> : <PlayIcon />}
         </Button>
         <ButtonGroupSeparator />
-        <Button aria-label={t.restart} disabled={!ready} onClick={() => api.restart()} size="icon-sm" title={t.restart} variant="ghost">
+        <Button aria-label={t.restart} disabled={!ready || placed} onClick={() => api.restart()} size="icon-sm" title={t.restart} variant="ghost">
           <RotateCcwIcon />
         </Button>
       </ButtonGroup>

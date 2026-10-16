@@ -58,11 +58,14 @@ square by a positive scale and a translation, never a flip. A reader picks among
 the layout, two columns, the layout with a cluster column — through the graph section's
 [placement](/docs/graph#placement), whose column selects offer the graph's own fields.
 
-`simulate` overrides the rule: `false` keeps an unbound graph at its seeded start, `true` runs a
-layout over bound positions. **The toolbar's transport** runs and stops the layout whatever it says —
-*Pause the layout* while running, *Resume the layout* when paused, *Run the layout* when settled,
-and *Re-run the layout*, which starts again from full heat. The api is the
-same transport: `resume()`, `pause()`, `restart()`. Changing `sim` while a layout runs reheats it, so a
+`simulate={false}` keeps an unbound graph at its seeded start. **Nothing runs a layout over bound
+positions** — not `simulate`, not the transport, not a change of forces: the forces would only push the
+data's points against the walls of the layout's square. Binding the second axis stops a running
+layout at once, before the positions it asks for have loaded. **The toolbar's transport** runs and
+stops the layout whatever `simulate` says — *Pause the layout* while running, *Resume the layout* when
+paused, *Run the layout* when settled, and *Re-run the layout*, which starts again from full heat —
+and is disabled while `x` and `y` place the points. The api is the same transport: `resume()`,
+`pause()`, `restart()`, which do nothing then. Changing `sim` while a layout runs reheats it, so a
 reader tuning gravity sees the change; a paused layout stays paused.
 
 ## How the layout scales
