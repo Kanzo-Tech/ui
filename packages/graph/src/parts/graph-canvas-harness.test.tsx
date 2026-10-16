@@ -1,4 +1,4 @@
-import { GraphCanvasHarness, type KanzoTestingHook } from "@kanzo-tech/testing";
+import { GraphCanvasHarness } from "@kanzo-tech/testing";
 import { dom } from "@kanzo-tech/testing/dom";
 import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -8,12 +8,11 @@ import { GraphCanvas } from "./graph-canvas";
 import { GraphCounts } from "./graph-counts";
 
 /**
- * `GraphCanvasHarness` over jsdom, which has no WebGL: what it can see here is the ARIA and the
- * registration, and that a canvas which could not draw is reported as a failure rather than as ready.
+ * `GraphCanvasHarness` over jsdom, which has no WebGL: what it can see here is the ARIA and what the
+ * element says of where it draws, and that a canvas which could not draw is reported as a failure
+ * rather than as ready.
  * The gestures and the camera need a GPU, and are held by the end-to-end suite in `packages/testing`.
  */
-
-const hook = () => (globalThis as { __KANZO_TESTING__?: KanzoTestingHook }).__KANZO_TESTING__;
 
 // jsdom has no ResizeObserver, and the canvas's overlays measure it with one.
 beforeEach(() => {
@@ -29,33 +28,21 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  delete (globalThis as { __KANZO_TESTING__?: KanzoTestingHook }).__KANZO_TESTING__;
 });
 
 describe("GraphCanvas, as a test reads it", () => {
-  it("registers with the test hook under its id when one is installed, and lets go of it when it unmounts", async () => {
-    dom();
+  it("says where it draws on its element, in every page, and takes it off when it unmounts", async () => {
     const corpus = await attach();
-    const { unmount } = render(
+    const { container, unmount } = render(
       <GraphRoot from={corpus.from} engine={corpus.engine} onFailure={() => {}}>
         <GraphCanvas id="archive" />
       </GraphRoot>,
     );
-    expect([...(hook()?.graphs.keys() ?? [])]).toEqual(["archive"]);
-    expect(hook()?.graphs.get("archive")?.screenOf(0)).toEqual([Number.NaN, Number.NaN]);
+    const canvas = container.querySelector("[data-frame]") as Element & { screenOf?(vertex: number): [number, number] };
+    // No environment was made: nothing looks for a test. jsdom draws nothing, so nowhere yet.
+    expect(canvas.screenOf?.(0)).toEqual([Number.NaN, Number.NaN]);
     unmount();
-    expect(hook()?.graphs.size).toBe(0);
-  });
-
-  it("registers nothing when no test installed the hook", async () => {
-    const corpus = await attach();
-    const { container } = render(
-      <GraphRoot from={corpus.from} engine={corpus.engine} onFailure={() => {}}>
-        <GraphCanvas />
-      </GraphRoot>,
-    );
-    expect(hook()).toBeUndefined();
-    expect(container.querySelector("[data-frame]")?.getAttribute("data-frame")).toBe("0");
+    expect(canvas.screenOf).toBeUndefined();
   });
 
   it("ready() rejects a canvas that finished loading without drawing a frame, as one with no WebGL does", async () => {

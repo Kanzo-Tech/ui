@@ -49,12 +49,11 @@ await (await (await dashboard.tile("Sightings by beast")).chart()).pick({ y: "bo
 await expect.poll(() => bar.readout()).toMatch(/ of [\d,]+ sightings$/);
 ```
 
-## Install the hook before navigating
+## Make the environment before navigating
 
-`playwright(page)` installs the test hook with `addInitScript`, and a chart or a graph canvas
-registers while it mounts. So the environment is made, and awaited, **before** `page.goto`. A page
-already loaded mounted without the hook, and a brush or a lasso on it fails with *not registered with
-the test hook*.
+`playwright(page, { models })` registers each model double with `addInitScript`, before the page's own
+scripts run. So the environment is made, and awaited, **before** `page.goto`: a page already loaded
+resolved its models without it.
 
 ```ts
 import { playwright } from "@kanzo-tech/testing";

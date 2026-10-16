@@ -1,6 +1,6 @@
 ---
 title: Testing a page built with Kanzo UI
-description: Why @kanzo-tech/testing ships a harness per component in Angular CDK's shape and with its names, reads ARIA before anything else, reaches a canvas's coordinates only through a hook a test installs, and registers the one model double as a provider in the registry every model is resolved through; why a test reads from one real engine and a model's test replays a recording; and why Ask's evaluation set lives beside Ask — and what would reverse each rule.
+description: Why @kanzo-tech/testing ships a harness per component in Angular CDK's shape and with its names, reads ARIA before anything else, reads a canvas's coordinates off the element it drew, and registers the one model double as a provider in the registry every model is resolved through; why a test reads from one real engine and a model's test replays a recording; and why Ask's evaluation set lives beside Ask — and what would reverse each rule.
 ---
 
 `@kanzo-tech/testing` is how a host tests a page built with the library, in Playwright, and how the
@@ -17,7 +17,7 @@ a unit test and in an end-to-end one.
 ```ts
 import { playwright, GraphCanvasHarness, ChartHarness, FilterBarHarness } from "@kanzo-tech/testing";
 
-const env = await playwright(page);                              // installs the test hook, then the page loads
+const env = await playwright(page);                              // before the page loads
 await page.goto("/archive");
 const lon = await env.getHarness(ChartHarness.with({ title: "Count by Airport.lon" }));
 await lon.brush({ x: [-125, -100] });                            // data, not pixels
@@ -49,9 +49,9 @@ heading, clicked at `width * 0.35` of it, brushed from `0.231` to `0.292` of a h
 mean 125°W to 100°W, and waited fixed milliseconds for what a click did. Every one of those knew the
 library's markup and broke when it changed.
 
-**The environment is made before the page loads**, so `playwright(page)` is awaited: it installs the
-hook with `addInitScript`, and a component registers while it mounts. A page already loaded mounted
-without it.
+**The environment is made before the page loads**, so `playwright(page)` is awaited: it registers
+each [model double](#one-model-double) with `addInitScript`, before the page's own scripts resolve a
+model. A page already loaded resolved its models without it.
 
 **What would reverse it:** a host whose tests drive the components through their public props
 rather than the screen, such as component tests that mount a `Dashboard` with a spec. Then the
@@ -97,41 +97,39 @@ fields are read and no tile is loading, then finds a tile by its title"; and
 `packages/graph/src/parts/graph-canvas-harness.test.tsx`, "ready() rejects a canvas that finished
 loading without drawing a frame, as one with no WebGL does".
 
-## A canvas's coordinates come through a hook only a test installs
+## A canvas says where it draws on its element
 
-**What a WebGL canvas knows — where a vertex is on screen —
-reaches a harness through `window.__KANZO_TESTING__`, which the harness environment defines before
-the page loads and which production never has.** `GraphCanvas` registers itself when it finds the hook,
-and does nothing otherwise:
+**What a WebGL canvas knows and its DOM does not — where a vertex is on screen — `GraphCanvas` says on
+its element, in every page: `screenOf(vertex)` and `screenAt({ x, y })`, in pixels from its top-left
+corner, from cosmos.gl's own `spaceToScreenPosition`.** Nothing in the library looks for a test, and
+there is no global a test defines. Decided 16 October 2026.
 
-```ts
-interface KanzoTestingHook {
-  graphs: Map<string, { screenOf(vertex: number): [number, number]; screenAt(point: { x: number; y: number }): [number, number] }>;
-  models: Map<string, { script: ModelScript; prompts: string[] }>; // what a scripted model was asked, below
-}
-```
+The reference is Observable Plot, which puts `scale(channel)` on the output it returns: which pixel is
+125°W is a property of what Plot drew, documented on its return value, and `ChartHarness` reads it off
+the DOM element. A graph canvas is the same case with a live answer — the camera moves — so the
+element carries the function rather than a snapshot. A harness runs it in the page, as it runs
+everything else.
 
-The reference is tldraw and Excalidraw, whose end-to-end suites reach the editor a test exposes,
-and React DevTools' `__REACT_DEVTOOLS_GLOBAL_HOOK__`, a global the tool defines and the library
-registers with. **A chart registers nothing**: which pixel is 125°W is Observable Plot's own
-`scale(channel)`, a property of the output it drew, so `ChartHarness` reads it off the DOM element
-(Plot documents `plot.scale(name)` on its return value; the end-to-end brush test holds it in Chromium).
+It replaced `window.__KANZO_TESTING__`, a global the harness environment defined before the page
+loaded and `GraphCanvas` registered with when it found it, on the model of React DevTools'
+`__REACT_DEVTOOLS_GLOBAL_HOOK__`. That was a branch in the code that ships, reading a global
+production "never defines" — the shape `/local` had already given up for models
+([below](#a-model-is-resolved-through-one-registry)) — and it made the environment's timing a
+condition of the canvas's: a page loaded before the hook was installed had canvases a harness could
+not read. An element's two functions have no such condition and no type to share: `@kanzo-tech/testing`
+declares them by shape, and imports nothing of the components'.
 
 **What would reverse it:** a canvas whose content is in the accessibility tree, such as a graph
 rendered with an accessible table of its vertices beside the canvas. Then a harness reads that, and
-the graph's half of the hook goes.
+the element's two functions go. Or a second consumer of the two functions that is not a test — a
+tour pointing at a vertex — which makes them API in their own right, named on the reference page.
 
-The type is declared once, in `@kanzo-tech/testing`, because that package installs the hook. `ui`
-and `graph` import it as a type from a devDependency, so it never reaches what they publish, and the
-testing package imports nothing of theirs: no cycle, and a harness runs against whatever version of
-the components a page loaded. `llm` reads nothing of the hook: a model is not registered here
-([below](#a-model-is-resolved-through-one-registry)).
-
-*Held by* `packages/graph/src/parts/graph-canvas-harness.test.tsx`, "registers with the test hook
-under its id when one is installed, and lets go of it when it unmounts" and "registers nothing when no
-test installed the hook"; `packages/ui/src/harnesses.test.tsx`, "reads where a value falls from the
-scale Plot puts on its own output, with no chart registered anywhere"; and, in Chromium over the workspace showcase in CI's
-harnesses job, `packages/testing/e2e/workspace.e2e.test.ts`, "draws the archive, and a lasso
+*Held by* `packages/graph/src/parts/graph-canvas-harness.test.tsx`, "says where it draws on its
+element, in every page, and takes it off when it unmounts"; `packages/ui/src/harnesses.test.tsx`,
+"reads where a value falls from the scale Plot puts on its own output, with no chart registered
+anywhere"; `packages/testing/src/environment.test.ts`, "defines no global of its own: a model script
+is a provider in the registry, asked nothing yet"; and, in Chromium over the workspace showcase in
+CI's harnesses job, `packages/testing/e2e/workspace.e2e.test.ts`, "draws the archive, and a lasso
 around a vertex gives the canvas a clause" and "brushes a range in data, through the chart's own
 scale".
 
@@ -193,9 +191,9 @@ for a model id through `playwright(page, { models })`, before the page loads, an
 never knows ([below](#a-model-is-resolved-through-one-registry)). Decided 13 October 2026.
 
 There were five: `@kanzo-tech/ai`'s test double, the docs' mock model *with the same shape as* it,
-keasy's hand-written model injected on `window.__keasyModelDouble` — the hook this page already
-installs, reinvented — keasy's branch in its model module that serves it with a guard test that it
-never ships, and keasy's fixture over `MockLanguageModelV4`. A model the page cannot serve is
+keasy's hand-written model injected on `window.__keasyModelDouble` — a test global of its own —
+keasy's branch in its model module that serves it with a guard test that it never ships, and keasy's
+fixture over `MockLanguageModelV4`. A model the page cannot serve is
 `llm/unavailable`, `localModel`'s own answer, and no double is needed to say it.
 
 **The script is data** — `ModelScript`, declared in `@kanzo-tech/testing` — because a function does
@@ -221,8 +219,8 @@ double. And `scripted` written in a module the page's bundle can import without 
 bundler's test build that is the build that ships — would let the page take the mock itself.
 
 *Held by* `packages/llm/src/testing.test.ts`, "answers each call with the first turn whose words its
-prompt holds, and a once turn only once"; `packages/testing/src/environment.test.ts`, "registers
-each model script it is given on the hook, under its model id, with no prompt yet" and "registers a
+prompt holds, and a once turn only once"; `packages/testing/src/environment.test.ts`, "defines no
+global of its own: a model script is a provider in the registry, asked nothing yet" and "registers a
 provider per scripted id in the model registry, from a script that closes over nothing".
 
 ## A model is resolved through one registry
@@ -244,8 +242,8 @@ host sets its provider once, at its composition root, with where its models are 
 file is **WebLLM's own `AppConfig`**, untranslated — the consumer is WebLLM, so its config is the
 format. The host's code names no model and no library version; whatever downloads the models writes
 the file beside them. A test's environment registers a provider per scripted id in `languageModels`,
-before the page's own scripts run, through the `addInitScript` path that installs the hook, and
-records each prompt on the hook.
+before the page's own scripts run, through `addInitScript`, and records each prompt on the model it
+registers, which `env.prompts(id)` reads.
 
 It replaced two branches and a second mechanism. `/local` read `__KANZO_TESTING__` itself and, when a
 script was there for its id, imported the double lazily — a test branch in the code that ships, and
@@ -297,8 +295,8 @@ asked".
 
 ## A test reads from one real engine, and a model's test replays a recording
 
-*Status: to be built.* The tree has the macros and the doubles this section deletes; ui #220 removes
-the first.
+*Status: the engine and the fixtures are built; the graph's own toy corpus, the answer tests' six
+people and the cassettes are not — each says so below.*
 
 **Every test that needs a database runs on DuckDB-WASM in Node. There is no native DuckDB and no
 double that imitates one.** The belief that "this build of DuckDB-WASM cannot open a Parquet file in
@@ -319,21 +317,50 @@ it is: a browser has no synchronous-XHR trap, and the boot loads its extensions 
 ([the engine](/docs/design/engine#the-engines-own-surface-files-and-boot)).
 
 **Fixtures are the datasets, written by fossil, and nothing is hand-footed.** Three are canonical:
-the Nobel laureates, OpenFlights (the airports) and LDBC SNB. Each is `mapping.fossil`, `shapes.shex`
-and a `fetch.sh` in keasy's `infra/dev/examples/`, written to a graph by fossil's executor; the docs'
-archive and Ask's evaluation set already run on the same programs. Cordis stays a demo and is not a
-fixture. A test that needs a chunk with a property of its own (a footer key, a row-group statistic)
-writes it in-process with `COPY … (FORMAT parquet, COMPRESSION zstd, KV_METADATA {…})` on the same
-engine, and `parquet_kv_metadata` reads the key back, so the footer a reader parses is DuckDB's own.
+the Nobel laureates, OpenFlights (the airports) and LDBC SNB, each a copy of keasy's
+`infra/dev/examples/` program under `fixtures/graphs/<name>/` — `program.fossil`, `shapes.shex`,
+`fetch.sh` — which Ask's evaluation set writes whole. Cordis stays a demo and is not a fixture. What a
+test reads is a **sample**, small enough to count by hand: the prizes of 2000 to 2004 (196 vertices),
+the airports of Spain and Portugal and the routes between them (54), and twelve SNB people who know
+one another with what they wrote early on (1,267). `sample.mjs` derives each from its dataset, keeping
+every row a kept row names, and is the one step that needs the network, run by hand; `write.mjs` writes
+each graph from its sample with fossil's executor, through `docs/scripts/write-corpus.mjs`, offline.
+Both the sample and the graph are checked in, about 1.3 MB, and `check:generated` writes the graphs
+again and fails on a byte of difference, so a graph is never edited by hand and never stale against
+its program or the lockfile's executor. A test that needs a chunk with a property of its own (a
+footer key, a row-group statistic) writes it in-process with `COPY … (FORMAT parquet, COMPRESSION
+zstd, KV_METADATA {…})` on the same engine, and `parquet_kv_metadata` reads the key back, so the footer
+a reader parses is DuckDB's own.
+
+A test reaches one through `@kanzo-tech/fixtures`, a private workspace package: `attachFixture(name,
+engine)` is `@kanzo-tech/graphar-duckdb`'s `attachGraph` over the checked-in files, on the one
+DuckDB-WASM a test file gets (`connection`, `queryable()`), so what a test reads is what a page reads.
+It is also the one bootstrap: `graph`'s corpus and `ai`'s test database run on it rather than each
+instantiating its own. The first thing it found was a bug: fossil writes `fossil:stats` as
+`{"version":1,"columns":{…}}`, `readJoinGraph` read the document's top-level keys as columns, and the
+hand-built corpus wrote the shape the reader expected — so no column of a real graph had counts, and
+no test could see it.
+
+**Not yet on fixtures.** `graph`'s `test/corpus.ts` still states its own small graph — ten people,
+six places, four tags, the information relations as views — because a hundred of the canvas's and the
+parts' assertions are its arithmetic in global ids, and fossil numbers types in its own document's
+order; and one label test needs 327,000 vertices, which no checked-in sample holds. Its footers are
+DuckDB's own, written in fossil's document. And `ai`'s answer tests read six people seeded by hand
+(`src/testing/people.ts`), where SNB's twelve are the honest graph. Both are the next conversion.
+
+*Held by* `packages/relations/src/graphar.test.ts`, "reads what fossil counted from each chunk's
+footer, and the footer's nulls and extent" and "reads nothing from a footer whose fossil:stats is of a
+version it does not know", over the Nobel graph fossil wrote.
 
 **The one exception is the integration test of fossil's executor**, which installs a synchronous
 `XMLHttpRequest` and so downloads `httpfs` and `parquet` from `extensions.duckdb.org`: it needs the
-network at test time, and says so. Not run here: ui's `attachGraph` and SQL against these files,
-and `jsdom` 25 (only 29 was tried).
+network at test time, and says so. Not tried: `jsdom` 25 (only 29 was).
 
 **What would reverse it:** a DuckDB-WASM release that no longer loads an extension through
 `XMLHttpRequest`, which removes the node-environment rule and nothing else; or a fixture too large to
-write in a test run, which becomes a written graph fetched once in CI.
+write in a test run, which becomes a written graph fetched once in CI; or a fossil release whose
+graphs differ in bytes for the same program and data, which makes `check:generated` a check on fossil
+and not on us — then the graphs are compared by what they read as, not by their bytes.
 
 **A model's test replays a recording; the model's quality is measured live, once, by hand.** A
 recording (a cassette) is a `ModelScript` that a recorder wrote instead of a person: one entry per
@@ -352,7 +379,10 @@ a mapping's reader gets for its own tests.
 
 **What would reverse the replay:** a model that cannot be seeded, which leaves a recording a
 snapshot of one draw and no more; the cassette then holds the evidence of a run and nothing is
-asserted from its content. Nothing is held by a test yet: none of this exists.
+asserted from its content. Nothing is held by a test yet: none of this exists. Recording one needs
+the model running — WebLLM on a GPU, or the same weights on llama.cpp — and the machine the fixtures
+were written on had neither, so no cassette was written rather than one written by hand and called a
+recording.
 
 ## Ask's evaluation set lives beside Ask
 
@@ -368,7 +398,7 @@ library's own Ask through the harnesses a host uses, and waits on states. Decide
 | | |
 | --- | --- |
 | **Cases** | `packages/ai/eval/cases.ts`, data: 25 on Nobel for nearly every shape of question, 11 on LDBC SNB for self-joins and a large graph. Each says the failure it tests. The two that were ties asked back are answers now, by the path the model writes, the other on the chip ([Tasks](/docs/design/tasks#two-paths-of-one-length-are-the-models-with-the-other-on-the-chip)) |
-| **Graphs** | written by fossil's executor in Node through `docs/scripts/write-corpus.mjs`, as the docs' archive is: `pnpm --filter @kanzo-tech/ai eval:corpus` runs each `corpora/<name>/fetch.sh` (the data, pinned by digest) and then its `program.fossil` into `docs/public/corpus/<name>`. Data and the written graphs are `.gitignore`d. The set carries its own copy of the two programs, shapes and fetch scripts, read from the files beside them rather than through keasy's connections; keasy keeps its own as seed data — each repository owns what it runs |
+| **Graphs** | written by fossil's executor in Node through `docs/scripts/write-corpus.mjs`, as the docs' archive is: `pnpm --filter @kanzo-tech/ai eval:corpus` runs each `fixtures/graphs/<name>/fetch.sh` (the data, pinned by digest) and then its `program.fossil` into `docs/public/corpus/<name>`. Data and the written graphs are `.gitignore`d. The programs, shapes and fetch scripts are the repository's one copy, the tests' fixtures' too, read from the files beside them rather than through keasy's connections; keasy keeps its own as seed data — each repository owns what it runs |
 | **Page** | `/fixtures/ask-eval`, a page nobody reads, as `/fixtures/chat-frame` is: the graph attached by name, a `Dashboard` and its `FilterBar` over the case's relation, and `Chat` over `useAskChat` with `AnswerCard`, under the page's one selection. The model is `localModel` in a worker, Qwen3 4B unless `EVAL_MODEL` names another; no offers and no chips, which a case does not score and a model would be slower for |
 | **Runner** | `ask.eval.ts`, a Vitest project (`vitest.eval.config.ts`) beside `@kanzo-tech/testing`'s end-to-end one: `playwright-core`'s Chromium with WebGPU, `DashboardHarness`, `FilterBarHarness`, `ChartHarness.pick` for the filter, `AnswerHarness` for the card and its rows, and one harness of its own for a turn that ends in words, which draws no card to wait on. `expect.poll` and `until`, no fixed wait |
 | **Model** | the real one, on the machine's GPU through WebGPU — live and seeded, never replayed, never the double: what is measured is the model. The browser profile is kept in `eval/.cache/`, so the weights are downloaded once |

@@ -13,13 +13,16 @@ const byUniversity: AskSpec = { of: "LaureateAward", show: { kind: "chart", type
 describe("link", () => {
   it("offers the types the question names, and their neighbours", () => {
     const types = link(input("Which universities won the most prizes?")).types.map((t) => t.relation.root);
-    expect(types).toEqual(["LaureateAward", "University", "Country"]);
+    // In the graph's order: a university's country, the university, its prizes.
+    expect(types).toEqual(["Country", "University", "LaureateAward"]);
   });
 
   it("finds a type by a value it holds, and keeps what the page's chips are on", () => {
-    const types = link(input("And in Germany?", { under: ["LaureateAward"] })).types.map((t) => t.relation.root);
-    expect(types).toContain("Country");
-    expect(types).toContain("LaureateAward");
+    // A value is one the writer counted among a column's commonest, which a value that never repeats
+    // is not: `female` is a laureate's, and no country's name repeats.
+    const types = link(input("And the female ones?", { under: ["Category"] })).types.map((t) => t.relation.root);
+    expect(types).toContain("Laureate");
+    expect(types).toContain("Category");
   });
 
   it("offers every type to a question that names none", () => {
@@ -33,12 +36,12 @@ describe("the ask schema", () => {
       properties: { spec: { anyOf: { properties: { of: { const: string } } }[] } };
       $defs: Record<string, { enum: string[] }>;
     };
-    expect(schema.properties.spec.anyOf.map((b) => b.properties.of.const)).toEqual(["LaureateAward", "University", "Country"]);
-    expect(schema.$defs.f0!.enum).toEqual(expect.arrayContaining(["share", "university.name", "laureate.birthPlace.name", "university.addressCountry.name"]));
+    expect(schema.properties.spec.anyOf.map((b) => b.properties.of.const)).toEqual(["Country", "University", "LaureateAward"]);
+    expect(schema.$defs.f2!.enum).toEqual(expect.arrayContaining(["share", "university.name", "laureate.birthPlace.name", "university.addressCountry.name"]));
     // Back along the edge that leads from a university to its prizes, and on from them.
     expect(schema.$defs.f1!.enum).toEqual(expect.arrayContaining(["name", "^university.share", "^university.category.name"]));
     // No key, and no type's name where a path goes.
-    expect(JSON.stringify(schema.$defs)).not.toMatch(/"id"|\.id"|University\.name/);
+    expect(JSON.stringify(schema.$defs)).not.toMatch(/dense_id|University\.name/);
   });
 });
 

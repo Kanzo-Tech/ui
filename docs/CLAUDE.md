@@ -67,7 +67,8 @@ The repository rules are in `../CLAUDE.md`. What follows is true only here.
   fails inside the executor (a DataFusion memory-pool panic in the WASM), so 200,000 is the largest
   there is until fossil fixes it.
   Ask's evaluation set has two more, `public/corpus/nobel` and `public/corpus/snb`, which
-  `pnpm --filter @kanzo-tech/ai eval:corpus` writes from `packages/ai/eval/corpora` for
+  `pnpm --filter @kanzo-tech/ai eval:corpus` writes from `fixtures/graphs` (the whole datasets
+  the tests' checked-in samples come from) for
   `/fixtures/ask-eval`; never built on CI, and nothing but that fixture reads them.
 
 <!-- BEGIN:nextjs-agent-rules -->

@@ -1,14 +1,14 @@
 import { fireEvent, queryAllByRole, queryAllByText, waitFor } from "@testing-library/dom";
 import { HarnessEnvironment, modifierFlags, type By, type Driver, type TestElement } from "./environment";
-import { install } from "./hook";
+import { install } from "./model";
 import type { EnvironmentOptions } from "./playwright";
 
 /**
  * **The environment for a document in this process** — jsdom under vitest, over Testing Library's
  * queries, so a unit test drives a component through the harness a host's end-to-end suite uses.
- * It installs the test hook at once, so call it *before* rendering: a component registers while it
- * mounts. `container` is where every search starts; `document.body` holds what Testing Library's
- * `render` appends. `models` registers a scripted provider per model id, as `playwright` does.
+ * `container` is where every search starts; `document.body` holds what Testing Library's `render`
+ * appends. `models` registers a scripted provider per model id at once, as `playwright` does, so a
+ * test that scripts a model makes the environment before it renders what asks the model.
  *
  * jsdom has no layout and no WebGL: a box is all zeros, a chart never measures a width to draw at,
  * and a graph canvas has no renderer. What a harness reads there is the ARIA, which is what this

@@ -1,0 +1,14 @@
+name: fossil
+vertices:
+  - Country.vertex.yml
+  - Category.vertex.yml
+  - University.vertex.yml
+  - Laureate.vertex.yml
+  - LaureateAward.vertex.yml
+edges:
+  - University_addressCountry_Country.edge.yml
+  - Laureate_birthPlace_Country.edge.yml
+  - LaureateAward_laureate_Laureate.edge.yml
+  - LaureateAward_category_Category.edge.yml
+  - LaureateAward_university_University.edge.yml
+version: gar/v1

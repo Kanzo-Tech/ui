@@ -1,0 +1,24 @@
+type: Laureate
+chunk_size: 64
+prefix: vertex/Laureate/
+property_groups:
+  - prefix: subject_name_gender_birthday/
+    file_type: parquet
+    properties:
+      - name: subject
+        data_type: string
+        is_primary: true
+        is_nullable: false
+      - name: name
+        data_type: string
+        is_primary: false
+        is_nullable: false
+      - name: gender
+        data_type: string
+        is_primary: false
+        is_nullable: true
+      - name: birthday
+        data_type: date
+        is_primary: false
+        is_nullable: true
+version: gar/v1

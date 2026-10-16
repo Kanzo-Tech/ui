@@ -1,6 +1,5 @@
-# What a run writes and fetches, never the repository's: each corpus's data (corpora/*/fetch.sh), the
-# downloads it is derived from and the browser profile the model's weights are cached in (.cache/),
-# and the results, one line per case (results/<label>/ask.jsonl).
-/corpora/*/data/
+# What a run writes and fetches, never the repository's: the browser profile the model's weights are
+# cached in (.cache/), and the results, one line per case (results/<label>/ask.jsonl). The data each
+# corpus is written from is `@kanzo-tech/fixtures`' (fixtures/graphs/*/data/), ignored there.
 /.cache/
 /results/
