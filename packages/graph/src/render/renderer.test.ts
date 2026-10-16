@@ -138,7 +138,10 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
-/** The fixture's corpus drawn at its `lon`/`lat` — bound, so nothing runs unless a test asks. */
+/** Unbound and standing until asked: what a test of a running layout starts from, since bound positions never run one. */
+const STILL: Partial<GraphOptions> = { simulate: false };
+
+/** The fixture's corpus drawn at its `lon`/`lat` — bound, so no layout runs over it. */
 async function drawing(over: Partial<GraphOptions> = { x: "lon", y: "lat" }) {
   const corpus = await attach();
   const crossfilter = Selection.crossfilter();
@@ -243,12 +246,34 @@ describe("where the points start", () => {
     expect(uploaded.config).toMatchObject({ spaceSize: 4096, simulationDecay: 600, enableSimulation: true });
   });
 
-  it("stands still when x and y are bound, and runs when simulate says so", async () => {
+  it("stands still when x and y are bound, whatever simulate says", async () => {
     await drawing();
     expect(calls).not.toContain("start");
     calls.length = 0;
     await drawing({ x: "lon", y: "lat", simulate: true });
-    expect(calls).toContain("start");
+    expect(calls).not.toContain("start");
+  });
+
+  it("runs no layout over the data's positions: resume, restart and a change of forces start nothing", async () => {
+    const { renderer, store } = await drawing();
+    calls.length = 0;
+    renderer?.resume();
+    renderer?.restart();
+    store.setOptions({ ...store.getOptions(), sim: { gravity: 0.5 } });
+    await frame();
+    expect(calls).not.toContain("start");
+    expect(calls.some((call) => /enableSimulation/.test(call))).toBe(false);
+  });
+
+  it("stops a running layout as soon as the second axis is bound, before the geometry it asks for lands", async () => {
+    const { corpus, store } = await drawing({ x: "lon" });
+    expect(store.getSnapshot().motion).toBe("running");
+    calls.length = 0;
+    store.setOptions({ ...store.getOptions(), y: "lat" });
+    expect(commands()).toEqual(["pause"]);
+    await settle(corpus);
+    await frame();
+    expect(calls).not.toContain("start");
   });
 
   it("centres bound positions' extent in it, at the data's own scale", async () => {
@@ -373,7 +398,7 @@ describe("the camera while a layout runs", () => {
   const later = (ms: number) => vi.spyOn(performance, "now").mockReturnValue(performance.now() + ms);
 
   it("re-frames the moving points as the layout runs, and once more when it settles", async () => {
-    const { renderer } = await drawing();
+    const { renderer } = await drawing(STILL);
     renderer?.resume();
     calls.length = 0;
     tick();
@@ -387,7 +412,7 @@ describe("the camera while a layout runs", () => {
   });
 
   it("waits ten times a re-frame's stall before the next, so a slow readback cannot hold the main thread", async () => {
-    const { renderer } = await drawing();
+    const { renderer } = await drawing(STILL);
     // Whole milliseconds, so a stall of 2000 is exactly 2000 and ten of them exactly 20,000.
     let clock = 0;
     vi.spyOn(performance, "now").mockImplementation(() => clock);
@@ -476,9 +501,14 @@ describe("the camera while a layout runs", () => {
   });
 
   it("fits the points where they are once a layout has moved them", async () => {
-    const { renderer } = await drawing();
-    renderer?.frame();
+    // The data's positions are framed by their extent, and no layout moves them.
+    const bound = await drawing();
+    bound.renderer?.frame();
     expect(calls.at(-1)).toBe("fit");
+    bound.renderer?.resume();
+    bound.renderer?.frame();
+    expect(calls.at(-1)).toBe("fit");
+    const { renderer } = await drawing(STILL);
     renderer?.resume();
     renderer?.frame();
     expect(calls.at(-1)).toBe("fitView");
@@ -487,7 +517,7 @@ describe("the camera while a layout runs", () => {
 
 describe("the live layout", () => {
   it("runs only when asked, from the positions it has, and stops where they are", async () => {
-    const { renderer, store } = await drawing();
+    const { renderer, store } = await drawing(STILL);
     expect(calls).not.toContain("start");
     calls.length = 0;
     renderer?.resume();
@@ -501,7 +531,7 @@ describe("the live layout", () => {
   });
 
   it("starts and stops with the simulate prop, after the first load", async () => {
-    const { store } = await drawing();
+    const { store } = await drawing(STILL);
     calls.length = 0;
     store.setOptions({ ...store.getOptions(), simulate: true });
     expect(calls).toContain("start");

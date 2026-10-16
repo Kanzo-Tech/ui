@@ -258,11 +258,11 @@ describe("GraphStatus", () => {
 });
 
 describe("GraphToolbar", () => {
-  async function toolbar(crossfilter?: Selection) {
+  async function toolbar(crossfilter?: Selection, placed: { x?: string; y?: string } = {}) {
     const corpus = await attach();
     const held: { api: GraphApi | null } = { api: null };
     render(
-      <GraphRoot {...over(corpus)} filterBy={crossfilter} onFailure={() => {}}>
+      <GraphRoot {...over(corpus)} {...placed} filterBy={crossfilter} onFailure={() => {}}>
         <GraphToolbar />
         <GraphCounts />
         <Hold into={held} />
@@ -314,6 +314,16 @@ describe("GraphToolbar", () => {
     await toolbar();
     const layout = screen.getByRole("group", { name: "Layout" });
     expect(layout.querySelector('[aria-label="Run the layout"]')).toBeTruthy();
+  });
+
+  it("offers no layout while the data places the points, and offers it again when an axis is unbound", async () => {
+    const { corpus, held } = await toolbar(undefined, { x: "lon", y: "lat" });
+    const transport = () => [...screen.getByRole("group", { name: "Layout" }).querySelectorAll("button")];
+    expect(transport().map((button) => button.hasAttribute("disabled"))).toEqual([true, true]);
+    const { store } = internalsOf(held.api!);
+    act(() => store.setOptions({ ...store.getOptions(), y: undefined }));
+    await ready(corpus);
+    expect(transport().map((button) => button.hasAttribute("disabled"))).toEqual([false, false]);
   });
 });
 

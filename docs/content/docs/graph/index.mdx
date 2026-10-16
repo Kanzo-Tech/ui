@@ -707,7 +707,7 @@ writes it in.
 | `filterBy` | Mosaic `Selection` — the page's crossfilter | — |
 | `look` | `LookPatch` — form, over the package's own | `lookFrom()` |
 | `sim` | `Partial<Sim>` — forces, over the package's own | `simFrom()` |
-| `simulate` | `boolean` — runs the layout while true | `true` unless `x` and `y` are bound |
+| `simulate` | `boolean` — runs the layout while true; never while `x` and `y` place the points | `true` |
 | `onSelect` | `(selection: Selection \| null) => void` | — |
 | `onFocus` | `(vertex: VertexId \| null) => void` | — |
 | `children` | `ReactNode` | — |
@@ -806,8 +806,8 @@ The commands, stable for the root's life — `GraphCommands` plus the state's do
 | Member | What it does |
 | --- | --- |
 | `zoomBy(factor)` | Zooms the camera by a factor. |
-| `pause()` / `resume()` | Pauses a running layout; resumes a paused one, or runs a settled one again. |
-| `restart()` | Runs the layout from full heat. |
+| `pause()` / `resume()` | Pauses a running layout; resumes a paused one, or runs a settled one again. Does nothing while `x` and `y` place the points. |
+| `restart()` | Runs the layout from full heat. Does nothing while `x` and `y` place the points. |
 | `reveal(vertex)` | Selects and focuses a vertex with its neighbours and frames them — zooms into a vertex with none — taking the camera from any fit. |
 | `frame()` | Frames what is in full colour: the canvas's selection within what the page's filter keeps, what the filter keeps when nothing is selected, or — when nothing is greyed out — the whole graph: the bound positions' extent, or where the points are once a layout has run, kept framed through a resize. |
 | `clear()` | Clears the selection and the focus. |
