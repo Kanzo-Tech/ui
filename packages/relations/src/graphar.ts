@@ -20,7 +20,7 @@ const SRC = "src";
 const DST = "dst";
 /** The union of every vertex type, which a canvas reads and publishes on. */
 const VERTICES = "vertices";
-/** The key of a chunk's Parquet footer that holds what its writer counted: `{ "<column>": { … } }`. */
+/** The key of a chunk's Parquet footer that holds what its writer counted: `{ "version": 1, "columns": { "<column>": { … } } }`. */
 const STATS_KEY = "fossil:stats";
 
 /** A relation of the attached graph: `"<from>"."<table>"`. `asTableRef` answers `undefined` only for no input. */
@@ -251,8 +251,11 @@ async function readCounts(
       // A footer that does not read states nothing.
       return;
     }
-    if (typeof document !== "object" || document === null) return;
-    for (const [column, stats] of Object.entries(document)) {
+    // fossil's document is versioned, and a reader of the key refuses a version it does not know
+    // (fossil's `/docs/format/conventions/statistics`): `{ "version": 1, "columns": { "<column>": … } }`.
+    const { version, columns } = (document ?? {}) as { version?: unknown; columns?: unknown };
+    if (version !== 1 || typeof columns !== "object" || columns === null) return;
+    for (const [column, stats] of Object.entries(columns)) {
       const key = at(type, column);
       owners.set(key, [...(owners.get(key) ?? []), { path, stats: stats as Record<string, unknown> }]);
     }
@@ -260,7 +263,8 @@ async function readCounts(
   for (const [key, [only, ...more]] of owners) {
     if (!only || more.length > 0) continue;
     const footer = footers.get(at(only.path, key.split("\u0000")[1]));
-    const { distinct_count: distinct, most_common_vals: vals, most_common_freqs: freqs } = only.stats;
+    // The commonest values are absent when no value repeats: a key has none.
+    const { distinct_count: distinct, most_common_vals: vals = [], most_common_freqs: freqs = [] } = only.stats;
     if (!footer || typeof distinct !== "number" || !Array.isArray(vals) || !Array.isArray(freqs)) continue;
     // A bound is kept for a number or a time; a text's is never read.
     const type = engineTypes.get(key) ?? "";

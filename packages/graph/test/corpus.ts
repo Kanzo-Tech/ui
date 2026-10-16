@@ -30,8 +30,9 @@ import { internalEngineOver, type Engine } from "@kanzo-tech/mosaic/engine";
  * **Footers are real.** Every vertex chunk is a Parquet file this module writes with DuckDB-WASM
  * (`COPY … TO … (FORMAT parquet, COMPRESSION zstd, KV_METADATA {'fossil:stats': …})`), so
  * `parquet_kv_metadata` and `parquet_metadata` read what a writer's file holds. The key under which a
- * writer states its counts is a Parquet `key_value_metadata` key; a chunk's row group states each
- * column's nulls, bounds and whether they are exact.
+ * writer states its counts is a Parquet `key_value_metadata` key, its value fossil's document of
+ * version 1 (`{"version":1,"columns":{…}}`); a chunk's row group states each column's nulls, bounds
+ * and whether they are exact.
  *
  * The database is `@kanzo-tech/fixtures`' — one per test file, Parquet loaded before any test runs — and
  * so is the engine every fixture graph is read on; this graph is the one stated here.
@@ -139,9 +140,9 @@ export async function attach(people = 10): Promise<Attached> {
   conn.query(FIXTURE(from, people));
   const json = conn
     .query(
-      `SELECT table_name, '{' || string_agg('"' || column_name || '":{"distinct_count":' || distinct_count || ',"most_common_vals":['
+      `SELECT table_name, '{"version":1,"columns":{' || string_agg('"' || column_name || '":{"distinct_count":' || distinct_count || ',"most_common_vals":['
         || array_to_string(list_transform(most_common_vals, x -> '"' || replace(x, '"', '\\"') || '"'), ',')
-        || '],"most_common_freqs":[' || array_to_string(most_common_freqs, ',') || ']}', ',') || '}' AS stats
+        || '],"most_common_freqs":[' || array_to_string(most_common_freqs, ',') || ']}', ',') || '}}' AS stats
        FROM ${from}.footer_stats GROUP BY table_name`,
     )
     .toArray() as { table_name: string; stats: string }[];
