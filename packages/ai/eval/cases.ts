@@ -5,7 +5,7 @@
  * `e2e/eval` (`/docs/design/testing`, *Ask's evaluation set lives beside Ask*), and it is data apart
  * from its runner, `ask.eval.ts`, so a second runner reads the same cases.
  *
- * Every figure is the corpus's own, computed with DuckDB over `corpora/<name>/data` — the query
+ * Every figure is the corpus's own, computed with DuckDB over `fixtures/graphs/<name>/data` — the query
  * beside each where it is not plain from the question. Ask's cases are by shape of question, not by
  * count: Nobel for nearly every shape, LDBC SNB for what Nobel lacks — self-joins and a large graph.
  * The set grows with readers' failures.
@@ -33,7 +33,7 @@ export interface Page {
 
 export interface AskCase {
   readonly id: string;
-  /** The corpus asked: `corpora/<name>`, written to the docs' `public/corpus/<name>` by `corpus.mjs`. */
+  /** The corpus asked: `fixtures/graphs/<name>`, written to the docs' `public/corpus/<name>` by `corpus.mjs`. */
   readonly corpus: string;
   readonly page: Page;
   /** The questions, asked in turn in one conversation; the last one is scored. */

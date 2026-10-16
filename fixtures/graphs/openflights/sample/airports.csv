@@ -1,0 +1,55 @@
+id,name,city,country,iata,icao,lat,lon,altitude,timezone
+1051,Fuerteventura Airport,Fuerteventura,Spain,FUE,GCFV,28.452699661254883,-13.863800048828125,85,Atlantic/Canary
+1052,Hierro Airport,Hierro,Spain,VDE,GCHI,27.814800262451172,-17.887100219726562,103,Atlantic/Canary
+1053,La Palma Airport,Santa Cruz De La Palma,Spain,SPC,GCLA,28.626499,-17.7556,107,Atlantic/Canary
+1054,Gran Canaria Airport,Gran Canaria,Spain,LPA,GCLP,27.931900024414062,-15.38659954071045,78,Atlantic/Canary
+1055,Lanzarote Airport,Arrecife,Spain,ACE,GCRR,28.945499,-13.6052,46,Atlantic/Canary
+1056,Tenerife South Airport,Tenerife,Spain,TFS,GCTS,28.044500351,-16.5725002289,209,Atlantic/Canary
+1057,Tenerife Norte Airport,Tenerife,Spain,TFN,GCXO,28.4827003479,-16.3414993286,2076,Atlantic/Canary
+1058,Melilla Airport,Melilla,Spain,MLN,GEML,35.279800415,-2.9562599659,156,Europe/Madrid
+1212,Alicante International Airport,Alicante,Spain,ALC,LEAL,38.28219985961914,-0.5581560134887695,142,Europe/Madrid
+1213,Almería International Airport,Almeria,Spain,LEI,LEAM,36.84389877319336,-2.3701000213623047,70,Europe/Madrid
+1214,Asturias Airport,Aviles,Spain,OVD,LEAS,43.5635986328125,-6.0346198081970215,416,Europe/Madrid
+1216,Bilbao Airport,Bilbao,Spain,BIO,LEBB,43.30110168457031,-2.9106099605560303,138,Europe/Madrid
+1218,Barcelona International Airport,Barcelona,Spain,BCN,LEBL,41.2971,2.07846,12,Europe/Madrid
+1219,Badajoz Airport,Badajoz,Spain,BJZ,LEBZ,38.891300201416016,-6.8213300704956055,609,Europe/Madrid
+1220,A Coruña Airport,La Coruna,Spain,LCG,LECO,43.302101,-8.37726,326,Europe/Madrid
+1222,Girona Airport,Gerona,Spain,GRO,LEGE,41.901000977,2.7605500221,468,Europe/Madrid
+1223,Federico Garcia Lorca Airport,Granada,Spain,GRX,LEGR,37.18870162963867,-3.777359962463379,1860,Europe/Madrid
+1225,Ibiza Airport,Ibiza,Spain,IBZ,LEIB,38.872898101800004,1.3731199502899998,24,Europe/Madrid
+1226,Jerez Airport,Jerez,Spain,XRY,LEJR,36.744598388671875,-6.060110092163086,93,Europe/Madrid
+1227,San Javier Airport,Murcia,Spain,MJV,LELC,37.775001525878906,-0.8123890161514282,11,Europe/Madrid
+1229,Adolfo Suárez Madrid–Barajas Airport,Madrid,Spain,MAD,LEMD,40.471926,-3.56264,1998,Europe/Madrid
+1230,Málaga Airport,Malaga,Spain,AGP,LEMG,36.67490005493164,-4.499110221862793,53,Europe/Madrid
+1231,Menorca Airport,Menorca,Spain,MAH,LEMH,39.86259841918945,4.218649864196777,302,Europe/Madrid
+1234,Pamplona Airport,Pamplona,Spain,PNA,LEPP,42.77000045776367,-1.6463299989700317,1504,Europe/Madrid
+1236,Reus Air Base,Reus,Spain,REU,LERS,41.14739990234375,1.1671700477600098,233,Europe/Madrid
+1238,Salamanca Airport,Salamanca,Spain,SLM,LESA,40.95209884643555,-5.501989841461182,2595,Europe/Madrid
+1242,San Sebastian Airport,San Sebastian,Spain,EAS,LESO,43.35649871826172,-1.7906099557876587,16,Europe/Madrid
+1243,Santiago de Compostela Airport,Santiago,Spain,SCQ,LEST,42.89630126953125,-8.415140151977539,1213,Europe/Madrid
+1246,Valencia Airport,Valencia,Spain,VLC,LEVC,39.4893,-0.481625,240,Europe/Madrid
+1247,Valladolid Airport,Valladolid,Spain,VLL,LEVD,41.7061004639,-4.85194015503,2776,Europe/Madrid
+1250,Vigo Airport,Vigo,Spain,VGO,LEVX,42.2318000793457,-8.62677001953125,856,Europe/Madrid
+1251,Santander Airport,Santander,Spain,SDR,LEXJ,43.427101135253906,-3.82000994682312,16,Europe/Madrid
+1252,Zaragoza Air Base,Zaragoza,Spain,ZAZ,LEZG,41.66619873046875,-1.0415500402450562,863,Europe/Madrid
+1253,Sevilla Airport,Sevilla,Spain,SVQ,LEZL,37.417999267578125,-5.8931097984313965,112,Europe/Madrid
+1617,Santa Maria Airport,Santa Maria (island),Portugal,SMA,LPAZ,36.97140121459961,-25.17060089111328,308,Atlantic/Azores
+1625,Flores Airport,Flores,Portugal,FLW,LPFL,39.455299377441406,-31.131399154663086,112,Atlantic/Azores
+1626,Faro Airport,Faro,Portugal,FAO,LPFR,37.0144004822,-7.96590995789,24,Europe/Lisbon
+1627,Graciosa Airport,Graciosa Island,Portugal,GRW,LPGR,39.092201232910156,-28.029800415039062,86,Atlantic/Azores
+1628,Horta Airport,Horta,Portugal,HOR,LPHR,38.519901275634766,-28.715900421142578,118,Atlantic/Azores
+1629,Lajes Airport,Lajes (terceira Island),Portugal,TER,LPLA,38.761799,-27.090799,180,Atlantic/Azores
+1633,João Paulo II Airport,Ponta Delgada,Portugal,PDL,LPPD,37.7411994934,-25.6979007721,259,Atlantic/Azores
+1634,Pico Airport,Pico,Portugal,PIX,LPPI,38.554298,-28.441299,109,Atlantic/Azores
+1636,Francisco de Sá Carneiro Airport,Porto,Portugal,OPO,LPPR,41.2481002808,-8.68138980865,228,Europe/Lisbon
+1637,Porto Santo Airport,Porto Santo,Portugal,PXO,LPPS,33.0733985901,-16.3500003815,341,Europe/Lisbon
+1638,Humberto Delgado Airport (Lisbon Portela Airport),Lisbon,Portugal,LIS,LPPT,38.7813,-9.13592,374,Europe/Lisbon
+1639,São Jorge Airport,Sao Jorge Island,Portugal,SJZ,LPSJ,38.66550064086914,-28.175800323486328,311,Atlantic/Azores
+3998,Palma De Mallorca Airport,Palma de Mallorca,Spain,PMI,LEPA,39.551700592,2.73881006241,27,Europe/Madrid
+4091,Madeira Airport,Funchal,Portugal,FNC,LPMA,32.697899,-16.7745,192,Europe/Lisbon
+5659,La Gomera Airport,La Gomera,Spain,GMZ,GCGM,28.029600143432617,-17.214599609375,716,Atlantic/Canary
+5781,Logroño-Agoncillo Airport,Logroño-Agoncillo,Spain,RJL,LELO,42.4609534888,-2.32223510742,1161,Europe/Madrid
+5793,Corvo Airport,Corvo,Portugal,CVU,LPCR,39.671501,-31.1136,0,Atlantic/Azores
+6756,Leon Airport,Leon,Spain,LEN,LELN,42.5890007019043,-5.65556001663208,3006,Europe/Madrid
+6757,Burgos Airport,Burgos,Spain,RGS,LEBG,42.357601,-3.62076,2945,Europe/Madrid
+7459,Lleida-Alguaire Airport,Lleida,Spain,ILD,LEDA,41.728185,0.535023,1170,Europe/Madrid

@@ -1,0 +1,20 @@
+type: Tag
+chunk_size: 237
+prefix: vertex/Tag/
+property_groups:
+  - prefix: subject_name_url/
+    file_type: parquet
+    properties:
+      - name: subject
+        data_type: string
+        is_primary: true
+        is_nullable: false
+      - name: name
+        data_type: string
+        is_primary: false
+        is_nullable: false
+      - name: url
+        data_type: string
+        is_primary: false
+        is_nullable: false
+version: gar/v1

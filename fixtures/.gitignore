@@ -1,0 +1,4 @@
+# What `sample.mjs` fetches, never the repository's: each dataset whole (graphs/*/fetch.sh) and the
+# downloads it is derived from. The sample and the graph written from it are checked in.
+/graphs/*/data/
+/.cache/

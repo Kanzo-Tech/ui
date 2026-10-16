@@ -1,0 +1,16 @@
+type: Category
+chunk_size: 6
+prefix: vertex/Category/
+property_groups:
+  - prefix: subject_name/
+    file_type: parquet
+    properties:
+      - name: subject
+        data_type: string
+        is_primary: true
+        is_nullable: false
+      - name: name
+        data_type: string
+        is_primary: false
+        is_nullable: false
+version: gar/v1

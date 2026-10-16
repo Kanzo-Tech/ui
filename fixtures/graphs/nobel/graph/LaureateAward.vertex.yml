@@ -1,0 +1,32 @@
+type: LaureateAward
+chunk_size: 64
+prefix: vertex/LaureateAward/
+property_groups:
+  - prefix: subject_date_share_motivation_lat_long/
+    file_type: parquet
+    properties:
+      - name: subject
+        data_type: string
+        is_primary: true
+        is_nullable: false
+      - name: date
+        data_type: int32
+        is_primary: false
+        is_nullable: false
+      - name: share
+        data_type: int64
+        is_primary: false
+        is_nullable: false
+      - name: motivation
+        data_type: string
+        is_primary: false
+        is_nullable: false
+      - name: lat
+        data_type: double
+        is_primary: false
+        is_nullable: true
+      - name: long
+        data_type: double
+        is_primary: false
+        is_nullable: true
+version: gar/v1
