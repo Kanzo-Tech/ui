@@ -295,8 +295,8 @@ asked".
 
 ## A test reads from one real engine, and a model's test replays a recording
 
-*Status: to be built.* The tree has the macros and the doubles this section deletes; ui #220 removes
-the first.
+*Status: the engine and the fixtures are built; the graph's own toy corpus, the answer tests' six
+people and the cassettes are not — each says so below.*
 
 **Every test that needs a database runs on DuckDB-WASM in Node. There is no native DuckDB and no
 double that imitates one.** The belief that "this build of DuckDB-WASM cannot open a Parquet file in
@@ -317,21 +317,50 @@ it is: a browser has no synchronous-XHR trap, and the boot loads its extensions 
 ([the engine](/docs/design/engine#the-engines-own-surface-files-and-boot)).
 
 **Fixtures are the datasets, written by fossil, and nothing is hand-footed.** Three are canonical:
-the Nobel laureates, OpenFlights (the airports) and LDBC SNB. Each is `mapping.fossil`, `shapes.shex`
-and a `fetch.sh` in keasy's `infra/dev/examples/`, written to a graph by fossil's executor; the docs'
-archive and Ask's evaluation set already run on the same programs. Cordis stays a demo and is not a
-fixture. A test that needs a chunk with a property of its own (a footer key, a row-group statistic)
-writes it in-process with `COPY … (FORMAT parquet, COMPRESSION zstd, KV_METADATA {…})` on the same
-engine, and `parquet_kv_metadata` reads the key back, so the footer a reader parses is DuckDB's own.
+the Nobel laureates, OpenFlights (the airports) and LDBC SNB, each a copy of keasy's
+`infra/dev/examples/` program under `fixtures/graphs/<name>/` — `program.fossil`, `shapes.shex`,
+`fetch.sh` — which Ask's evaluation set writes whole. Cordis stays a demo and is not a fixture. What a
+test reads is a **sample**, small enough to count by hand: the prizes of 2000 to 2004 (196 vertices),
+the airports of Spain and Portugal and the routes between them (54), and twelve SNB people who know
+one another with what they wrote early on (1,267). `sample.mjs` derives each from its dataset, keeping
+every row a kept row names, and is the one step that needs the network, run by hand; `write.mjs` writes
+each graph from its sample with fossil's executor, through `docs/scripts/write-corpus.mjs`, offline.
+Both the sample and the graph are checked in, about 1.3 MB, and `check:generated` writes the graphs
+again and fails on a byte of difference, so a graph is never edited by hand and never stale against
+its program or the lockfile's executor. A test that needs a chunk with a property of its own (a
+footer key, a row-group statistic) writes it in-process with `COPY … (FORMAT parquet, COMPRESSION
+zstd, KV_METADATA {…})` on the same engine, and `parquet_kv_metadata` reads the key back, so the footer
+a reader parses is DuckDB's own.
+
+A test reaches one through `@kanzo-tech/fixtures`, a private workspace package: `attachFixture(name,
+engine)` is `@kanzo-tech/graphar-duckdb`'s `attachGraph` over the checked-in files, on the one
+DuckDB-WASM a test file gets (`connection`, `queryable()`), so what a test reads is what a page reads.
+It is also the one bootstrap: `graph`'s corpus and `ai`'s test database run on it rather than each
+instantiating its own. The first thing it found was a bug: fossil writes `fossil:stats` as
+`{"version":1,"columns":{…}}`, `readJoinGraph` read the document's top-level keys as columns, and the
+hand-built corpus wrote the shape the reader expected — so no column of a real graph had counts, and
+no test could see it.
+
+**Not yet on fixtures.** `graph`'s `test/corpus.ts` still states its own small graph — ten people,
+six places, four tags, the information relations as views — because a hundred of the canvas's and the
+parts' assertions are its arithmetic in global ids, and fossil numbers types in its own document's
+order; and one label test needs 327,000 vertices, which no checked-in sample holds. Its footers are
+DuckDB's own, written in fossil's document. And `ai`'s answer tests read six people seeded by hand
+(`src/testing/people.ts`), where SNB's twelve are the honest graph. Both are the next conversion.
+
+*Held by* `packages/relations/src/graphar.test.ts`, "reads what fossil counted from each chunk's
+footer, and the footer's nulls and extent" and "reads nothing from a footer whose fossil:stats is of a
+version it does not know", over the Nobel graph fossil wrote.
 
 **The one exception is the integration test of fossil's executor**, which installs a synchronous
 `XMLHttpRequest` and so downloads `httpfs` and `parquet` from `extensions.duckdb.org`: it needs the
-network at test time, and says so. Not run here: ui's `attachGraph` and SQL against these files,
-and `jsdom` 25 (only 29 was tried).
+network at test time, and says so. Not tried: `jsdom` 25 (only 29 was).
 
 **What would reverse it:** a DuckDB-WASM release that no longer loads an extension through
 `XMLHttpRequest`, which removes the node-environment rule and nothing else; or a fixture too large to
-write in a test run, which becomes a written graph fetched once in CI.
+write in a test run, which becomes a written graph fetched once in CI; or a fossil release whose
+graphs differ in bytes for the same program and data, which makes `check:generated` a check on fossil
+and not on us — then the graphs are compared by what they read as, not by their bytes.
 
 **A model's test replays a recording; the model's quality is measured live, once, by hand.** A
 recording (a cassette) is a `ModelScript` that a recorder wrote instead of a person: one entry per
@@ -350,7 +379,10 @@ a mapping's reader gets for its own tests.
 
 **What would reverse the replay:** a model that cannot be seeded, which leaves a recording a
 snapshot of one draw and no more; the cassette then holds the evidence of a run and nothing is
-asserted from its content. Nothing is held by a test yet: none of this exists.
+asserted from its content. Nothing is held by a test yet: none of this exists. Recording one needs
+the model running — WebLLM on a GPU, or the same weights on llama.cpp — and the machine the fixtures
+were written on had neither, so no cassette was written rather than one written by hand and called a
+recording.
 
 ## Ask's evaluation set lives beside Ask
 
@@ -366,7 +398,7 @@ library's own Ask through the harnesses a host uses, and waits on states. Decide
 | | |
 | --- | --- |
 | **Cases** | `packages/ai/eval/cases.ts`, data: 25 on Nobel for nearly every shape of question, 11 on LDBC SNB for self-joins and a large graph. Each says the failure it tests. The two that were ties asked back are answers now, by the path the model writes, the other on the chip ([Tasks](/docs/design/tasks#two-paths-of-one-length-are-the-models-with-the-other-on-the-chip)) |
-| **Graphs** | written by fossil's executor in Node through `docs/scripts/write-corpus.mjs`, as the docs' archive is: `pnpm --filter @kanzo-tech/ai eval:corpus` runs each `corpora/<name>/fetch.sh` (the data, pinned by digest) and then its `program.fossil` into `docs/public/corpus/<name>`. Data and the written graphs are `.gitignore`d. The set carries its own copy of the two programs, shapes and fetch scripts, read from the files beside them rather than through keasy's connections; keasy keeps its own as seed data — each repository owns what it runs |
+| **Graphs** | written by fossil's executor in Node through `docs/scripts/write-corpus.mjs`, as the docs' archive is: `pnpm --filter @kanzo-tech/ai eval:corpus` runs each `fixtures/graphs/<name>/fetch.sh` (the data, pinned by digest) and then its `program.fossil` into `docs/public/corpus/<name>`. Data and the written graphs are `.gitignore`d. The programs, shapes and fetch scripts are the repository's one copy, the tests' fixtures' too, read from the files beside them rather than through keasy's connections; keasy keeps its own as seed data — each repository owns what it runs |
 | **Page** | `/fixtures/ask-eval`, a page nobody reads, as `/fixtures/chat-frame` is: the graph attached by name, a `Dashboard` and its `FilterBar` over the case's relation, and `Chat` over `useAskChat` with `AnswerCard`, under the page's one selection. The model is `localModel` in a worker, Qwen3 4B unless `EVAL_MODEL` names another; no offers and no chips, which a case does not score and a model would be slower for |
 | **Runner** | `ask.eval.ts`, a Vitest project (`vitest.eval.config.ts`) beside `@kanzo-tech/testing`'s end-to-end one: `playwright-core`'s Chromium with WebGPU, `DashboardHarness`, `FilterBarHarness`, `ChartHarness.pick` for the filter, `AnswerHarness` for the card and its rows, and one harness of its own for a turn that ends in words, which draws no card to wait on. `expect.poll` and `until`, no fixed wait |
 | **Model** | the real one, on the machine's GPU through WebGPU — live and seeded, never replayed, never the double: what is measured is the model. The browser profile is kept in `eval/.cache/`, so the weights are downloaded once |
