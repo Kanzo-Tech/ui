@@ -1,12 +1,12 @@
 "use client";
 
-import { type Coordinator, type Query } from "@kanzo-tech/mosaic";
-import { internalCoordinatorOf } from "@kanzo-tech/mosaic/engine";
+import { rowsOf, type Query } from "@kanzo-tech/mosaic";
+import type { Engine } from "@kanzo-tech/mosaic/engine";
 import { use } from "react";
 import { useMosaic } from "./mosaic-provider.js";
 
 /**
- * How many answers a coordinator keeps for `useQueryRows`, oldest dropped first. A component still
+ * How many answers an engine keeps for `useQueryRows`, oldest dropped first. A component still
  * reading a dropped answer asks again and suspends once more; the number only bounds a page that
  * builds statements from what a reader types.
  */
@@ -17,12 +17,18 @@ interface Answer {
   failed: boolean;
 }
 
-const answers = new WeakMap<Coordinator, Map<string, Answer>>();
+/**
+ * What a read that nothing stops hands the engine. A suspended reader holds no effect, so React
+ * gives no moment at which it has gone: the statement runs to its end and its answer is kept.
+ */
+const UNSTOPPED = new AbortController().signal;
+
+const answers = new WeakMap<Engine, Map<string, Answer>>();
 
 /** One promise per statement, so `use` sees the same one on every render until it settles. */
-function rowsOf(coordinator: Coordinator, sql: string): Promise<readonly unknown[]> {
-  let kept = answers.get(coordinator);
-  if (!kept) answers.set(coordinator, (kept = new Map()));
+function rowsFor(engine: Engine, sql: string): Promise<readonly unknown[]> {
+  let kept = answers.get(engine);
+  if (!kept) answers.set(engine, (kept = new Map()));
   const known = kept.get(sql);
   if (known) {
     // A failure is handed out once more — React's retry after the rejection is the render that
@@ -33,7 +39,7 @@ function rowsOf(coordinator: Coordinator, sql: string): Promise<readonly unknown
     return known.rows;
   }
   const answer: Answer = {
-    rows: Promise.resolve(coordinator.query(sql)).then((table) => table.toArray()),
+    rows: engine.query(sql, { signal: UNSTOPPED }).then(rowsOf),
     failed: false,
   };
   kept.set(sql, answer);
@@ -43,17 +49,17 @@ function rowsOf(coordinator: Coordinator, sql: string): Promise<readonly unknown
 }
 
 /**
- * **A statement's rows, suspending until they land** — on the provider's coordinator, as objects
- * keyed by column. React's `use` over one promise per coordinator and SQL text: every component
- * asking the same statement shares one answer, and asking it again later is answered without a
- * query. A failure is thrown, as it was thrown, to the nearest error boundary.
+ * **A statement's rows, suspending until they land** — on the provider's engine, its own door
+ * (`Engine.query`), as objects keyed by column. React's `use` over one promise per engine and SQL
+ * text: every component asking the same statement shares one answer, and asking it again later is
+ * answered without a query. A failure is thrown, as it was thrown, to the nearest error boundary.
  *
  * It does **not** follow the crossfilter. It is for what a page reads once — a catalog, a schema, a
  * lookup — and `useChartQuery` is for anything that should move with the brush. The answer is kept
- * for the coordinator's life, like Mosaic's own cache, so a statement whose answer changes needs
- * different SQL: name what changed in it.
+ * for the engine's life, so a statement whose answer changes needs different SQL: name what changed
+ * in it.
  */
 export function useQueryRows<Row = Record<string, unknown>>(query: Query | string): readonly Row[] {
   const { engine } = useMosaic();
-  return use(rowsOf(internalCoordinatorOf(engine), String(query))) as readonly Row[];
+  return use(rowsFor(engine, String(query))) as readonly Row[];
 }

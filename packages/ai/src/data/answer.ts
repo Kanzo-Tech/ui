@@ -17,7 +17,7 @@ export interface Answer {
 }
 
 /**
- * A relation an answer may be about, and what it holds — as the corpus describes it, never read from
+ * A relation an answer may be about, and what it holds — as the graph describes it, never read from
  * the engine: `answerRelation` makes one from the join graph.
  */
 export interface AnswerRelation {

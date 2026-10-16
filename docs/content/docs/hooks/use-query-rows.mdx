@@ -1,6 +1,6 @@
 ---
 title: useQueryRows
-description: A statement's rows on the page's coordinator, suspending until they land — for what a page reads once, outside the crossfilter.
+description: A statement's rows on the page's engine, suspending until they land — for what a page reads once, outside the crossfilter.
 ---
 
 <ComponentPreview componentName="use-query-rows" />
@@ -26,16 +26,22 @@ function Schema() {
 ```
 
 It needs a [`MosaicProvider`](/docs/analytics/charts#the-pages-one-engine) above it, a `Suspense`
-for the wait and an error boundary for a failure. The rows are objects keyed by column — the Arrow
-answer's `toArray()` — typed by the parameter you give it.
+for the wait and an error boundary for a failure. The statement goes to the engine's own door,
+`engine.query`, not the coordinator's queue, and the rows are objects keyed by column — `rowsOf` of
+the answer — typed by the parameter you give it.
 
 ## One answer per statement
 
-It is React's `use` over **one promise per coordinator and SQL text**: every component asking the
+It is React's `use` over **one promise per engine and SQL text**: every component asking the
 same statement shares one answer, and asking it again later is answered without a query. So the
 statement *is* the key — a read that should change names what changed in its SQL, a catalog, a table,
-a filter value — and nothing else invalidates it. The last 256 statements a coordinator answered are
+a filter value — and nothing else invalidates it. The last 256 statements an engine answered are
 kept; a component reading one that was dropped asks again.
+
+**A read here is never stopped.** A component suspended on it holds no effect, so React gives no
+moment at which every reader has gone, and the statement runs to its end and is kept for the next
+asker. A read that must stop with its part is [`useFieldStats`](/docs/analytics/dashboard#usefieldstats-and-fieldstats)'s kind: a
+TanStack Query query, whose signal aborts the statement when the last part that asked unmounts.
 
 ## Failures
 

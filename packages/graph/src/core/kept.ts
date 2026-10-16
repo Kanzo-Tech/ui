@@ -55,7 +55,7 @@ export function idsOf(kept: Uint8Array | null, positions: Float32Array | null = 
 
 /**
  * Whether anything is greyed out: the canvas picked something, or a clause keeps fewer than the
- * corpus holds. The toolbar shows its count on it, and `frame()` frames everything without it — a
+ * graph holds. The toolbar shows its count on it, and `frame()` frames everything without it — a
  * mask that keeps every vertex greys none, so what it keeps is the whole graph.
  */
 export const greyedOf = ({ selection, matching, total }: Pick<GraphSnapshot, "selection" | "matching" | "total">): boolean =>
@@ -63,7 +63,7 @@ export const greyedOf = ({ selection, matching, total }: Pick<GraphSnapshot, "se
 
 /**
  * **What the loaded graph holds, counted once per geometry, encoding and filter**: per rank what is
- * drawn, placed and in the corpus, and the links drawn, placed and loaded. A vertex is placed when
+ * drawn, placed and in the graph, and the links drawn, placed and loaded. A vertex is placed when
  * it has a position — always, under a layout; under bound positions, when it has both values.
  */
 export function drawnOf(geometry: Geometry, encoding: Encoding, mask: Uint8Array | null): Drawn {

@@ -1,6 +1,6 @@
 import type { Queryable, Table } from "@kanzo-tech/kernel";
 import { Query, and, asTableRef, asc, cast, eq, float64, literal, sql, type ExprNode } from "@kanzo-tech/mosaic";
-import type { JoinColumn, JoinColumnStats, JoinGraph, JoinType } from "./relation.js";
+import { checked, type JoinColumn, type JoinColumnStats, type JoinGraph, type JoinType } from "./relation.js";
 
 /**
  * **The one way to make a `JoinGraph` from an engine**: a catalog of some kind, attached to the engine
@@ -38,7 +38,9 @@ const relation = (from: string, table: string): ExprNode => asTableRef([from, ta
  * that id; its primary key is its identity (the id itself where it has none). GraphAr numbers vertices
  * per type from zero; a type's ids start at the sum of the counts of the types before it, in the graph
  * document's order (`ordinal`), so one id space serves every hop and the semi-join across types. An
- * edge type joins through `src` and `dst`, global ids too. Each carries the count the catalog holds.
+ * edge type joins through `src` and `dst`, global ids too. Each carries the count the catalog holds,
+ * and each vertex type its `first`. What it answers is `checked`: a contradiction is refused
+ * (`relations/invalid`) here, where the graph is made.
  *
  * And one more type, `vertices`: every vertex type as one relation, `NULL` where a type has no such
  * column, so a clause on any type crosses into it by key and one on it into each type.
@@ -114,6 +116,7 @@ export const readJoinGraph: CatalogReader = async (engine, from, { signal }) => 
       key: KEY,
       columns: [id, ...own],
       rows,
+      first,
       // The global id and the primary key: each never null and never repeated.
       candidateKeys: [...new Set([KEY, identity])],
     });
@@ -129,7 +132,7 @@ export const readJoinGraph: CatalogReader = async (engine, from, { signal }) => 
     edges.push({ name, label: String(row("edge_type")), source, destination, table, src: SRC, dst: DST, rows: Number(row("count")) });
   });
 
-  return { types: [...vertices, union(vertices, size)], edges };
+  return checked({ types: [...vertices, union(vertices, size)], edges });
 };
 
 /**
@@ -153,12 +156,13 @@ function union(vertices: readonly JoinType[], size: number): JoinType {
   const table = Query.unionAll(
     vertices.map((v) => Query.select({ [KEY]: KEY, ...Object.fromEntries(names.map((c) => [c, has(v, c) ? c : literal(null)])) }).from(v.table)),
   );
-  const columns = [KEY, ...names].flatMap((name) => {
+  // The key is the id's, a graph with no vertex type's too; every other column is described as the
+  // catalog states it, never with what was counted of it in one type.
+  const id: JoinColumn = { name: KEY, type: "UINTEGER", role: "address", nullable: false };
+  const columns = [id, ...names.flatMap((name) => {
     const found = vertices.find((v) => has(v, name))?.columns.find((c) => c.name === name);
-    if (!found) return [];
-    // What the catalog states of a column, never what was counted of it in one type.
-    return [Object.fromEntries(Object.entries(found).filter(([fact]) => fact !== "stats")) as unknown as JoinColumn];
-  });
+    return found ? [Object.fromEntries(Object.entries(found).filter(([fact]) => fact !== "stats")) as unknown as JoinColumn] : [];
+  })];
   return { name: VERTICES, table, key: KEY, columns, rows: size, of: vertices.map((v) => v.name) };
 }
 

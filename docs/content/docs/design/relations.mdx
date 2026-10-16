@@ -5,12 +5,10 @@ description: Why JoinGraph is the one read-model of a catalog, why a typed Catal
 
 > **Status: partly built.** `@kanzo-tech/relations` exists and holds `JoinGraph` and its parts,
 > `Relation`, `Hop`, `JoinResolver`, the crossfilter, the relation words, `withMapping` and the
-> `CatalogReader` contract; `readJoinGraph(engine, from, { signal })` is its GraphAr reader, and graph's
-> `joinGraphOf` is deleted. Still to build: graph keeps `Structure`, now derived from the reader's
-> `JoinGraph` with `first` and `identity` added, and the `vertices` union is still made by the reader;
-> the validation that throws `relations/invalid`, the refusal of a type whose ids have a gap, and the
-> tests over a vendored fixture attached by the real attacher; keasy's `joinGraphOf` and `ai`'s second
-> resolver. The *Breaking* list at the end is what a consumer edits.
+> `CatalogReader` contract; `readJoinGraph(engine, from, { signal })` is its GraphAr reader and the
+> one way graph reads a catalog, graph's `Structure` and `joinGraphOf` are deleted, and a graph is
+> validated where it is made (`relations/invalid`). Still to build: the refusal of a type whose ids have
+> a gap, and the tests over a vendored fixture attached by the real attacher; keasy's `joinGraphOf`. The *Breaking* list at the end is what a consumer edits.
 
 Four things describe the same tables, columns, keys and labels. graph's `Structure` (a canvas's
 vertex and edge tables); mosaic's `JoinGraph` (types, edges, columns, stats, annotations); rudof's
@@ -39,10 +37,18 @@ depends on `@kanzo-tech/kernel` and on the mosaic door for the names it prints, 
 depend on it downward; none constructs a `JoinGraph` of its own.
 
 **A `JoinGraph` is validated where it is made.** The type is a plain object, and a `JoinType.key`
-absent from its `columns` made `relationColumns` invent `{ name, type: "" }`. A constructor that
-returns a graph checks that a key is a column, that an edge's endpoints are types, that two edges of
-one label do not leave one type the same way unnamed; it throws a `Problem` `relations/invalid` naming
-the type or the edge. A host's own graph, which describes only `name` and `type`, passes.
+absent from its `columns` made `relationColumns` invent `{ name, type: "" }`. Every function that
+returns a graph — `readJoinGraph`, `withMapping` — ends in one check (`checked`, `relation.ts`): a
+type's name and an edge's are each unique, so two edges of one label leaving one type the same way
+are told apart by name, as their path segment is; a key is one of its type's columns; an edge's ends
+and a union's members are types of the graph. The first contradiction throws a `Problem`
+`relations/invalid` whose `data` names the `type` or the `edge`. A host's own graph, which describes
+only `name` and `type`, passes.
+
+*Held by* `packages/relations/src/relation.test.ts`, "passes a graph that describes only each
+column's name and type", "refuses a type whose key is none of its columns, naming the type",
+"refuses two types of one name, and a union of a type the graph does not have", "refuses two edges of
+one name, and an edge whose end is no type, naming the edge".
 
 **What would reverse it:** a catalog fact a `JoinGraph` cannot carry — a non-key identity, a
 property on an edge — which GraphAr may need. Then `JoinGraph` grows the field, not a sibling type;
@@ -163,9 +169,11 @@ symmetric-aggregate algorithm is not reproduced: `sum` and `avg` over a hop that
 count, and the pages say so
 ([analytics](/docs/design/analytics)).
 
-`segmentOf`, `joinPath` and `stepsOf` are the one definition of that syntax. `ai`'s `resolverOf(graph)`
-made a second `JoinResolver` per graph beside the page's, and the answer's card had to check that
-`selection.resolver.joins === graph`; with the model one, an Ask asks the page's resolver. A resolver
+`segmentOf`, `joinPath` and `stepsOf` are the one definition of that syntax. `ai`'s `resolverOf(graph)`,
+a cache of a second `JoinResolver` per graph beside the page's, is gone: a resolver holds nothing but
+its graph, so an answer reads through the page's resolver when the page is over the same graph and
+through relations' own `new JoinResolver(graph)` otherwise, and Ask's walks of a graph no page holds
+do the same. A resolver
 that cannot find a step throws a `Problem` `relations/no-step`, and `crossing()` no longer catches
 everything into `FALSE`: that a relation has no way across to a client is a decided state that keeps
 nothing, and a name that resolves to nothing is a failure that reaches `onFailure`.

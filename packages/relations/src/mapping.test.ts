@@ -156,8 +156,12 @@ describe("withMapping over the maps fossil writes from a query", () => {
   });
 
   it("describes nothing a query names ambiguously", () => {
-    const twice: JoinGraph = { ...graph, edges: [graph.edges[0]!, { ...graph.edges[0]!, label: "again" }] }; // two edges one SQL names
-    expect(withMapping(twice, model).edges.map((e) => e.iri)).toEqual([undefined, undefined]);
+    // Two edges one SQL names.
+    const again = { ...graph.edges[0]!, name: "Person_again_Prize", label: "again" };
+    const both: MappingModel = {
+      tables: model.tables.map((t) => (t.id === "#Person_awarded_Prize" ? { ...t, source: { kind: "query", sql: `${t.source.sql} UNION ALL SELECT * FROM "Person_again_Prize"` } } : t)),
+    };
+    expect(withMapping({ ...graph, edges: [graph.edges[0]!, again] }, both).edges.map((e) => e.iri)).toEqual([undefined, undefined]);
     const none = withMapping({ ...graph, types: graph.types.map((t) => ({ ...t, name: `${t.name}2` })), edges: [] }, model);
     expect(none.types.flatMap((t) => t.columns).filter((c) => c.iri !== undefined)).toEqual([]);
   });

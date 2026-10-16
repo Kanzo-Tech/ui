@@ -3,12 +3,10 @@ title: What a field is
 description: Why a field's facts come from the data's own catalog — what it is from what the catalog declares, what it holds from counts where something counted it — and reach every reader through JoinGraph, so nothing in the library guesses them from a column's name or a threshold; and what would reverse each part.
 ---
 
-*Status: partly to be built.* The tree takes these facts from fossil's four manifest relations
-(`fossil_tables`, `fossil_columns`, `fossil_annotations`, `fossil_stats`), through graph's
-`readCatalog` and a `joinGraphOf` that renames its `Structure` into a `JoinGraph`. Decided: a
-`CatalogReader` over an attached GraphAr graph makes the `JoinGraph`, `withMapping` fills the labels
-and datatypes the catalog does not say, and the shape before a run is the compiler's
-([relations](/docs/design/relations)). Where a source for a fact is not yet stated, the table says so
+*Status: partly to be built.* The tree takes these facts from an attached GraphAr graph through
+`@kanzo-tech/relations`'s `readJoinGraph`, the one `CatalogReader`, and `withMapping` fills the labels
+and datatypes the catalog does not say. Decided and not built: the shape before a run is the
+compiler's ([relations](/docs/design/relations)). Where a source for a fact is not yet stated, the table says so
 and the fact is absent until one does; nothing derives it. The *Breaking* list at the end is what a
 consumer edits.
 
@@ -58,8 +56,8 @@ the dashboard example on `/docs/analytics/dashboard` declares its table's key th
 a column of a joined relation is described by its step's type, so its counts are the type's, which
 is what a default needs, and not the join's.
 
-**Every catalog read is behind `readCatalog`**, so a change in how a graph states itself is a change
-in one function. It was one when the graph moved to Apache GraphAr: `readCatalog` read
+**Every catalog read is behind `readJoinGraph`**, so a change in how a graph states itself is a change
+in one function. It was one when the graph moved to Apache GraphAr: the reader read
 GraphAr's relations instead of fossil's manifest, and nothing past `JoinGraph` moved
 ([The graph](/docs/design/graph#the-graph-reads-sql-through-the-pages-coordinator)).
 
@@ -84,7 +82,7 @@ and imports nothing of graphar's or fossil's".
 **Where a join graph states a column's counts — its nulls, its distinct values, its extent and its
 commonest values with their share of the rows, under Parquet's `Statistics` names and `pg_stats`' —
 the library reads those, and runs no `SUMMARIZE` over a counted relation.** fossil's writer counts
-every column once, at write, into each chunk's Parquet footer, and `readCatalog` reads them there
+every column once, at write, into each chunk's Parquet footer, and `readJoinGraph` reads them there
 through `graphar_chunks` ([The graph](/docs/design/graph#what-a-column-holds-is-read-from-the-footers)):
 a type's relation is counted, the `vertices` union and a joined relation are not, and a graph a
 foreign writer made states none.
@@ -101,7 +99,7 @@ A relation whose columns nothing counted — a host's own table under `MosaicPro
 column *is* is kept over the summary's counts. That is the only `SUMMARIZE` left.
 
 **Parquet's own statistics are half of it.** A row group's footer carries a minimum, a maximum and
-a null count, read for free, and `readCatalog` takes those; it carries no distinct count and no
+a null count, read for free, and `readJoinGraph` takes those; it carries no distinct count and no
 commonest values, the two figures a field's role and Ask's prompt need, and a distinct count does
 not combine across row groups. So the writer states those two in the file's `key_value_metadata`
 under `fossil:stats`, and the reader counts a column only when one chunk of its type states it

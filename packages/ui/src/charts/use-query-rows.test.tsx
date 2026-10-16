@@ -1,4 +1,4 @@
-import { engineOver } from "../../test/engine";
+import { answerOf, engineOver } from "../../test/engine";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import type { Coordinator } from "@uwdata/mosaic-core";
 import { Component, Suspense, type ReactNode } from "react";
@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { MosaicProvider } from "./mosaic-provider.js";
 import { useQueryRows } from "./use-query-rows.js";
 
-/** A coordinator whose answers the test settles by hand: an Arrow table is anything with `toArray`. */
+/** An engine's coordinator whose answers the test settles by hand, as columns. */
 function deferred() {
   const asked: { sql: string; settle: (rows: unknown[]) => void; refuse: (error: unknown) => void }[] = [];
   const coordinator = {
@@ -14,7 +14,7 @@ function deferred() {
     query: vi.fn(
       (sql: string) =>
         new Promise((resolve, reject) =>
-          asked.push({ sql, settle: (rows) => resolve({ toArray: () => rows }), refuse: reject }),
+          asked.push({ sql, settle: (rows) => resolve(answerOf(rows as object[])), refuse: reject }),
         ),
     ),
   } as unknown as Coordinator & { query: ReturnType<typeof vi.fn> };

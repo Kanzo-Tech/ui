@@ -4,7 +4,7 @@ import type { LookPatch } from "../render/graph-looks";
 import type { Sim } from "../render/graph-sim";
 import type { Binding, Channels } from "./channels";
 import type { Encoding, Geometry } from "./load";
-import type { Structure } from "./structure";
+import type { JoinGraph } from "@kanzo-tech/relations";
 import type { Motion, VertexSelection, VertexSelectionSource, Tool, VertexId } from "./types";
 
 export interface GraphOptions extends Channels {
@@ -55,8 +55,8 @@ export interface GraphOptions extends Channels {
 }
 
 /**
- * Where the graph is in its life. `none` is no corpus; `loading` is the graph, a binding or a filter
- * not yet read or not yet drawn; `idle` is all of it drawn; `failed` is a corpus that would not read,
+ * Where the graph is in its life. `none` is no graph; `loading` is the graph, a binding or a filter
+ * not yet read or not yet drawn; `idle` is all of it drawn; `failed` is a graph that would not read,
  * or a canvas with no GPU device to draw with — none came up, or the one it had was lost.
  *
  * **It is the data's life, not the layout's.** A layout running over a drawn graph is `idle` here and
@@ -81,7 +81,7 @@ export interface Drawn {
   readonly tally: readonly number[];
   /** Per rank, the vertices with a position, filtered or not: what `tally` is a part of. */
   readonly placed: readonly number[];
-  /** Per rank, every vertex of the corpus, with a position or not: what `placed` is a part of. */
+  /** Per rank, every vertex of the graph, with a position or not: what `placed` is a part of. */
   readonly totals: readonly number[];
   /** Every loaded relation, drawn or not: what `edges` is a part of. */
   readonly links: number;
@@ -95,10 +95,10 @@ export type PickSource = MosaicClient & ClauseSource;
 /** What a host and the parts read, through `useGraphState`. */
 export interface GraphState {
   readonly status: DataStatus;
-  /** Every vertex of the corpus — it does not shrink with a filter. */
+  /** Every vertex of the graph — it does not shrink with a filter. */
   readonly total: number | undefined;
   /**
-   * Vertices of the corpus in full colour — the page's filter, narrowed to the canvas's own pick
+   * Vertices of the graph in full colour — the page's filter, narrowed to the canvas's own pick
    * (the graph's client is exempt from its own clause, so the filter alone would not hold it) —
    * or `null` when nothing is filtered or picked.
    */
@@ -115,8 +115,8 @@ export interface GraphState {
   /** How far through settling a live layout is, `0`–`1`. */
   readonly progress: number;
   readonly options: GraphOptions;
-  /** The corpus's tables, once read. */
-  readonly structure: Structure | null;
+  /** The graph's `JoinGraph`, once read: `@kanzo-tech/relations`'s `readJoinGraph` of the catalog `from`. */
+  readonly structure: JoinGraph | null;
 }
 
 /** Where the camera looks: the point of the layout's square at the canvas's centre, and cosmos.gl's zoom. */

@@ -5,7 +5,7 @@ import { decayFor, highlighted, simulating } from "./motion";
 
 /** Four vertices on a path `0 → 1 → 2 → 3`, links `0, 1, 2`. */
 const path = {
-  structure: { from: "c", vertices: [], edges: [], size: 4 },
+  structure: { types: [], edges: [] },
   size: 4,
   positions: new Float32Array(8),
   bound: false,

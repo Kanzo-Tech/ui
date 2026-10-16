@@ -4,7 +4,7 @@ import { useCallback, useSyncExternalStore } from "react";
 import type { ExprNode } from "@kanzo-tech/mosaic";
 import { publish } from "../core/client";
 import { clausesOf } from "../core/source";
-import { KEY } from "../core/structure";
+import { KEY } from "../core/source";
 import type { VertexId } from "../core/types";
 import { useGraphContext } from "./graph-root";
 import { internalsOf } from "./use-graph";
@@ -15,7 +15,7 @@ export interface VertexPick {
   picked: string | null;
   /**
    * Publish `ids` as this place's clause, named `label` — replacing what it picked before — or
-   * withdraw it with `null`. A no-op before the corpus is read: there is no key to pick by yet.
+   * withdraw it with `null`. A no-op before the graph is read: there is no key to pick by yet.
    */
   pick(ids: readonly VertexId[] | null, label: string): void;
   /**

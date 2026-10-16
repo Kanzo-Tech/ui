@@ -120,6 +120,18 @@ candidate; RFC 8141 asks that a namespace identifier be registered, which has no
 (UNVERIFIED: the RFC was not read for this page). The base lives in `problems.bnf`, so the Rust
 projection derives the same `type`.
 
+**The page a person opens is the host's, and is not the `type`.** A link a reader follows to learn what
+`engine/lost` means is a deployment's documentation, at a deployment's address, and it may change
+without the problem's identity changing: so it is not derived from the tag, and the kernel holds no
+base for it. The one place it is set is `describe(code, data)`'s `page`, the host's wording of a
+code, which every coded `Problem` the library draws already takes ([Problem](/docs/data-display/problem#the-hosts-words)):
+a base is `(code) => ({ page: base + code })`. A second way — a provider, a base on the class, a
+`help` URL on the wire — would be a second place to set the same link. RFC 9457's `instance` and
+`type` are left as they are: neither is a help page. *What would reverse it:* a problem drawn by the
+library with no `describe` in reach — a part that renders a coded failure and does not forward the
+host's function — which would need a base that reaches it another way; or the owner choosing a
+resolvable `type`, which would make the type its own help page.
+
 **`cause` and `related` on the wire.** RFC 9457 is silent on both, and JavaScript's `Error.cause`
 (any value, cycles possible) is the only reference. `toJSON` follows `cause` and `related` only when
 the member is a Problem, at most 8 deep, and cuts a member that is already on the path from the root,

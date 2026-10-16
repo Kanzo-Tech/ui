@@ -144,11 +144,11 @@ export const GRAPH_SECTION = {
      * **Where the points come from, as preferences** — Cosmograph's rule that the data places the
      * points or the layout does, with the cluster force as the third way. The columns are
      * Cosmograph's `pointXBy`, `pointYBy` and `pointClusterBy`, named after them, and their options
-     * are the attached corpus's own fields: a list only the graph's root knows, so the root answers
+     * are the attached graph's own fields: a list only the graph's root knows, so the root answers
      * it (`GraphSection`) and nothing here can.
      *
-     * A column outlives the corpus it was chosen on — it is stored per person, not per corpus — and
-     * a corpus that lacks it reads it as unbound (`carries`, in the loaders). That is
+     * A column outlives the graph it was chosen on — it is stored per person, not per graph — and
+     * a graph that lacks it reads it as unbound (`carries`, in the loaders). That is
      * `resolvePref`'s own rule, an illegal value falls back, applied where the options are known.
      */
     placement: {
@@ -213,7 +213,7 @@ export const GRAPH_SECTION = {
      * The bounds are cosmos.gl's useful range rather than its legal one, and a stored value outside
      * them is declined: a slider that used to run to 5 and now stops at 3 must not paint 5 because
      * storage remembers it. These defaults are tuned for a few hundred nodes; a host with a large
-     * corpus starts its users elsewhere through the tenant policy, rather than by writing values
+     * graph starts its users elsewhere through the tenant policy, rather than by writing values
      * into storage nobody can then reset.
      *
      * **They are offered under Force alone.** Clustered and a half-bound Map run the same layout, so

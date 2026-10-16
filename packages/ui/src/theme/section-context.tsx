@@ -35,7 +35,7 @@ const NONE = {};
  * Ark's `EnvironmentProvider` and `LocaleProvider` do: a manifest says WHAT may be set, and the
  * owner says, from where it stands, what it alone can answer. The theme provider is the core's —
  * it answers `"themes"` from what the tenant published — and the graph's root is the graph's, with
- * the columns of the corpus it attached. So a `<Pref>` anywhere beneath draws the whole control and
+ * the columns of the graph it attached. So a `<Pref>` anywhere beneath draws the whole control and
  * no host passes a list it does not own.
  *
  * **It merges over the one above**, per namespace, as a nested `ThemeProvider` does in MUI: an
