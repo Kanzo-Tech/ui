@@ -151,7 +151,7 @@ services:
   #                                           `organization:*` puts every organization the person
   #                                           belongs to in the token (plain `organization` asks
   #                                           them to pick one), and the api's scope puts it in
-  #                                           `aud`, so no exchange is needed
+  #                                           `aud`
   #                OAUTH2_PROXY_UPSTREAMS     the application, as the proxy reaches it
   #                OAUTH2_PROXY_PROXY_PREFIX  where its callback lives (declarations.tf `callback`,
   #                                           minus `/callback`)

@@ -1,7 +1,7 @@
 # One resource server, registered with the platform's realm: an API, a storage
 # broker. It obtains no token, so its client has no flow; it exists to be named. A token reaches
-# it through an application's token exchange (RFC 8693), which asks for this scope and this
-# audience and gets a token that names nothing else.
+# it from an application whose sign-in asked for this scope: the edge's access token then names
+# this API in `aud`, and the application forwards it as it came.
 
 resource "keycloak_openid_client" "api" {
   realm_id    = var.realm_id
@@ -17,13 +17,13 @@ resource "keycloak_openid_client" "api" {
   service_accounts_enabled     = false
 }
 
-# The scope an exchange asks for, named as the client is. Optional on every application that calls
-# this API (modules/app `apis`), so a sign-in never asks for it and the session's token names no
-# API; an exchange asks for it and gets a token whose `aud` is this API alone.
+# The scope a sign-in asks for, named as the client is. Optional on every application that calls
+# this API (modules/app `apis`), so only a sign-in that names it — the edge's, beside
+# `organization:*` — gets an access token whose `aud` names this API.
 resource "keycloak_openid_client_scope" "api" {
   realm_id               = var.realm_id
   name                   = var.client_id
-  description            = "Names ${var.client_id} in aud. Asked for in a token exchange, never at sign-in."
+  description            = "Names ${var.client_id} in aud. Asked for at sign-in, beside organization:*."
   include_in_token_scope = true
 }
 

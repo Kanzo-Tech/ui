@@ -6,7 +6,6 @@
 #   origin + callback    one redirect URI per organization: `{organization}` in the origin is
 #                        replaced by each alias, e.g. `https://{organization}.board.example.com`
 #   redirect_uris        instead of origin + callback, when the application has fixed ones
-#   backchannel_logout   optional: where Keycloak posts a logout token, as Keycloak reaches it
 #   client_secret_file   where the client's secret is mounted; it is sent to Keycloak write-only,
 #                        and never kept in state
 #   roles                name => { description, composites }
@@ -33,8 +32,7 @@ module "application" {
   redirect_uris = can(each.value.redirect_uris) ? each.value.redirect_uris : [
     for alias in keys(local.organizations) : "${replace(each.value.origin, "{organization}", alias)}${each.value.callback}"
   ]
-  backchannel_logout_url = try(each.value.backchannel_logout, null)
-  apis                   = can(each.value.api) ? [module.application_api[each.key].scope] : []
-  roles                  = try(each.value.roles, {})
-  groups                 = try(each.value.groups, null)
+  apis   = can(each.value.api) ? [module.application_api[each.key].scope] : []
+  roles  = try(each.value.roles, {})
+  groups = try(each.value.groups, null)
 }

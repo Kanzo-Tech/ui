@@ -46,7 +46,7 @@ import org.keycloak.util.JsonSerialization;
  * under {@code groups}, and paths are names: the organization's to change. This mapper runs after
  * it and replaces them, and leaves the {@code resource_access} that mapper writes alone. It writes
  * only into entries the Organization Membership mapper already wrote, so which organizations a
- * token names — all of them for {@code organization:*}, one after an exchange — stays Keycloak's
+ * token names — all of them for {@code organization:*}, the named ones otherwise — stays Keycloak's
  * decision, and a person in none gets no claim at all.
  */
 public class OrganizationGroupIdsMapper extends AbstractOIDCProtocolMapper
