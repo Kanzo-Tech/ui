@@ -108,8 +108,8 @@ so did the realm's `ai-gateway` API, the only API the realm registered for itsel
 
 **What would reverse it:** a Task no model that fits a device can do, measured on the evaluation set
 after everything computable has moved out of the model. Then a model goes behind a server again, and
-the contract it starts from is the one above: the realm's token, exchanged for one organization, is
-the credential, and nothing names a tenant but the token.
+the contract it starts from is the one above: the realm's token, naming that server's API in `aud`,
+is the credential, and nothing names a tenant but the token.
 
 ## Production configuration belongs to the deployment
 
@@ -119,7 +119,8 @@ deployment's, and membership is runtime: development seeds it, production invite
 
 A shipped production value would be one deployment's choice presented as the platform's, and every
 other deployment would start by undoing it. What the service does own is what does not vary between
-them: the claim mappers, the image pins, the rule that an exchanged token names one organization.
+them: the claim mappers, the image pins, the rule that a token names an API only when its sign-in
+asked for that API's scope.
 
 A password is the sharpest case, because the deployment that forgets to undo it runs: `compose.yaml`
 defaulted the database's to `keycloak` and the admin's to `admin`, so a deployment that set neither

@@ -54,31 +54,15 @@ variable "web_origins" {
   default = ["+"]
 }
 
-variable "backchannel_logout_url" {
-  description = <<-EOT
-    Where Keycloak posts a logout token when a session ends at the IdP: `kanzoAuth`'s
-    `<basePath>/backchannel-logout`. Keycloak calls it server to server, so it is a URL Keycloak can
-    reach — an internal hostname inside a cluster — and it is one URL per client: a client shared by
-    several deployments can name only one of them. Null leaves back-channel logout off.
-  EOT
-  type        = string
-  default     = null
-}
-
 variable "apis" {
   description = <<-EOT
-    The APIs the application calls: each one's modules/api `scope`. The application exchanges its
-    session's token for one naming a single API and a single organization before each call, so the
-    token it signs in with names none of them. Needs a CONFIDENTIAL client: an exchange is a client
-    authenticating itself.
+    The APIs the application calls: each one's modules/api `scope`, an optional scope of the
+    client. The sign-in asks for it beside `organization:*` (the edge's OAUTH2_PROXY_SCOPE), so the
+    access token names the API in `aud` and is forwarded to it as it came. A scope not listed here
+    is refused at the authorization endpoint with `invalid_scope`.
   EOT
   type        = list(string)
   default     = []
-
-  validation {
-    condition     = length(var.apis) == 0 || var.access_type == "CONFIDENTIAL"
-    error_message = "A token exchange is made by a CONFIDENTIAL client; a PUBLIC one calls no API through this realm."
-  }
 }
 
 variable "roles" {
