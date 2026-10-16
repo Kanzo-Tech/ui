@@ -24,7 +24,7 @@ const require = createRequire(import.meta.url);
  * pushed it past vitest's 5 s budget. Top-level `await` pays it while the file is collected, before
  * any test's clock starts, and only in the files that import this module.
  */
-const db = await createDuckDB(
+export const database = await createDuckDB(
   (() => {
     const dist = dirname(require.resolve("@duckdb/duckdb-wasm"));
     return {
@@ -35,13 +35,13 @@ const db = await createDuckDB(
   new ConsoleLogger(LogLevel.ERROR),
   NODE_RUNTIME,
 );
-await db.instantiate();
+await database.instantiate();
 
 /**
  * The blocking connection every engine of this file answers through. DuckDB-WASM's Node runtime
  * reads and writes through the file system, so a path is a name `read_parquet` reads.
  */
-export const connection = db.connect();
+export const connection = database.connect();
 
 /**
  * **Parquet opens in Node only without an `XMLHttpRequest` global.** DuckDB-WASM loads its `parquet`

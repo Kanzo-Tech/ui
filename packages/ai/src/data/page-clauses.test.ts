@@ -1,26 +1,10 @@
-import { asTableRef } from "@uwdata/mosaic-sql";
 import { clausePoints } from "@kanzo-tech/mosaic";
-import { crossfilterOver, onRelation, type JoinGraph, type Relation } from "@kanzo-tech/relations";
+import { crossfilterOver, onRelation, type Relation } from "@kanzo-tech/relations";
 import { describe, expect, it } from "vitest";
+import { NOBEL } from "../testing/nobel.js";
 import { pageClauses } from "./answer.js";
 
-const at = (table: string) => asTableRef(["jobs/7", table])!;
-const type = (name: string) => ({ name, table: at(name), key: "id", columns: [{ name: "name", type: "VARCHAR" }] });
-const edge = (source: string, label: string, destination: string) => ({
-  name: `${source}_${label}_${destination}`,
-  label,
-  source,
-  destination,
-  table: at(`${source}_${label}_${destination}`),
-  src: "src",
-  dst: "dst",
-});
-
-/** Nobel's shape: a prize between its category and its university; a country on its own. */
-const NOBEL: JoinGraph = {
-  types: [type("LaureateAward"), type("Category"), type("University"), type("Country")],
-  edges: [edge("LaureateAward", "category", "Category"), edge("LaureateAward", "university", "University")],
-};
+/** Prizes by their category, and by their university: two relations of Nobel as fossil wrote it. */
 const byCategory: Relation = { root: "LaureateAward", path: [{ edge: "LaureateAward_category_Category", direction: "out" }] };
 const byUniversity: Relation = { root: "LaureateAward", path: [{ edge: "LaureateAward_university_University", direction: "out" }] };
 
@@ -33,7 +17,7 @@ describe("pageClauses", () => {
     const page = pageClauses([physics], ["university.name"], { relation: byUniversity, resolver: selection.resolver });
     expect(page.unanswered).toEqual([]);
     expect(page.answered).toEqual([physics]);
-    expect(String(page.predicates[0])).toMatch(/"id" IN \(SELECT "id" FROM .*"category\.name"/s);
+    expect(String(page.predicates[0])).toMatch(/"dense_id" IN \(SELECT "dense_id" FROM .*"category\.name"/s);
   });
 
   it("keeps none of a relation's rows when it shares no type with the chip's", () => {

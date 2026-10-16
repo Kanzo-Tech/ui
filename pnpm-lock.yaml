@@ -257,9 +257,9 @@ importers:
       '@ark-ui/react':
         specifier: ^5.37.2
         version: 5.37.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@duckdb/duckdb-wasm':
-        specifier: 1.33.1-dev57.0
-        version: 1.33.1-dev57.0
+      '@kanzo-tech/fixtures':
+        specifier: workspace:*
+        version: link:../../fixtures
       '@kanzo-tech/kernel':
         specifier: workspace:^
         version: link:../kernel
