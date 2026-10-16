@@ -4,6 +4,7 @@ import type { LookPatch } from "../render/graph-looks";
 import type { Sim } from "../render/graph-sim";
 import type { Binding, Channels } from "./channels";
 import type { Encoding, Geometry } from "./load";
+import type { MappingModel } from "@kanzo-tech/relations";
 import type { Structure } from "./structure";
 import type { Motion, VertexSelection, VertexSelectionSource, Tool, VertexId } from "./types";
 
@@ -45,6 +46,13 @@ export interface GraphOptions extends Channels {
    * layout whatever this says.
    */
   simulate?: boolean;
+  /**
+   * What the graph's RML mapping states that its catalog does not — rudof's `Mapping.model()` of the
+   * `mapping.ttl` written beside it, as `withMapping` reads it. A column's datatype is read from it,
+   * so a year stored as an `int32` is a time the timeline offers. It may arrive after the first paint:
+   * a new mapping re-describes the graph already read and reads nothing.
+   */
+  mapping?: MappingModel;
   /**
    * Every failure, as it was thrown: fossil's own errors arrive whole, with their `code`, and the
    * graph's are `Problem`s coded `graph/*`. Required: unhandled, a browser with no WebGL context shows an empty box.

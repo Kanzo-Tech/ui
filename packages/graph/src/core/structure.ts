@@ -51,6 +51,8 @@ export interface Column {
   readonly nullable: boolean;
   /** The writer's counts, from the chunk's footer, or `null` where it states none — and for a list. */
   readonly stats: JoinColumnStats | null;
+  /** The literal datatype IRI the host's mapping states (`GraphOptions.mapping`): `xsd:gYear` over an `int32`. */
+  readonly datatype?: string;
 }
 
 /** A GraphAr `list` or `set` property, which DuckDB reads as `T[]`: a value of the type, not a key to group, place or time by. */

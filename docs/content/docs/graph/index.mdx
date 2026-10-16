@@ -334,9 +334,10 @@ named apart from the toolbar's layout transport, which is a play button too.
 
 - **The column is a setting.** `time-by` — *Timeline* in the graph's settings — offers the corpus's
   temporal columns, the way *X axis* offers its numeric ones, and `useGraphPrefs().timeline` is the
-  one chosen, `""` for none. A column is temporal by its GraphAr type: a `date` or a `timestamp`. A
-  year stored as an `int32` is a number — GraphAr has no year type, and the `xsd:gYear` lives in the
-  graph's mapping ([why](/docs/design/timeline)).
+  one chosen, `""` for none. A column is temporal by its GraphAr type, a `date` or a `timestamp`, or
+  by its datatype in the graph's mapping: pass `mapping` — rudof's `Mapping.model()` of the
+  `mapping.ttl` beside the graph — and a year stored as an `int32` (`xsd:gYear`) is offered too.
+  Without it, such a year is a number ([why](/docs/design/timeline)).
 - **Only what is in the window stays in colour.** The window is a clause on `vertices`, the
   relation the canvas reads too, so the canvas reads it as published; the page crosses it into any
   other relation by `dense_id`, as it crosses a dashboard's. A vertex stays in colour when it has the column and its value is in the window;
@@ -708,6 +709,7 @@ writes it in.
 | `look` | `LookPatch` — form, over the package's own | `lookFrom()` |
 | `sim` | `Partial<Sim>` — forces, over the package's own | `simFrom()` |
 | `simulate` | `boolean` — runs the layout while true | `true` unless `x` and `y` are bound |
+| `mapping` | `MappingModel` — the graph's RML mapping, as `withMapping` reads it; a column's datatype comes from it. May arrive after the first paint | — |
 | `onSelect` | `(selection: Selection \| null) => void` | — |
 | `onFocus` | `(vertex: VertexId \| null) => void` | — |
 | `children` | `ReactNode` | — |

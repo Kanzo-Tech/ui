@@ -1,4 +1,4 @@
-import { readJoinGraph, type JoinGraph } from "@kanzo-tech/relations";
+import { readJoinGraph, withMapping, type JoinGraph, type MappingModel } from "@kanzo-tech/relations";
 import type { Queryable } from "@kanzo-tech/kernel";
 import { KEY, type Column, type EdgeTable, type Structure, type VertexTable } from "./structure";
 
@@ -13,15 +13,19 @@ export async function readCatalog(engine: Queryable, from: string, signal: Abort
   return structureOf(from, await readJoinGraph(engine, from, { signal }));
 }
 
-
-function structureOf(from: string, graph: JoinGraph): Structure {
+/**
+ * The catalog `from`'s `JoinGraph` as the canvas holds it, described by the host's `mapping` where it
+ * passed one: a column's `datatype` is the mapping's, which GraphAr's catalog does not state.
+ */
+export function structureOf(from: string, read: JoinGraph, mapping?: MappingModel): Structure {
+  const graph = mapping ? withMapping(read, mapping) : read;
   const vertices: VertexTable[] = [];
   let size = 0;
   for (const type of graph.types) {
     if (type.of) continue;
     const rows = type.rows ?? 0;
     const columns = new Map<string, Column>(
-      type.columns.map((c) => [c.name, { type: c.type, primary: c.role === "identity", nullable: c.nullable === true, stats: c.stats ?? null }]),
+      type.columns.map((c) => [c.name, { type: c.type, primary: c.role === "identity", nullable: c.nullable === true, stats: c.stats ?? null, ...(c.datatype ? { datatype: c.datatype } : {}) }]),
     );
     const identity = type.columns.find((c) => c.role === "identity")?.name ?? KEY;
     vertices.push({ name: type.name, first: size, rows, table: type.table as VertexTable["table"], columns, identity });
