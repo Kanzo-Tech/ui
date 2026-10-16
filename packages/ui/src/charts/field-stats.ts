@@ -2,7 +2,7 @@
 
 import { type TableExpr, Query, jsType, sql } from "@kanzo-tech/mosaic";
 import { type Engine, internalCoordinatorOf } from "@kanzo-tech/mosaic/engine";
-import { type JoinAnnotation, type JoinColumn, type JoinGraph, type Relation, type RelationExpr, relationColumns } from "@kanzo-tech/relations";
+import { type JoinAnnotation, type JoinColumn, type JoinGraph, type Relation, type RelationExpr, relationColumns, TEMPORAL_DATATYPES } from "@kanzo-tech/relations";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo } from "react";
 import { chartTableKey } from "./chart-spec.js";
@@ -62,9 +62,6 @@ export interface FieldStatsOptions {
 /** A column as `fieldStats` reads it: as described, whether its type's writer found it a key, and what the data calls it. */
 export type FieldColumn = JoinColumn & { readonly candidateKey?: boolean; readonly label?: string };
 
-const XSD = "http://www.w3.org/2001/XMLSchema#";
-/** The literal datatypes that are a time, whatever the column stores them as: a year is an integer. */
-const TEMPORAL_DATATYPES: ReadonlySet<string> = new Set(["date", "dateTime", "gYear", "gYearMonth"].map((t) => `${XSD}${t}`));
 /** The writer's roles that name a row rather than say anything of it. */
 const IDENTIFYING_ROLES: ReadonlySet<string> = new Set(["address", "identity", "endpoint"]);
 /** The term types whose values are names, not values: RML-Core's, which a mapping states, and R2RML's, which a corpus did. */

@@ -13,6 +13,7 @@
  * joined relation is a `TableExpr` like any table. `relation.ts`.
  */
 export {
+  TEMPORAL_DATATYPES,
   relationColumns,
   relationHops,
   relationKey,

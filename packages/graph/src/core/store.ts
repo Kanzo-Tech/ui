@@ -5,7 +5,8 @@ import { bindingOf } from "./channels";
 import { GraphClient, publish } from "./client";
 import { Problem } from "@kanzo-tech/kernel";
 import { loadEncoding, loadGeometry, type Encoding, type Geometry } from "./load";
-import { readCatalog } from "./catalog";
+import { readJoinGraph, type JoinGraph } from "@kanzo-tech/relations";
+import { structureOf } from "./catalog";
 import { VERTICES } from "./source";
 import { KEY, type Structure } from "./structure";
 import { drawnOf, idsOf, keptOf, maskOf } from "./kept";
@@ -35,6 +36,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
   let shownOnce = false, unwatch: (() => void) | null = null;
   let binding = bindingOf(initial);
   let structure: Structure | null = null;
+  let catalog: JoinGraph | null = null; // as read, before the host's mapping describes it
   let geometry: Geometry | null = null;
   let encoding: Encoding | null = null;
   let kept: Float64Array | null = null;
@@ -155,7 +157,8 @@ export function createGraph(initial: GraphOptions): GraphStore {
   function loadStructure(): void {
     const { engine, from } = options;
     if (engine === null || from === null) return;
-    read("structure", (signal) => readCatalog(engine, from, signal), (next) => {
+    read("structure", (signal) => readJoinGraph(engine, from, { signal }), (graph) => {
+      const next = structureOf(from, graph, options.mapping);
       if (next.size === 0) {
         failed = true;
         fail(new Problem("graph/nothing-to-draw", `the graph attached as ${from} has no vertex`));
@@ -167,6 +170,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
         return;
       }
       structure = next;
+      catalog = graph;
       loadPositions();
       client?.requestQuery();
     });
@@ -201,7 +205,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     // A new corpus: the old one's pick goes from the page with its vertices.
     if (client && published && structure) publish(published, client, KEY, null, "");
     published = null;
-    structure = geometry = encoding = null;
+    catalog = structure = geometry = encoding = null;
     kept = mask = null;
     arrangement = null;
     uploaded = [];
@@ -298,6 +302,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
         return reset();
       }
       if (active && scope() !== (previous.filterBy ?? own)) connect();
+      if (next.mapping !== previous.mapping && catalog && next.from !== null) structure = structureOf(next.from, catalog, next.mapping);
       if (binding.x !== before.x || binding.y !== before.y) loadPositions();
       else if (
         binding.category !== before.category ||
