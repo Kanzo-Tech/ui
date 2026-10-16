@@ -39,10 +39,18 @@ depends on `@kanzo-tech/kernel` and on the mosaic door for the names it prints, 
 depend on it downward; none constructs a `JoinGraph` of its own.
 
 **A `JoinGraph` is validated where it is made.** The type is a plain object, and a `JoinType.key`
-absent from its `columns` made `relationColumns` invent `{ name, type: "" }`. A constructor that
-returns a graph checks that a key is a column, that an edge's endpoints are types, that two edges of
-one label do not leave one type the same way unnamed; it throws a `Problem` `relations/invalid` naming
-the type or the edge. A host's own graph, which describes only `name` and `type`, passes.
+absent from its `columns` made `relationColumns` invent `{ name, type: "" }`. Every function that
+returns a graph — `readJoinGraph`, `withMapping` — ends in one check (`checked`, `relation.ts`): a
+type's name and an edge's are each unique, so two edges of one label leaving one type the same way
+are told apart by name, as their path segment is; a key is one of its type's columns; an edge's ends
+and a union's members are types of the graph. The first contradiction throws a `Problem`
+`relations/invalid` whose `data` names the `type` or the `edge`. A host's own graph, which describes
+only `name` and `type`, passes.
+
+*Held by* `packages/relations/src/relation.test.ts`, "passes a graph that describes only each
+column's name and type", "refuses a type whose key is none of its columns, naming the type",
+"refuses two types of one name, and a union of a type the graph does not have", "refuses two edges of
+one name, and an edge whose end is no type, naming the edge".
 
 **What would reverse it:** a catalog fact a `JoinGraph` cannot carry — a non-key identity, a
 property on an edge — which GraphAr may need. Then `JoinGraph` grows the field, not a sibling type;
