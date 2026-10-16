@@ -92,8 +92,19 @@ registries share a grammar and a generator and never a list, so a host adds a co
 this library. fossil's own codes stay in fossil's catalogue, generated from its Rust type; a
 `FossilError` is read structurally and not re-registered here.
 
-*Open, decided by the work and not by this page:* whether the generator for Rust is shipped from this
-repository or written once in keasy's `xtask`. The grammar and the source are what this page fixes.
+**The Rust generator is the consuming server's, in its own `xtask`, and this library ships the
+`.bnf`, not a generator** (decision 1-B, 16 October 2026). keasy's `xtask` reads `problems.bnf` from
+the `@kanzo-tech/kernel` package it installs from npm — the file is in the package's `files` and its
+`exports` (`@kanzo-tech/kernel/problems.bnf`) for exactly this — and writes its Rust table beside its
+own `rbac/*` registry, with the same generator over both. What this repository fixes is the grammar,
+the file and the version it is published at; a server pins the version its table was generated from,
+and a new code reaches it when it upgrades the package, as any dependency's change does. The
+alternative, 1-A, a Rust generator published from here (a crate or a binary), would put a second
+language's toolchain, release and CI into a TypeScript repository for one consumer, and a server would
+then wait on this repository to change how its own table is shaped — its derives, its error
+enum, its HTTP mapping — which are its choices, not the registry's. *What would reverse it:* a second
+Rust consumer that writes the same generator again, or a generator keasy's and that consumer's tables
+disagree through — then the generator is shared, published once, and this paragraph names where.
 
 **What would reverse it:** the registry having one writer in one language, in which case it is a
 module and not a generated file.
