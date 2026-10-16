@@ -12,9 +12,9 @@ import { useMosaic, useRelation } from "./mosaic-provider.js";
  * **What a relation's columns can do in a dashboard**, from what the data says of them — never from a
  * column's name or a threshold (`/docs/design/fields`).
  *
- * What a column is comes from its description: over a corpus, the join graph's (`relationColumns`),
+ * What a column is comes from its description: over a graph, the join graph's (`relationColumns`),
  * which is the manifest's; anywhere else, the engine's type alone. What it holds comes from the
- * corpus's profile, the counts its writer took; a relation with none is read with one `SUMMARIZE`.
+ * graph's profile, the counts its writer took; a relation with none is read with one `SUMMARIZE`.
  *
  * The type words are Mosaic's own `jsType`, so a column is numeric here exactly when it is numeric
  * to every mark and input on this subpath. A type `jsType` does not know (an interval, a bit
@@ -46,9 +46,9 @@ export interface FieldStat {
   /** The extent of a numeric or temporal field — a temporal one in epoch milliseconds. */
   min?: number;
   max?: number;
-  /** Its commonest values, the commonest first, where the corpus's writer counted them. */
+  /** Its commonest values, the commonest first, where the graph's writer counted them. */
   values?: readonly string[];
-  /** What the corpus annotates the column with — its `rdfs:label` among them — where it says. */
+  /** What the graph annotates the column with — its `rdfs:label` among them — where it says. */
   annotations?: readonly JoinAnnotation[];
   /** What the field is called, where the data labels it (`relationColumns`): what a title and a chip read it as. */
   label?: string;
@@ -67,7 +67,7 @@ const XSD = "http://www.w3.org/2001/XMLSchema#";
 const TEMPORAL_DATATYPES: ReadonlySet<string> = new Set(["date", "dateTime", "gYear", "gYearMonth"].map((t) => `${XSD}${t}`));
 /** The writer's roles that name a row rather than say anything of it. */
 const IDENTIFYING_ROLES: ReadonlySet<string> = new Set(["address", "identity", "endpoint"]);
-/** The term types whose values are names, not values: RML-Core's, which a mapping states, and R2RML's, which a corpus did. */
+/** The term types whose values are names, not values: RML-Core's, which a mapping states, and R2RML's, which a fossil corpus did. */
 const NAMING_TERMS: ReadonlySet<string> = new Set(["IRI", "UnsafeIRI", "BlankNode", "rr:IRI", "rr:BlankNode", "http://www.w3.org/ns/r2rml#IRI", "http://www.w3.org/ns/r2rml#BlankNode"]);
 
 function kindOf(column: FieldColumn): FieldKind | null {

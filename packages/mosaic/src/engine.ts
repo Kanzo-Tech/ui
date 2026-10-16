@@ -25,7 +25,7 @@ import { isSecret, redact } from "./redact.js";
  * `query` — `CREATE OR REPLACE SECRET … (TYPE s3, …, SCOPE 's3://bucket/prefix/')` — and names the
  * objects by their own URLs. There is no method for it: the secret is SQL, and `query` is the door.
  *
- * **It reads Parquet and JSON from boot.** `parquet` is loaded before `httpfs`, since every corpus is
+ * **It reads Parquet and JSON from boot.** `parquet` is loaded before `httpfs`, since every graph is
  * Parquet and the boot sets its footer cache; `json` after them, for `read_json_auto` — a JSON source a
  * profile or a query names, and `loadJSON`. DuckDB-WASM builds in none of the three: its one statically
  * linked extension is `core_functions`.
@@ -319,7 +319,7 @@ async function start(forget: () => void, made: (duckdb: Duck) => void): Promise<
   for (const extension of build.extensions) await coordinator.exec(`LOAD '${extension}'`);
   // Files are read lazily by range; caching their metadata is what keeps a pan from re-probing, and
   // caching Parquet footers is what keeps every tile read from re-reading one that grows with the
-  // corpus — 2.2× on a window's reads, measured in fossil on 2026-09-30.
+  // graph — 2.2× on a window's reads, measured in fossil on 2026-09-30.
   await coordinator.exec("SET enable_http_metadata_cache = true");
   await coordinator.exec("SET parquet_metadata_cache = true");
   await coordinator.exec(`SET memory_limit = '${memoryLimit()}MiB'`);

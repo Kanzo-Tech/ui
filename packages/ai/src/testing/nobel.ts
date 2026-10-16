@@ -1,4 +1,4 @@
-// The Nobel example's graph for the Ask tests, as `readJoinGraph` reads it from a corpus — every
+// The Nobel example's graph for the Ask tests, as `readJoinGraph` reads it from an attached graph — every
 // column described, and what its writer counted — and the
 // model double answering with specs. Not part of the published build (`vite.config.ts` excludes `src/testing`).
 
@@ -17,7 +17,7 @@ const edge = (source: string, label: string, destination: string) => ({
   dst: "dst",
 });
 
-/** A column as the corpus describes it: a number or a text, and what its writer counted — its commonest values among them. */
+/** A column as the graph describes it: a number or a text, and what its writer counted — its commonest values among them. */
 const column = (name: string, kind: "numeric" | "categorical", values: string[] = []): JoinColumn => ({
   name,
   type: kind === "numeric" ? "BIGINT" : "VARCHAR",

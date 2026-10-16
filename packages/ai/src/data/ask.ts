@@ -69,7 +69,7 @@ export interface AskContext {
 const HOPS = 3;
 
 /**
- * **A relation, with its fields as the corpus describes them** — what Ask is offered and what its
+ * **A relation, with its fields as the graph describes them** — what Ask is offered and what its
  * answer's card draws by, so the model and the card are told the same: `fieldStats` over the graph's
  * descriptions of its columns (`relationColumns`), its steps' keys left out, and the fields the
  * plots can read (`plotRelation`). Nothing is read from the engine.

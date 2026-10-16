@@ -28,7 +28,7 @@ export interface GraphRootProviderProps {
 
 /**
  * The context, and the graph's section owner under it: whatever sits beneath a root — a settings
- * tab, a dock, one `<Pref>` — draws the graph's preferences with the corpus's columns in hand.
+ * tab, a dock, one `<Pref>` — draws the graph's preferences with the graph's columns in hand.
  */
 export function GraphRootProvider({ children, value }: GraphRootProviderProps) {
   return (

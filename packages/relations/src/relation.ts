@@ -12,7 +12,7 @@ import { labelOf, namingColumn } from "./words.js";
  */
 
 /**
- * An annotation of a type, an edge or a column — ShEx 2.1's `Annotation` (§5.9), as the corpus
+ * An annotation of a type, an edge or a column — ShEx 2.1's `Annotation` (§5.9), as the graph
  * states it: a predicate IRI, and an object that is an IRI or a literal. It is about the schema, never
  * about the data: a `rdfs:label` in a language is what a reader calls the thing.
  */
@@ -22,7 +22,7 @@ export interface JoinAnnotation {
 }
 
 /**
- * **What a column holds**, as the corpus's writer counted it over every row: the reference's own
+ * **What a column holds**, as the graph's writer counted it over every row: the reference's own
  * names — Parquet's `Statistics` for the counts and the bounds, PostgreSQL's `pg_stats` for the
  * commonest values and their share of the rows. A bound or a value is its lexical text.
  */
@@ -36,7 +36,7 @@ export interface JoinColumnStats {
 }
 
 /**
- * **A column, as the corpus describes it** — what it is, and what it holds. Only `name` and `type`
+ * **A column, as the graph describes it** — what it is, and what it holds. Only `name` and `type`
  * are always there; every other fact is the catalog's to state, and absent where it states none.
  */
 export interface JoinColumn {
@@ -62,7 +62,7 @@ export interface JoinType {
   readonly table: TableExpr;
   /** The column every edge end references, which identifies a row across the whole graph. */
   readonly key: string;
-  /** Every column of the type, its key's among them, each as the corpus describes it. */
+  /** Every column of the type, its key's among them, each as the graph describes it. */
   readonly columns: readonly JoinColumn[];
   /** The columns never null and never repeated, as the writer counted them. */
   readonly candidateKeys?: readonly string[];

@@ -40,7 +40,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
   let mask: Uint8Array | null = null;
   let arrangement: Arrangement | null = null;
   let uploaded: readonly unknown[] = [];
-  /** Aborted when the corpus changes, the root goes and a retry starts the load anew. */
+  /** Aborted when the graph changes, the root goes and a retry starts the load anew. */
   const reads = createReads();
   let client: GraphClient | null = null;
   let connected: Coordinator | null = null;
@@ -198,7 +198,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     reads.stop();
     failed = false;
     shownOnce = false;
-    // A new corpus: the old one's pick goes from the page with its vertices.
+    // A new graph: the old one's pick goes from the page with its vertices.
     if (client && published && structure) publish(published, client, KEY, null, "");
     published = null;
     structure = geometry = encoding = null;

@@ -4,7 +4,7 @@ description: A dashboard over any relation for finding what it holds — a filte
 ---
 
 `Dashboard` is the charts grammar composed for a relation you have not seen. It reads the
-relation's fields from what its data says of them — a corpus's description and counts, or one DuckDB
+relation's fields from what its data says of them — a graph's description and counts, or one DuckDB
 `SUMMARIZE` — draws a dashboard from them — or from a spec you
 saved — and lets the reader edit every tile of it. The host brings four things: a
 `MosaicProvider`, the relation, somewhere to keep the spec, and an aside for the editor. The relation can be a table or a
@@ -87,8 +87,8 @@ way.
 ## How a relation is read
 
 `useFieldStats(relation)` reads what the data says of each column, and guesses nothing from a
-column's name or a count. Over the page's `joins` — a fossil corpus's, from
-[`readJoinGraph`](/docs/graph#readjoingraph) — each column is described by the corpus, what it is
+column's name or a count. Over the page's `joins` — an attached graph's, from
+[`readJoinGraph`](/docs/graph#readjoingraph) — each column is described by the graph, what it is
 and what its writer counted in it, and nothing is queried. Anywhere else, and for a relation whose
 columns the writer did not count, it runs one `SUMMARIZE` — a query on the host's `QueryClient`, so
 the `QueryClientProvider` [the analytics page asks for](/docs/analytics#what-to-install) is above
@@ -140,7 +140,7 @@ a search over `id`, which the page declares the contracts' key, and a slider ove
 <Callout type="warn">
 A column named like a plot channel — `x`, `y`, `x1`, `x2`, `y1`, `y2`, `fx`, `fy`, `z`, `fill`,
 `stroke` — is never a field, and the plots read the relation without it. A layout's coordinates on a
-graph corpus are the usual case. [Why, and what it costs](/docs/analytics/pitfalls#columns-named-like-a-channel).
+graph are the usual case. [Why, and what it costs](/docs/analytics/pitfalls#columns-named-like-a-channel).
 </Callout>
 
 ## The automatic dashboard
@@ -359,7 +359,7 @@ classified `FieldStat`s, `columns` every column of the relation in its own order
 Both are `null` until the fields are known. `error` is the thrown value, whole and typed `unknown`,
 and it is also handed to the provider's `onFailure`; narrow it before reading `.message`.
 
-A field carries what the corpus says beside its kind and role: `distinct`, the writer's exact count
+A field carries what the graph says beside its kind and role: `distinct`, the writer's exact count
 (or `SUMMARIZE`'s estimate where there is none), its extent, its commonest `values` and its
 `annotations` — its `rdfs:label` among them.
 
@@ -532,7 +532,7 @@ The `JoinGraph` is plain data a reader builds from its own catalog — `JoinType
 and `dst` columns holding each end's key). A type's `columns` are descriptions, `JoinColumn`: a
 column's name and DuckDB type, and whatever its catalog states of it — its `role`, `datatype`,
 `termType`, `iri`, whether it is `nullable`, its `annotations` (`JoinAnnotation`) and what its writer
-counted in it (`stats`, a `JoinColumnStats`). For a fossil corpus, `@kanzo-tech/graph`'s
+counted in it (`stats`, a `JoinColumnStats`). For a GraphAr graph, `@kanzo-tech/graph`'s
 [`readJoinGraph`](/docs/graph#readjoingraph) builds it from the catalog the graph already reads; a
 graph of your own describes what it knows, and only `name` and `type` are required.
 
@@ -755,7 +755,7 @@ interface FieldStat {
   min?: number;        // the extent of a numeric or temporal field —
   max?: number;        //   a temporal one in epoch milliseconds
   values?: readonly string[];               // the commonest values, where the writer counted them
-  annotations?: readonly JoinAnnotation[];  // what the corpus annotates the column with
+  annotations?: readonly JoinAnnotation[];  // what the graph annotates the column with
   label?: string;                           // what the data calls it: what a title reads
 }
 type FieldColumn = JoinColumn & { candidateKey?: boolean; label?: string };

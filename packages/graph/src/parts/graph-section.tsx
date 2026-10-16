@@ -13,10 +13,10 @@ import { ShapeGlyph } from "./shape-glyph";
 type PrefOption = Parameters<PrefSpecimen>[0];
 
 /**
- * **What only the graph knows about its section** — the columns of the corpus it attached, and a
+ * **What only the graph knows about its section** — the columns of the graph it attached, and a
  * picture for each option a person picks by looking.
  *
- * `GRAPH_SECTION` says what may be set; a manifest is data, so it cannot know a corpus or draw a
+ * `GRAPH_SECTION` says what may be set; a manifest is data, so it cannot know a graph or draw a
  * mark. The root can, and it says so the way every section's owner does: a `SectionProvider` over
  * its subtree, which is how a `<Pref>` anywhere beneath — or `PreferencesSections namespace="graph"`
  * — draws the whole control with no host passing a list it does not own. The theme provider does the

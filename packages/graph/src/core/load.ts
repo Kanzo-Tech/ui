@@ -10,7 +10,7 @@ import { columnNamed, firstOf, readColumns, readLinks, sizeOf, vertexTypes } fro
  * its own slice and nothing is resolved row by row.
  */
 
-/** Where the vertices start and how they connect — read once per corpus and per position binding. */
+/** Where the vertices start and how they connect — read once per graph and per position binding. */
 export interface Geometry {
   readonly structure: JoinGraph;
   /** Every vertex: ids `0 … size − 1`. */
@@ -49,7 +49,7 @@ export interface Encoding {
  */
 export const spaceFor = (size: number): number => (size > 200_000 ? 8192 : 4096);
 
-/** A seeded `[0, 1)`: the same start for the same corpus, so a layout is reproducible. */
+/** A seeded `[0, 1)`: the same start for the same graph, so a layout is reproducible. */
 function random(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
@@ -94,9 +94,9 @@ function extentOf(positions: Float32Array): Geometry["extent"] {
 }
 
 /**
- * Whether any vertex table has the column — the corpus's own judgement of a binding.
+ * Whether any vertex table has the column — the graph's own judgement of a binding.
  *
- * A column is chosen on one corpus and stored per person, so it reaches corpora that lack it. Such a
+ * A column is chosen on one graph and stored per person, so it reaches graphs that lack it. Such a
  * binding is UNBOUND rather than a column of nulls: positions of `NaN` everywhere, or a cluster
  * force with no clusters, would be a picture of nothing. It is `resolvePref`'s rule — a value the
  * options no longer hold falls back — applied where the options are known.
@@ -150,7 +150,7 @@ export async function loadEncoding(
   signal?: AbortSignal,
 ): Promise<Encoding> {
   const { structure, size } = geometry;
-  // A cluster column the corpus lacks is unbound, as a position column is — see `carries`.
+  // A cluster column the graph lacks is unbound, as a position column is — see `carries`.
   const clusterBy = carries(structure, binding.cluster) ? binding.cluster : undefined;
   const select = [binding.category, binding.size, clusterBy].filter((c): c is string => c !== undefined);
   const answers = select.length > 0 ? await readColumns(engine, structure, [...new Set(select)], signal) : [];

@@ -15,7 +15,7 @@ export interface VertexPick {
   picked: string | null;
   /**
    * Publish `ids` as this place's clause, named `label` — replacing what it picked before — or
-   * withdraw it with `null`. A no-op before the corpus is read: there is no key to pick by yet.
+   * withdraw it with `null`. A no-op before the graph is read: there is no key to pick by yet.
    */
   pick(ids: readonly VertexId[] | null, label: string): void;
   /**

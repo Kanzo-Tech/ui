@@ -136,7 +136,7 @@ const TYPES = "\0types";
  * **Find a vertex and go to it** — a palette in Raycast's and Linear's shape over Cosmograph's search,
  * with Neo4j Bloom's prefixes: `type:<Type>` keeps a vertex table, `<column>:<value>` a column that
  * contains the value, and the rest is text the vertex's `title` — or its table's `identity` — must
- * contain. Each pause in typing asks the corpus once, on the page's engine, for the first
+ * contain. Each pause in typing asks the graph once, on the page's engine, for the first
  * `limit` matches and how many there are of each type; nothing is read before the reader types, and
  * no vertex's text is held in the page.
  *

@@ -28,11 +28,11 @@ import { useGraphState } from "../react/use-graph-state";
 import { scaleOf } from "../render/graph-model";
 import { ShapeGlyph } from "./shape-glyph";
 
-/** The words the inspector writes itself; a field's name is the corpus's and is never reworded. */
+/** The words the inspector writes itself; a field's name is the graph's and is never reworded. */
 export interface GraphInspectorTranslations {
   /** With nothing focused. */
   empty: string;
-  /** A focused vertex the corpus does not hold. */
+  /** A focused vertex the graph does not hold. */
   missing: string;
   /** A focused vertex whose read did not answer. */
   unread: string;
@@ -49,7 +49,7 @@ export interface GraphInspectorTranslations {
 
 const ENGLISH: GraphInspectorTranslations = {
   empty: "Click a vertex on the canvas to inspect it.",
-  missing: "This vertex is not in the corpus.",
+  missing: "This vertex is not in the graph.",
   unread: "This vertex could not be read.",
   locate: "Locate",
   copy: "Copy the IRI",
@@ -61,7 +61,7 @@ const ENGLISH: GraphInspectorTranslations = {
 
 export interface GraphInspectorProps extends Omit<React.ComponentProps<typeof ark.div>, "children"> {
   /**
-   * More fields for the focused vertex, drawn after the corpus's values — a `DataListItem` each. A
+   * More fields for the focused vertex, drawn after the graph's values — a `DataListItem` each. A
    * render prop rather than a table of formatters: what a product adds is markup, and the part never
    * learns what any of it means.
    */
@@ -100,7 +100,7 @@ const LONG = 160;
 
 /**
  * How every row lays out, a host's among them: set on the list, so a `DataListItem` the render prop
- * draws lines up with the corpus's without restating a class.
+ * draws lines up with the graph's without restating a class.
  */
 const rows = cn(
   "gap-0 text-xs",
@@ -131,7 +131,7 @@ function Value({ value, date, t }: { value: unknown; date: boolean; t: GraphInsp
   );
 }
 
-/** `null` is no such vertex in the corpus; `false` is a read that did not answer. */
+/** `null` is no such vertex in the graph; `false` is a read that did not answer. */
 type Answer<T> = { vertex: VertexId; value: T | null | false } | null;
 
 /**
@@ -161,7 +161,7 @@ function useRead<T>(
 }
 
 /**
- * **The focused vertex, fetched and laid out by the corpus's own tables** — the Linkurious inspector's
+ * **The focused vertex, fetched and laid out by the graph's own tables** — the Linkurious inspector's
  * shape. The loaded graph carries what the channels project and nothing else, so the rest of the row
  * is read when a reader focuses it — one statement on its table, by its key, on the page's engine;
  * focusing another vertex stops it.

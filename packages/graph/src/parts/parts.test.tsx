@@ -380,10 +380,10 @@ describe("GraphInspector", () => {
     expect(screen.queryByRole("button", { name: /neighbours/i })).toBeNull();
   });
 
-  it("says a vertex is not in the corpus, and reports nothing", async () => {
+  it("says a vertex is not in the graph, and reports nothing", async () => {
     const { held, onFailure } = await inspecting();
     act(() => held.api?.setFocus(99));
-    await waitFor(() => expect(screen.getByText("This vertex is not in the corpus.")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("This vertex is not in the graph.")).toBeTruthy());
     expect(screen.queryByText("This vertex could not be read.")).toBeNull();
     expect(onFailure).not.toHaveBeenCalled();
   });
@@ -394,7 +394,7 @@ describe("GraphInspector", () => {
     corpus.refuse(/WHERE \("_graphArVertexIndex" = 6\)$/, refused);
     act(() => held.api?.setFocus(6));
     await waitFor(() => expect(screen.getByText("This vertex could not be read.")).toBeTruthy());
-    expect(screen.queryByText("This vertex is not in the corpus.")).toBeNull();
+    expect(screen.queryByText("This vertex is not in the graph.")).toBeNull();
     expect(onFailure).toHaveBeenCalledExactlyOnceWith(refused);
   });
 });

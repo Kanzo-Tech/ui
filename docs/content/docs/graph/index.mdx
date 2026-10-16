@@ -89,7 +89,7 @@ the surface, but `GraphToolbar`, `GraphLegend`, `GraphStatus`, `GraphCounts`, `G
 `GraphInspector` each read the root's context directly, so each can sit anywhere under it — over the canvas, in a
 dock, in a footer. **The graph's settings are not a part.** They are `GRAPH_SECTION`, drawn by
 `@kanzo-tech/ui`'s `PreferencesSections` or composed from its `<Pref>`, and the root is the section's
-owner: it answers the corpus's columns and the cards' pictures to whatever sits beneath it —
+owner: it answers the graph's columns and the cards' pictures to whatever sits beneath it —
 [Settings](#settings).
 
 ## The mental model
@@ -167,7 +167,7 @@ filter a placed row keeps its *n of m* and the group keeps its totals. When no r
 ends placed, a line under the rows says *No edges have both ends on the map.*
 
 The names are the root's, never the legend's, so the hover card, the search and the inspector say
-the same thing. How much of the corpus there is, and how much the filter keeps, is not the legend's:
+the same thing. How much of the graph there is, and how much the filter keeps, is not the legend's:
 it is `GraphCounts`.
 
 ### Counts
@@ -194,7 +194,7 @@ Whether a layout runs is `GraphStatus`'s word.
 **Where the graph is, in one word**: Loading, Laying out 42%, Ready or Failed. It reads both axes
 of the state — the data's `status` and the layout's `motion` with `progress` — so a layout running
 over a drawn graph says "Laying out", never the data's `idle`; a load wins over a layout, and a root
-with no corpus yet says Loading. A `Badge` with a `Status` dot: info while busy, success when ready,
+with no graph yet says Loading. A `Badge` with a `Status` dot: info while busy, success when ready,
 destructive when failed.
 
 The word is a polite live region, announced once per change; the percentage sits outside it, because
@@ -216,7 +216,7 @@ search, built on `Command`. The workspace at the top of this page carries one: p
 **In the page it is a cue**: a button styled as a field that prints ⌘K and holds nothing, Shark's own
 command trigger. It, ⌘K and Ctrl+K open the palette, centred and full-height over the canvas — a
 `CommandDialog` with `hotkey="mod+k"`. One palette per page, so nothing arbitrates the key; the cue
-declares it as `aria-keyshortcuts`. Each pause in typing (150 ms) asks the corpus once, on the
+declares it as `aria-keyshortcuts`. Each pause in typing (150 ms) asks the graph once, on the
 engine, for the first `limit` matches and how many there are of each type; nothing is read
 before the reader types and no text is held in the page. Matches are grouped by vertex type — named by
 the root's `categories` and counted past the limit — each with the glyph the canvas draws it in, the
@@ -307,7 +307,7 @@ read when a reader focuses it: one `SELECT` of its table at its `dense_id`.
   a class of its own.
 
 **`children` is a render prop**: it receives the `VertexDetail` and draws fields of the product's own,
-a `DataListItem` each, after the corpus's values — here the hall's name, where the relation stores
+a `DataListItem` each, after the graph's values — here the hall's name, where the relation stores
 its id.
 
 ### Timeline
@@ -332,7 +332,7 @@ that has not drawn yet have drawn, then shows them together — a rule of the gr
 timeline's. Give the band its height from the first render (`minHeight`), and it does not jump. It is
 named apart from the toolbar's layout transport, which is a play button too.
 
-- **The column is a setting.** `time-by` — *Timeline* in the graph's settings — offers the corpus's
+- **The column is a setting.** `time-by` — *Timeline* in the graph's settings — offers the graph's
   temporal columns, the way *X axis* offers its numeric ones, and `useGraphPrefs().timeline` is the
   one chosen, `""` for none. A column is temporal by its GraphAr type: a `date` or a `timestamp`. A
   year stored as an `int32` is a number — GraphAr has no year type, and the `xsd:gYear` lives in the
@@ -345,7 +345,7 @@ named apart from the toolbar's layout transport, which is a play button too.
   filtered through its relation's root, so one whose root has no such column shows no rows, and the
   chip that says why names the column: *birthday 1981 – 1985*.
 - **A date on a relation is a vertex** — the year of a prize, the day two people met — because a
-  corpus has no edge properties yet ([why](/docs/design/timeline)). Playing it greys the relations
+  graph has no edge properties yet ([why](/docs/design/timeline)). Playing it greys the relations
   of other years and the edges into them.
 
 ### Settings
@@ -354,7 +354,7 @@ named apart from the toolbar's layout transport, which is a play button too.
 
 **The graph's settings are its section, drawn whole: one line.** `GRAPH_SECTION` declares what may
 be set — the picture, where the points come from and the forces — and `@kanzo-tech/ui` draws it. The
-root is the section's owner, as the theme provider is the core's: it answers the attached corpus's
+root is the section's owner, as the theme provider is the core's: it answers the attached graph's
 columns and the pictures on the cards to every `<Pref>` beneath it, so no host passes a list it
 does not own. [Sections](/docs/sections) has the whole model.
 
@@ -387,10 +387,10 @@ defaults, and so does this section. A preference a tenant pinned is not offered.
 | Additive links | switch | Links add where they overlap. Offered only while edges are drawn (`when`). |
 | Vignette · Dot grid | switches, two to a row | The backdrop. |
 | Placement | Force · Map · Clustered | Where the points come from — [Placement](#placement). Cards with a picture of each mode. |
-| X axis · Y axis | the corpus's numeric fields | Map's two columns. Offered only under Map. |
-| Group by | the corpus's fields | Clustered's column. Offered only under Clustered. |
+| X axis · Y axis | the graph's numeric fields | Map's two columns. Offered only under Map. |
+| Group by | the graph's fields | Clustered's column. Offered only under Clustered. |
 | Cluster pull | slider, its ends named | Offered only under Clustered: from *Links decide* to *Tight groups*. |
-| Timeline | the corpus's temporal fields | `useGraphPrefs().timeline`, the column a timeline over the graph reads — [Timeline](#timeline). |
+| Timeline | the graph's temporal fields | `useGraphPrefs().timeline`, the column a timeline over the graph reads — [Timeline](#timeline). |
 | Gravity · Repulsion · Link spring · Link distance · Friction | sliders | The forces. Offered only under Force. |
 
 **Labels are one ordered scale**, each level adding to the one before. **None** draws no text at all,
@@ -430,11 +430,11 @@ clearing it unbinds it.
 </GraphRoot>
 ```
 
-**A column is the person's, not the corpus's.** It is stored with their preferences, so it reaches
-corpora that lack it, and the root reads such a column as unbound — the layout runs — rather than as
+**A column is the person's, not the graph's.** It is stored with their preferences, so it reaches
+graphs that lack it, and the root reads such a column as unbound — the layout runs — rather than as
 a column of nulls. With one of Map's two columns chosen the layout runs too. **A vertex with no
 value in either column is not drawn**, and neither is an edge to it; `GraphCounts` and
-`GraphLegend` say how much of the corpus the map places, so a type with no position reads as one. **Latitude as `y` draws
+`GraphLegend` say how much of the graph the map places, so a type with no position reads as one. **Latitude as `y` draws
 north up**: cosmos.gl's space is y-up, and the placement into its square only scales and translates.
 
 ### Declared axes, without the panel
@@ -444,7 +444,7 @@ north up**: cosmos.gl's space is y-up, and the placement into its square only sc
 `lookFrom` and `simFrom` read the same `Record<string, string>` a preferences section produces —
 `GRAPH_SECTION` on `@kanzo-tech/graph/section` is the declaration — and `useGraphPrefs()` reads the
 placement beside them. A host under a preferences panel never calls the two itself: `useGraphPrefs()` does. A host
-that knows its corpus is large starts its users at other forces through the tenant policy, over the
+that knows its graph is large starts its users at other forces through the tenant policy, over the
 same declared axes.
 
 ## The channels are bindings
@@ -456,7 +456,7 @@ What a point wears is **bound on the root**, under the names Plot gives a point 
 <GraphRoot from="archive" engine={e} fill="kind" r="degree" onFailure={setFailure}>
 ```
 
-**Unbound, colour is the vertex type**, so a corpus with several types reads as several colours with
+**Unbound, colour is the vertex type**, so a graph with several types reads as several colours with
 nothing passed. **A CSS colour is a constant; anything else is a column.** That is Plot's rule, and
 it is what makes the monochrome picture a binding rather than a theme:
 
@@ -466,7 +466,7 @@ it is what makes the monochrome picture a binding rather than a theme:
 
 Identity has moved to shape, colour is free to mean the selection, and nothing had to know which of
 the two a look preferred. A constant is `var(…)`, a hex or a colour function, so a bare word is
-always a column, and a corpus with a column called `red` is not a trap.
+always a column, and a graph with a column called `red` is not a trap.
 
 **A binding is a column read.** `fill`, `r` and `cluster` as columns are read for each vertex table
 that has them; a table without the column draws its vertices as the null category. `fill` as a
@@ -483,7 +483,7 @@ column a running layout pulls together by. [Layout and camera](/docs/graph/layou
 has the rule.
 
 **`filterBy` is the page's selection** — `useMosaic().selection`, under a `MosaicProvider` given the
-corpus's `joins`. The graph is one more client of it, reading `vertices`. A chart's clause greys out on the canvas what it drops —
+graph's `joins`. The graph is one more client of it, reading `vertices`. A chart's clause greys out on the canvas what it drops —
 never hides it — and the reader's lasso or click is published back as a semi-join on
 the vertex key, for every client and not for the graph. A pick from beside the canvas — `usePick` —
 is a clause of its own, and filters the graph too. Removing that clause where it was published — a
@@ -633,13 +633,13 @@ back to the message.
   `useMemo`.
 - **`categories`' key order is the colour rank.** Reorder the keys and every category changes
   colour. Write the object once, in the order the colours should go, at module scope.
-- **`onFailure` is not optional.** Without it a browser with no WebGL, a corpus that will not read
+- **`onFailure` is not optional.** Without it a browser with no WebGL, a graph that will not read
   and a filter no table can answer all look like an empty canvas.
-- **A large corpus pays for the camera that follows the layout.** While a layout runs the camera
+- **A large graph pays for the camera that follows the layout.** While a layout runs the camera
   re-frames every 900 ms — or ten times its last stall, when that is longer — and so does Frame once a
   layout has run; each re-frame reads every position back from the GPU. Past tens of thousands of
   points that is a stall per re-frame —
-  [Layout and camera](/docs/graph/layout#large-corpora) has what to do.
+  [Layout and camera](/docs/graph/layout#large-graphs) has what to do.
 - **Register `GRAPH_SECTION` once, at module scope.** The graph's settings draw nothing without it, and
   a `sections` array built in render re-resolves every preference on every render.
 - **A hidden tab is a stopped graph.** The canvas draws on animation frames, and
@@ -652,7 +652,7 @@ back to the message.
 - **`getConnectedLinkIndices` is not a neighbourhood.** It returns only links whose *other* endpoint
   is also in the argument. `getNeighboringPointIndices` is the neighbourhood, in buffer indices.
 - **Every index cosmos.gl hands you is a buffer position.** Here a buffer position is the vertex's
-  `dense_id`, because the graph uploads the corpus in id order; in another host it would name
+  `dense_id`, because the graph uploads its vertices in id order; in another host it would name
   nothing stable.
 - **`highlightedPointIndices` does not grey links.** A link between two greyed points stays lit
   unless `highlightedLinkIndices` names the ones to keep — the filter sets both.
@@ -775,7 +775,7 @@ Takes the cue's props, a `Button`'s (`GraphSearchProps`).
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `children` | `(detail: VertexDetail) => ReactNode` — fields after the corpus's values | — |
+| `children` | `(detail: VertexDetail) => ReactNode` — fields after the graph's values | — |
 
 Extends `React.ComponentProps<typeof ark.div>` without its `children`. `translations`
 (`GraphInspectorTranslations`): `empty`, `missing`, `unread`, `locate`, `copy`, `values`, `dates`,
@@ -826,8 +826,8 @@ What `useGraphState` selects from.
 | `motion` | `Motion` — `"running" \| "paused" \| "settled"` | The layout's life. |
 | `progress` | `number` | How far a running layout has settled, `0`–`1`. |
 | `total` | `number \| undefined` | Every vertex of the graph, from `graphar_vertex_types`. |
-| `matching` | `number \| null` | The vertices of the corpus the page's filter keeps; `null` when nothing is filtered. |
-| `drawn` | `Drawn \| null` | `vertices`, `edges`, `domain` and `tally` under the filter; `placed` per rank with a position, `totals` per rank in the corpus, `links` loaded and `placedLinks` with both ends placed. |
+| `matching` | `number \| null` | The vertices of the graph the page's filter keeps; `null` when nothing is filtered. |
+| `drawn` | `Drawn \| null` | `vertices`, `edges`, `domain` and `tally` under the filter; `placed` per rank with a position, `totals` per rank in the graph, `links` loaded and `placedLinks` with both ends placed. |
 | `domain` | `readonly unknown[]` | The category domain before anything loads. |
 | `selection` | `VertexSelection \| null` | `vertices`, `source` (a `VertexSelectionSource` — `"marquee" \| "lasso" \| "node"`, the canvas's gestures) and `label`. |
 | `focus` / `hovered` | `VertexId \| null` | The focused and the hovered vertex. |
