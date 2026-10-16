@@ -68,15 +68,6 @@ export interface AskContext {
 /** How far a path may go from what is measured: a question three joins away is rare, four a guess. */
 const HOPS = 3;
 
-const resolvers = new WeakMap<JoinGraph, JoinResolver>();
-
-/** The resolver over `graph` — one per graph, so its walks are the page's whatever asks. */
-export function resolverOf(graph: JoinGraph): JoinResolver {
-  let resolver = resolvers.get(graph);
-  if (!resolver) resolvers.set(graph, (resolver = new JoinResolver(graph)));
-  return resolver;
-}
-
 /**
  * **A relation, with its fields as the corpus describes them** — what Ask is offered and what its
  * answer's card draws by, so the model and the card are told the same: `fieldStats` over the graph's
@@ -84,7 +75,7 @@ export function resolverOf(graph: JoinGraph): JoinResolver {
  * plots can read (`plotRelation`). Nothing is read from the engine.
  */
 export function answerRelation(relation: Relation, graph: JoinGraph): AnswerRelation {
-  const keys = resolverOf(graph).steps(relation).map((s) => s.key);
+  const keys = new JoinResolver(graph).steps(relation).map((s) => s.key);
   const stats = fieldStats(relationColumns(graph, relation), { exclude: keys });
   return { relation, columns: stats.columns, fields: plotRelation(relationQuery(graph, relation), stats).fields };
 }
@@ -148,12 +139,12 @@ function shownOf(spec: AskSpec): [at: string, path: string][] {
 
 /** The relation `spec` shows, as the resolver finds it from the paths it wrote; a miss names the path. */
 export function askRelation(spec: AskSpec, input: Pick<AskInput, "graph">): Relation | JoinMiss {
-  return resolverOf(input.graph).relation(spec.of, shownOf(spec).map(([, path]) => path));
+  return new JoinResolver(input.graph).relation(spec.of, shownOf(spec).map(([, path]) => path));
 }
 
 /** The facts of the field `path` reaches from `of`: the column's, on the type it is on. */
 export function factOf(path: string, of: string, input: Pick<AskInput, "graph">): FieldStat | undefined {
-  const resolver = resolverOf(input.graph);
+  const resolver = new JoinResolver(input.graph);
   const relation = resolver.relation(of, [path]);
   if ("code" in relation) return undefined;
   const type = resolver.steps(relation).at(-1)?.type;
@@ -203,7 +194,7 @@ function missed(miss: JoinMiss, at: string, spec: AskSpec): Diagnostic {
 
 /** The oracle the joins are: every path the spec writes is the graph's, what it shows on one path. */
 function joins(spec: AskSpec, input: AskInput): Finding[] {
-  const resolver = resolverOf(input.graph);
+  const resolver = new JoinResolver(input.graph);
   const shown = shownOf(spec);
   const relation = resolver.relation(spec.of, shown.map(([, path]) => path));
   if ("code" in relation) {
@@ -257,7 +248,7 @@ const stepsAmong = (paths: readonly string[]) =>
  * object, and Anthropic's and OpenAI's APIs refuse a root `anyOf`. `askOutput` takes the spec back out.
  */
 export function askSchema(context: AskContext, graph: JoinGraph): JSONSchema7 {
-  const resolver = resolverOf(graph);
+  const resolver = new JoinResolver(graph);
   const object = (properties: Record<string, JSONSchema7>, required: string[], description?: string): JSONSchema7 => ({
     type: "object",
     ...(description ? { description } : {}),
@@ -395,7 +386,7 @@ const length = (path: string) => path.split(".").length;
 /** Whether `a` and `b` reach one column of one type, the same number of steps from `of`: two ways to say one field. */
 function twins(a: string, b: string, of: string, input: AskInput): boolean {
   if (a === b || length(a) !== length(b)) return false;
-  const resolver = resolverOf(input.graph);
+  const resolver = new JoinResolver(input.graph);
   const end = (path: string) => {
     const relation = resolver.relation(of, [path]);
     return "code" in relation ? undefined : `${resolver.steps(relation).at(-1)?.type}.${path.slice(path.lastIndexOf(".") + 1)}`;
@@ -415,7 +406,7 @@ export function askAlternatives(spec: AskSpec, input: AskInput): AskChip[] {
   const holds = (next: AskSpec) => joins(next, input).length === 0 && compiles(next) === undefined;
   const offered = (candidates: readonly (readonly [string, AskSpec])[]) =>
     candidates.filter(([, next]) => holds(next)).map(([label, next]) => ({ label, spec: next }));
-  const paths = resolverOf(input.graph).paths(spec.of, HOPS);
+  const paths = new JoinResolver(input.graph).paths(spec.of, HOPS);
   // Every slot reads in the data's words: a type's label, a field's — the label of the type a naming
   // column names — and a path or a name only where nothing labels it.
   const words = (path: string) => factOf(path, spec.of, input)?.label ?? path;

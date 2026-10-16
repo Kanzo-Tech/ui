@@ -6,7 +6,6 @@ import { JoinResolver, relationQuery, type JoinGraph } from "@kanzo-tech/relatio
 import { plotRelation, TILE_ROWS, tileQuery } from "@kanzo-tech/ui/analytics";
 import type { QueryClient } from "@tanstack/react-query";
 import { pageClauses, type Answer, type AnswerRelation, type UnansweredClause } from "./answer.js";
-import { resolverOf } from "./ask.js";
 
 /** One row of an answer, plain enough to keep in a message. */
 export type QueryRow = Record<string, unknown>;
@@ -48,7 +47,7 @@ interface AnswerPage {
  */
 function statementOf(answer: Answer, about: AnswerRelation, page: AnswerPage) {
   const { graph, selection } = page;
-  const resolver = selection?.resolver instanceof JoinResolver ? selection.resolver : resolverOf(graph);
+  const resolver = selection?.resolver instanceof JoinResolver ? selection.resolver : new JoinResolver(graph);
   const plotted = plotRelation(relationQuery(graph, answer.relation), { fields: about.fields, columns: about.columns });
   const clauses = pageClauses(selection?.clauses ?? [], about.columns, { relation: answer.relation, resolver });
   const none = clauses.unanswered.length > 0 ? [literal(false)] : [];

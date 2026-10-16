@@ -30,7 +30,7 @@ import {
 } from "@kanzo-tech/ui/analytics";
 import type { AnswerOutput } from "./read.js";
 import { unansweredText } from "./answer.js";
-import { answerRelation, resolverOf } from "./ask.js";
+import { answerRelation } from "./ask.js";
 
 /** Every word `AnswerCard` draws. English by default. */
 export interface AnswerCardTranslations {
@@ -186,7 +186,7 @@ function Answered(props: { graph: JoinGraph; output: Required<AnswerOutput>; add
   const relation = output.answer.relation;
   // The page's resolver, as every tile reads through it; the graph's own where there is no page over it.
   const { selection } = useMosaic();
-  const resolver = selection.resolver instanceof JoinResolver && selection.resolver.joins === graph ? selection.resolver : resolverOf(graph);
+  const resolver = selection.resolver instanceof JoinResolver && selection.resolver.joins === graph ? selection.resolver : new JoinResolver(graph);
   const compiled = React.useMemo(() => {
     try {
       return { table: relationQuery(graph, relation), dashboardKey: relationKey(graph, relation), resolver, keys: resolver.steps(relation).map((s) => s.key) };

@@ -8,8 +8,7 @@ description: Why JoinGraph is the one read-model of a catalog, why a typed Catal
 > `CatalogReader` contract; `readJoinGraph(engine, from, { signal })` is its GraphAr reader and the
 > one way graph reads a catalog, graph's `Structure` and `joinGraphOf` are deleted, and a graph is
 > validated where it is made (`relations/invalid`). Still to build: the refusal of a type whose ids have
-> a gap, and the tests over a vendored fixture attached by the real attacher; keasy's `joinGraphOf` and
-> `ai`'s second resolver. The *Breaking* list at the end is what a consumer edits.
+> a gap, and the tests over a vendored fixture attached by the real attacher; keasy's `joinGraphOf`. The *Breaking* list at the end is what a consumer edits.
 
 Four things describe the same tables, columns, keys and labels. graph's `Structure` (a canvas's
 vertex and edge tables); mosaic's `JoinGraph` (types, edges, columns, stats, annotations); rudof's
@@ -170,9 +169,11 @@ symmetric-aggregate algorithm is not reproduced: `sum` and `avg` over a hop that
 count, and the pages say so
 ([analytics](/docs/design/analytics)).
 
-`segmentOf`, `joinPath` and `stepsOf` are the one definition of that syntax. `ai`'s `resolverOf(graph)`
-made a second `JoinResolver` per graph beside the page's, and the answer's card had to check that
-`selection.resolver.joins === graph`; with the model one, an Ask asks the page's resolver. A resolver
+`segmentOf`, `joinPath` and `stepsOf` are the one definition of that syntax. `ai`'s `resolverOf(graph)`,
+a cache of a second `JoinResolver` per graph beside the page's, is gone: a resolver holds nothing but
+its graph, so an answer reads through the page's resolver when the page is over the same graph and
+through relations' own `new JoinResolver(graph)` otherwise, and Ask's walks of a graph no page holds
+do the same. A resolver
 that cannot find a step throws a `Problem` `relations/no-step`, and `crossing()` no longer catches
 everything into `FALSE`: that a relation has no way across to a client is a decided state that keeps
 nothing, and a name that resolves to nothing is a failure that reaches `onFailure`.
