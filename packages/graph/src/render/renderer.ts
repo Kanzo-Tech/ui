@@ -9,7 +9,7 @@ import { appearance, forces, paint } from "./graph-model";
 import { resolveSim, type Sim } from "./graph-sim";
 import { createCamera, FIT_DURATION, glide } from "./camera";
 import { nearest } from "./direction";
-import { decayFor, highlighted, LINKS_WHILE_RUNNING, simulating } from "./motion";
+import { decayFor, highlighted, LINKS_WHILE_RUNNING, placedByData, simulating } from "./motion";
 import { cornersOf, placed, placementOf } from "./placement";
 import { holdDevice, webglBox } from "./webgl";
 
@@ -255,11 +255,12 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     sim = next;
     if (!live) return;
     graph.setConfigPartial(forces(next));
-    if (moved && store.getSnapshot().motion !== "paused") graph.start(REHEAT);
+    if (moved && !dataPlaces() && store.getSnapshot().motion !== "paused") graph.start(REHEAT);
   }
-
-  /** A layout runs from where the points are: enabling cosmos.gl's simulation keeps its positions. */
+  const dataPlaces = () => placedByData(store.getOptions(), store.getSnapshot());
+  /** A layout runs from where the points are, since enabling cosmos.gl's simulation keeps them — never over the data's. */
   function run(alpha: number): void {
+    if (dataPlaces()) return;
     if (!live) {
       live = true;
       graph.setConfigPartial({ enableSimulation: true, ...forces(sim) });
@@ -311,6 +312,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     }
     if (snapshot.selection !== last.selection || snapshot.focus !== last.focus || snapshot.kept !== last.kept) dirty.state = true;
     if (options.sim !== lastOptions.sim) applyForces(options.sim);
+    if (live && moving && placedByData(options, snapshot) && !placedByData(lastOptions, last)) graph.pause();
     const wants = simulating(options, snapshot.geometry);
     if (snapshot.geometry === last.geometry && wants !== simulating(lastOptions, last.geometry)) {
       if (wants) run(REHEAT);
@@ -341,7 +343,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     resume() {
       const settled = store.getSnapshot().motion === "settled";
       if (settled || !live) run(REHEAT);
-      else graph.unpause();
+      else if (!dataPlaces()) graph.unpause();
     },
     restart() {
       run(1);

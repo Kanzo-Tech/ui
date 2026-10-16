@@ -545,24 +545,33 @@ that owns the renderer, and neither load nor Loaded".
 ## Position is a channel
 
 `x` and `y` are bindings, Cosmograph's `pointXBy` and `pointYBy`. **Both bound, the data places the
-points and nothing simulates. Unbound, they start from a seeded Gaussian and cosmos.gl's force
-simulation runs on the GPU** — `simulate` overrides either way. `cluster` feeds `setPointClusters`.
+points and nothing simulates — not `simulate`, not the transport, not a change of forces. Unbound,
+they start from a seeded Gaussian and cosmos.gl's force simulation runs on the GPU**, unless
+`simulate={false}`. A layout over the data's positions only pushed them against the square's walls
+(vertical streaks at a map's edges, seen on OpenFlights), so the transport is disabled while they
+place the points, and binding the second axis stops a running layout before the new positions land. `cluster` feeds `setPointClusters`.
 fossil's writer stopped carrying a layout because a picture is a view's choice, not the graph's:
 the same graph is a map with `lon`/`lat`, and a force layout without them. How long the layout
 cools, the square it runs in and when it hides links follow the vertex count;
 [Layout and camera](/docs/graph/layout#how-the-layout-scales) has the rules and the gate that set
 them.
 
-**What would reverse it:** a layout worth computing offline again — a settle time past what a reader
+**What would reverse it:** for the layout over bound positions, a force that reads the data's
+positions as anchors — a link force between placed points that keeps each near its place — which
+would make a layout over a map a picture rather than streaks. For the binding itself, a layout worth computing offline again — a settle time past what a reader
 waits, at the scale that exists. Then fossil writes the columns and the host binds them, and nothing
 here changes.
 
-*Held by* `packages/graph/src/render/motion.test.ts`, "runs when the positions are a start, stands
-when they are data, and simulate overrides both", "cools in 600 frames up to 200,000 vertices and 240
+*Held by* `packages/graph/src/render/motion.test.ts`, "runs when the positions are a start unless
+simulate says not, and never when they are data", "cools in 600 frames up to 200,000 vertices and 240
 past them"; `packages/graph/src/core/store.test.ts`, "starts a layout from a seeded square when x and
 y are unbound, the same start every time", "draws the data's positions when x and y are bound, and
 leaves a table without them unplaced"; `packages/graph/src/render/renderer.test.ts`, "runs the layout
-by itself when x and y are unbound, in the square and with the decay for its size".
+by itself when x and y are unbound, in the square and with the decay for its size", "stands still when
+x and y are bound, whatever simulate says", "runs no layout over the data's positions: resume, restart
+and a change of forces start nothing", "stops a running layout as soon as the second axis is bound,
+before the geometry it asks for lands"; `packages/graph/src/parts/parts.test.tsx`, "offers no layout
+while the data places the points, and offers it again when an axis is unbound".
 
 ## The viewer costs what cosmos.gl costs
 
