@@ -33,8 +33,7 @@ import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { tv } from "tailwind-variants";
 import { nameOf } from "../core/categories";
 import { bindingOf } from "../core/channels";
-import { matchingIds, parseQuery, searchVertices, type Found, type VertexQuery } from "../core/source";
-import { localName, tableOf } from "../core/structure";
+import { localName, matchingIds, parseQuery, searchVertices, tableOf, vertexTypes, type Found, type VertexQuery } from "../core/source";
 import { internalsOf } from "../react/use-graph";
 import { useGraphContext } from "../react/graph-root";
 import { usePick } from "../react/use-pick";
@@ -239,11 +238,11 @@ export function GraphSearch({ className, limit = 50, size = "sm", translations, 
     const typeOf = (vertex: number) => (structure ? nameOf(tableOf(structure, vertex)?.name, categories) : "");
     return [
       ...recent.map((r) => ({ value: String(r.vertex), vertex: r.vertex, label: r.text, detail: typeOf(r.vertex), group: RECENT })),
-      ...(structure?.vertices ?? []).map((table) => ({
+      ...(structure ? vertexTypes(structure) : []).map((table) => ({
         value: `type:${table.name}`,
         vertex: null,
         label: nameOf(table.name, categories),
-        detail: figure.format(table.rows),
+        detail: figure.format(table.rows ?? 0),
         group: TYPES,
       })),
     ];

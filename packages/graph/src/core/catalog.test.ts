@@ -2,15 +2,21 @@ import { Query, count, isNotNull } from "@kanzo-tech/mosaic";
 import { relationQuery } from "@kanzo-tech/relations";
 import { describe, expect, it } from "vitest";
 import { readJoinGraph } from "@kanzo-tech/relations";
-import { attach, chunkOf, writeChunk } from "../../test/corpus";
-import { readCatalog } from "./catalog";
+import { attach, chunkOf, writeChunk, type Attached } from "../../test/corpus";
+import { columnNamed, identityOf, sizeOf, vertexTypes } from "./source";
+
+/** `readJoinGraph` as the canvas reads it: the vertex types it draws, how many vertices, and the edges. */
+async function readCatalog(engine: Attached["engine"], from: string) {
+  const graph = await readJoinGraph(engine, from, { signal: new AbortController().signal });
+  return { vertices: vertexTypes(graph), size: sizeOf(graph), edges: graph.edges };
+}
 
 /**
  * The one read of a graph's catalog, over a real DuckDB through a real coordinator: every fact
- * GraphAr's relations state reaches the structure as it is stated, the global id is the sum it is
+ * GraphAr's relations state reaches the `JoinGraph` as it is stated, the global id is the sum it is
  * defined as, and nothing is taken from a table's name.
  */
-describe("readCatalog", () => {
+describe("the catalog, as the canvas reads it", () => {
   it("takes an edge's label and its ends from graphar_edge_types, never from the view's name", async () => {
     const corpus = await attach();
     await corpus.coordinator.exec(
@@ -29,7 +35,7 @@ describe("readCatalog", () => {
   it("numbers the types in the graph document's order, each from the counts before it", async () => {
     const corpus = await attach();
     const { vertices, size } = await readCatalog(corpus.engine, corpus.from);
-    expect(vertices.map((v) => [v.name, v.first, v.rows, v.identity])).toEqual([
+    expect(vertices.map((v) => [v.name, v.first, v.rows, identityOf(v)])).toEqual([
       ["Person", 0, 10, "subject"],
       ["Place", 10, 6, "subject"],
       ["Tag", 16, 4, "subject"],
@@ -54,17 +60,18 @@ describe("readCatalog", () => {
     const corpus = await attach();
     const { vertices } = await readCatalog(corpus.engine, corpus.from);
     const person = vertices.find((v) => v.name === "Person")!;
-    expect([...person.columns.keys()]).toEqual(["dense_id", "subject", "name", "team", "score", "lon", "lat", "born", "nickname"]);
-    expect(person.columns.get("dense_id")).toMatchObject({ type: "UINTEGER", primary: false, nullable: false });
-    expect(person.columns.get("subject")).toMatchObject({ type: "VARCHAR", primary: true, nullable: false });
-    expect(person.columns.get("born")).toMatchObject({ type: "INTEGER", primary: false, nullable: true });
+    expect(person.columns.map((c) => c.name)).toEqual(["dense_id", "subject", "name", "team", "score", "lon", "lat", "born", "nickname"]);
+    expect(columnNamed(person, "dense_id")).toMatchObject({ type: "UINTEGER", role: "address", nullable: false });
+    expect(columnNamed(person, "subject")).toMatchObject({ type: "VARCHAR", role: "identity", nullable: false });
+    expect(columnNamed(person, "born")).toMatchObject({ type: "INTEGER", nullable: true });
   });
 
   it("reads a multi-valued property as a list column of the type that owns it, and counts none of a list", async () => {
     const corpus = await attach();
     const { vertices } = await readCatalog(corpus.engine, corpus.from);
-    const nickname = vertices.find((v) => v.name === "Person")!.columns.get("nickname");
-    expect(nickname).toMatchObject({ type: "VARCHAR[]", nullable: true, stats: null });
+    const nickname = columnNamed(vertices.find((v) => v.name === "Person")!, "nickname");
+    expect(nickname).toMatchObject({ type: "VARCHAR[]", nullable: true });
+    expect(nickname?.stats).toBeUndefined();
   });
 
   it("makes a vertex type with no primary key a type of its own, labelled by its id", async () => {
@@ -74,7 +81,7 @@ describe("readCatalog", () => {
        CREATE VIEW ${corpus.from}.graphar_properties AS SELECT * REPLACE (false AS is_primary) FROM ${corpus.from}.written;`,
     );
     const { vertices, size } = await readCatalog(corpus.engine, corpus.from);
-    expect(vertices.map((v) => [v.name, v.identity])).toEqual([["Person", "dense_id"], ["Place", "dense_id"], ["Tag", "dense_id"]]);
+    expect(vertices.map((v) => [v.name, identityOf(v)])).toEqual([["Person", "dense_id"], ["Place", "dense_id"], ["Tag", "dense_id"]]);
     expect(size).toBe(20);
   });
 
@@ -82,18 +89,18 @@ describe("readCatalog", () => {
     const corpus = await attach();
     const { vertices } = await readCatalog(corpus.engine, corpus.from);
     const person = vertices.find((v) => v.name === "Person")!;
-    expect(person.columns.get("born")?.stats).toMatchObject({ nullCount: 0, distinctCount: 10, minValue: "1900", maxValue: "1909" });
-    expect(person.columns.get("team")?.stats).toMatchObject({
+    expect(columnNamed(person, "born")?.stats).toMatchObject({ nullCount: 0, distinctCount: 10, minValue: "1900", maxValue: "1909" });
+    expect(columnNamed(person, "team")?.stats).toMatchObject({
       distinctCount: 4,
       mostCommonVals: ["0", "1", "2", "3"],
       mostCommonFreqs: [0.3, 0.3, 0.2, 0.2],
     });
     // A text's extent is never read; a date's is, as the footer prints it.
-    expect(person.columns.get("name")?.stats).not.toHaveProperty("minValue");
-    expect(vertices.find((v) => v.name === "Place")!.columns.get("opened")?.stats).toMatchObject({ minValue: "2000-01-01", maxValue: "2005-01-01" });
+    expect(columnNamed(person, "name")?.stats).not.toHaveProperty("minValue");
+    expect(columnNamed(vertices.find((v) => v.name === "Place")!, "opened")?.stats).toMatchObject({ minValue: "2000-01-01", maxValue: "2005-01-01" });
     // The id's counts are the arithmetic's own.
-    expect(person.columns.get("dense_id")?.stats).toMatchObject({ nullCount: 0, distinctCount: 10, minValue: "0", maxValue: "9" });
-    expect(vertices.find((v) => v.name === "Place")!.columns.get("dense_id")?.stats).toMatchObject({ minValue: "10", maxValue: "15" });
+    expect(columnNamed(person, "dense_id")?.stats).toMatchObject({ nullCount: 0, distinctCount: 10, minValue: "0", maxValue: "9" });
+    expect(columnNamed(vertices.find((v) => v.name === "Place")!, "dense_id")?.stats).toMatchObject({ minValue: "10", maxValue: "15" });
     // Read once for the footers: a statement for the keys and one for the nulls and extent.
     expect(corpus.sent.filter((sql) => sql.includes("parquet_kv_metadata"))).toHaveLength(1);
   });
@@ -109,7 +116,7 @@ describe("readCatalog", () => {
     );
     const { vertices } = await readCatalog(corpus.engine, corpus.from);
     // The id's own counts are the arithmetic's, not a footer's.
-    expect(vertices.every((v) => [...v.columns].every(([name, c]) => name === "dense_id" || c.stats === null))).toBe(true);
+    expect(vertices.every((v) => v.columns.every((c) => c.name === "dense_id" || c.stats === undefined))).toBe(true);
   });
 
   it("counts nothing of a column that two chunks of its type state, because counts do not combine", async () => {
@@ -127,8 +134,8 @@ describe("readCatalog", () => {
     );
     const { vertices } = await readCatalog(corpus.engine, corpus.from);
     const person = vertices.find((v) => v.name === "Person")!;
-    expect([...person.columns].every(([name, c]) => name === "dense_id" || c.stats === null)).toBe(true);
-    expect(vertices.find((v) => v.name === "Place")!.columns.get("name")?.stats).not.toBeNull();
+    expect(person.columns.every((c) => c.name === "dense_id" || c.stats === undefined)).toBe(true);
+    expect(columnNamed(vertices.find((v) => v.name === "Place")!, "name")?.stats).toBeDefined();
   });
 
   it("is @kanzo-tech/relations' reader: every type and every relation of an attached graph, in global ids, joined", async () => {

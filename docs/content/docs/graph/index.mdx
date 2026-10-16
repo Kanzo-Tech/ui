@@ -833,7 +833,7 @@ What `useGraphState` selects from.
 | `focus` / `hovered` | `VertexId \| null` | The focused and the hovered vertex. |
 | `tool` | `Tool` | The armed selection tool. |
 | `options` | `UseGraphProps` | The props as given. |
-| `structure` | `Structure \| null` | The catalog's tables, once read. |
+| `structure` | `JoinGraph \| null` | The graph's `JoinGraph`, once read (`@kanzo-tech/relations`'s `readJoinGraph`): its vertex types are the `types` without `of`, each with `first`, `rows` and its columns. |
 
 ### Types
 

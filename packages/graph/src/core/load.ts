@@ -1,8 +1,8 @@
 import type { Engine } from "@kanzo-tech/mosaic/engine";
 import { Dictionary } from "./categories";
 import type { Binding } from "./channels";
-import { readColumns, readLinks } from "./source";
-import { type Structure } from "./structure";
+import type { JoinGraph } from "@kanzo-tech/relations";
+import { columnNamed, firstOf, readColumns, readLinks, sizeOf, vertexTypes } from "./source";
 
 /**
  * **The whole graph, read once and laid out as cosmos.gl's buffers.** A vertex's `dense_id` is its
@@ -12,7 +12,7 @@ import { type Structure } from "./structure";
 
 /** Where the vertices start and how they connect — read once per corpus and per position binding. */
 export interface Geometry {
-  readonly structure: Structure;
+  readonly structure: JoinGraph;
   /** Every vertex: ids `0 … size − 1`. */
   readonly size: number;
   /**
@@ -101,13 +101,13 @@ function extentOf(positions: Float32Array): Geometry["extent"] {
  * force with no clusters, would be a picture of nothing. It is `resolvePref`'s rule — a value the
  * options no longer hold falls back — applied where the options are known.
  */
-export function carries(structure: Structure, column: string | undefined): column is string {
-  return column !== undefined && structure.vertices.some((table) => table.columns.has(column));
+export function carries(structure: JoinGraph, column: string | undefined): column is string {
+  return column !== undefined && vertexTypes(structure).some((table) => columnNamed(table, column) !== undefined);
 }
 
 /** The links, and the positions: two bound columns, or a seeded start for the layout. */
-export async function loadGeometry(engine: Engine, structure: Structure, binding: Binding, signal?: AbortSignal): Promise<Geometry> {
-  const { size } = structure;
+export async function loadGeometry(engine: Engine, structure: JoinGraph, binding: Binding, signal?: AbortSignal): Promise<Geometry> {
+  const size = sizeOf(structure);
   const space = spaceFor(size);
   const bound = carries(structure, binding.x) && carries(structure, binding.y);
   const [links, columns] = await Promise.all([
@@ -120,7 +120,7 @@ export async function loadGeometry(engine: Engine, structure: Structure, binding
     const xs = answer.getChild(binding.x as string)?.toArray() ?? [];
     const ys = answer.getChild(binding.y as string)?.toArray() ?? [];
     for (let i = 0; i < answer.numRows; i++) {
-      const at = 2 * (table.first + i);
+      const at = 2 * (firstOf(table) + i);
       // Half a position is none: a vertex with only one of the two values is unplaced on both axes,
       // so "placed" is one test on either coordinate wherever it is read.
       const whole = xs[i] !== null && ys[i] !== null;
@@ -160,7 +160,7 @@ export async function loadEncoding(
   const groups = clusterBy === undefined ? null : new Dictionary();
   const clusters: (number | undefined)[] | null = groups ? new Array<number | undefined>(size) : null;
   if (binding.byTable) {
-    for (const table of structure.vertices) codes.fill(dictionary.code(table.name), table.first, table.first + table.rows);
+    for (const table of vertexTypes(structure)) codes.fill(dictionary.code(table.name), firstOf(table), firstOf(table) + (table.rows ?? 0));
   } else if (binding.category === undefined) {
     codes.fill(dictionary.code(null));
   }
@@ -169,7 +169,7 @@ export async function loadEncoding(
     const ramp = binding.size === undefined ? undefined : answer.getChild(binding.size)?.toArray();
     const cluster = clusterBy === undefined ? undefined : answer.getChild(clusterBy)?.toArray();
     for (let i = 0; i < answer.numRows; i++) {
-      const id = table.first + i;
+      const id = firstOf(table) + i;
       if (values) codes[id] = dictionary.code(values[i] ?? null);
       if (ramp) sizes[id] = ramp[i] === null ? Number.NaN : Number(ramp[i]);
       if (cluster && clusters && groups) clusters[id] = cluster[i] === null ? undefined : groups.code(cluster[i]);

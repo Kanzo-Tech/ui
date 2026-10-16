@@ -5,12 +5,11 @@ description: Why JoinGraph is the one read-model of a catalog, why a typed Catal
 
 > **Status: partly built.** `@kanzo-tech/relations` exists and holds `JoinGraph` and its parts,
 > `Relation`, `Hop`, `JoinResolver`, the crossfilter, the relation words, `withMapping` and the
-> `CatalogReader` contract; `readJoinGraph(engine, from, { signal })` is its GraphAr reader, and graph's
-> `joinGraphOf` is deleted. Still to build: graph keeps `Structure`, now derived from the reader's
-> `JoinGraph` with `first` and `identity` added, and the `vertices` union is still made by the reader;
-> the validation that throws `relations/invalid`, the refusal of a type whose ids have a gap, and the
-> tests over a vendored fixture attached by the real attacher; keasy's `joinGraphOf` and `ai`'s second
-> resolver. The *Breaking* list at the end is what a consumer edits.
+> `CatalogReader` contract; `readJoinGraph(engine, from, { signal })` is its GraphAr reader and the
+> one way graph reads a catalog, graph's `Structure` and `joinGraphOf` are deleted, and a graph is
+> validated where it is made (`relations/invalid`). Still to build: the refusal of a type whose ids have
+> a gap, and the tests over a vendored fixture attached by the real attacher; keasy's `joinGraphOf` and
+> `ai`'s second resolver. The *Breaking* list at the end is what a consumer edits.
 
 Four things describe the same tables, columns, keys and labels. graph's `Structure` (a canvas's
 vertex and edge tables); mosaic's `JoinGraph` (types, edges, columns, stats, annotations); rudof's

@@ -4,7 +4,7 @@ import type { LookPatch } from "../render/graph-looks";
 import type { Sim } from "../render/graph-sim";
 import type { Binding, Channels } from "./channels";
 import type { Encoding, Geometry } from "./load";
-import type { Structure } from "./structure";
+import type { JoinGraph } from "@kanzo-tech/relations";
 import type { Motion, VertexSelection, VertexSelectionSource, Tool, VertexId } from "./types";
 
 export interface GraphOptions extends Channels {
@@ -115,8 +115,8 @@ export interface GraphState {
   /** How far through settling a live layout is, `0`–`1`. */
   readonly progress: number;
   readonly options: GraphOptions;
-  /** The corpus's tables, once read. */
-  readonly structure: Structure | null;
+  /** The graph's `JoinGraph`, once read: `@kanzo-tech/relations`'s `readJoinGraph` of the catalog `from`. */
+  readonly structure: JoinGraph | null;
 }
 
 /** Where the camera looks: the point of the layout's square at the canvas's centre, and cosmos.gl's zoom. */

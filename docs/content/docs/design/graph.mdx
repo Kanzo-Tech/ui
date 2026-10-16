@@ -6,11 +6,10 @@ description: How @kanzo-tech/graph is built — one Mosaic client on the page's 
 [The graph page](/docs/graph) is what `@kanzo-tech/graph` ships. This page is how it is built and
 why.
 
-*Status: partly to be built.* The tree reads the catalog with its own `readCatalog` into its own
-`Structure`, takes a `coordinator`, treats a lost WebGL context and a failed read as terminal, does
+*Status: partly to be built.* The tree takes a `coordinator`, treats a lost WebGL context and a failed read as terminal, does
 not abort a read, ships a pick's ids as SQL text, has no guard at 2²⁴ vertices and exposes the canvas
 to assistive technology as an unnamed `div`. [The scale limit](/docs/design/graph-hardening#the-scale-limit-is-guarded-and-raised-only-by-measurement),
-[the catalog type](#one-catalog-type-and-the-graph-keeps-none), [recovery](/docs/design/graph-hardening#a-failed-read-is-retried-a-lost-context-is-restored),
+[recovery](/docs/design/graph-hardening#a-failed-read-is-retried-a-lost-context-is-restored),
 [a large pick](/docs/design/graph-hardening#a-pick-does-not-ship-its-ids) and [the canvas for assistive technology](/docs/design/graph-hardening#the-canvas-is-operable-without-a-pointer-and-readable-without-sight)
 are decided and not built; the *Breaking* list at the end is what a consumer edits. Everything else
 on the page is the tree.
@@ -40,7 +39,7 @@ does this: `lon`/`lat` as `x`/`y` is what there is.
 ## The graph reads SQL, through the page's coordinator
 
 The host attaches the graph and names the catalog; `GraphRoot` reads it with SQL — the catalog for
-the structure, once, through `readCatalog` (below), the views for rows and links, one `SELECT` for a focused row,
+its `JoinGraph`, once, through `readJoinGraph` (below), the views for rows and links, one `SELECT` for a focused row,
 a `LIMIT`ed `ILIKE` for a search — every statement built
 from mosaic-sql's nodes and run through `coordinator.query(query, { type: "arrow" })`. A search is text
 a reader typed, so no statement is a template string: the nodes quote their own identifiers and
@@ -54,21 +53,21 @@ attachGraph(engine, name, resolve) → "<name>".<type>    adapter   useGraph · 
 <GraphRoot from={name} coordinator filterBy>            core      source: SQL through the coordinator · client · load · store
 ```
 
-**Every read of the catalog is one function, `readCatalog`** (`core/catalog.ts`): the canvas's
-structure and `readJoinGraph` are both built from what it answers, through the coordinator's cache,
+**Every read of the catalog is one function, `@kanzo-tech/relations`'s `readJoinGraph`**: the canvas
+and every other reader read the `JoinGraph` it answers, through the engine,
 so a page that draws the graph and a dashboard over it reads the catalog once, and nothing else in the
 library names a catalog relation or reads a footer. An edge's label is GraphAr's `edge_type` and its ends its
 `src_type` and `dst_type`, never parsed out of a view's name. *What would reverse it:* a reader that
-needs a fact of the graph at a moment `readCatalog` is not run — then the fact is added to what it
+needs a fact of the graph at a moment `readJoinGraph` is not run — then the fact is added to what it
 answers, not read a second way.
 
 **It replaced fossil's manifest relations**, `fossil_tables`, `fossil_columns`, `fossil_annotations`
 and `fossil_stats`, which `@fossil-lang/corpus`'s `attach` made of a `fossil/1` corpus. fossil's
 run moves to writing a GraphAr graph, and `@fossil-lang/corpus` goes with the format (fossil's
 `/docs/design/graphar`, its step F1), so the one reader of a graph's metadata is `graphar-duckdb`, in
-GraphAr's words, and this function reads those words. The `Structure` it answers kept its shape where GraphAr
+GraphAr's words, and this function reads those words. The `JoinGraph` it answers kept its shape where GraphAr
 states the same fact, and lost every field GraphAr does not state ([below](#what-graphar-does-not-carry)).
-*What would reverse it:* a graph format other than GraphAr — then `readCatalog` reads that
+*What would reverse it:* a graph format other than GraphAr — then a second `CatalogReader` reads that
 catalog, and nothing past it moves.
 
 **It replaced "no SQL in `@kanzo-tech/graph`"**, under which every read went through fossil's
@@ -98,13 +97,14 @@ dense_id  = CAST(first(t) + _graphArVertexIndex AS UINTEGER)
 src, dst  = CAST(first(src_type) + _graphArSrcIndex AS UINTEGER), and the same for dst_type
 ```
 
-Each type's `table` in the `Structure` and in the join graph is that projection over the type's
+Each type's `table` in the join graph is that projection over the type's
 view, and every reader reads the type through it — the rows, the links, the crossfilter's client,
 `vertices` and every relation a dashboard builds — so a clause published on `dense_id` means the
 same vertex everywhere. A lookup by id (the focused row, a label's text) reads the view by GraphAr's
 own index, `id − first(t)`, which a chunk's statistics can skip on. The cast keeps the Arrow at four
 bytes an id, where GraphAr's `int64` is eight; fossil's writer refuses more than 2³² vertices, so it
-fits. **The sum runs over every vertex type**, so the ids are `0 … V − 1` with no hole. The key is the graph's own constant, `KEY` in `core/structure.ts`:
+fits. **The sum runs over every vertex type**, so the ids are `0 … V − 1` with no hole. The key is the graph's own constant, `KEY` in `core/source.ts`, and each type's `first` is a field of
+its `JoinType`:
 GraphAr states no global id to read it from.
 
 **It replaced the corpus's `dense_id` and "the key is read, not written down"**, when fossil wrote a
@@ -161,7 +161,7 @@ graph/nothing-to-draw".
 
 GraphAr states a type, its count, its properties' types, which one is the primary key and which may
 be null, and an edge type's ends; its chunks' footers add what fossil's writer counted. **The
-`Structure` holds exactly those.** What fossil's manifest added beyond them is gone from it, and from
+`JoinGraph` `readJoinGraph` answers holds exactly those.** What fossil's manifest added beyond them is gone from it, and from
 the join graph's types and columns, each falling back to what a reader did without it:
 
 | fact | where it is now | what the graph does without it |
@@ -183,7 +183,7 @@ fossil's writer counts each column once, at write, into the Parquet footer of th
 it: nulls and the extent in the row groups' own `Statistics`, the distinct count and the commonest
 values with their share of the rows in the file's `key_value_metadata` under `fossil:stats` (JSON,
 keyed by column). `attachGraph` lists every vertex chunk in `graphar_chunks` by the name the engine
-reads it with, so `readCatalog` reads them with DuckDB's own `parquet_kv_metadata(path)` and
+reads it with, so `readJoinGraph` reads them with DuckDB's own `parquet_kv_metadata(path)` and
 `parquet_metadata(path)` — two statements, through the coordinator, after the catalog's — and no
 code that knows fossil's file layout.
 
@@ -221,10 +221,11 @@ where it reads, writes none in a string, and imports nothing of graphar's or fos
 into mosaic's `JoinGraph` (`sourceKey` to `src`, `sqlType` to `type`, `first` dropped, a `vertices`
 union invented on the way) were two descriptions of one catalog with a renamer between them.
 [Relations](/docs/design/relations#joingraph-is-the-read-model) holds the model and the reader
-contract; this package asks for the two facts only a drawing needs, `first` and `identity`, which are
-fields of `JoinType`, so the canvas reads `type.first` and keeps no table of its own. The snapshot's
+contract; of the two facts only a drawing needs, `first` is a field of `JoinType` the reader fills,
+and `identity` is the column whose `role` is `identity` (the key where a type has none), already in
+the description, so the canvas reads `type.first` and `identityOf(type)` and keeps no table of its own. The snapshot's
 `structure` is that `JoinGraph`, and a part that selects from it selects the fields every other reader
-names. `readCatalog`, `joinGraphOf` and `readJoinGraph` leave the package: a host that wants the model
+names. `Structure`, `readCatalog`, `joinGraphOf` and `readJoinGraph` left the package: a host that wants the model
 and no canvas builds it without installing `@cosmos.gl/graph`.
 
 **The failure scenario is the migration, not the duplicate.** GraphAr numbers vertices per type from
@@ -1186,8 +1187,8 @@ or readers asking for a named starting point the axes' defaults do not give them
   `graph/too-large` is new.
 - A graph of more than 16,777,216 vertices is refused, where it used to draw links attached to the wrong
   vertices.
-- `readJoinGraph` and the `Structure` selectors move to `@kanzo-tech/relations`; the snapshot's
-  `structure` is a `JoinGraph`.
+- `readJoinGraph` moved to `@kanzo-tech/relations`; the snapshot's `structure` is a `JoinGraph`,
+  whose vertex types are its `types` without `of`, each with `first` and `rows`.
 - `retry()` is on the api. A failure whose `status` is not `failed` is a degradation: do not blank the
   canvas on it.
 - The canvas is a focusable `role="application"` with the keys above; a host that bound `F`, `P`, `[`

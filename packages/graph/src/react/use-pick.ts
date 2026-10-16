@@ -4,7 +4,7 @@ import { useCallback, useSyncExternalStore } from "react";
 import type { ExprNode } from "@kanzo-tech/mosaic";
 import { publish } from "../core/client";
 import { clausesOf } from "../core/source";
-import { KEY } from "../core/structure";
+import { KEY } from "../core/source";
 import type { VertexId } from "../core/types";
 import { useGraphContext } from "./graph-root";
 import { internalsOf } from "./use-graph";

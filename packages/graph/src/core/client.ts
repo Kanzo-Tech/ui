@@ -1,7 +1,6 @@
 import { MosaicClient, type ClauseSource, Query, cast, clauseAntiJoin, clauseSemiJoin, float64, literal, queryFailure, type FilterExpr, type Selection } from "@kanzo-tech/mosaic";
-import { onRelation, type RelationClient } from "@kanzo-tech/relations";
-import { VERTICES, answers, clausesOf, type Answer } from "./source";
-import { KEY, type Structure } from "./structure";
+import { onRelation, type JoinGraph, type RelationClient } from "@kanzo-tech/relations";
+import { KEY, VERTICES, answers, clausesOf, vertexTypes, type Answer } from "./source";
 
 /**
  * **The graph as a client of the engine's coordinator** — one Mosaic client, like every chart beside
@@ -20,14 +19,14 @@ const NOTHING = Query.select({ id: cast(literal(null), "DOUBLE") }).where(litera
 export class GraphClient extends MosaicClient implements RelationClient {
   /** What the page's resolver crosses every other relation's clauses into. */
   readonly relation = VERTICES;
-  #structure: () => Structure | null;
+  #structure: () => JoinGraph | null;
   #kept: (ids: Float64Array | null) => void;
   #fail: (error: unknown) => void;
   #cleared: () => void;
 
   constructor(
     filterBy: Selection | undefined,
-    structure: () => Structure | null,
+    structure: () => JoinGraph | null,
     kept: (ids: Float64Array | null) => void,
     fail: (error: unknown) => void,
     cleared: () => void,
@@ -68,7 +67,7 @@ export class GraphClient extends MosaicClient implements RelationClient {
     // has every column the clause names, and a clause a table cannot answer keeps none of it — so a
     // table is asked only when it answers every clause, and asked under all of them. When none does,
     // nothing is kept: an answer with no rows, which is not the unfiltered one.
-    const asked = structure.vertices.filter((t) => clauses.every((clause) => answers(t, clause)));
+    const asked = vertexTypes(structure).filter((t) => clauses.every((clause) => answers(t, clause)));
     if (asked.length === 0) return NOTHING;
     return Query.unionAll(
       asked.map((t) =>

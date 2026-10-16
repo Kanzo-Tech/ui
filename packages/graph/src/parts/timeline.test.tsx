@@ -9,8 +9,7 @@ import { crossfilterOver, onRelation, readOf, type JoinGraph, type RelationClien
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { attach, settle, type Attached } from "../../test/corpus";
 import { readJoinGraph } from "@kanzo-tech/relations";
-import { readCatalog } from "../core/catalog";
-import { relation, verticesOf } from "../core/source";
+import { VERTICES, relation } from "../core/source";
 import { createGraph } from "../core/store";
 import { GraphRoot, useGraphContext } from "../react/graph-root";
 import { internalsOf } from "../react/use-graph";
@@ -111,8 +110,10 @@ const ids = (mask: Uint8Array | null | undefined) => [...(mask ?? [])].flatMap((
 describe("the vertices relation", () => {
   it("reads every vertex table under the key, NULL where a table has no such column", async () => {
     const corpus = await attach();
-    const structure = await readCatalog(corpus.engine, corpus.from);
-    const { table, columns } = verticesOf(structure);
+    const graph = await readJoinGraph(corpus.engine, corpus.from, { signal: new AbortController().signal });
+    const vertices = graph.types.find((t) => t.name === VERTICES)!;
+    const { table } = vertices;
+    const columns = vertices.columns.map((c) => c.name);
     for (const type of ["Person", "Place", "Tag"]) expect(String(table)).toContain(`"${corpus.from}"."${type}"`);
     expect(columns).toEqual(expect.arrayContaining(["born", "name", "lon", "subject"]));
     const answer = await corpus.coordinator.query(Query.select({ all: count(), born: count("born") }).from(table), { type: "json" });
