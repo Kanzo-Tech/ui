@@ -56,6 +56,15 @@ export interface JoinColumn {
   readonly stats?: JoinColumnStats;
 }
 
+const XSD = "http://www.w3.org/2001/XMLSchema#";
+
+/**
+ * **The literal datatypes that are a time**, whatever the column stores them as: `xsd:gYear` over an
+ * integer is a year. What makes a column a time beside its engine type, for every reader — the
+ * dashboard's fields and the graph's timeline alike.
+ */
+export const TEMPORAL_DATATYPES: ReadonlySet<string> = new Set(["date", "dateTime", "gYear", "gYearMonth"].map((t) => `${XSD}${t}`));
+
 /** One kind of row: a table, the column edges reference, and the columns a relation projects. */
 export interface JoinType {
   readonly name: string;

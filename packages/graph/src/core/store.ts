@@ -5,7 +5,7 @@ import { bindingOf } from "./channels";
 import { GraphClient, publish } from "./client";
 import { Problem } from "@kanzo-tech/kernel";
 import { loadEncoding, loadGeometry, type Encoding, type Geometry } from "./load";
-import { readJoinGraph, type JoinGraph } from "@kanzo-tech/relations";
+import { readJoinGraph, withMapping, type JoinGraph } from "@kanzo-tech/relations";
 import { KEY, VERTICES, sizeOf, vertexTypes } from "./source";
 import { drawnOf, idsOf, keptOf, maskOf } from "./kept";
 import { memo } from "./memo";
@@ -34,6 +34,8 @@ export function createGraph(initial: GraphOptions): GraphStore {
   let shownOnce = false, unwatch: (() => void) | null = null;
   let binding = bindingOf(initial);
   let structure: JoinGraph | null = null;
+  /** The graph as read, before the host's mapping describes it: a mapping that arrives later re-describes this, and reads nothing. */
+  let catalog: JoinGraph | null = null;
   let geometry: Geometry | null = null;
   let encoding: Encoding | null = null;
   let kept: Float64Array | null = null;
@@ -154,7 +156,9 @@ export function createGraph(initial: GraphOptions): GraphStore {
   function loadStructure(): void {
     const { engine, from } = options;
     if (engine === null || from === null) return;
-    read("structure", (signal) => readJoinGraph(engine, from, { signal }), (next) => {
+    read("structure", (signal) => readJoinGraph(engine, from, { signal }), (graph) => {
+      const { mapping } = options; // a column's `datatype` is the mapping's; GraphAr's catalog states none
+      const next = mapping ? withMapping(graph, mapping) : graph;
       const size = sizeOf(next);
       if (size === 0) {
         failed = true;
@@ -167,6 +171,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
         return;
       }
       structure = next;
+      catalog = graph;
       loadPositions();
       client?.requestQuery();
     });
@@ -201,7 +206,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     // A new graph: the old one's pick goes from the page with its vertices.
     if (client && published && structure) publish(published, client, KEY, null, "");
     published = null;
-    structure = geometry = encoding = null;
+    catalog = structure = geometry = encoding = null;
     kept = mask = null;
     arrangement = null;
     uploaded = [];
@@ -298,6 +303,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
         return reset();
       }
       if (active && scope() !== (previous.filterBy ?? own)) connect();
+      if (next.mapping !== previous.mapping && catalog) structure = next.mapping ? withMapping(catalog, next.mapping) : catalog;
       if (binding.x !== before.x || binding.y !== before.y) loadPositions();
       else if (
         binding.category !== before.category ||

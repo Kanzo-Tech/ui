@@ -199,17 +199,24 @@ a value, as `Slider` does. Then play writes the `Param`, and `ChartTimeline` sto
 
 ## Time is read from the schema, never guessed
 
-**A column is temporal when the graph says it is: a GraphAr `date` or `timestamp` column.**
-Cosmograph instead samples 100 values and calls a column of year-like integers a year. A count of
-rows, a price or an id in that range would be read as a date, and the schema already says which
-column is a time. **A year stored as an `int32` is a number**: GraphAr has no year type, and the
-`xsd:gYear` its shape declared lives only in the graph's RML mapping, which the graph does not read
-([The graph](/docs/design/graph#what-graphar-does-not-carry)). It replaced the year read from
-`fossil_columns.datatype`, which fossil's manifest carried and GraphAr's catalog does not.
+**A column is temporal when the graph says it is: a GraphAr `date` or `timestamp` column, or a
+number or a time whose datatype in the graph's mapping is a time.** Cosmograph instead samples 100
+values and calls a column of year-like integers a year. A count of rows, a price or an id in that
+range would be read as a date, and the schema already says which column is a time. GraphAr has no
+year type: the `xsd:gYear` a shape declared over an `int32` lives in the graph's RML mapping, which
+the host reads with rudof's `Mapping.model()` and hands the root as `mapping` — fossil's D4 — so the
+timeline offers a year once the mapping has arrived, and not before. Without one, a year is a number.
+The datatypes that are a time are one set, `@kanzo-tech/relations`'s `TEMPORAL_DATATYPES`, which the
+dashboard's fields read too: the timeline lost the year when the graph moved to GraphAr (0.47) while
+the dashboard kept it, because each had its own list. A mapping that arrives after the graph
+re-describes the `JoinGraph` already read and reads nothing.
 
-**What would reverse it:** the host passing the datatypes from rudof's `Mapping.model()` after the
-first paint, as fossil's D4 decided — then a year is a time on the timeline again, and still not
-before the first paint.
+**What would reverse it:** a GraphAr type for a year, or a catalog that states a column's datatype —
+then the timeline reads it there, and `mapping` is no longer how a year is known.
+
+*Held by* `packages/graph/src/parts/graph-section.test.tsx`, "offers the timeline the graph's
+temporal fields, by the type the engine reads", "offers the timeline a year the mapping says is one,
+even when the mapping arrives after the graph".
 
 **The column is a setting of the graph, not a selector of the part's.** `time-by` sits beside
 *X axis* and *Group by* in `GRAPH_SECTION`, and the root answers its options from the graph's
