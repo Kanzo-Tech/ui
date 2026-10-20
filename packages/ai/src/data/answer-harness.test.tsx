@@ -7,7 +7,7 @@ import { render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { testDatabase, type TestDatabase } from "../testing/duckdb.js";
-import { PEOPLE, PERSON, seedPeople } from "../testing/people.js";
+import { PERSON, SNB } from "../testing/snb.js";
 import { PromptInput, PromptInputTextarea } from "../prompt-input.js";
 import type { AnswerOutput } from "./read.js";
 import { readFor } from "../testing/answer.js";
@@ -27,11 +27,10 @@ let output: AnswerOutput;
 
 beforeAll(async () => {
   db = await testDatabase();
-  seedPeople(db);
-  output = await readFor(db.engine, PEOPLE, {
+  output = await readFor(db.engine, SNB, {
     of: "Person",
     where: [{ field: "gender", in: ["female"] }],
-    show: { kind: "stat", title: "Mean age", measure: { op: "avg", field: "age" } },
+    show: { kind: "stat", title: "Women", measure: { op: "count" } },
   });
 });
 
@@ -51,7 +50,7 @@ function page(answer: AnswerOutput, adding: Adding = {}, into: (selection: Selec
       <PromptInput>
         <PromptInputTextarea placeholder="Ask about your data…" />
       </PromptInput>
-      <AnswerCard answer={answer} graph={PEOPLE} {...(adding as object)} />
+      <AnswerCard answer={answer} graph={SNB} {...(adding as object)} />
     </MosaicProvider></QueryClientProvider>
   );
 }
@@ -70,11 +69,11 @@ describe("AnswerHarness", () => {
         <PromptInput>
           <PromptInputTextarea placeholder="Ask about your data…" />
         </PromptInput>
-        <AnswerCard answer={output} graph={PEOPLE} />
+        <AnswerCard answer={output} graph={SNB} />
       </MosaicProvider></QueryClientProvider>,
     );
     const tile = await answers.answer();
-    await expect.poll(() => tile.text()).toMatch(/^Mean age.*34/);
+    await expect.poll(() => tile.text()).toMatch(/^Women.*5/);
     await answers.filterTo();
     expect(crossfilter.clauses).toHaveLength(1);
   });
@@ -83,10 +82,10 @@ describe("AnswerHarness", () => {
     const env = dom();
     draw(output);
     const rows = await (await env.getHarness(AnswerHarness)).rows();
-    // What the engine returned, cell for cell: the mean age of the three women, (31 + 44 + 27) / 3.
+    // What the engine returned, cell for cell: the five women of the twelve.
     expect(rows).toEqual(output.rows!.map((row) => Object.fromEntries(Object.entries(row).map(([k, v]) => [k, String(v)]))));
     expect(rows).toHaveLength(1);
-    expect(Object.values(rows[0]!)).toContain("34");
+    expect(Object.values(rows[0]!)).toContain("5");
   });
 
   it("adds the answer to the dashboard, through the host's pending write, and waits for the card to say it is there", async () => {
@@ -133,7 +132,7 @@ describe("AnswerHarness", () => {
   it("rejects an answer that failed with the words of its Problem", async () => {
     const env = dom();
     // A kept answer over a relation the host's graph no longer has.
-    draw({ ...output, answer: { ...output.answer, relation: { root: "Post", path: [] } } });
-    await expect((await env.getHarness(AnswerHarness)).answer()).rejects.toThrow(/The answer failed.*the join graph has no type Post/);
+    draw({ ...output, answer: { ...output.answer, relation: { root: "Movie", path: [] } } });
+    await expect((await env.getHarness(AnswerHarness)).answer()).rejects.toThrow(/The answer failed.*the join graph has no type Movie/);
   });
 });

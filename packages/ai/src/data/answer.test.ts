@@ -4,7 +4,7 @@ import { JoinResolver, relationQuery } from "@kanzo-tech/relations";
 import { plotRelation, tileQuery } from "@kanzo-tech/ui/analytics";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { testDatabase, type TestDatabase } from "../testing/duckdb.js";
-import { KNOWS, PEOPLE, PERSON, seedPeople } from "../testing/people.js";
+import { idsOf, KNOWS, PERSON, SNB, WROTE } from "../testing/snb.js";
 import type { AnswerOutput } from "./read.js";
 import { readFor } from "../testing/answer.js";
 import type { AnswerRelation } from "./answer.js";
@@ -13,32 +13,34 @@ import { answerRelation, askTile, type AskSpec } from "./ask.js";
 let db: TestDatabase;
 let person: AnswerRelation;
 let knows: AnswerRelation;
+let wrote: AnswerRelation;
 
 beforeAll(async () => {
   db = await testDatabase();
-  seedPeople(db);
-  [person, knows] = [answerRelation(PERSON, PEOPLE), answerRelation(KNOWS, PEOPLE)];
+  [person, knows, wrote] = [answerRelation(PERSON, SNB), answerRelation(KNOWS, SNB), answerRelation(WROTE, SNB)];
 });
 
 const rowsOf = async (query: Query | string) =>
   Array.from((await db.coordinator.query(query, { cache: false })) as Iterable<Record<string, unknown>>, (row) => ({ ...row }));
 
 async function answer(spec: AskSpec, selection?: Selection): Promise<AnswerOutput> {
-  return readFor(db.engine, PEOPLE, spec, selection);
+  return readFor(db.engine, SNB, spec, selection);
 }
 
 describe("answerRelation", () => {
   it("describes a relation's fields from the graph, without its steps' keys, each with the commonest values its writer counted", () => {
-    expect(person.fields.map((f) => f.name)).toEqual(["gender", "age", "born"]);
-    expect(person.fields[0]!.values).toEqual(["female", "male"]);
-    // A column is named by its path: the person's own, then the one they know.
-    expect(knows.fields.map((f) => f.name)).toEqual(["gender", "age", "born", "knows.gender", "knows.age", "knows.born"]);
-    expect(knows.columns).toContain("knows.dense_id");
+    const own = ["subject", "firstName", "lastName", "gender", "birthday", "creationDate", "locationIP", "browserUsed", "language", "email"];
+    expect(person.fields.map((f) => f.name)).toEqual(own);
+    // Seven men and five women, the commonest first.
+    expect(person.fields.find((f) => f.name === "gender")!.values).toEqual(["male", "female"]);
+    // A column is named by its path: the person's own, then their knowing, then the one they know.
+    expect(knows.fields.map((f) => f.name)).toEqual([...own, "^knower.subject", "^knower.creationDate", ...own.map((f) => `^knower.known.${f}`)]);
+    expect(knows.columns).toContain("^knower.known.dense_id");
   });
 
   it("reads nothing from the engine: what a field is and holds is the graph's", () => {
     const query = vi.spyOn(db.coordinator, "query");
-    answerRelation(KNOWS, PEOPLE);
+    answerRelation(KNOWS, SNB);
     expect(query).not.toHaveBeenCalled();
     query.mockRestore();
   });
@@ -46,41 +48,39 @@ describe("answerRelation", () => {
 
 describe("an answer", () => {
   it("reads its tile's rows with the one compiler the dashboard's tile reads", async () => {
-    // The page: a lasso on identity, which the relation answers.
+    // The page: a lasso on identity — the first ten posts — which the relation answers.
     const page = Selection.crossfilter();
-    page.update(clauseSemiJoin("dense_id", [1, 2, 4, 5, 6], { source: {}, label: "Lasso" }));
+    page.update(clauseSemiJoin("dense_id", idsOf("Post", 10), { source: {}, label: "Lasso" }));
     const spec: AskSpec = {
-      of: "Person",
-      where: [{ field: "age", between: [30, 60] }],
-      show: { kind: "chart", type: "bar", x: "gender", y: { op: "avg", field: "age" } },
+      of: "Post",
+      where: [{ field: "length", between: [100, 120] }],
+      show: { kind: "chart", type: "bar", x: "hasCreator.gender", y: { op: "avg", field: "length" } },
     };
     const output = await answer(spec, page);
 
     // What `ChartCard` reads for the same tile: `tileQuery` over the relation as the plots read it,
     // under the page's clause.
-    const plotted = plotRelation(relationQuery(PEOPLE, PERSON), { fields: person.fields, columns: person.columns });
-    const compiled = tileQuery(plotted.table, askTile(spec, "c"), { fields: plotted.fields, relation: PERSON, resolver: new JoinResolver(PEOPLE), filter: [page.clauses[0]!.predicate!] });
+    const plotted = plotRelation(relationQuery(SNB, WROTE), { fields: wrote.fields, columns: wrote.columns });
+    const compiled = tileQuery(plotted.table, askTile(spec, "c"), { fields: plotted.fields, relation: WROTE, resolver: new JoinResolver(SNB), filter: [page.clauses[0]!.predicate!] });
     if ("missing" in compiled) throw new Error("missing");
     expect(output.rows).toEqual(await rowsOf(compiled.rows));
-    expect(output.rows).toEqual([
-      { gender: "female", "Mean age": 37.5 },
-      { gender: "male", "Mean age": 45 },
-    ]);
+    // Of the ten, five of 100 to 120 characters, all by women.
+    expect(output.rows).toEqual([{ "hasCreator.gender": "female", "Mean length": 107.6 }]);
     expect(output.under).toEqual(["Lasso"]);
     expect(output.unanswered).toEqual([]);
     // The tile holds the question whole: what is shown, and its own conditions.
     expect(output.answer.tile).toMatchObject({ id: "c", span: 2, where: spec.where });
-    expect(output.answer.relation).toEqual(PERSON);
+    expect(output.answer.relation).toEqual(WROTE);
   });
 
   it("reads under a page clause its relation cannot answer as the tile does: keeping none of its rows", async () => {
     // A column another relation has: Person has no `kind`, so the clause keeps none of it
     // (/docs/design/crossfilter#formal-semantics) — the tile's read under every clause, `FALSE` for it.
     const page = Selection.crossfilter();
-    page.update(clauseSemiJoin("dense_id", [1, 2, 4, 5, 6], { source: {}, label: "Lasso" }));
+    page.update(clauseSemiJoin("dense_id", idsOf("Person", 5), { source: {}, label: "Lasso" }));
     page.update(clausePoints(["kind"], [["contract"]], { source: {} }));
     const output = await answer({ of: "Person", show: { kind: "chart", type: "bar", x: "gender", y: { op: "count" } } }, page);
-    const plotted = plotRelation(relationQuery(PEOPLE, PERSON), { fields: person.fields, columns: person.columns }).table;
+    const plotted = plotRelation(relationQuery(SNB, PERSON), { fields: person.fields, columns: person.columns }).table;
     expect(await rowsOf(Query.from(plotted).select("gender").where([page.clauses[0]!.predicate!, literal(false)]))).toEqual([]);
     expect(output.rows).toEqual([]);
     expect(output.under).toEqual(["Lasso"]);
@@ -91,24 +91,26 @@ describe("an answer", () => {
     const output = await answer({
       of: "Person",
       where: [{ field: "gender", in: ["female"] }],
-      show: { kind: "chart", type: "bar", x: "knows.gender", y: { op: "count" } },
+      show: { kind: "chart", type: "bar", x: "^knower.known.gender", y: { op: "count" } },
       top: 1,
     });
-    expect(output.rows).toEqual([{ "knows.gender": "male", Count: 3 }]);
+    // Four of the six knowings the women made name a woman: the one everyone knows, four times.
+    expect(output.rows).toEqual([{ "^knower.known.gender": "female", Count: 4 }]);
     expect(output.answer.relation).toEqual(KNOWS);
   });
 
   it("crosses a condition off the shown path in at the root's key, counting each person once", async () => {
-    // Who knows a man, by their own gender: person 1 knows two people, and is one woman.
+    // Who knows anyone, by their own gender: eleven of the twelve, two of whom know two people and
+    // are one woman each — thirteen knowings, eleven people.
     const output = await answer({
       of: "Person",
-      where: [{ field: "knows.gender", in: ["male"] }],
+      where: [{ field: "^knower.known.gender", in: ["female", "male"] }],
       show: { kind: "chart", type: "bar", x: "gender", y: { op: "count" } },
     });
     expect(output.answer.relation).toEqual(PERSON);
     expect(output.rows).toEqual([
-      { gender: "female", Count: 3 },
-      { gender: "male", Count: 1 },
+      { gender: "female", Count: 4 },
+      { gender: "male", Count: 7 },
     ]);
   });
 
@@ -116,10 +118,11 @@ describe("an answer", () => {
     const output = await answer({
       of: "Person",
       where: [{ field: "gender", in: ["female"] }],
-      show: { kind: "stat", measure: { op: "count", path: "knows" } },
+      show: { kind: "stat", measure: { op: "count", path: "^knower.known" } },
     });
-    // 1 knows 4 and 2, 2 knows 5, 3 knows 6: four people.
+    // Six knowings, three people: all four women who know anyone know the same one, and two of them
+    // one more each.
     expect(output.answer.relation).toEqual(KNOWS);
-    expect(output.rows).toEqual([{ "Count of knows": 4 }]);
+    expect(output.rows).toEqual([{ "Count of ^knower.known": 3 }]);
   });
 });
