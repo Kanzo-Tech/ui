@@ -38,8 +38,11 @@ import { engine } from "@kanzo-tech/mosaic/engine";
   **Nothing is fetched from a CDN.** DuckDB-WASM's worker and module come from
   `@duckdb/duckdb-wasm`, a dependency at the exact release the extensions were built for; `parquet`,
   `httpfs` and `json` ship in this package (`extensions/`, fetched and hash-pinned at build by
-  `scripts/extensions.mjs`). All five are reached through `new URL(…, import.meta.url)`, so your
-  bundler emits them as assets — under Next, `/_next/static/media/duckdb-browser-eh.worker.<hash>.js`,
+  `scripts/extensions.mjs`). DuckDB's worker is started inside this package's own
+  (`worker/duckdb.worker.js`), which drops the line it prints for every HTTP header it sends, an
+  `s3://` read's credential among them. All six are reached through `new URL(…, import.meta.url)`, so your
+  bundler emits them as assets — under Next, `/_next/static/media/duckdb.worker.<hash>.js`,
+  `duckdb-browser-eh.worker.<hash>.js`,
   `duckdb-eh.<hash>.wasm` and `<extension>.duckdb_extension.<hash>.wasm` for each, or their `mvp` siblings on a browser without WebAssembly
   exceptions — and there is nothing to copy. Autoloading is off: a function from an extension the
   engine did not load fails with DuckDB's error naming it, rather than fetching it from

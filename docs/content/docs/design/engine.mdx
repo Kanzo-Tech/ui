@@ -198,6 +198,31 @@ is not verified; the rule does not depend on it, because the engine redacts rega
 that forces a failing `CREATE SECRET` and greps the thrown value for the secret is a guard to be
 added with the change.
 
+**Nor does the worker print one.** DuckDB-WASM's worker logs every header of the requests its
+synchronous HTTP glue sends (`console.log("HEAD", name, value)`), and through `httpfs` those are an
+`s3://` read's SigV4 `Authorization` and `x-amz-security-token`: the access key id and the whole STS
+session token, in the console of every page that read under a vended credential. `VoidLogger` does
+not reach it, since it is the worker's own `console`. `engine()` therefore starts DuckDB's worker
+inside one of this package's (`worker/duckdb.worker.js`), which drops that line and imports DuckDB's
+from the URL in its fragment.
+
+A copy of DuckDB's worker with the line cut was tried first and failed in this site's build: the
+copy is a `.js` inside `@kanzo-tech/mosaic`, which a host's `transpilePackages` runs its loader on,
+and SWC folds `typeof window` to `"object"` in a client build, so DuckDB's worker died on `window is
+not defined`. DuckDB's file stays in `@duckdb/duckdb-wasm`, which no host transpiles, and the wrapper
+has nothing a loader can break. A patch of the dependency would not do either: a host installs
+`@duckdb/duckdb-wasm` itself, and a patch in this workspace reaches none of them.
+
+The wrapper imports by `importScripts`, so a host that sends its static assets a CSP of its own must
+allow `'self'` in that policy's `script-src`; the policy this README gives already does.
+
+*Held by* `packages/mosaic/src/worker.test.ts`, "drops the line DuckDB prints for each header it
+sends, and keeps every other" and "matches the one header print in each of the pinned
+DuckDB-WASM's workers".
+
+**What would reverse it:** a DuckDB-WASM release that no longer prints headers. Then the wrapper is
+deleted and `engine()` starts DuckDB's worker again.
+
 The door itself is not locked: any caller of `engine.query` can `INSTALL`, `ATTACH` or `COPY`. Today
 the model never writes SQL (Ask compiles a typed spec), so there is no one to lock it against, and
 whether `lock_configuration` or `allowed_directories` apply in WASM is not verified. A policy

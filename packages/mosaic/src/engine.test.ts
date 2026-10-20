@@ -125,14 +125,17 @@ describe("engine", () => {
 
   // The CSP a host can hold is `'self'` because of this: no CDN, no `blob:` worker. Unbundled, the
   // specifier resolves against the module; a bundler resolves it to the dependency and emits it.
+  // DuckDB's worker is started inside this package's, which drops its header print, named in the fragment.
   it("boots the bundle it selected from the package's own DuckDB-WASM", async () => {
     await engine();
     expect(workers).toHaveLength(1);
-    const worker = new URL(workers[0]!);
+    const wrapper = new URL(workers[0]!);
+    const worker = new URL(decodeURIComponent(wrapper.hash.slice(1)));
     const module = new URL(db.instantiate.mock.calls[0]![0]);
+    expect(wrapper.pathname).toMatch(/\/worker\/duckdb\.worker\.js$/);
     expect(worker.pathname).toMatch(/\/@duckdb\/duckdb-wasm\/dist\/duckdb-browser-eh\.worker\.js$/);
     expect(module.pathname).toMatch(/\/@duckdb\/duckdb-wasm\/dist\/duckdb-eh\.wasm$/);
-    expect([worker.protocol, module.protocol]).toEqual(["file:", "file:"]);
+    expect([wrapper.protocol, worker.protocol, module.protocol]).toEqual(["file:", "file:", "file:"]);
   });
 
   // Without httpfs a vended credential has nowhere to go: `CREATE SECRET (TYPE s3 …)` is httpfs's.
