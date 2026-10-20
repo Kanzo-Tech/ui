@@ -9,7 +9,7 @@ export default tseslint.config(
   // `docs/out/` joined this list when the documentation gained a static export: it is `.next/`'s
   // output under a name that does not start with a dot, so nothing was skipping it and `pnpm lint`
   // started reporting `'self' is not defined` inside minified webpack chunks.
-  { ignores: ["**/dist/**", "**/node_modules/**", "**/.next/**", "**/.source/**", "docs/out/**", "packages/mosaic/workers/**"] },
+  { ignores: ["**/dist/**", "**/node_modules/**", "**/.next/**", "**/.source/**", "docs/out/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

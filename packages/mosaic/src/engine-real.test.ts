@@ -47,8 +47,8 @@ class DuckWorker {
   private readonly listeners = new Map<(event: never) => void, (value: unknown) => void>();
 
   constructor(url: string) {
-    // The browser worker is this package's copy in `workers/`; Node's is DuckDB-WASM's own, beside its module.
-    const file = `${duckdb}/dist/${new URL(url).pathname.split("/").at(-1)!}`
+    // The page starts DuckDB's worker inside the package's wrapper, named in its fragment; Node runs DuckDB's own.
+    const file = inPackage(new URL(decodeURIComponent(new URL(url).hash.slice(1))).pathname)
       .replace("duckdb-browser-", "duckdb-node-")
       .replace(/\.worker\.js$/, ".worker.cjs");
     // DuckDB-WASM's Node worker is written for the `web-worker` package's globals: `onmessage` and `postMessage`.
