@@ -75,7 +75,7 @@ function Count({ value }: { value: number | null | undefined }) {
  *
  * **Under bound positions the verb is "placed"**, because there a vertex with no value in `x` or
  * `y` is hidden, not greyed: "33.4K of 206.6K nodes placed · 0 of 316.8K edges". Both figures are
- * drawn of total, so a map that leaves most of the corpus out says so instead of reading as missing
+ * drawn of total, so a map that leaves most of the graph out says so instead of reading as missing
  * data.
  *
  * The sentence is its `translations`' patterns over the figures, never English assembled here.

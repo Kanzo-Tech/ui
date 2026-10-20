@@ -1,0 +1,40 @@
+type: Post
+chunk_size: 302
+prefix: vertex/Post/
+property_groups:
+  - prefix: subject_creationDate_locationIP_browserUsed_language_content_imageFile_length/
+    file_type: parquet
+    properties:
+      - name: subject
+        data_type: string
+        is_primary: true
+        is_nullable: false
+      - name: creationDate
+        data_type: timestamp
+        is_primary: false
+        is_nullable: false
+      - name: locationIP
+        data_type: string
+        is_primary: false
+        is_nullable: false
+      - name: browserUsed
+        data_type: string
+        is_primary: false
+        is_nullable: false
+      - name: language
+        data_type: string
+        is_primary: false
+        is_nullable: true
+      - name: content
+        data_type: string
+        is_primary: false
+        is_nullable: true
+      - name: imageFile
+        data_type: string
+        is_primary: false
+        is_nullable: true
+      - name: length
+        data_type: int64
+        is_primary: false
+        is_nullable: false
+version: gar/v1

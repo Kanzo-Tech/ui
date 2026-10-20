@@ -3,7 +3,7 @@ title: Layout and camera
 description: The data's status and the layout's motion, when the GPU layout runs and how it scales, what a drag does to the points, when the camera follows, and what is kept when the canvas goes.
 ---
 
-A graph view does two different things over time: it **reads** a corpus, and it **lays out** points.
+A graph view does two different things over time: it **reads** a graph, and it **lays out** points.
 `@kanzo-tech/graph` keeps them on two axes, runs the layout whenever the data does not say where a
 point goes, and moves the camera for the reader only while a layout is moving the points.
 
@@ -18,7 +18,7 @@ point goes, and moves the camera for the reader only while a layout is moving th
 | `progress` | `0` – `1`, in twentieths | a running layout cools toward rest |
 
 **`status` is the data's life.** `none` is no catalog named; `loading` is the graph, a binding or a
-filter not yet read or not yet drawn; `idle` is all of it drawn; `failed` is a corpus that would not
+filter not yet read or not yet drawn; `idle` is all of it drawn; `failed` is a graph that would not
 read, or a canvas with no GPU device — none came up, or its context was lost.
 
 **`motion` is the layout's.** `running` is a live layout; `paused` is one waiting for the reader;
@@ -46,9 +46,9 @@ points and not the figures it reports.
 numeric columns — `x="lon" y="lat"` — and every point is drawn at its row's values and nothing
 simulates; a vertex whose table lacks either column is not drawn. There is no base map: lon/lat as
 `x`/`y` is a scatter of positions, which is what Cosmograph does too. Leave them unbound — a fossil
-corpus carries no positions — and the points start from a seeded Gaussian around the centre of the
+graph carries no positions — and the points start from a seeded Gaussian around the centre of the
 layout's square, its spread growing with the graph, and the GPU force simulation runs as soon as the
-graph is drawn. The seed is the vertex count, so the same corpus starts the same way.
+graph is drawn. The seed is the vertex count, so the same graph starts the same way.
 
 `cluster` names a column the running layout pulls together by — cosmos.gl's cluster force over
 `setPointClusters`. It is a binding like any other: change it and the layout reheats.
@@ -56,13 +56,16 @@ graph is drawn. The seed is the vertex count, so the same corpus starts the same
 **Latitude as `y` draws north up.** cosmos.gl's space is y-up, and the data's extent is placed in its
 square by a positive scale and a translation, never a flip. A reader picks among the three —
 the layout, two columns, the layout with a cluster column — through the graph section's
-[placement](/docs/graph#placement), whose column selects offer the corpus's own fields.
+[placement](/docs/graph#placement), whose column selects offer the graph's own fields.
 
-`simulate` overrides the rule: `false` keeps an unbound graph at its seeded start, `true` runs a
-layout over bound positions. **The toolbar's transport** runs and stops the layout whatever it says —
-*Pause the layout* while running, *Resume the layout* when paused, *Run the layout* when settled,
-and *Re-run the layout*, which starts again from full heat. The api is the
-same transport: `resume()`, `pause()`, `restart()`. Changing `sim` while a layout runs reheats it, so a
+`simulate={false}` keeps an unbound graph at its seeded start. **Nothing runs a layout over bound
+positions** — not `simulate`, not the transport, not a change of forces: the forces would only push the
+data's points against the walls of the layout's square. Binding the second axis stops a running
+layout at once, before the positions it asks for have loaded. **The toolbar's transport** runs and
+stops the layout whatever `simulate` says — *Pause the layout* while running, *Resume the layout* when
+paused, *Run the layout* when settled, and *Re-run the layout*, which starts again from full heat —
+and is disabled while `x` and `y` place the points. The api is the same transport: `resume()`,
+`pause()`, `restart()`, which do nothing then. Changing `sim` while a layout runs reheats it, so a
 reader tuning gravity sees the change; a paused layout stays paused.
 
 ## How the layout scales
@@ -167,7 +170,7 @@ of the seeded start, puts the camera where it was, and the layout goes on as it 
 | running | resumes from the kept positions with a reheat, and the camera follows it again |
 
 `motion` keeps its value while no canvas is attached: it is what the layout will do when one is.
-**A new geometry drops what was kept** — another corpus, or `x` and `y` bound to other columns — and
+**A new geometry drops what was kept** — another graph, or `x` and `y` bound to other columns — and
 the next canvas places it as at load. A change of look, colour, size or cluster keeps it: those
 repaint the points and do not move them, attached or not. A restored camera is the reader's: a resize
 leaves it where it is, and Frame hands it back.
@@ -175,7 +178,7 @@ leaves it where it is, and Frame hands it back.
 There is no hidden canvas and no host prop: a canvas kept alive off-screen would hold its GPU
 context, and Chrome keeps sixteen per renderer process before it evicts the oldest.
 
-## Large corpora
+## Large graphs
 
 The camera that follows a layout is not free. **Every re-frame after a layout has run reads every
 point's position back from the GPU** — a synchronous `readPixels` of the position texture, sixteen
@@ -201,7 +204,7 @@ What to do about it, in the order it pays:
 - **Bind `x` and `y`** when the data has positions: nothing runs and nothing is read back.
 - **Take the camera** — a wheel or a pan — once a run has started, and the re-frames stop until the
   next run.
-- **Start large corpora at other forces** through the tenant policy over `GRAPH_SECTION`'s axes — less
+- **Start large graphs at other forces** through the tenant policy over `GRAPH_SECTION`'s axes — less
   repulsion, more friction — so a run settles in fewer frames.
 
 ## Related

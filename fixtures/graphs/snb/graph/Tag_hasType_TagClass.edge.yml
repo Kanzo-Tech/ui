@@ -1,0 +1,14 @@
+src_type: Tag
+edge_type: hasType
+dst_type: TagClass
+chunk_size: 237
+src_chunk_size: 237
+dst_chunk_size: 33
+prefix: edge/Tag_hasType_TagClass/
+directed: true
+adj_lists:
+  - ordered: true
+    aligned_by: src
+    prefix: ordered_by_source/
+    file_type: parquet
+version: gar/v1

@@ -1,0 +1,14 @@
+src_type: Place
+edge_type: isPartOf
+dst_type: Place
+chunk_size: 30
+src_chunk_size: 34
+dst_chunk_size: 34
+prefix: edge/Place_isPartOf_Place/
+directed: true
+adj_lists:
+  - ordered: true
+    aligned_by: src
+    prefix: ordered_by_source/
+    file_type: parquet
+version: gar/v1

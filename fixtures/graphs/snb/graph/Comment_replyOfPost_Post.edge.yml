@@ -1,0 +1,14 @@
+src_type: Comment
+edge_type: replyOfPost
+dst_type: Post
+chunk_size: 93
+src_chunk_size: 212
+dst_chunk_size: 302
+prefix: edge/Comment_replyOfPost_Post/
+directed: true
+adj_lists:
+  - ordered: true
+    aligned_by: src
+    prefix: ordered_by_source/
+    file_type: parquet
+version: gar/v1

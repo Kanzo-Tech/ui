@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The decisions, without a Keycloak. The mapper's wiring into a token — which organizations, on
- * which tokens, after an exchange — is proved on a live realm by ../../scripts/verify.sh.
+ * which tokens — is proved on a live realm by ../../scripts/verify.sh.
  */
 class OrganizationGroupIdsMapperTest {
 

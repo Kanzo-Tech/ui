@@ -5,10 +5,8 @@ import { bindingOf } from "./channels";
 import { GraphClient, publish } from "./client";
 import { Problem } from "@kanzo-tech/kernel";
 import { loadEncoding, loadGeometry, type Encoding, type Geometry } from "./load";
-import { readJoinGraph, type JoinGraph } from "@kanzo-tech/relations";
-import { structureOf } from "./catalog";
-import { VERTICES } from "./source";
-import { KEY, type Structure } from "./structure";
+import { readJoinGraph, withMapping, type JoinGraph } from "@kanzo-tech/relations";
+import { KEY, VERTICES, sizeOf, vertexTypes } from "./source";
 import { drawnOf, idsOf, keptOf, maskOf } from "./kept";
 import { memo } from "./memo";
 import { createReads, type Kind } from "./reads";
@@ -35,15 +33,16 @@ export function createGraph(initial: GraphOptions): GraphStore {
   // Until shown once, the load also waits for every chart on the page yet to draw (`holdFirstDraw`).
   let shownOnce = false, unwatch: (() => void) | null = null;
   let binding = bindingOf(initial);
-  let structure: Structure | null = null;
-  let catalog: JoinGraph | null = null; // as read, before the host's mapping describes it
+  let structure: JoinGraph | null = null;
+  /** The graph as read, before the host's mapping describes it: a mapping that arrives later re-describes this, and reads nothing. */
+  let catalog: JoinGraph | null = null;
   let geometry: Geometry | null = null;
   let encoding: Encoding | null = null;
   let kept: Float64Array | null = null;
   let mask: Uint8Array | null = null;
   let arrangement: Arrangement | null = null;
   let uploaded: readonly unknown[] = [];
-  /** Aborted when the corpus changes, the root goes and a retry starts the load anew. */
+  /** Aborted when the graph changes, the root goes and a retry starts the load anew. */
   const reads = createReads();
   let client: GraphClient | null = null;
   let connected: Coordinator | null = null;
@@ -70,8 +69,8 @@ export function createGraph(initial: GraphOptions): GraphStore {
 
   // Each view of the graph is derived once per change of what it reads: the same array until then.
   const domainNow = memo(
-    () => [structure?.vertices, binding.byTable, binding.category, options.categories],
-    () => domainOf(structure?.vertices ?? [], binding, options.categories),
+    () => [structure, binding.byTable, binding.category, options.categories],
+    () => domainOf(structure ? vertexTypes(structure) : [], binding, options.categories),
   );
   /** What is kept, `keptOf`: the one reading every view of the graph draws. */
   const keptNow = memo(
@@ -103,7 +102,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     snapshot = { ...snapshot, ...fields };
     snapshot = {
       ...snapshot,
-      total: structure?.size,
+      total: structure ? sizeOf(structure) : undefined,
       // What the counts say *match*: kept and placed, `visible()` — a kept vertex with no position is no match.
       matching: visibleNow()?.length ?? null,
       drawn: drawnNow(),
@@ -158,15 +157,17 @@ export function createGraph(initial: GraphOptions): GraphStore {
     const { engine, from } = options;
     if (engine === null || from === null) return;
     read("structure", (signal) => readJoinGraph(engine, from, { signal }), (graph) => {
-      const next = structureOf(from, graph, options.mapping);
-      if (next.size === 0) {
+      const { mapping } = options; // a column's `datatype` is the mapping's; GraphAr's catalog states none
+      const next = mapping ? withMapping(graph, mapping) : graph;
+      const size = sizeOf(next);
+      if (size === 0) {
         failed = true;
         fail(new Problem("graph/nothing-to-draw", `the graph attached as ${from} has no vertex`));
         return;
       }
-      if (next.size > LIMIT) {
+      if (size > LIMIT) {
         failed = true;
-        fail(new Problem("graph/too-large", `the graph attached as ${from} has ${next.size} vertices; the graph draws at most ${LIMIT}`, { count: next.size, limit: LIMIT }));
+        fail(new Problem("graph/too-large", `the graph attached as ${from} has ${size} vertices; the graph draws at most ${LIMIT}`, { count: size, limit: LIMIT }));
         return;
       }
       structure = next;
@@ -202,7 +203,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     reads.stop();
     failed = false;
     shownOnce = false;
-    // A new corpus: the old one's pick goes from the page with its vertices.
+    // A new graph: the old one's pick goes from the page with its vertices.
     if (client && published && structure) publish(published, client, KEY, null, "");
     published = null;
     catalog = structure = geometry = encoding = null;
@@ -302,7 +303,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
         return reset();
       }
       if (active && scope() !== (previous.filterBy ?? own)) connect();
-      if (next.mapping !== previous.mapping && catalog && next.from !== null) structure = structureOf(next.from, catalog, next.mapping);
+      if (next.mapping !== previous.mapping && catalog) structure = next.mapping ? withMapping(catalog, next.mapping) : catalog;
       if (binding.x !== before.x || binding.y !== before.y) loadPositions();
       else if (
         binding.category !== before.category ||

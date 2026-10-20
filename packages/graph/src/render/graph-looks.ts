@@ -97,7 +97,7 @@ const LEVELS: readonly LabelLevel[] = ["none", "hovered", "top", "visible", "all
  * `section.ts` as axes and resolved by `lookFrom`; what a renderer consumes is this.
  */
 export interface Look {
-  /** Radius at the lowest degree in the corpus, and at the highest. */
+  /** Radius at the lowest degree in the graph, and at the highest. */
   size: [number, number];
   link: {
     /**
@@ -157,7 +157,7 @@ export interface Look {
   // pair (0.28 legible, 0.42 dense) is the whole argument of `marks`; a slider on top of it is the
   // post-process `graph-model.ts` forbids one layer down, wearing a preference's clothes.
   //
-  // What is lost with them is the fit-to-corpus case, and it was never a preference: a computed fit
+  // What is lost with them is the fit-to-graph case, and it was never a preference: a computed fit
   // belongs to the tenant's starting point — which is a policy, and which is now expressible.
 
   // There is no `filter`, and its absence is a rule rather than an omission. Nebula carried

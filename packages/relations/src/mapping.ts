@@ -1,4 +1,4 @@
-import type { JoinAnnotation, JoinColumn, JoinEdge, JoinGraph, JoinType } from "./relation.js";
+import { checked, type JoinAnnotation, type JoinColumn, type JoinEdge, type JoinGraph, type JoinType } from "./relation.js";
 
 /**
  * **A mapping, as far as a graph's words and datatypes are read from it** (`/docs/design/fields`,
@@ -157,5 +157,5 @@ export function withMapping(graph: JoinGraph, mapping: MappingModel): JoinGraph 
     }
     return e;
   });
-  return { types, edges };
+  return checked({ types, edges });
 }

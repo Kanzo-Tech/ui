@@ -82,7 +82,7 @@ describe("label levels over a large graph", () => {
     await waitFor(() => expect(mounted()).toBeGreaterThan(150), { timeout: 5000 });
     await act(() => settle(corpus));
     expect(mounted()).toBeLessThanOrEqual(bound);
-    const asked = vi.mocked(readTitles).mock.calls.map(([, , vertices]) => vertices.length);
+    const asked = vi.mocked(readTitles).mock.calls.map(([, , , vertices]) => vertices.length);
     expect(asked.length).toBeGreaterThan(0);
     expect(Math.max(...asked), "ids in one title read").toBeLessThanOrEqual(bound);
   }, 60_000);
@@ -112,7 +112,7 @@ describe("labels read what is kept", () => {
     await act(() => settle(corpus));
     await waitFor(() => expect(vi.mocked(readTitles).mock.calls.length).toBeGreaterThan(0), { timeout: 5000 });
     const kept = new Set(store!.visible());
-    const asked = vi.mocked(readTitles).mock.calls.flatMap(([, , vertices]) => [...vertices]);
+    const asked = vi.mocked(readTitles).mock.calls.flatMap(([, , , vertices]) => [...vertices]);
     expect(kept).toEqual(new Set([3, 4]));
     expect(asked.filter((id) => !kept.has(id))).toEqual([]);
   }, 60_000);

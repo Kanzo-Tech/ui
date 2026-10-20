@@ -1,6 +1,8 @@
+import { bindingOf } from "../core/channels";
 import { idsOf } from "../core/kept";
-import type { Geometry } from "../core/load";
+import { carries, type Geometry } from "../core/load";
 import type { GraphOptions } from "../core/state";
+import type { JoinGraph } from "@kanzo-tech/relations";
 
 /**
  * **What the renderer decides from the data**, apart from cosmos.gl so it can be read and tested
@@ -23,9 +25,21 @@ export const decayFor = (size: number): number => (size > 200_000 ? 240 : 600);
  */
 export const LINKS_WHILE_RUNNING = 250_000;
 
-/** Whether a layout should run: as `simulate` says, else exactly when the positions are not the data's. */
+/**
+ * **Whether the data places the points**: `x` and `y` both bound to columns the graph carries — what
+ * `loadGeometry` binds positions by, read from the options as soon as they change, before the
+ * geometry they ask for has loaded (so binding the second axis stops a running layout at once), or a
+ * geometry already placed by them. Then no layout runs, whatever asks for one: forces over positions
+ * that are data only push them against the square's walls.
+ */
+export function placedByData(options: GraphOptions, { structure, geometry }: { structure: JoinGraph | null; geometry?: Geometry | null }): boolean {
+  const { x, y } = bindingOf(options);
+  return geometry?.bound === true || (structure !== null && carries(structure, x) && carries(structure, y));
+}
+
+/** Whether a layout should run: never over the data's positions; else as `simulate` says, running by default. */
 export const simulating = (options: GraphOptions, geometry: Geometry | null): boolean =>
-  options.simulate ?? (geometry !== null && !geometry.bound);
+  geometry !== null && !geometry.bound && (options.simulate ?? true);
 
 /**
  * What is kept, said to cosmos.gl, which greys links apart from points, so the links are said out

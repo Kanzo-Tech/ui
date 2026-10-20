@@ -1,5 +1,5 @@
 import { Output, generateText, jsonSchema, streamText } from "ai";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const supported = vi.fn(() => true);
 const requests: Record<string, unknown>[] = [];
@@ -395,19 +395,15 @@ describe("localProvider, served from the host's own origin", () => {
 });
 
 describe("localModel, when a test registered a provider for its id", () => {
-  type Hook = { __KANZO_TESTING__?: { models: Map<string, { prompts: string[] }> } };
-  const hook = globalThis as Hook;
-  afterEach(() => void delete hook.__KANZO_TESTING__);
-
   it("answers from the script registered for its id, records the prompt, and never reaches WebLLM", async () => {
     supported.mockReturnValue(false);
     const before = made.length;
-    dom({} as HTMLElement, { models: { "Qwen3-0.6B-scripted": { turns: [{ when: "How many", reply: { text: "Four." } }] } } });
+    const env = dom({} as HTMLElement, { models: { "Qwen3-0.6B-scripted": { turns: [{ when: "How many", reply: { text: "Four." } }] } } });
     await loadLocalModel("Qwen3-0.6B-scripted");
     expect(localModelLoad("Qwen3-0.6B-scripted")).toEqual({ state: "ready" });
     const { text } = await generateText({ model: localModel("Qwen3-0.6B-scripted"), prompt: "How many laureates?" });
     expect(text).toBe("Four.");
-    expect(hook.__KANZO_TESTING__?.models.get("Qwen3-0.6B-scripted")?.prompts).toEqual(["How many laureates?"]);
+    expect(await env.prompts("Qwen3-0.6B-scripted")).toEqual(["How many laureates?"]);
     expect(made.length).toBe(before);
   });
 

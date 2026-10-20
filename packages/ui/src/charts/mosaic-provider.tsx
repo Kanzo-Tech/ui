@@ -49,7 +49,7 @@ export interface MosaicProviderProps {
   engine: Engine;
   /**
    * The types and the edges between them that the page's relations are read over —
-   * `@kanzo-tech/graph`'s `readJoinGraph` for a fossil corpus. A part's `relation` names a type or a
+   * `@kanzo-tech/graph`'s `readJoinGraph` for an attached GraphAr graph. A part's `relation` names a type or a
    * path over them, and a clause on one relation reaches a part on another through them. Without it
    * every relation is a table of its own, and a clause crosses to no other. A new graph is read by the page's
    * selection from then on; the selection itself stays.

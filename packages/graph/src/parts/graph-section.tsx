@@ -3,8 +3,8 @@
 import { cn, SectionProvider, useKanzoTheme, type PrefSpecimen } from "@kanzo-tech/ui";
 import { type ReactNode, useId, useMemo } from "react";
 import type { Channels } from "../core/channels";
-import { TEMPORAL_DATATYPES } from "@kanzo-tech/relations";
-import { KEY, isList, type Column, type Structure } from "../core/structure";
+import { TEMPORAL_DATATYPES, type JoinColumn, type JoinGraph } from "@kanzo-tech/relations";
+import { KEY, isList, vertexTypes } from "../core/source";
 import { lookFrom, type Look } from "../render/graph-looks";
 import { scaleOf } from "../render/graph-model";
 import { useGraphState } from "../react/use-graph-state";
@@ -13,10 +13,10 @@ import { ShapeGlyph } from "./shape-glyph";
 type PrefOption = Parameters<PrefSpecimen>[0];
 
 /**
- * **What only the graph knows about its section** — the columns of the corpus it attached, and a
+ * **What only the graph knows about its section** — the columns of the graph it attached, and a
  * picture for each option a person picks by looking.
  *
- * `GRAPH_SECTION` says what may be set; a manifest is data, so it cannot know a corpus or draw a
+ * `GRAPH_SECTION` says what may be set; a manifest is data, so it cannot know a graph or draw a
  * mark. The root can, and it says so the way every section's owner does: a `SectionProvider` over
  * its subtree, which is how a `<Pref>` anywhere beneath — or `PreferencesSections namespace="graph"`
  * — draws the whole control with no host passing a list it does not own. The theme provider does the
@@ -41,18 +41,19 @@ const NUMERIC = new Set(["INTEGER", "BIGINT", "FLOAT", "DOUBLE"]);
  * whose datatype is a time (`TEMPORAL_DATATYPES`, the dashboard's own) is one too.
  */
 const TEMPORAL_TYPES = new Set(["DATE", "TIMESTAMP"]);
-const temporal = (column: Column) =>
+const temporal = (column: JoinColumn) =>
   TEMPORAL_TYPES.has(column.type) || (NUMERIC.has(column.type) && column.datatype !== undefined && TEMPORAL_DATATYPES.has(column.datatype));
 
 /** Every vertex table's fields, once each by name, sorted: all of them, the numeric and the temporal ones. */
-function fieldsOf(structure: Structure | null): Record<"columns" | "numeric-columns" | "temporal-columns", PrefOption[]> {
+function fieldsOf(structure: JoinGraph | null): Record<"columns" | "numeric-columns" | "temporal-columns", PrefOption[]> {
   const any = new Set<string>();
   const numeric = new Set<string>();
   const times = new Set<string>();
-  for (const table of structure?.vertices ?? []) {
-    for (const [name, column] of table.columns) {
+  for (const table of structure ? vertexTypes(structure) : []) {
+    for (const column of table.columns) {
+      const { name } = column;
       // The keys are the graph's and the type's, and a list is a value, not an axis or a group.
-      if (name === KEY || column.primary || isList(column)) continue;
+      if (name === KEY || column.role === "identity" || isList(column)) continue;
       any.add(name);
       if (NUMERIC.has(column.type)) numeric.add(name);
       if (temporal(column)) times.add(name);

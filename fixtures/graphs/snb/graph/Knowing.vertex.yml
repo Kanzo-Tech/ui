@@ -1,0 +1,16 @@
+type: Knowing
+chunk_size: 13
+prefix: vertex/Knowing/
+property_groups:
+  - prefix: subject_creationDate/
+    file_type: parquet
+    properties:
+      - name: subject
+        data_type: string
+        is_primary: true
+        is_nullable: false
+      - name: creationDate
+        data_type: timestamp
+        is_primary: false
+        is_nullable: false
+version: gar/v1

@@ -1,0 +1,14 @@
+src_type: LaureateAward
+edge_type: university
+dst_type: University
+chunk_size: 56
+src_chunk_size: 64
+dst_chunk_size: 41
+prefix: edge/LaureateAward_university_University/
+directed: true
+adj_lists:
+  - ordered: true
+    aligned_by: src
+    prefix: ordered_by_source/
+    file_type: parquet
+version: gar/v1

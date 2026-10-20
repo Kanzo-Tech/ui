@@ -64,9 +64,10 @@ import { fileURLToPath } from "node:url";
  *   judgement about its one file expired as it said it would.
  * - **It reads `src/`, and only `.ts`/`.tsx` under it.** A `tailwind.css` in either package is passed
  *   over by a filter rather than by a decision — see the note each guard carries about its own.
- * - **It cannot see a package that is not in `packages/`.** The workspace globs are `packages/*` and
- *   `docs`; `docs` is not a library and is not in scope for the idiom rules. It IS in {@link READERS},
- *   the wider population below, and the reason is on that constant.
+ * - **It cannot see a package that is not in `packages/`.** The workspace globs are `packages/*`,
+ *   `docs` and `fixtures`; neither of the last two is a library, and neither is in scope for the idiom
+ *   rules. `docs` IS in {@link READERS}, the wider population below, and the reason is on that
+ *   constant; `fixtures` is test data and the door tests read it through, and reads no token.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -92,8 +93,8 @@ interface Published extends Root {
 /**
  * Every shipped package with a `src/`, before the idiom filter.
  *
- * `packages/*` is one of the two globs in `pnpm-workspace.yaml`, read here as a directory listing:
- * the other is `docs`, which is not a library.
+ * `packages/*` is one of the three globs in `pnpm-workspace.yaml`, read here as a directory listing:
+ * the others are `docs` and `fixtures`, neither of them a library.
  */
 const PUBLISHED: readonly Published[] = readdirSync(join(REPO, "packages"), { withFileTypes: true })
   .filter((entry) => entry.isDirectory())

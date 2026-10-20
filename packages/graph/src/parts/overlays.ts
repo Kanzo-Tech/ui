@@ -112,7 +112,7 @@ export function useOverlays(api: { getGraph: () => Graph | null; theme: number }
      * Positions come from the tracking API, not from `getPointPositions()`.
      *
      * The difference is what gets read back per frame. `getPointPositions()` is a synchronous
-     * `readPixels` of the *whole* position framebuffer — 10,000 bytes at this corpus size, plus an
+     * `readPixels` of the *whole* position framebuffer — 10,000 bytes at this graph size, plus an
      * O(n) array build — on every animation frame the simulation runs. Tracking reads a
      * `ceil(√k)²` texture for the k points that actually carry an overlay: 2,704 bytes for Top's
      * 150 labels and a focused node. It also caches while the simulation is stopped, so a settled

@@ -26,7 +26,7 @@ const TONE = { loading: "info", layingOut: "info", ready: "success", failed: "de
  * **Where the graph is, in one word** — Loading, Laying out 42%, Ready or Failed. It reads both axes
  * of the state: `status` for the data and `motion` with `progress` for the layout, so a running
  * layout over a drawn graph is "Laying out", never the data's `idle`. A load wins over a layout,
- * and a root with no corpus yet reads as Loading: the host is still opening one.
+ * and a root with no graph yet reads as Loading: the host is still opening one.
  *
  * ARIA: the word is a polite live region, so a change of word is announced once; the percentage
  * sits outside it, because it moves at frame rate and would be read out on every frame. The badge

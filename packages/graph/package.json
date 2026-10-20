@@ -1,7 +1,7 @@
 {
   "name": "@kanzo-tech/graph",
   "version": "0.1.0",
-  "description": "Kanzo graph view — a fossil corpus attached to the page's DuckDB, read through the page's Mosaic coordinator as one more client, laid out and drawn with cosmos.gl on the GPU. Sibling of @kanzo-tech/ui, not part of it: the admission rules exclude graphs from the generic vocabulary by name.",
+  "description": "Kanzo graph view — a GraphAr graph attached to the page's DuckDB, read through the page's Mosaic coordinator as one more client, laid out and drawn with cosmos.gl on the GPU. Sibling of @kanzo-tech/ui, not part of it: the admission rules exclude graphs from the generic vocabulary by name.",
   "type": "module",
   "license": "MIT",
   "sideEffects": [
@@ -33,7 +33,7 @@
     "size": "size-limit"
   },
   "//peers": "All required. cosmos.gl draws and lays out; `@ark-ui/react` is what every part renders through (`ark.*`), a peer for the reason it is `@kanzo-tech/ui`'s — two copies of Ark would be two portals and two focus traps; `lucide-react` is the icon set the parts draw their buttons with, `@kanzo-tech/ui`'s own peer; `@kanzo-tech/mosaic` is the coordinator the graph reads through as a client; `@kanzo-tech/relations` is the reader of the attached graph's catalog and the crossfilter the graph listens to and publishes into. The Mosaic stack itself — mosaic-core, mosaic-sql — is `@kanzo-tech/mosaic`'s peer, declared once there. `tailwind-variants` is a dependency, as it is `ui`'s and `ai`'s: the parts write their appearance as recipes, which is also what puts this package under the guards (`packages/ui/src/guard-corpus.ts`).",
-  "//graphar": "The graph reads a GraphAr graph `@kanzo-tech/graphar-duckdb`'s `attachGraph` attached under a name \u2014 a view per vertex type, `\"<c>\".\"<type>\"` with `_graphArVertexIndex`, and per edge type, `\"<c>\".\"<src>_<edge>_<dst>\"` with `_graphArSrcIndex` and `_graphArDstIndex`, and the information files as `graphar_vertex_types`, `graphar_edge_types`, `graphar_properties` and `graphar_chunks` \u2014 with SQL through the coordinator, in one function, `@kanzo-tech/relations`'s `readJoinGraph`, which `src/core/catalog.ts` calls. It imports nothing of graphar's or fossil's: the contract is the catalog and the chunks' footers, as `@kanzo-tech/graphar-duckdb` (Kanzo-Tech/graphar `2ec7a22`, after #4: counts typed UBIGINT, `graphar_chunks`) writes it \u2014 types in the graph document's order, counts, edge types and their ends, each property's primary key and nullability, a `list` property as a `T[]` column, and per vertex chunk the writer's `fossil:stats` in its Parquet `key_value_metadata` beside the row groups' own `Statistics`. Every vertex type is a node type; the global id, `dense_id`, is this package's arithmetic over the per-type index.",    "@ark-ui/react": "^5.37.2",
+  "//graphar": "The graph reads a GraphAr graph `@kanzo-tech/graphar-duckdb`'s `attachGraph` attached under a name \u2014 a view per vertex type, `\"<c>\".\"<type>\"` with `_graphArVertexIndex`, and per edge type, `\"<c>\".\"<src>_<edge>_<dst>\"` with `_graphArSrcIndex` and `_graphArDstIndex`, and the information files as `graphar_vertex_types`, `graphar_edge_types`, `graphar_properties` and `graphar_chunks` \u2014 with SQL through the coordinator, in one function, `@kanzo-tech/relations`'s `readJoinGraph`, which the store calls and whose `JoinGraph` is the snapshot's `structure`. It imports nothing of graphar's or fossil's: the contract is the catalog and the chunks' footers, as `@kanzo-tech/graphar-duckdb` (Kanzo-Tech/graphar `2ec7a22`, after #4: counts typed UBIGINT, `graphar_chunks`) writes it \u2014 types in the graph document's order, counts, edge types and their ends, each property's primary key and nullability, a `list` property as a `T[]` column, and per vertex chunk the writer's `fossil:stats` in its Parquet `key_value_metadata` beside the row groups' own `Statistics`. Every vertex type is a node type; the global id, `dense_id`, is the reader's arithmetic over the per-type index, each type's `first` its offset.",    "@ark-ui/react": "^5.37.2",
   "peerDependencies": {
     "@ark-ui/react": "^5.37.2",
     "@cosmos.gl/graph": "^3.4.0",
@@ -50,7 +50,7 @@
   "devDependencies": {
     "@ark-ui/react": "^5.37.2",
     "@cosmos.gl/graph": "^3.4.0",
-    "@duckdb/duckdb-wasm": "1.33.1-dev57.0",
+    "@kanzo-tech/fixtures": "workspace:*",
     "@kanzo-tech/mosaic": "workspace:*",
     "@kanzo-tech/relations": "workspace:*",
     "@kanzo-tech/testing": "workspace:*",

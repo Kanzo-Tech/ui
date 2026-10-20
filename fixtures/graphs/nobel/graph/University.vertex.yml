@@ -1,0 +1,28 @@
+type: University
+chunk_size: 41
+prefix: vertex/University/
+property_groups:
+  - prefix: subject_name_addressLocality_lat_long/
+    file_type: parquet
+    properties:
+      - name: subject
+        data_type: string
+        is_primary: true
+        is_nullable: false
+      - name: name
+        data_type: string
+        is_primary: false
+        is_nullable: false
+      - name: addressLocality
+        data_type: string
+        is_primary: false
+        is_nullable: true
+      - name: lat
+        data_type: double
+        is_primary: false
+        is_nullable: true
+      - name: long
+        data_type: double
+        is_primary: false
+        is_nullable: true
+version: gar/v1

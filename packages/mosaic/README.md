@@ -74,8 +74,8 @@ import { engine } from "@kanzo-tech/mosaic/engine";
   of rows. Reading it is mosaic-core's `toDataColumns`; `numbers` adds the coercion, since Arrow
   hands back `BigInt` for some integer widths. A field the query did not select throws.
 - **`TableExpr`** — what a `table` takes, here and in the charts: a string is one identifier in the
-  default catalog, a mosaic-sql node is a relation named in SQL — `verbatim(relation.sql)` for a
-  fossil corpus's catalog-qualified relation.
+  default catalog, a mosaic-sql node is a relation named in SQL — `verbatim(relation.sql)` for
+  an attached graph's catalog-qualified relation.
 
 All of it is on Mosaic's public API: `packages/ui/src/mosaic-public-api.test.ts` fails on any `_`
 member of a Mosaic object reached from any shipped package.

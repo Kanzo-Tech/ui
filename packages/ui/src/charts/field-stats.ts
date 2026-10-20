@@ -1,7 +1,7 @@
 "use client";
 
-import { type TableExpr, Query, jsType, sql } from "@kanzo-tech/mosaic";
-import { type Engine, internalCoordinatorOf } from "@kanzo-tech/mosaic/engine";
+import { type TableExpr, Query, jsType, rowsOf, sql } from "@kanzo-tech/mosaic";
+import type { Engine } from "@kanzo-tech/mosaic/engine";
 import { type JoinAnnotation, type JoinColumn, type JoinGraph, type Relation, type RelationExpr, relationColumns, TEMPORAL_DATATYPES } from "@kanzo-tech/relations";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo } from "react";
@@ -12,9 +12,9 @@ import { useMosaic, useRelation } from "./mosaic-provider.js";
  * **What a relation's columns can do in a dashboard**, from what the data says of them — never from a
  * column's name or a threshold (`/docs/design/fields`).
  *
- * What a column is comes from its description: over a corpus, the join graph's (`relationColumns`),
+ * What a column is comes from its description: over a graph, the join graph's (`relationColumns`),
  * which is the manifest's; anywhere else, the engine's type alone. What it holds comes from the
- * corpus's profile, the counts its writer took; a relation with none is read with one `SUMMARIZE`.
+ * graph's profile, the counts its writer took; a relation with none is read with one `SUMMARIZE`.
  *
  * The type words are Mosaic's own `jsType`, so a column is numeric here exactly when it is numeric
  * to every mark and input on this subpath. A type `jsType` does not know (an interval, a bit
@@ -46,9 +46,9 @@ export interface FieldStat {
   /** The extent of a numeric or temporal field — a temporal one in epoch milliseconds. */
   min?: number;
   max?: number;
-  /** Its commonest values, the commonest first, where the corpus's writer counted them. */
+  /** Its commonest values, the commonest first, where the graph's writer counted them. */
   values?: readonly string[];
-  /** What the corpus annotates the column with — its `rdfs:label` among them — where it says. */
+  /** What the graph annotates the column with — its `rdfs:label` among them — where it says. */
   annotations?: readonly JoinAnnotation[];
   /** What the field is called, where the data labels it (`relationColumns`): what a title and a chip read it as. */
   label?: string;
@@ -64,7 +64,7 @@ export type FieldColumn = JoinColumn & { readonly candidateKey?: boolean; readon
 
 /** The writer's roles that name a row rather than say anything of it. */
 const IDENTIFYING_ROLES: ReadonlySet<string> = new Set(["address", "identity", "endpoint"]);
-/** The term types whose values are names, not values: RML-Core's, which a mapping states, and R2RML's, which a corpus did. */
+/** The term types whose values are names, not values: RML-Core's, which a mapping states, and R2RML's, which a fossil corpus did. */
 const NAMING_TERMS: ReadonlySet<string> = new Set(["IRI", "UnsafeIRI", "BlankNode", "rr:IRI", "rr:BlankNode", "http://www.w3.org/ns/r2rml#IRI", "http://www.w3.org/ns/r2rml#BlankNode"]);
 
 function kindOf(column: FieldColumn): FieldKind | null {
@@ -177,10 +177,10 @@ export interface FieldStatsState {
 }
 
 /**
- * **A relation's fields** — from the page's join graph where the relation is over it and the corpus
- * counted every column, with nothing read; otherwise with one `SUMMARIZE` on the provider's
- * coordinator, the graph's descriptions kept over its counts. The read is a TanStack Query query on
- * the host's `QueryClient`, so every part of the page that asks for the same relation shares one
+ * **A relation's fields** — from the page's join graph where the relation is over it and the graph
+ * counted every column, with nothing read; otherwise with one `SUMMARIZE` on the provider's engine,
+ * the graph's descriptions kept over its counts, and stopped when every part that asked has
+ * unmounted. The read is a TanStack Query query on the host's `QueryClient`, so every part of the page that asks for the same relation shares one
  * (`/docs/design/reads`), and `exclude` is applied to it afterwards, so two parts that hide different
  * columns still read once.
  *
@@ -213,15 +213,9 @@ export function useFieldStats(relation: RelationExpr, options?: FieldStatsOption
   const read = useQuery({
     // The keys are the library's, not an API: what was read, and on which engine.
     queryKey: ["@kanzo-tech/ui", "summarize", engineKey(engine), key],
-    queryFn: async ({ signal }) => {
-      const coordinator = internalCoordinatorOf(engine);
-      // The coordinator takes a statement as a string or a `Query`; a fragment is neither, and
-      // renders to the same text either way.
-      const result = coordinator.query(String(summarizeQuery(table!)));
-      // Every part that asked has gone: a read still queued is taken off the coordinator's queue.
-      signal.addEventListener("abort", () => coordinator.cancel([result]), { once: true });
-      return Array.from((await result) as Iterable<SummarizeRow>);
-    },
+    // On the engine's own door with TanStack's signal, which aborts when every part that asked has
+    // unmounted while it runs: the engine interrupts the statement, not only the wait.
+    queryFn: async ({ signal }) => rowsOf(await engine.query(String(summarizeQuery(table!)), { signal })) as unknown as SummarizeRow[],
     select,
     enabled: !counted,
     retry: false,

@@ -1,4 +1,5 @@
-import { engineOver } from "../../test/engine";
+import { internalEngineOver } from "@kanzo-tech/mosaic/engine";
+import { answerOf, engineOver } from "../../test/engine";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import type { Coordinator } from "@uwdata/mosaic-core";
@@ -130,7 +131,7 @@ function summarizing(rows: SummarizeRow[], asked: unknown[] = []) {
     query: async (q: unknown) => {
       asked.push(q);
       if (state.fail) throw state.fail;
-      return rows;
+      return answerOf(rows);
     },
     cancel: () => {},
   } as unknown as Coordinator;
@@ -201,6 +202,32 @@ describe("useFieldStats", () => {
     const second = renderHook(() => useFieldStats("t"), { wrapper: host(coordinator, client) });
     await waitFor(() => expect(second.result.current.fields).not.toBeNull());
     expect(asked).toHaveLength(2);
+  });
+
+  it("hands the engine a signal that stops the SUMMARIZE when every part that asked has unmounted", async () => {
+    const signals: AbortSignal[] = [];
+    const unused = () => Promise.reject(new Error("no files"));
+    const engine = internalEngineOver(
+      {
+        // Never answers: the statement is still running when the parts go.
+        query: (_sql: string, { signal }: { signal: AbortSignal }) => (signals.push(signal), new Promise<never>(() => {})),
+        registerFiles: unused,
+        registerFileBuffer: unused,
+        dropFiles: unused,
+      },
+      summarizing([]).coordinator,
+    );
+    const client = new QueryClient();
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>
+        <MosaicProvider engine={engine}>{children}</MosaicProvider>
+      </QueryClientProvider>
+    );
+    const { unmount } = renderHook(() => [useFieldStats("t"), useFieldStats("t")], { wrapper });
+    await waitFor(() => expect(signals).toHaveLength(1));
+    expect(signals[0]!.aborted).toBe(false);
+    unmount();
+    await waitFor(() => expect(signals[0]!.aborted).toBe(true));
   });
 
   it("reads on the host's client, and throws without one", () => {

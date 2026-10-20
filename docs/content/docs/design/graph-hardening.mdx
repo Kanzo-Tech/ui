@@ -43,7 +43,7 @@ below has been run at the size it claims.
 **The plan, to run in a real browser with a GPU, not SwiftShader** (the grid's measurement says why: a
 software rasteriser never reached a first frame at 200,000). The graph is generated in DuckDB itself
 with the catalog relations the reader expects, because fossil's executor panics in DataFusion's
-memory pool at a million ([benchmarks](/docs/graph/benchmarks#build-the-corpora-first)); the figures
+memory pool at a million ([benchmarks](/docs/graph/benchmarks#build-the-graphs-first)); the figures
 are written beside the claim, one run is a rumour, and the criteria are fixed before the runs.
 
 | Measure | At | Criterion, set before the run |
@@ -238,7 +238,7 @@ announced, as the timeline's steps are not.
 [the testing page](/docs/design/testing) already names that as the reversal of reading the canvas
 through coordinates: *a canvas whose content is in the accessibility tree*. The graph's tests read it
 through that tree — focus, the status region, the description — which is what a person reads, and
-`window.__KANZO_TESTING__` is not how they read the graph.
+where a vertex is drawn, which the canvas's element says, is not how they read the graph.
 
 **How it is checked, before the claim.** axe-core over the harness for role, name and a description
 that resolves; a Playwright keyboard path (Tab, arrows, `]`, Enter, `P`, Esc) asserting focus and

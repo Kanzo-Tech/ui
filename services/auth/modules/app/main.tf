@@ -1,5 +1,5 @@
-# One application, registered with the platform's realm: its client, the APIs it may exchange its
-# token for, and its roles. An application declares this from its own repository; the realm knows
+# One application, registered with the platform's realm: its client, the APIs it may ask for at
+# sign-in, and its roles. An application declares this from its own repository; the realm knows
 # no application by name.
 
 resource "keycloak_openid_client" "app" {
@@ -25,16 +25,6 @@ resource "keycloak_openid_client" "app" {
   valid_redirect_uris             = var.redirect_uris
   valid_post_logout_redirect_uris = var.post_logout_redirect_uris
   web_origins                     = var.web_origins
-
-  # OIDC Back-Channel Logout: where Keycloak posts a logout token when a session ends at the IdP.
-  # `session_required` puts `sid` in it, so one browser session can end without the others.
-  backchannel_logout_url              = var.backchannel_logout_url
-  backchannel_logout_session_required = true
-
-  # Standard token exchange (RFC 8693): the session's token, which names no API and every
-  # organization, is exchanged per call for one that names one API and one organization. The
-  # exchanged token carries no refresh token; the next one is another exchange.
-  standard_token_exchange_enabled = length(var.apis) > 0
 }
 
 # ── Roles, in tiers ──────────────────────────────────────────────────────────
@@ -104,7 +94,8 @@ resource "keycloak_openid_client_default_scopes" "app" {
 resource "keycloak_openid_client_optional_scopes" "app" {
   realm_id  = var.realm_id
   client_id = keycloak_openid_client.app.id
-  # The APIs' scopes are optional: a sign-in never asks for one, and an exchange asks for one.
+  # The APIs' scopes are optional, so a token names an API only when the sign-in asked for its scope:
+  # the edge does, in OAUTH2_PROXY_SCOPE, and the ID token never names one (modules/api).
   optional_scopes = concat(var.optional_scopes, var.apis)
 }
 

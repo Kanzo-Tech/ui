@@ -1,3 +1,4 @@
+import { Problem } from "@kanzo-tech/kernel";
 import { FromClauseNode, Query, asTableRef, column, eq, join, type ExprNode, type JoinNode, type TableExpr } from "@kanzo-tech/mosaic";
 import { labelOf, namingColumn } from "./words.js";
 
@@ -11,7 +12,7 @@ import { labelOf, namingColumn } from "./words.js";
  */
 
 /**
- * An annotation of a type, an edge or a column — ShEx 2.1's `Annotation` (§5.9), as the corpus
+ * An annotation of a type, an edge or a column — ShEx 2.1's `Annotation` (§5.9), as the graph
  * states it: a predicate IRI, and an object that is an IRI or a literal. It is about the schema, never
  * about the data: a `rdfs:label` in a language is what a reader calls the thing.
  */
@@ -21,7 +22,7 @@ export interface JoinAnnotation {
 }
 
 /**
- * **What a column holds**, as the corpus's writer counted it over every row: the reference's own
+ * **What a column holds**, as the graph's writer counted it over every row: the reference's own
  * names — Parquet's `Statistics` for the counts and the bounds, PostgreSQL's `pg_stats` for the
  * commonest values and their share of the rows. A bound or a value is its lexical text.
  */
@@ -35,7 +36,7 @@ export interface JoinColumnStats {
 }
 
 /**
- * **A column, as the corpus describes it** — what it is, and what it holds. Only `name` and `type`
+ * **A column, as the graph describes it** — what it is, and what it holds. Only `name` and `type`
  * are always there; every other fact is the catalog's to state, and absent where it states none.
  */
 export interface JoinColumn {
@@ -70,7 +71,7 @@ export interface JoinType {
   readonly table: TableExpr;
   /** The column every edge end references, which identifies a row across the whole graph. */
   readonly key: string;
-  /** Every column of the type, its key's among them, each as the corpus describes it. */
+  /** Every column of the type, its key's among them, each as the graph describes it. */
   readonly columns: readonly JoinColumn[];
   /** The columns never null and never repeated, as the writer counted them. */
   readonly candidateKeys?: readonly string[];
@@ -85,6 +86,12 @@ export interface JoinType {
   readonly value?: string;
   /** How many rows the table holds, where the catalog says: what a hop's fan-out is read from. */
   readonly rows?: number;
+  /**
+   * Where the key is an id numbered across the graph type by type — `readJoinGraph`'s `dense_id` — the
+   * type's first: its rows' keys run `first … first + rows − 1`. What a canvas places a row by, and
+   * the one place the per-type numbering and the graph-wide one are reconciled.
+   */
+  readonly first?: number;
   /**
    * The types whose rows this one holds, for a type that is their union — every vertex as one
    * relation. A clause on any of them crosses into it by `key`, and a clause on it into each of them.
@@ -114,6 +121,37 @@ export interface JoinEdge {
 export interface JoinGraph {
   readonly types: readonly JoinType[];
   readonly edges: readonly JoinEdge[];
+}
+
+/**
+ * **A join graph, refused where it is made when it contradicts itself** — by every function here
+ * that answers one (`readJoinGraph`, `withMapping`), before anything reads it. A type's name and an
+ * edge's are each unique, a type's key is one of its columns, an edge's ends and a union's members are
+ * types of the graph. The first contradiction throws `relations/invalid` naming the type or the edge;
+ * a graph that describes only each column's `name` and `type` passes. Not on the barrel.
+ */
+export function checked(graph: JoinGraph): JoinGraph {
+  const refuse = (detail: string, data: { type?: string; edge?: string }): never => {
+    throw new Problem("relations/invalid", detail, data);
+  };
+  const types = new Set<string>();
+  for (const { name } of graph.types) {
+    if (types.has(name)) refuse(`two types are named ${JSON.stringify(name)}`, { type: name });
+    types.add(name);
+  }
+  for (const type of graph.types) {
+    if (!type.columns.some((c) => c.name === type.key)) refuse(`the key ${JSON.stringify(type.key)} of ${JSON.stringify(type.name)} is none of its columns`, { type: type.name });
+    const stray = type.of?.find((member) => member === type.name || !types.has(member));
+    if (stray !== undefined) refuse(`${JSON.stringify(type.name)} holds ${JSON.stringify(stray)}, which is no other type of the graph`, { type: type.name });
+  }
+  const edges = new Set<string>();
+  for (const edge of graph.edges) {
+    if (edges.has(edge.name)) refuse(`two edges are named ${JSON.stringify(edge.name)}`, { edge: edge.name });
+    edges.add(edge.name);
+    const end = [edge.source, edge.destination].find((type) => !types.has(type));
+    if (end !== undefined) refuse(`${JSON.stringify(edge.name)} joins ${JSON.stringify(end)}, which is no type of the graph`, { edge: edge.name, type: end });
+  }
+  return graph;
 }
 
 /** One step along an edge: `out` from its source to its destination, `in` the other way. */

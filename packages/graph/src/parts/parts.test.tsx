@@ -258,11 +258,11 @@ describe("GraphStatus", () => {
 });
 
 describe("GraphToolbar", () => {
-  async function toolbar(crossfilter?: Selection) {
+  async function toolbar(crossfilter?: Selection, placed: { x?: string; y?: string } = {}) {
     const corpus = await attach();
     const held: { api: GraphApi | null } = { api: null };
     render(
-      <GraphRoot {...over(corpus)} filterBy={crossfilter} onFailure={() => {}}>
+      <GraphRoot {...over(corpus)} {...placed} filterBy={crossfilter} onFailure={() => {}}>
         <GraphToolbar />
         <GraphCounts />
         <Hold into={held} />
@@ -314,6 +314,16 @@ describe("GraphToolbar", () => {
     await toolbar();
     const layout = screen.getByRole("group", { name: "Layout" });
     expect(layout.querySelector('[aria-label="Run the layout"]')).toBeTruthy();
+  });
+
+  it("offers no layout while the data places the points, and offers it again when an axis is unbound", async () => {
+    const { corpus, held } = await toolbar(undefined, { x: "lon", y: "lat" });
+    const transport = () => [...screen.getByRole("group", { name: "Layout" }).querySelectorAll("button")];
+    expect(transport().map((button) => button.hasAttribute("disabled"))).toEqual([true, true]);
+    const { store } = internalsOf(held.api!);
+    act(() => store.setOptions({ ...store.getOptions(), y: undefined }));
+    await ready(corpus);
+    expect(transport().map((button) => button.hasAttribute("disabled"))).toEqual([false, false]);
   });
 });
 
@@ -380,10 +390,10 @@ describe("GraphInspector", () => {
     expect(screen.queryByRole("button", { name: /neighbours/i })).toBeNull();
   });
 
-  it("says a vertex is not in the corpus, and reports nothing", async () => {
+  it("says a vertex is not in the graph, and reports nothing", async () => {
     const { held, onFailure } = await inspecting();
     act(() => held.api?.setFocus(99));
-    await waitFor(() => expect(screen.getByText("This vertex is not in the corpus.")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("This vertex is not in the graph.")).toBeTruthy());
     expect(screen.queryByText("This vertex could not be read.")).toBeNull();
     expect(onFailure).not.toHaveBeenCalled();
   });
@@ -394,7 +404,7 @@ describe("GraphInspector", () => {
     corpus.refuse(/WHERE \("_graphArVertexIndex" = 6\)$/, refused);
     act(() => held.api?.setFocus(6));
     await waitFor(() => expect(screen.getByText("This vertex could not be read.")).toBeTruthy());
-    expect(screen.queryByText("This vertex is not in the corpus.")).toBeNull();
+    expect(screen.queryByText("This vertex is not in the graph.")).toBeNull();
     expect(onFailure).toHaveBeenCalledExactlyOnceWith(refused);
   });
 });

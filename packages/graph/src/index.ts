@@ -7,7 +7,7 @@
  *
  * - `core/` — the loader, one `scan` per table read whole into arrays indexed by the global id, and a
  *   store in TanStack Query's observer shape. No React, no cosmos.gl, no SQL.
- * - `render/` — those arrays to cosmos.gl: uploaded once per corpus, repainted by kind, rendered once
+ * - `render/` — those arrays to cosmos.gl: uploaded once per graph, repainted by kind, rendered once
  *   a frame.
  * - `react/` — `useGraph`, `GraphRoot`, `GraphRootProvider`, `useGraphContext`: Ark's four;
  *   `useGraphState`, TanStack Store's selector, because the api is commands and the state moves at
@@ -16,7 +16,7 @@
  *   `GraphInspector`, `GraphSearch`: flat parts over the one context. They own the
  *   vocabulary; the root's callbacks are the host's policy. The graph's settings are no part of
  *   this package: they are `GRAPH_SECTION`, drawn by `@kanzo-tech/ui`'s `PreferencesSections`, and
- *   the root is the section's owner — it answers the corpus's columns and the options' pictures.
+ *   the root is the section's owner — it answers the graph's columns and the options' pictures.
  *
  * **Why a package and not `@kanzo-tech/ui`.** The first admission rule is *domain-free — nothing
  * about RDF / SHACL / fossil / graphs / auth*. Graphs are excluded by name, and a sibling package is

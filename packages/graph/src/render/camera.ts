@@ -21,7 +21,7 @@ const FOLLOW_DURATION = 700;
 const FOLLOW_SHARE = 10;
 
 export interface Camera {
-  /** A corpus was placed: frame these corners now, and again whenever the canvas changes size. */
+  /** A graph was placed: frame these corners now, and again whenever the canvas changes size. */
   frame(corners: readonly number[]): void;
   /** The reader asked for the whole graph: frame it, and keep it framed through a resize. */
   fit(): void;
@@ -47,7 +47,7 @@ export interface Camera {
 }
 
 /**
- * **Who holds the camera, and when it gives it back.** The camera frames the corpus once it is
+ * **Who holds the camera, and when it gives it back.** The camera frames the graph once it is
  * placed and keeps it framed — through cosmos.gl's device coming up and every resize of the canvas,
  * since a host's split panel settles its width after mount and a frame taken at the old size opens
  * zoomed into a corner — and while a layout runs it follows the moving points and frames them when

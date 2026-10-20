@@ -1,0 +1,48 @@
+type: Person
+chunk_size: 12
+prefix: vertex/Person/
+property_groups:
+  - prefix: subject_firstName_lastName_gender_birthday_creationDate_locationIP_browserUsed_language_email/
+    file_type: parquet
+    properties:
+      - name: subject
+        data_type: string
+        is_primary: true
+        is_nullable: false
+      - name: firstName
+        data_type: string
+        is_primary: false
+        is_nullable: false
+      - name: lastName
+        data_type: string
+        is_primary: false
+        is_nullable: false
+      - name: gender
+        data_type: string
+        is_primary: false
+        is_nullable: false
+      - name: birthday
+        data_type: date
+        is_primary: false
+        is_nullable: false
+      - name: creationDate
+        data_type: timestamp
+        is_primary: false
+        is_nullable: false
+      - name: locationIP
+        data_type: string
+        is_primary: false
+        is_nullable: false
+      - name: browserUsed
+        data_type: string
+        is_primary: false
+        is_nullable: false
+      - name: language
+        data_type: string
+        is_primary: false
+        is_nullable: false
+      - name: email
+        data_type: string
+        is_primary: false
+        is_nullable: false
+version: gar/v1

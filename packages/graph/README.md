@@ -60,7 +60,7 @@ A multi-valued property is a `list` property of its type: the inspector shows it
 finds them, but it is never offered as an axis, a group or a field.
 
 **`filterBy` is the page's selection** — `useMosaic().selection` under a `MosaicProvider` given the
-corpus's joins. The graph is one more client of it, reading `vertices`: every vertex as one relation,
+graph's joins. The graph is one more client of it, reading `vertices`: every vertex as one relation,
 `NULL` where a type has no such column. A clause on another relation reaches it crossed by key, and a
 column clause keeps none of a type without the column; what it drops is greyed out on the canvas,
 never hidden. A lasso or a click publishes the reader's pick back into it as a semi-join on the vertex
@@ -68,7 +68,7 @@ key, on `vertices`, exempting the graph itself; `usePick` does the same for a pl
 The graph's first load waits for every chart on its page that has not drawn yet, so a timeline under
 it — `<ChartTimeline relation="vertices" field={useGraphPrefs().timeline} />` — comes up with it.
 
-**The layout is off at load.** The corpus's positions are drawn as they are; `GraphToolbar` runs and
+**The layout is off at load.** The graph's positions are drawn as they are; `GraphToolbar` runs and
 stops a force layout from where the points are. Dragging a node pins it only while a layout runs,
 and releasing the pins reheats it. While a layout runs the camera follows the points until the reader
 zooms or pans. `status` is the data's life and `motion` the layout's — two axes, because each moves
@@ -88,9 +88,9 @@ graph, a second main view and a dock of panels.
 - `GraphToolbar` — the selection tools, the selection, zoom and fit, and the layout's transport.
 - `GraphLegend` — one row per category: glyph, name and how many are drawn.
 - `GraphStatus` — where the graph is, in one word: Loading, Laying out 42%, Ready or Failed.
-- `GraphCounts` — the corpus and what the filter keeps of it: "5K nodes · 8K edges", or
+- `GraphCounts` — the graph and what the filter keeps of it: "5K nodes · 8K edges", or
   "1.2K of 5K nodes match · 3K edges".
-- `GraphSearch` — a ⌘K palette that asks the corpus, on the engine, once per pause in
+- `GraphSearch` — a ⌘K palette that asks the graph, on the engine, once per pause in
   typing (150 ms): the first `limit` matches and how many there are of each type, under every other
   clause on the crossfilter (`usePick("search").predicate()`), with how many more lie outside it.
   Nothing is read before the reader types and no text is held in the page. `type:Person` and

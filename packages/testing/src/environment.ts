@@ -119,6 +119,20 @@ export class HarnessEnvironment {
   until<T>(probe: () => Promise<T | null | undefined | false>, what: string): Promise<T> {
     return this.driver.until(probe, what);
   }
+
+  /**
+   * **What the scripted model `id` was asked**, every call's prompt flattened, in order: read off the
+   * model the environment registered for `id` in `@kanzo-tech/llm/local`'s registry, the one the page
+   * resolves every model through. None when no script was registered for `id`.
+   */
+  prompts(id: string): Promise<string[]> {
+    return this.driver.root.evaluate((_, model) => {
+      const registry = (globalThis as { [key: symbol]: { languageModels: Map<string, { model: { prompts?: string[] } }> } | undefined })[
+        Symbol.for("@kanzo-tech/llm/local")
+      ];
+      return [...(registry?.languageModels.get(model)?.model.prompts ?? [])];
+    }, id);
+  }
 }
 
 const resolve = <H extends ComponentHarness>(query: ComponentHarnessConstructor<H> | HarnessQuery<H>): HarnessQuery<H> =>
