@@ -1,0 +1,14 @@
+src_type: Person
+edge_type: livesIn
+dst_type: Place
+chunk_size: 10
+src_chunk_size: 10
+dst_chunk_size: 6
+prefix: edge/Person_livesIn_Place/
+directed: true
+adj_lists:
+  - ordered: true
+    aligned_by: src
+    prefix: ordered_by_source/
+    file_type: parquet
+version: gar/v1

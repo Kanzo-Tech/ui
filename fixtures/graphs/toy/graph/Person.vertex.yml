@@ -1,0 +1,41 @@
+type: Person
+chunk_size: 10
+prefix: vertex/Person/
+property_groups:
+  - prefix: subject_name_team_score_lon_lat_born_nickname/
+    file_type: parquet
+    properties:
+      - name: subject
+        data_type: string
+        is_primary: true
+        is_nullable: false
+      - name: name
+        data_type: string
+        is_primary: false
+        is_nullable: false
+      - name: team
+        data_type: int64
+        is_primary: false
+        is_nullable: false
+      - name: score
+        data_type: int64
+        is_primary: false
+        is_nullable: false
+      - name: lon
+        data_type: double
+        is_primary: false
+        is_nullable: false
+      - name: lat
+        data_type: double
+        is_primary: false
+        is_nullable: false
+      - name: born
+        data_type: int64
+        is_primary: false
+        is_nullable: false
+      - name: nickname
+        data_type: string
+        is_primary: false
+        is_nullable: false
+        cardinality: set
+version: gar/v1

@@ -1,0 +1,45 @@
+// The toy graph: ten people, six places and four tags, small enough that a test counts it by hand
+// in global ids. No dataset stands behind it — the sample is its source, written by hand once, and
+// this program is what writes it, as fossil writes every fixture: `graph`'s canvas and parts tests
+// read it (packages/graph/test/corpus.ts).
+//
+// Everything a person has is optional, so a mapping may write one property alone: who someone
+// knows and how they are tagged come from rows of their own, merged by subject. `Knowing` is written
+// first so the edge types are numbered knows, livesIn, tagged.
+
+type { Person, Place, Tag } := io.shex("shapes.shex")
+
+PersonRow := io.json("data/people.json")
+PlaceRow  := io.json("data/places.json")
+TagRow    := io.json("data/tags.json")
+KnowsRow  := io.json("data/knows.json")
+TaggedRow := io.json("data/tagged.json")
+
+Knowing : Person from KnowsRow
+    @subject = "https://example.org/person/{KnowsRow.src}"
+    knows    = Person(KnowsRow.dst)
+
+People : Person from PersonRow
+    @subject = "https://example.org/person/{PersonRow.id}"
+    name     = PersonRow.name
+    team     = PersonRow.team
+    score    = PersonRow.score
+    lon      = PersonRow.lon
+    lat      = PersonRow.lat
+    born     = PersonRow.born
+    nickname = PersonRow.nickname
+    livesIn  = Place(PersonRow.place)
+
+Tagging : Person from TaggedRow
+    @subject = "https://example.org/person/{TaggedRow.person}"
+    tagged   = Tag(TaggedRow.tag)
+
+Places : Place from PlaceRow
+    @subject = "https://example.org/place/{PlaceRow.id}"
+    name     = PlaceRow.name
+    lon      = PlaceRow.lon
+    lat      = PlaceRow.lat
+    opened   = parse.date(PlaceRow.opened, "%Y-%m-%d")
+
+Tags : Tag from TagRow
+    @subject = "https://example.org/tag/{TagRow.id}"

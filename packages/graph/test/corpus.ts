@@ -1,44 +1,34 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { connection as conn } from "@kanzo-tech/fixtures";
+import { attachFixture, connection as conn, queryable } from "@kanzo-tech/fixtures";
 import { afterAll } from "vitest";
 import { decodeIPC } from "@uwdata/mosaic-core";
 import { Coordinator } from "@kanzo-tech/mosaic";
 import { internalEngineOver, type Engine } from "@kanzo-tech/mosaic/engine";
 
 /**
- * **A graph attached the way `@kanzo-tech/graphar-duckdb`'s `attachGraph` attaches one**, in a real
- * DuckDB-WASM in this process, read through an engine with a real Mosaic `Coordinator` inside — so what the graph's SQL
- * means is what DuckDB answers, not what a fake believes. A relation per type with GraphAr's own
- * columns, and the information files as `graphar_vertex_types`, `graphar_edge_types`,
- * `graphar_properties`, `graphar_extra_info` and `graphar_chunks`, typed as `attachGraph` types them,
- * with a real Parquet chunk, footer and all, per vertex type (see below). Small enough to
- * count by hand, in global ids:
+ * **The toy graph, attached the way a page attaches one**: `@kanzo-tech/fixtures`' `toy`, which
+ * fossil's executor wrote from its sample, attached by `@kanzo-tech/graphar-duckdb`'s `attachGraph`
+ * in a real DuckDB-WASM in this process, and read through an engine with a real Mosaic `Coordinator`
+ * inside — so what the graph's SQL means is what DuckDB answers, and what its footers say is what
+ * the writer counted. Small enough to count by hand, in global ids (fossil numbers the types in the
+ * program's order, and the rows in the sample's):
  *
  * - `Person`: ids `0 … 9`, `subject` its primary key, `name` `Person i`, `team = i % 4`,
- *   `score = i + 1`, `lon = i`, `lat = 0`, `born = 1900 + i`, and `nickname`, a `list<string>`
- *   property holding `nick i` — a multi-valued property is a list of the type that owns it.
+ *   `score = i + 1`, `lon = i`, `lat = 0`, `born = 1900 + i`, and `nickname`, a set of strings holding
+ *   `nick i` — a multi-valued property is a list of the type that owns it.
  * - `Place`: ids `10 … 15`, `name` `Place i`, `lon = i`, `lat = 1`, `opened` the first of January of
  *   `2000 + i`, a GraphAr `date`.
  * - `Tag`: ids `16 … 19`, its `subject` and nothing else.
  * - `Person_knows_Person` links `i → i + 1` (9); `Person_livesIn_Place` links `i → 10 + i % 6` (10);
- *   `Person_tagged_Tag` links `0 → 16` (1). Each holds GraphAr's per-type indices.
- */
-
-/**
- * **Footers are real.** Every vertex chunk is a Parquet file this module writes with DuckDB-WASM
- * (`COPY … TO … (FORMAT parquet, COMPRESSION zstd, KV_METADATA {'fossil:stats': …})`), so
- * `parquet_kv_metadata` and `parquet_metadata` read what a writer's file holds. The key under which a
- * writer states its counts is a Parquet `key_value_metadata` key, its value fossil's document of
- * version 1 (`{"version":1,"columns":{…}}`); a chunk's row group states each column's nulls, bounds
- * and whether they are exact.
+ *   `Person_tagged_Tag` links `0 → 16` (1).
  *
- * The database is `@kanzo-tech/fixtures`' — one per test file, Parquet loaded before any test runs — and
- * so is the engine every fixture graph is read on; this graph is the one stated here.
+ * A test that needs a chunk with a footer of its own writes it with {@link writeChunk}, on the same
+ * engine, so the footer a reader parses is DuckDB's own.
  */
 const STATS_KEY = "fossil:stats";
-/** Where the chunks are written: DuckDB-WASM's Node runtime writes through the file system, so not the working directory. */
+/** Where a test's own chunks are written: DuckDB-WASM's Node runtime writes through the file system, so not the working directory. */
 const chunks = mkdtempSync(join(tmpdir(), "graph-chunks-"));
 afterAll(() => rmSync(chunks, { force: true, recursive: true }));
 /**
@@ -71,85 +61,16 @@ export interface Attached {
   refuse(pattern: RegExp, error: unknown): void;
 }
 
-let catalogs = 0;
-
-/** Each type's properties as `graphar_properties` lists them: name, GraphAr type, primary. */
-const PROPERTIES: Record<string, [string, string, boolean][]> = {
-  Person: [["subject", "string", true], ["name", "string", false], ["team", "int32", false], ["score", "int32", false],
-    ["lon", "double", false], ["lat", "double", false], ["born", "int32", false], ["nickname", "list<string>", false]],
-  Place: [["subject", "string", true], ["name", "string", false], ["lon", "double", false], ["lat", "double", false], ["opened", "date", false]],
-  Tag: [["subject", "string", true]],
-};
-
-/**
- * What the writer counts in a chunk's footer, per column — nulls, distinct values, extent and the ten
- * commonest values with their share of the rows — over every row, here by DuckDB.
- */
-const STATS = (c: string) =>
-  Object.entries(PROPERTIES)
-    .flatMap(([table, columns]) =>
-      columns.map(
-        ([column]) => `SELECT '${table}' AS table_name, '${column}' AS column_name,
-  count(*) FILTER (WHERE "${column}" IS NULL)::UBIGINT AS null_count, count(DISTINCT "${column}")::UBIGINT AS distinct_count,
-  min("${column}")::VARCHAR AS min_value, max("${column}")::VARCHAR AS max_value,
-  (SELECT list(v ORDER BY n DESC, v) FROM (SELECT "${column}"::VARCHAR AS v, count(*) AS n FROM ${c}."${table}" GROUP BY 1 ORDER BY n DESC, v LIMIT 10)) AS most_common_vals,
-  (SELECT list(n / (SELECT count(*) FROM ${c}."${table}") ORDER BY n DESC, v) FROM (SELECT "${column}"::VARCHAR AS v, count(*)::DOUBLE AS n FROM ${c}."${table}" GROUP BY 1 ORDER BY n DESC, v LIMIT 10)) AS most_common_freqs
-FROM ${c}."${table}"`,
-      ),
-    )
-    .join("\nUNION ALL ");
-
-const FIXTURE = (c: string, n: number) => `
-ATTACH ':memory:' AS ${c};
-CREATE TABLE ${c}."Person" AS SELECT i::BIGINT AS _graphArVertexIndex, 'https://example.org/person/' || i AS subject,
-  'Person ' || i AS name, (i % 4)::INTEGER AS team, (i + 1)::INTEGER AS score, i::DOUBLE AS lon, 0::DOUBLE AS lat,
-  (1900 + i)::INTEGER AS born, ['nick ' || i] AS nickname
-  FROM range(${n}) t(i);
-CREATE TABLE ${c}."Place" AS SELECT i::BIGINT AS _graphArVertexIndex, 'https://example.org/place/' || i AS subject,
-  'Place ' || i AS name, i::DOUBLE AS lon, 1::DOUBLE AS lat, make_date(2000 + i::INTEGER, 1, 1) AS opened FROM range(6) t(i);
-CREATE TABLE ${c}."Tag" AS SELECT i::BIGINT AS _graphArVertexIndex, 'https://example.org/tag/' || i AS subject FROM range(4) t(i);
-CREATE TABLE ${c}."Person_knows_Person" AS SELECT i::BIGINT AS _graphArSrcIndex, (i + 1)::BIGINT AS _graphArDstIndex FROM range(9) t(i);
-CREATE TABLE ${c}."Person_livesIn_Place" AS SELECT i::BIGINT AS _graphArSrcIndex, (i % 6)::BIGINT AS _graphArDstIndex FROM range(10) t(i);
-CREATE TABLE ${c}."Person_tagged_Tag" AS SELECT 0::BIGINT AS _graphArSrcIndex, 0::BIGINT AS _graphArDstIndex;
-CREATE VIEW ${c}.graphar_vertex_types AS SELECT * FROM (VALUES
-  ('Person', ${n}::UBIGINT, 1), ('Place', 6::UBIGINT, 2), ('Tag', 4::UBIGINT, 3)
-) t(type, count, ordinal);
-CREATE VIEW ${c}.graphar_edge_types AS SELECT * FROM (VALUES
-  ('Person_knows_Person', 'Person', 'knows', 'Person', 9::UBIGINT, true, 1),
-  ('Person_livesIn_Place', 'Person', 'livesIn', 'Place', 10::UBIGINT, true, 2),
-  ('Person_tagged_Tag', 'Person', 'tagged', 'Tag', 1::UBIGINT, true, 3)
-) t(name, src_type, edge_type, dst_type, count, directed, ordinal);
-CREATE VIEW ${c}.graphar_properties AS SELECT * FROM (VALUES
-  ${Object.entries(PROPERTIES)
-    .flatMap(([type, properties]) => properties.map(([name, dataType, primary], i) => `('${type}', '${name}', '${dataType}', ${primary}, ${!primary}, ${i + 1})`))
-    .join(",\n  ")}
-) t(type, property, data_type, is_primary, is_nullable, ordinal);
-CREATE VIEW ${c}.graphar_extra_info AS SELECT * FROM (VALUES ('http://w3id.org/rml/', 'mapping.ttl')) t(key, value);
-CREATE VIEW ${c}.footer_stats AS ${STATS(c)};
-`;
-
-/** The chunk of `type` in the catalog `c`: the name `attachGraph`'s `resolve` would have given it. */
+/** A chunk of `type` of the catalog `c` that a test writes itself: a name no writer's chunk has. */
 export const chunkOf = (c: string, type: string, k = 0) => join(chunks, `${c}_${type}_chunk${k}.parquet`);
 
-/**
- * A fresh catalog holding the graph above, and an engine of its own over the shared database.
- * `people` grows `Person` for a test about scale; the other types follow it, global ids shifted.
- */
-export async function attach(people = 10): Promise<Attached> {
-  const from = `graph${++catalogs}`;
-  conn.query(FIXTURE(from, people));
-  const json = conn
-    .query(
-      `SELECT table_name, '{"version":1,"columns":{' || string_agg('"' || column_name || '":{"distinct_count":' || distinct_count || ',"most_common_vals":['
-        || array_to_string(list_transform(most_common_vals, x -> '"' || replace(x, '"', '\\"') || '"'), ',')
-        || '],"most_common_freqs":[' || array_to_string(most_common_freqs, ',') || ']}', ',') || '}}' AS stats
-       FROM ${from}.footer_stats GROUP BY table_name`,
-    )
-    .toArray() as { table_name: string; stats: string }[];
-  for (const { table_name, stats } of json) writeChunk(chunkOf(from, table_name), from, table_name, stats);
-  conn.query(`CREATE VIEW ${from}.graphar_chunks AS SELECT * FROM (VALUES
-    ${Object.keys(PROPERTIES).map((type) => `('${type}', 'vertex', '${chunkOf(from, type)}')`).join(",\n    ")}
-  ) t(type, kind, path);`);
+/** The first vertex chunk the writer wrote for `type`, as the catalog `c` lists it. */
+export const writtenChunkOf = (c: string, type: string): string =>
+  String(conn.query(`SELECT path FROM ${c}.graphar_chunks WHERE type = '${type}' AND kind = 'vertex' ORDER BY path LIMIT 1`).toArray()[0]!.path);
+
+/** A fresh catalog holding the toy graph, and an engine of its own over the shared database. */
+export async function attach(): Promise<Attached> {
+  const { catalog: from } = await attachFixture("toy", queryable());
   const sent: string[] = [];
   const answered = { count: 0 };
   const refusals: { pattern: RegExp; error: unknown }[] = [];
@@ -224,4 +145,23 @@ export async function settle(attached: Attached): Promise<void> {
     quiet = done && asked.count === seen ? quiet + 1 : 0;
     seen = asked.count;
   }
+}
+
+/**
+ * `Person` grown to `people` rows, for a test about scale: the writer's ten, then more of the same
+ * shape, the other types' global ids shifted after them. No checked-in sample holds a graph this size,
+ * and fossil takes about 25 s to write one of 327,000 people (4.8 MB), so the rows past the writer's
+ * are stated here; their footers stay the writer's ten.
+ */
+export async function grow(attached: Attached, people: number): Promise<Attached> {
+  const c = attached.from;
+  conn.query(`ALTER VIEW ${c}."Person" RENAME TO person_written;
+    CREATE VIEW ${c}."Person" AS SELECT * FROM ${c}.person_written UNION ALL
+      SELECT i AS _graphArVertexIndex, 'https://example.org/person/' || i AS subject, 'Person ' || i AS name, i % 4 AS team,
+        i + 1 AS score, i::DOUBLE AS lon, 0::DOUBLE AS lat, 1900 + i AS born, ['nick ' || i] AS nickname
+      FROM range(10, ${people}) t(i);
+    ALTER VIEW ${c}.graphar_vertex_types RENAME TO types_written;
+    CREATE VIEW ${c}.graphar_vertex_types AS
+      SELECT * REPLACE (CASE WHEN type = 'Person' THEN ${people}::UBIGINT ELSE count END AS count) FROM ${c}.types_written;`);
+  return attached;
 }

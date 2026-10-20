@@ -13,6 +13,7 @@ describe("the fixture graphs", () => {
     ["nobel", { Country: 21, Category: 6, University: 41, Laureate: 64, LaureateAward: 64 }],
     ["openflights", { Airport: 54 }],
     ["snb", { Person: 12 }],
+    ["toy", { Person: 10, Place: 6, Tag: 4 }],
   ] as [FixtureGraph, Record<string, number>][])("attaches %s, with the sample's counts", async (name, counts) => {
     const engine = queryable();
     const { catalog } = await attachFixture(name, engine);
@@ -21,7 +22,7 @@ describe("the fixture graphs", () => {
     expect(counted).toMatchObject(counts);
   });
 
-  it.each(["nobel", "openflights", "snb"] as FixtureGraph[])("writes the writer's counts in every vertex chunk of %s", async (name) => {
+  it.each(["nobel", "openflights", "snb", "toy"] as FixtureGraph[])("writes the writer's counts in every vertex chunk of %s", async (name) => {
     const engine = queryable();
     const { catalog } = await attachFixture(name, engine);
     const chunks = (await rows(engine, `SELECT path FROM ${catalog}.graphar_chunks WHERE kind = 'vertex'`)).toArray();
