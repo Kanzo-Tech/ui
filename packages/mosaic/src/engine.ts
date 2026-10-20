@@ -106,9 +106,11 @@ const served = (asset: URL) => new URL(asset.href, location.href).href;
 
 /**
  * One build per bundle `selectBundle` chooses between, each with the extensions built for it. The
- * worker and module are `@duckdb/duckdb-wasm`'s own, the release this package pins, named by specifier
- * as DuckDB-WASM documents for webpack: the bundler resolves it to that dependency. The extensions are
- * not on npm, so `scripts/extensions.mjs` fetches the pinned builds into `extensions/` and the tarball
+ * module is `@duckdb/duckdb-wasm`'s own, the release this package pins, named by specifier as
+ * DuckDB-WASM documents for webpack: the bundler resolves it to that dependency. The worker is that
+ * release's too, copied into `workers/` by `scripts/workers.mjs` without the statement that prints
+ * every HTTP header it sends — an `s3://` read's credential among them. The extensions are not on
+ * npm, so `scripts/extensions.mjs` fetches the pinned builds into `extensions/` and the tarball
  * carries them. Each is `LOAD`ed by URL, which DuckDB accepts under a hashed file name as long as the
  * name still starts with the extension's — `parquet.`, `httpfs.`, `json.` — the entrypoint is looked up by that
  * prefix.
@@ -117,7 +119,7 @@ function builds() {
   return {
     mvp: {
       mainModule: served(new URL("@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm", import.meta.url)),
-      mainWorker: served(new URL("@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js", import.meta.url)),
+      mainWorker: served(new URL("../workers/duckdb-browser-mvp.worker.js", import.meta.url)),
       extensions: [
         served(new URL("../extensions/wasm_mvp/parquet.duckdb_extension.wasm", import.meta.url)),
         served(new URL("../extensions/wasm_mvp/httpfs.duckdb_extension.wasm", import.meta.url)),
@@ -126,7 +128,7 @@ function builds() {
     },
     eh: {
       mainModule: served(new URL("@duckdb/duckdb-wasm/dist/duckdb-eh.wasm", import.meta.url)),
-      mainWorker: served(new URL("@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js", import.meta.url)),
+      mainWorker: served(new URL("../workers/duckdb-browser-eh.worker.js", import.meta.url)),
       extensions: [
         served(new URL("../extensions/wasm_eh/parquet.duckdb_extension.wasm", import.meta.url)),
         served(new URL("../extensions/wasm_eh/httpfs.duckdb_extension.wasm", import.meta.url)),

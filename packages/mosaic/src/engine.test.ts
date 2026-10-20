@@ -124,13 +124,14 @@ describe("engine", () => {
   });
 
   // The CSP a host can hold is `'self'` because of this: no CDN, no `blob:` worker. Unbundled, the
-  // specifier resolves against the module; a bundler resolves it to the dependency and emits it.
+  // specifier resolves against the module; a bundler resolves it to the dependency and emits it. The
+  // worker is this package's copy, the one that does not print the credential (`scripts/workers.mjs`).
   it("boots the bundle it selected from the package's own DuckDB-WASM", async () => {
     await engine();
     expect(workers).toHaveLength(1);
     const worker = new URL(workers[0]!);
     const module = new URL(db.instantiate.mock.calls[0]![0]);
-    expect(worker.pathname).toMatch(/\/@duckdb\/duckdb-wasm\/dist\/duckdb-browser-eh\.worker\.js$/);
+    expect(worker.pathname).toMatch(/\/workers\/duckdb-browser-eh\.worker\.js$/);
     expect(module.pathname).toMatch(/\/@duckdb\/duckdb-wasm\/dist\/duckdb-eh\.wasm$/);
     expect([worker.protocol, module.protocol]).toEqual(["file:", "file:"]);
   });

@@ -1,2 +1,4 @@
 # Fetched at build by scripts/extensions.mjs; the pin is the source.
 extensions/
+# Copied at build by scripts/workers.mjs; the transform is the source.
+workers/

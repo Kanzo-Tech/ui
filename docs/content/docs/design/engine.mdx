@@ -198,6 +198,21 @@ is not verified; the rule does not depend on it, because the engine redacts rega
 that forces a failing `CREATE SECRET` and greps the thrown value for the secret is a guard to be
 added with the change.
 
+**Nor does the worker print one.** DuckDB-WASM's worker logs every header of the requests its
+synchronous HTTP glue sends (`console.log("HEAD", name, value)`), and through `httpfs` those are an
+`s3://` read's SigV4 `Authorization` and `x-amz-security-token`: the access key id and the whole STS
+session token, in the console of every page that read under a vended credential. `VoidLogger` does
+not reach it, since it is the worker's own `console`. `engine()` therefore starts a copy of the
+pinned release's worker with that one statement cut (`scripts/workers.mjs`), and the build fails
+when the statement is not there exactly once, so a release that moves it is read before it ships.
+A patch of the dependency would not do: a host installs `@duckdb/duckdb-wasm` itself, and a patch
+in this workspace reaches none of them.
+
+*Held by* `packages/mosaic/scripts/workers.test.mjs`, "are the two engine() starts".
+
+**What would reverse it:** a DuckDB-WASM release that no longer prints headers. Then the copy and
+the script are deleted and `engine()` names the dependency's worker again.
+
 The door itself is not locked: any caller of `engine.query` can `INSTALL`, `ATTACH` or `COPY`. Today
 the model never writes SQL (Ask compiles a typed spec), so there is no one to lock it against, and
 whether `lock_configuration` or `allowed_directories` apply in WASM is not verified. A policy
