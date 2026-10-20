@@ -3,7 +3,7 @@ import type { Geometry } from "../core/load";
 type Extent = NonNullable<Geometry["extent"]>;
 
 /**
- * **Where the corpus's extent sits in cosmos.gl's square** — centred, at its own scale, and scaled
+ * **Where the graph's extent sits in cosmos.gl's square** — centred, at its own scale, and scaled
  * down only past the box the device can simulate in. Drawing alone is translation-invariant, but the
  * layout is not: gravity pulls toward the square's centre and many-body bins points on a grid over
  * `[0, side]²`, so an extent left where it was contracts toward a corner and falls off the grid.

@@ -60,7 +60,7 @@ const shallow = (a: readonly unknown[], b: readonly unknown[]) => a.length === b
  * **Under bound positions a category with no position at all is not a row like the others**: it
  * moves into a muted *No position* group with a hollow glyph, because the map hides it rather than
  * greying it. When no relation has both ends placed, a line under the rows says so, so an edgeless
- * map is not read as a corpus without edges.
+ * map is not read as a graph without edges.
  *
  * Names are the root's `categories`, never this part's: a legend that renamed a category would be
  * encoding one product's policy, which is the parts rule's reversal.

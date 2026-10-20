@@ -55,6 +55,18 @@ words, or any of:
 - `link` — `{ label, href }`, a button beside the details: *Sign in again*.
 - `page` — the page that explains the code; the code in the header links to it.
 
+**The page a code links to is yours.** A problem's `type` is a tag URI —
+`tag:kanzo.tech,2026:problem/engine/lost` — an identity that cannot be opened, so the library links
+nowhere by itself. Where your documentation explains codes, return the page from `describe`, and every
+code links to it, the library's and your own:
+
+```tsx
+const describe = (code: string) => ({ page: `https://docs.example.com/problems/${code}` });
+```
+
+Every `Problem` the library draws for a coded failure takes your `describe` — `Chat`, `ModelBadge`,
+`AnswerCard` — so one function is the whole configuration.
+
 The words `Problem` draws itself — the severity badge and the details trigger's name — are
 `translations`, in English by default. The two are kept apart on purpose: `translations` is the same
 record whatever failed, the one prop every component here takes its words through, and `describe` is

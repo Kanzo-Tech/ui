@@ -1,6 +1,6 @@
 ---
 title: Discovery workspace
-description: A recipe — the engine, a corpus attached by name, and the graph parts and charts on one crossfilter.
+description: A recipe — the engine, a graph attached by name, and the graph parts and charts on one crossfilter.
 ---
 
 A discovery workspace is the graph and the panels that interrogate it: a canvas with its tools,
@@ -15,7 +15,7 @@ Every piece is a library part; what the host writes is the arrangement and its o
 
 ```text
 engine()                                           the page's one DuckDB and its coordinator
-attach("archive", { engine, url })                 the corpus, attached as a catalog
+attach("archive", { engine, url })                 the graph, attached as a catalog
 KanzoThemeProvider sections={[GRAPH_SECTION]}
 └── MosaicProvider engine joins                    owns the page's one selection
     └── GraphRoot from engine filterBy …           one root, one Mosaic client
@@ -104,7 +104,7 @@ lacks a clause's columns keeps none of its vertices under it, so a clause naming
 table has greys the whole graph ([why](/docs/design/crossfilter#formal-semantics)). A type the
 joins have is read by its name, catalog and all. A clause on one relation reaches a part on another
 crossed by `dense_id`, or keeps none of it where there is no way across, so a `Dashboard` over a
-relation of the corpus shares this selection with the graph in both directions — [what the page
+relation of the graph shares this selection with the graph in both directions — [what the page
 sees](/docs/analytics/dashboard#what-the-page-sees).
 
 </Step>
@@ -182,9 +182,9 @@ function GraphInfo() {
 ```
 
 The search is a cue here and a palette over the canvas: the field opens it, and so does ⌘K. It asks
-the corpus as the reader types, turns `type:` and `<column>:<value>` into chips, groups what it finds
+the graph as the reader types, turns `type:` and `<column>:<value>` into chips, groups what it finds
 by type and remembers what the reader went to. Enter reveals the vertex, and the inspector below
-reads it: its type and name, Locate beside them, and its IRI with a copy button. The render prop is where a product adds fields the corpus does not carry.
+reads it: its type and name, Locate beside them, and its IRI with a copy button. The render prop is where a product adds fields the graph does not carry.
 
 </Step>
 <Step>
@@ -216,7 +216,7 @@ function GraphSettings() {
 
 The graph's section, whole: the picture, where the points come from — the archive's halls make
 Clustered worth trying — and the forces. **One line, because the root is the section's owner**: it
-answers the corpus's columns to the panel, so the panel holds no state and the page passes no list.
+answers the graph's columns to the panel, so the panel holds no state and the page passes no list.
 Pausing, re-running and framing the layout are the toolbar's, so the panel needs no camera
 button. The gestures are the canvas's own; they are written down here because a reader scanning for
 "how do I select two clusters" wants a table.
@@ -235,7 +235,7 @@ import { GraphCounts, GraphStatus } from "@kanzo-tech/graph";
 </ShellFooter>;
 ```
 
-One word for where the graph is — Loading, Laying out 42%, Ready, Failed — then the corpus:
+One word for where the graph is — Loading, Laying out 42%, Ready, Failed — then the graph:
 "5K nodes · 8K edges"; what the filters keep is the `FilterBar` readout's. The word reads the
 data's `status` and the layout's `motion` together, so the footer never says "idle" over a running
 layout — two axes, see [Layout and camera](/docs/graph/layout#status-and-motion-are-two-axes).
@@ -245,7 +245,7 @@ layout — two axes, see [Layout and camera](/docs/graph/layout#status-and-motio
 
 ## What stays the host's
 
-- **Attaching and detaching the corpus**, and what signs it.
+- **Attaching and detaching the graph**, and what signs it.
 - **The channels**: which column wears colour, shape and size, and the names in `categories`.
 - **What a failure says.** `onFailure` hands it over whole; the host keys on `code`.
 - **What a selection means beyond the graph** — `onSelect` and `onFocus`, for a URL, a toast, a

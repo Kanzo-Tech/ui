@@ -21,19 +21,18 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { tv } from "tailwind-variants";
 import { nameOf } from "../core/categories";
 import { bindingOf } from "../core/channels";
-import { readVertex, type VertexDetail } from "../core/source";
-import { localName, tableOf } from "../core/structure";
+import { columnNamed, identityOf, localName, readVertex, tableOf, type VertexDetail } from "../core/source";
 import type { VertexId } from "../core/types";
 import { useGraphContext } from "../react/graph-root";
 import { useGraphState } from "../react/use-graph-state";
 import { scaleOf } from "../render/graph-model";
 import { ShapeGlyph } from "./shape-glyph";
 
-/** The words the inspector writes itself; a field's name is the corpus's and is never reworded. */
+/** The words the inspector writes itself; a field's name is the graph's and is never reworded. */
 export interface GraphInspectorTranslations {
   /** With nothing focused. */
   empty: string;
-  /** A focused vertex the corpus does not hold. */
+  /** A focused vertex the graph does not hold. */
   missing: string;
   /** A focused vertex whose read did not answer. */
   unread: string;
@@ -50,7 +49,7 @@ export interface GraphInspectorTranslations {
 
 const ENGLISH: GraphInspectorTranslations = {
   empty: "Click a vertex on the canvas to inspect it.",
-  missing: "This vertex is not in the corpus.",
+  missing: "This vertex is not in the graph.",
   unread: "This vertex could not be read.",
   locate: "Locate",
   copy: "Copy the IRI",
@@ -62,7 +61,7 @@ const ENGLISH: GraphInspectorTranslations = {
 
 export interface GraphInspectorProps extends Omit<React.ComponentProps<typeof ark.div>, "children"> {
   /**
-   * More fields for the focused vertex, drawn after the corpus's values — a `DataListItem` each. A
+   * More fields for the focused vertex, drawn after the graph's values — a `DataListItem` each. A
    * render prop rather than a table of formatters: what a product adds is markup, and the part never
    * learns what any of it means.
    */
@@ -101,7 +100,7 @@ const LONG = 160;
 
 /**
  * How every row lays out, a host's among them: set on the list, so a `DataListItem` the render prop
- * draws lines up with the corpus's without restating a class.
+ * draws lines up with the graph's without restating a class.
  */
 const rows = cn(
   "gap-0 text-xs",
@@ -132,7 +131,7 @@ function Value({ value, date, t }: { value: unknown; date: boolean; t: GraphInsp
   );
 }
 
-/** `null` is no such vertex in the corpus; `false` is a read that did not answer. */
+/** `null` is no such vertex in the graph; `false` is a read that did not answer. */
 type Answer<T> = { vertex: VertexId; value: T | null | false } | null;
 
 /**
@@ -162,7 +161,7 @@ function useRead<T>(
 }
 
 /**
- * **The focused vertex, fetched and laid out by the corpus's own tables** — the Linkurious inspector's
+ * **The focused vertex, fetched and laid out by the graph's own tables** — the Linkurious inspector's
  * shape. The loaded graph carries what the channels project and nothing else, so the rest of the row
  * is read when a reader focuses it — one statement on its table, by its key, on the page's engine;
  * focusing another vertex stops it.
@@ -186,10 +185,10 @@ export function GraphInspector({ children, className, slot, translations, ...res
   const domain = useGraphState((s) => s.drawn?.domain ?? s.domain);
   const capacity = useChartCapacity();
   const scale = useMemo(() => scaleOf(options, capacity), [options, capacity]);
-  const { engine, categories } = options;
+  const { engine, from, categories } = options;
   const row = useMemo(
-    () => (structure && engine ? (vertex: VertexId, signal: AbortSignal) => readVertex(engine, structure, vertex, signal) : null),
-    [engine, structure],
+    () => (structure && engine && from !== null ? (vertex: VertexId, signal: AbortSignal) => readVertex(engine, from, structure, vertex, signal) : null),
+    [engine, from, structure],
   );
   const answered = useRead(focus, row);
 
@@ -199,15 +198,16 @@ export function GraphInspector({ children, className, slot, translations, ...res
   // The badge is the vertex's type, and wears the canvas's glyph only when the type is what the canvas colours by.
   const byType = bindingOf(options).byTable;
   const rank = Math.max(0, domain.findIndex((value) => String(value) === current?.table));
-  const iri = field(table?.identity);
+  const identity = table ? identityOf(table) : undefined;
+  const iri = field(identity);
   const titled = field(options.title);
   const named = titled ?? (typeof iri === "string" && iri !== "" ? localName(iri) : iri);
   const heading = current ? (named === undefined || named === null ? `#${current.vertex}` : text(named, false)) : "";
-  const dated = (name: string) => /date|time/i.test(table?.columns.get(name)?.type ?? "");
+  const dated = (name: string) => /date|time/i.test((table && columnNamed(table, name)?.type) ?? "");
   const groups = current
     ? [
-        { key: "values", title: t.values, fields: current.fields.filter((f) => f.name !== table?.identity && !dated(f.name)) },
-        { key: "dates", title: t.dates, fields: current.fields.filter((f) => f.name !== table?.identity && dated(f.name)) },
+        { key: "values", title: t.values, fields: current.fields.filter((f) => f.name !== identity && !dated(f.name)) },
+        { key: "dates", title: t.dates, fields: current.fields.filter((f) => f.name !== identity && dated(f.name)) },
       ]
     : [];
 

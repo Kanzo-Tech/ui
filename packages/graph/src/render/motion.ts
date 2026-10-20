@@ -2,7 +2,7 @@ import { bindingOf } from "../core/channels";
 import { idsOf } from "../core/kept";
 import { carries, type Geometry } from "../core/load";
 import type { GraphOptions } from "../core/state";
-import type { Structure } from "../core/structure";
+import type { JoinGraph } from "@kanzo-tech/relations";
 
 /**
  * **What the renderer decides from the data**, apart from cosmos.gl so it can be read and tested
@@ -32,7 +32,7 @@ export const LINKS_WHILE_RUNNING = 250_000;
  * geometry already placed by them. Then no layout runs, whatever asks for one: forces over positions
  * that are data only push them against the square's walls.
  */
-export function placedByData(options: GraphOptions, { structure, geometry }: { structure: Structure | null; geometry?: Geometry | null }): boolean {
+export function placedByData(options: GraphOptions, { structure, geometry }: { structure: JoinGraph | null; geometry?: Geometry | null }): boolean {
   const { x, y } = bindingOf(options);
   return geometry?.bound === true || (structure !== null && carries(structure, x) && carries(structure, y));
 }

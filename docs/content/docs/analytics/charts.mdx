@@ -116,7 +116,7 @@ pnpm add @kanzo-tech/mosaic @uwdata/mosaic-core @uwdata/mosaic-sql @uwdata/vgplo
 the Mosaic `Coordinator` inside it and the file registry beside it. Hand it to `MosaicProvider`,
 which registers its coordinator as vgplot's active one and owns the page's one
 `Selection`: every chart beneath it filters by it and publishes into it, and nobody passes one in.
-Hand it `joins` — a join graph, `readJoinGraph` for a fossil corpus — and a clause published on one
+Hand it `joins` — a join graph, `readJoinGraph` for an attached GraphAr graph — and a clause published on one
 relation reaches a chart reading another ([across relations](#across-relations)). DuckDB-WASM is browser-only, so ask for it in a
 `"use client"` island loaded with `ssr: false`, render a skeleton until it is ready, and let the
 chart hydrate:
@@ -165,7 +165,7 @@ meets DuckDB's `File already registered` — `registerFileBuffer(name, bytes)` r
 `dropFiles(names)` forgets them — DuckDB-WASM's names, which fossil's `Engine` uses too. `query(sql, { signal })` answers in columns — the Arrow table
 DuckDB-WASM produced, uncached — and an abort interrupts the running statement and rejects with
 `signal.reason`. That is the shape fossil's `Engine` asks for, so the engine you chart through is the
-one a corpus attaches to.
+one a graph attaches to.
 
 It boots with DuckDB's `httpfs` loaded, so object storage is SQL rather than another method: a
 reader holding a credential scoped to a prefix runs `CREATE OR REPLACE SECRET … (TYPE s3, …, SCOPE
@@ -209,7 +209,7 @@ part of the name, not a path. A relation anywhere else is a **mosaic-sql node**,
 the SQL as written: `asTableRef(["guild", "sightings"])` for a path you hold in parts, `verbatim(sql)`
 for a name a backend hands you already quoted.
 
-A fossil corpus is the second case. `attach(name, …)` attaches every table as a view in the catalog
+An attached GraphAr graph is the second case. `attach(name, …)` attaches every table as a view in the catalog
 `name`, so a vertex type is `"<name>"."Sighting"`, catalog and all; the bare type name is nothing in
 the default catalog:
 

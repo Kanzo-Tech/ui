@@ -5,9 +5,8 @@ import { bindingOf } from "./channels";
 import { GraphClient, publish } from "./client";
 import { Problem } from "@kanzo-tech/kernel";
 import { loadEncoding, loadGeometry, type Encoding, type Geometry } from "./load";
-import { readCatalog } from "./catalog";
-import { VERTICES } from "./source";
-import { KEY, type Structure } from "./structure";
+import { readJoinGraph, type JoinGraph } from "@kanzo-tech/relations";
+import { KEY, VERTICES, sizeOf, vertexTypes } from "./source";
 import { drawnOf, idsOf, keptOf, maskOf } from "./kept";
 import { memo } from "./memo";
 import { createReads, type Kind } from "./reads";
@@ -34,14 +33,14 @@ export function createGraph(initial: GraphOptions): GraphStore {
   // Until shown once, the load also waits for every chart on the page yet to draw (`holdFirstDraw`).
   let shownOnce = false, unwatch: (() => void) | null = null;
   let binding = bindingOf(initial);
-  let structure: Structure | null = null;
+  let structure: JoinGraph | null = null;
   let geometry: Geometry | null = null;
   let encoding: Encoding | null = null;
   let kept: Float64Array | null = null;
   let mask: Uint8Array | null = null;
   let arrangement: Arrangement | null = null;
   let uploaded: readonly unknown[] = [];
-  /** Aborted when the corpus changes, the root goes and a retry starts the load anew. */
+  /** Aborted when the graph changes, the root goes and a retry starts the load anew. */
   const reads = createReads();
   let client: GraphClient | null = null;
   let connected: Coordinator | null = null;
@@ -68,8 +67,8 @@ export function createGraph(initial: GraphOptions): GraphStore {
 
   // Each view of the graph is derived once per change of what it reads: the same array until then.
   const domainNow = memo(
-    () => [structure?.vertices, binding.byTable, binding.category, options.categories],
-    () => domainOf(structure?.vertices ?? [], binding, options.categories),
+    () => [structure, binding.byTable, binding.category, options.categories],
+    () => domainOf(structure ? vertexTypes(structure) : [], binding, options.categories),
   );
   /** What is kept, `keptOf`: the one reading every view of the graph draws. */
   const keptNow = memo(
@@ -101,7 +100,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     snapshot = { ...snapshot, ...fields };
     snapshot = {
       ...snapshot,
-      total: structure?.size,
+      total: structure ? sizeOf(structure) : undefined,
       // What the counts say *match*: kept and placed, `visible()` — a kept vertex with no position is no match.
       matching: visibleNow()?.length ?? null,
       drawn: drawnNow(),
@@ -155,15 +154,16 @@ export function createGraph(initial: GraphOptions): GraphStore {
   function loadStructure(): void {
     const { engine, from } = options;
     if (engine === null || from === null) return;
-    read("structure", (signal) => readCatalog(engine, from, signal), (next) => {
-      if (next.size === 0) {
+    read("structure", (signal) => readJoinGraph(engine, from, { signal }), (next) => {
+      const size = sizeOf(next);
+      if (size === 0) {
         failed = true;
         fail(new Problem("graph/nothing-to-draw", `the graph attached as ${from} has no vertex`));
         return;
       }
-      if (next.size > LIMIT) {
+      if (size > LIMIT) {
         failed = true;
-        fail(new Problem("graph/too-large", `the graph attached as ${from} has ${next.size} vertices; the graph draws at most ${LIMIT}`, { count: next.size, limit: LIMIT }));
+        fail(new Problem("graph/too-large", `the graph attached as ${from} has ${size} vertices; the graph draws at most ${LIMIT}`, { count: size, limit: LIMIT }));
         return;
       }
       structure = next;
@@ -198,7 +198,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     reads.stop();
     failed = false;
     shownOnce = false;
-    // A new corpus: the old one's pick goes from the page with its vertices.
+    // A new graph: the old one's pick goes from the page with its vertices.
     if (client && published && structure) publish(published, client, KEY, null, "");
     published = null;
     structure = geometry = encoding = null;

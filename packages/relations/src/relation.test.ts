@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Query, asTableRef } from "@uwdata/mosaic-sql";
 import { clauseColumns, clauseSemiJoin } from "@kanzo-tech/mosaic";
-import { relationColumns, relationHops, relationKey, relationQuery, type JoinGraph } from "./relation.js";
+import { checked, relationColumns, relationHops, relationKey, relationQuery, type JoinGraph } from "./relation.js";
 
 const at = (table: string) => asTableRef(["jobs/7", table])!;
 
@@ -135,5 +135,40 @@ describe("relationColumns", () => {
     // Every name it gives is one the query projects.
     const sql = String(relationQuery(described, relation));
     for (const { name } of columns) expect(sql).toContain(`AS "${name}"`);
+  });
+});
+
+describe("checked", () => {
+  const keyed: JoinGraph = {
+    types: GRAPH.types.map((t) => ({ ...t, columns: [{ name: t.key, type: "UINTEGER" }, ...t.columns] })),
+    edges: GRAPH.edges,
+  };
+  const refusal = (graph: JoinGraph) => {
+    try {
+      checked(graph);
+    } catch (problem) {
+      return problem;
+    }
+    return null;
+  };
+
+  it("passes a graph that describes only each column's name and type", () => {
+    expect(checked(keyed)).toBe(keyed);
+  });
+
+  it("refuses a type whose key is none of its columns, naming the type", () => {
+    expect(refusal(GRAPH)).toMatchObject({ code: "relations/invalid", data: { type: "Person" } });
+  });
+
+  it("refuses two types of one name, and a union of a type the graph does not have", () => {
+    expect(refusal({ ...keyed, types: [...keyed.types, keyed.types[1]!] })).toMatchObject({ code: "relations/invalid", data: { type: "Post" } });
+    const union = { ...keyed.types[0]!, name: "vertices", of: ["Person", "Place"] };
+    expect(refusal({ ...keyed, types: [...keyed.types, union] })).toMatchObject({ code: "relations/invalid", data: { type: "vertices" } });
+  });
+
+  it("refuses two edges of one name, and an edge whose end is no type, naming the edge", () => {
+    expect(refusal({ ...keyed, edges: [...keyed.edges, keyed.edges[0]!] })).toMatchObject({ code: "relations/invalid", data: { edge: "Person_knows_Person" } });
+    const stray = { ...keyed.edges[1]!, name: "Post_about_Topic", label: "about", destination: "Topic" };
+    expect(refusal({ ...keyed, edges: [...keyed.edges, stray] })).toMatchObject({ code: "relations/invalid", data: { edge: "Post_about_Topic", type: "Topic" } });
   });
 });

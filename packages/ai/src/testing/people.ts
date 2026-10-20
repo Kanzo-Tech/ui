@@ -12,7 +12,7 @@ const counted = (distinctCount: number, more: Partial<JoinColumnStats> = {}): Jo
   ...more,
 });
 
-/** The graph a corpus of these people would be read as: every column described, and counted by its writer. */
+/** The graph these people would be read as: every column described, and counted by its writer. */
 export const PEOPLE: JoinGraph = {
   types: [
     {

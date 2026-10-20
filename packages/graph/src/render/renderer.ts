@@ -51,7 +51,7 @@ const PROGRESS_STEPS = 20;
  * **cosmos.gl's lifetime, and the frame that renders once.** Built once per element; it subscribes to
  * the store and discharges what changed in one `requestAnimationFrame`:
  *
- * - a new graph uploads positions and links, once per corpus and per position binding;
+ * - a new graph uploads positions and links, once per graph and per position binding;
  * - a binding, a look or a theme change uploads colours, sizes, shapes and clusters and nothing else;
  * - a filter, a selection or a focus sets config and uploads nothing, and never calls
  *   `render()`: a vertex the page's filter does not keep is greyed out, Cosmograph's way, so the

@@ -25,10 +25,10 @@ export interface Sim {
 /**
  * Coefficients that settle a few-hundred-node graph into something readable.
  *
- * Chosen against a corpus of that size, and they are a starting point rather than a law: a graph
+ * Chosen against a graph of that size, and they are a starting point rather than a law: a graph
  * two orders of magnitude larger wants less repulsion and more friction, and the measurements in
  * `/docs/graph/benchmarks` say a live simulation is finished by around 200,000 points regardless. A
- * host that knows its corpus starts its users elsewhere through the tenant policy.
+ * host that knows its graph starts its users elsewhere through the tenant policy.
  *
  * The values are strings for the reason `lookFrom`'s are: a contributed preference is a string in
  * all three kinds, so an unrecognised namespace rides through a write untouched. A key that is

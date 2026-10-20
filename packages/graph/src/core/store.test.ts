@@ -1,6 +1,7 @@
 import { Query, Selection, clauseInterval, clauseMatch, clausePoint, clauseSemiJoin, holdFirstDraw, isIn, literal } from "@kanzo-tech/mosaic";
 import { describe, expect, it, vi } from "vitest";
 import { attach, refusal, settle, type Attached } from "../../test/corpus";
+import { identityOf, vertexTypes } from "./source";
 import { createGraph } from "./store";
 import type { GraphOptions } from "./state";
 
@@ -28,7 +29,7 @@ describe("the graph store", () => {
     const { corpus, store } = await graph();
     await settle(corpus);
     const { geometry, structure } = store.getSnapshot();
-    expect(structure?.vertices.map((t) => [t.name, t.first, t.rows, t.identity])).toEqual([
+    expect(vertexTypes(structure!).map((t) => [t.name, t.first, t.rows, identityOf(t)])).toEqual([
       ["Person", 0, 10, "subject"],
       ["Place", 10, 6, "subject"],
       ["Tag", 16, 4, "subject"],
@@ -222,7 +223,7 @@ describe("the graph store", () => {
     store.setOptions({ ...store.getOptions(), from: second.from, engine: second.engine });
     await settle(first);
     await settle(second);
-    expect(store.getSnapshot().structure?.from).toBe(second.from);
+    expect(String(vertexTypes(store.getSnapshot().structure!)[0]!.table)).toContain(`"${second.from}"."Person"`);
     expect(onFailure).not.toHaveBeenCalled();
   });
 

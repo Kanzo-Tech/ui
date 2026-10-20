@@ -30,7 +30,7 @@ recorded model, each answer a dashboard tile read for real under the page's filt
 `AnswerCard` with *Filter the page to these rows*), **Orders** and **Settings** (`GraphSettings`: the graph's section,
 `PreferencesSections namespace="graph"`, above the gestures). The graph's settings sit beside the canvas they change; the
 Preferences drawer keeps only what is app-wide — the theme, density, radius and fonts. fossil's
-`attach` attaches the corpus as the catalog `archive`, and the graph and the
+`attach` attaches the graph as the catalog `archive`, and the graph and the
 [analytics subpath](/docs/analytics/charts)'s panels read it through the page's one engine —
 [Discovery workspace](/docs/graph/workspace) is the wiring.
 
@@ -96,7 +96,7 @@ docs/showcases/workspace/
 ├── default.tsx           — the shell: sidebar, header, splitter, footer strip, the canvas's parts placed
 ├── data.tsx              — the chrome (halls, nav, viewer), straight from the world
 ├── duck.ts               — each view's relations, registered once in the page's one engine
-├── graph-data.ts         — the archive as rows; what the corpus is compiled FROM, not read from
+├── graph-data.ts         — the archive as rows; what the graph is compiled FROM, not read from
 ├── corpus/               — the mapping, the shape and the script that compile it with fossil
 ├── graph-view.tsx        — the GraphRoot composition, each look's channels, and the dock panels
 ├── graph-finding.tsx     — a finding a panel can point the canvas at

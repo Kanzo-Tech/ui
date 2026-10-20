@@ -1,4 +1,4 @@
-import { engineOver } from "../test/engine";
+import { answerOf, engineOver } from "../test/engine";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   ChartHarness,
@@ -59,10 +59,10 @@ function stubCoordinator(): Coordinator {
   const coordinator = {
     query: async (sql: string) =>
       sql.startsWith("SUMMARIZE")
-        ? [
+        ? answerOf([
             { column_name: "region", column_type: "VARCHAR", approx_unique: 4, min: "a", max: "d", count: 10 },
             { column_name: "bounty", column_type: "DOUBLE", approx_unique: 9, min: 1, max: 9, count: 10 },
-          ]
+          ])
         : [],
     // What the real coordinator's filter groups do: a client queries again when what it filters by moves.
     connect(client: MosaicClient) {

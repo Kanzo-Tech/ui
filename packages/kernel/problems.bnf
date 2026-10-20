@@ -70,7 +70,7 @@ row llm/unavailable         = -   ; "The model cannot run here"              ; r
 row llm/truncated           = -   ; "The answer was cut off"                 ; reason?: string .
 row llm/silent              = -   ; "The model made no progress"             ; after: number, stage?: string .
 
-row relations/invalid       = -   ; "The relations contradict themselves"    ; type?: string .
+row relations/invalid       = -   ; "The relations contradict themselves"    ; type?: string, edge?: string .
 row relations/unmatched     = -   ; "A term names nothing in the catalog"    ; term?: string .
 row relations/no-step       = -   ; "A path step resolves to nothing"        ; step?: string .
 

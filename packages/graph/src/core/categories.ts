@@ -1,5 +1,5 @@
 import type { Binding } from "./channels";
-import type { VertexTable } from "./structure";
+import type { JoinType } from "@kanzo-tech/relations";
 
 /**
  * **The categorical domain, fixed before the graph loads.** Colour by vertex type ranks the drawn
@@ -7,7 +7,7 @@ import type { VertexTable } from "./structure";
  * neither names is ranked as it is seen, after them.
  */
 export function domainOf(
-  tables: readonly VertexTable[],
+  tables: readonly JoinType[],
   binding: Binding,
   categories: Readonly<Record<string, string>> | undefined,
 ): readonly unknown[] {

@@ -65,7 +65,7 @@ function Ask({ engine, graph, dashboards, onAdd }: { engine: Engine; graph: Join
 }
 ```
 
-`graph` is [`readJoinGraph`](/docs/graph#readjoingraph) for a fossil corpus, read once per data
+`graph` is [`readJoinGraph`](/docs/graph#readjoingraph) for an attached GraphAr graph, read once per data
 space, and it is all Ask is given: what each type and field is and holds — its kind, its role, its
 commonest values — is on the graph, and nothing more is read before the first question. Until the
 graph is read, draw `<ChatSkeleton />` in the chat's place: it is the same layout, so nothing jumps
@@ -79,14 +79,14 @@ same — see [Before the first question](/docs/ai/chat#before-the-first-question
 Ask is offered each type of the graph alone, with its fields as a [dashboard](/docs/analytics/dashboard)
 over it reads them: `fieldStats` over the graph's descriptions of its columns (`relationColumns`),
 without its key, then `plotRelation`. A type alone's fields go by their own names — `gender`,
-`age` — which are the paths from it, and each carries what the corpus's writer counted: its kind and
+`age` — which are the paths from it, and each carries what the graph's writer counted: its kind and
 role, and its commonest `values`, the first six of which the model is told. Nothing is read from the
 engine for it — no `SUMMARIZE` and no count — so the model, the dashboard and the answer's card are
-told the same figures, the corpus's.
+told the same figures, the graph's.
 
 So the model and the dashboard read **one list of fields**: a tile the model fills names the fields
 `Dashboard` draws, and *Add to the dashboard* adds a tile the dashboard can draw. A graph whose
-corpus was written before fossil counted its columns offers the same fields without `values`.
+graph was written before fossil counted its columns offers the same fields without `values`.
 
 *Held by* `packages/ai/src/data/answer.test.ts`, "describes a relation's fields from the graph, without
 its steps' keys, each with the commonest values its writer counted"; "reads nothing from the engine:

@@ -131,12 +131,12 @@ export interface PrefOption {
  *
  * The list is answered by whoever knows it, for the subtree under them: the core's `"themes"` by
  * the theme provider, from what the tenant published; the graph's `"columns"` by the graph's root,
- * from the corpus it attached. Home Assistant's selectors work this way — a schema names an entity
+ * from the graph it attached. Home Assistant's selectors work this way — a schema names an entity
  * list and the frontend fills it. A name is the section's, so two packages cannot collide, and a
  * source is still data somebody hands over, never a hook for a package to fetch from.
  *
  * It was the closed `"themes"` while the tenant was the only one who knew a list; the columns of a
- * corpus are the second, and the core does not learn their name.
+ * graph are the second, and the core does not learn their name.
  */
 export type PrefSource = string;
 

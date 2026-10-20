@@ -12,7 +12,7 @@ fed typed arrays with nothing of ours in the way.
   <Card title="Run the sweep" href="/view/showcases/graph-bench" description="Measured in your tab on your machine, in a foreground window." />
 </Cards>
 
-## Build the corpora first
+## Build the graphs first
 
 The viewer layer reads GraphAr graphs written by fossil's writer, `@fossil-lang/executor`, which
 runs `bench.fossil` in Node once, offline; the browser only reads them.
@@ -47,7 +47,7 @@ runs.
 |---|---|---|
 | 200,000 | 9.3 ms | 9.0 ms |
 
-The viewer was inside the gate on 2026-09-30, when it read the corpus's own laid-out positions; the
+The viewer was inside the gate on 2026-09-30, when it read the graph's own laid-out positions; the
 harness has moved to the seeded start since and the row has not been re-run on it.
 
 ## The engine: how far a live layout goes
