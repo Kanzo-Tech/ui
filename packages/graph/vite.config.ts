@@ -25,6 +25,9 @@ export default defineConfig({
         // contribution is reached BY a host, never imported by the core, so it must not be on the
         // root barrel where `@kanzo-tech/theme` could come to depend on it.
         "section": resolve(__dirname, "src/section.ts"),
+        // A third: the diagram, whose two engines are optional peers. On the root barrel they would
+        // be installed by every host that draws a GraphAr graph and never a diagram.
+        diagram: resolve(__dirname, "src/diagram.ts"),
       },
       formats: ["es"],
     },
@@ -34,6 +37,9 @@ export default defineConfig({
         id === "react-dom" ||
         id === "react/jsx-runtime" ||
         id === "@cosmos.gl/graph" ||
+        // Subpaths included: the diagram imports React Flow's stylesheet and ELK's API by path.
+        /^@xyflow\//.test(id) ||
+        /^elkjs(\/|$)/.test(id) ||
         /^@ark-ui\//.test(id) ||
         id === "tailwind-variants" ||
         /^lucide-react(\/|$)/.test(id) ||

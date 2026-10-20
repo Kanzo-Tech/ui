@@ -23,6 +23,10 @@
       "types": "./dist/section.d.ts",
       "import": "./dist/section.js"
     },
+    "./diagram": {
+      "types": "./dist/diagram.d.ts",
+      "import": "./dist/diagram.js"
+    },
     "./tailwind.css": "./src/tailwind.css",
     "./package.json": "./package.json"
   },
@@ -32,7 +36,7 @@
     "test": "vitest run",
     "size": "size-limit"
   },
-  "//peers": "All required. cosmos.gl draws and lays out; `@ark-ui/react` is what every part renders through (`ark.*`), a peer for the reason it is `@kanzo-tech/ui`'s — two copies of Ark would be two portals and two focus traps; `lucide-react` is the icon set the parts draw their buttons with, `@kanzo-tech/ui`'s own peer; `@kanzo-tech/mosaic` is the coordinator the graph reads through as a client; `@kanzo-tech/relations` is the reader of the attached graph's catalog and the crossfilter the graph listens to and publishes into. The Mosaic stack itself — mosaic-core, mosaic-sql — is `@kanzo-tech/mosaic`'s peer, declared once there. `tailwind-variants` is a dependency, as it is `ui`'s and `ai`'s: the parts write their appearance as recipes, which is also what puts this package under the guards (`packages/ui/src/guard-corpus.ts`).",
+  "//peers": "All required but two. `@xyflow/react` and `elkjs` are `./diagram`'s, optional, and reached from no other entry: React Flow draws a diagram's nodes and edges as DOM, and ELK lays them out in its own worker. Both are large, and ELK is EPL-2.0 OR GPL-3.0-or-later where everything else here is MIT, so a host that never draws a diagram installs neither (/docs/design/graph, *A diagram is a second view*). The floors are the releases this package is built and tested against: `ariaLabelConfig` and a `fitView` that waits for the nodes it frames are recent in React Flow 12. The rest: cosmos.gl draws and lays out; `@ark-ui/react` is what every part renders through (`ark.*`), a peer for the reason it is `@kanzo-tech/ui`'s — two copies of Ark would be two portals and two focus traps; `lucide-react` is the icon set the parts draw their buttons with, `@kanzo-tech/ui`'s own peer; `@kanzo-tech/mosaic` is the coordinator the graph reads through as a client; `@kanzo-tech/relations` is the reader of the attached graph's catalog and the crossfilter the graph listens to and publishes into. The Mosaic stack itself — mosaic-core, mosaic-sql — is `@kanzo-tech/mosaic`'s peer, declared once there. `tailwind-variants` is a dependency, as it is `ui`'s and `ai`'s: the parts write their appearance as recipes, which is also what puts this package under the guards (`packages/ui/src/guard-corpus.ts`).",
   "//graphar": "The graph reads a GraphAr graph `@kanzo-tech/graphar-duckdb`'s `attachGraph` attached under a name \u2014 a view per vertex type, `\"<c>\".\"<type>\"` with `_graphArVertexIndex`, and per edge type, `\"<c>\".\"<src>_<edge>_<dst>\"` with `_graphArSrcIndex` and `_graphArDstIndex`, and the information files as `graphar_vertex_types`, `graphar_edge_types`, `graphar_properties` and `graphar_chunks` \u2014 with SQL through the coordinator, in one function, `@kanzo-tech/relations`'s `readJoinGraph`, which the store calls and whose `JoinGraph` is the snapshot's `structure`. It imports nothing of graphar's or fossil's: the contract is the catalog and the chunks' footers, as `@kanzo-tech/graphar-duckdb` (Kanzo-Tech/graphar `2ec7a22`, after #4: counts typed UBIGINT, `graphar_chunks`) writes it \u2014 types in the graph document's order, counts, edge types and their ends, each property's primary key and nullability, a `list` property as a `T[]` column, and per vertex chunk the writer's `fossil:stats` in its Parquet `key_value_metadata` beside the row groups' own `Statistics`. Every vertex type is a node type; the global id, `dense_id`, is the reader's arithmetic over the per-type index, each type's `first` its offset.",    "@ark-ui/react": "^5.37.2",
   "peerDependencies": {
     "@ark-ui/react": "^5.37.2",
@@ -40,8 +44,18 @@
     "@kanzo-tech/mosaic": "workspace:*",
     "@kanzo-tech/relations": "workspace:*",
     "@kanzo-tech/ui": "workspace:*",
+    "@xyflow/react": "^12.12.0",
+    "elkjs": "^0.12.0",
     "lucide-react": "^1.0.0",
     "react": "^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@xyflow/react": {
+      "optional": true
+    },
+    "elkjs": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@kanzo-tech/kernel": "workspace:^",
@@ -63,6 +77,8 @@
     "@types/react-dom": "^19.0.0",
     "@uwdata/mosaic-core": "^0.32.0",
     "@uwdata/mosaic-sql": "^0.32.0",
+    "@xyflow/react": "^12.12.0",
+    "elkjs": "^0.12.0",
     "fast-check": "^4.10.2",
     "jsdom": "^25.0.0",
     "lucide-react": "^1.23.0",
@@ -82,6 +98,7 @@
   "//gauges": "One gauge per published entry, and one per tree-shaken import a consumer meets; `scripts/gauges.mjs` (through `.size-limit.mjs`) is what each measures, and every limit's reason — each raise, dated, with its before and after — is a row on /docs/design, *A gauge per entry, and its raises written here*.",
   "gauges": {
     ".": "28.5 kB",
-    "./section": "1.6 kB"
+    "./section": "1.6 kB",
+    "./diagram": "2.7 kB"
   }
 }

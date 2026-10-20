@@ -1,0 +1,131 @@
+---
+title: Diagram
+description: A few dozen boxes and the labelled edges between them, laid out in layers — React Flow draws, ELK places in a worker, and every box is the host's own markup.
+---
+
+`@kanzo-tech/graph/diagram` draws a small directed graph a reader reads box by box: kinds of thing
+and how they relate, the steps of a program, anything with five to a few dozen nodes. It is a thin
+layer over [React Flow](https://reactflow.dev), which draws, and [ELK](https://eclipse.dev/elk/)'s
+layered algorithm, which places, in a worker. The nodes are DOM, so what goes in one is the host's
+markup — a `Card`, a `Badge`, a `Popover` and its trigger. It knows nothing of where the nodes come
+from: they are ids, the edges are pairs of ids, and what a node shows is a render prop.
+
+<ComponentPreview componentName="diagram" hasMaxHeight />
+
+It is not [the graph view](/docs/graph). That draws a GraphAr graph of up to millions of vertices
+on the GPU, read through the page's engine; this draws a host's own data, small enough that every
+word in it is read. They share the package and nothing else.
+
+## Installation
+
+```sh
+pnpm add @kanzo-tech/graph @xyflow/react elkjs
+```
+
+Both are **optional peers**, reached from this subpath alone: a host that only draws a GraphAr
+graph installs neither. ELK is licensed EPL-2.0 OR GPL-3.0-or-later, where React Flow and this
+library are MIT; installing it is the host's decision, which is one more reason it is not a
+required peer. React Flow's structural stylesheet comes with the canvas, and the colours are the
+theme's: the package's [stylesheet entry](/docs/graph#installation) is the one line a host adds.
+
+**The layout runs in a worker** — `elkjs`'s own script, which the host's bundler emits as an asset
+from `new URL("elkjs/lib/elk-worker.min.js", import.meta.url)`, so a page under
+`worker-src 'self'` loads it from its own origin. A page whose policy refuses it gets the refusal
+through `onFailure`.
+
+## Usage
+
+```tsx
+import { DiagramCanvas, DiagramControls, DiagramRoot } from "@kanzo-tech/graph/diagram";
+```
+
+```tsx
+<div className="relative h-96">
+  <DiagramRoot nodes={ids} edges={edges} selected={selected} onSelect={setSelected} onFailure={report}>
+    <DiagramCanvas>
+      {(id, { selected }) => <KindBox kind={kinds.get(id)} selected={selected} />}
+    </DiagramCanvas>
+    <DiagramControls className="absolute end-2 top-2" />
+  </DiagramRoot>
+</div>
+```
+
+`edges` are `{ id, source, target, label? }`; an edge whose end is not among `nodes` is not drawn.
+`orientation` is `"horizontal"` (the default: layers run left to right) or `"vertical"`.
+
+## Anatomy
+
+```text
+DiagramRoot              the nodes, the edges, the selection and the failures; renders no element
+├── DiagramCanvas        the element: the nodes as the render prop draws them, the edges and their labels
+└── DiagramControls      zoom in, zoom out, fit — anywhere under the root
+```
+
+`DiagramControls` reads the root, not the canvas, so the host places it: over the canvas, in a
+header, beside it.
+
+## The layout stays put
+
+**ELK runs when the shape changes and at no other time.** The shape is the node ids, each edge's
+ends and the orientation. A new label, a count that moved, a node grown by a line — none of them
+moves anything under the reader. A node that arrives is invisible until React Flow has measured it
+and ELK has placed it with the rest, and each run ends by framing the whole diagram.
+
+The layer gap leaves room for a short label between two boxes. ELK is not told a label's size, so a
+long label crowds its ends; the words on an edge are a verb, not a sentence.
+
+## Selection and keys
+
+A click on a node selects it, and so does Enter or Space on a focused node; Escape and a click on the
+empty pane clear it. `onSelect` hears each, with the id or `null`. Pass `selected` and the diagram
+draws only what the host answers; leave it out and the diagram keeps its own.
+
+The render prop is told whether its node is selected, and draws it however the host draws selection.
+
+**A button inside a node** is the host's. Its click bubbles to the node and selects it, as a click
+anywhere in the node does — stop it if pressing the button should not select. A key pressed on it is
+left to it: Enter on a marker presses the marker, and does not also select the node.
+
+Each node is one tab stop, focusable and described to a screen reader by
+`translations.description`. Nothing is edited by hand: nodes do not drag, connect or delete.
+
+## Failures
+
+`onFailure` is required and receives every failure as thrown — today, a layout ELK could not run,
+its worker blocked or broken. The nodes stay unplaced and invisible rather than piled at the origin,
+so the host's own message is the one thing on the surface.
+
+## Attribution
+
+React Flow draws a small attribution in a corner, and it stays: React Flow's MIT licence allows
+hiding it, and its authors ask that whoever does subscribes to React Flow Pro. Place
+`DiagramControls` away from the bottom end corner it occupies.
+
+## Props
+
+### `DiagramRoot`
+
+| Prop | Type | |
+| --- | --- | --- |
+| `nodes` | `readonly string[]` | the node ids |
+| `edges` | `readonly DiagramEdge[]` | `{ id, source, target, label? }` |
+| `orientation` | `"horizontal" \| "vertical"` | default `"horizontal"` |
+| `selected` | `string \| null` | controlled; absent, the diagram keeps its own |
+| `onSelect` | `(id: string \| null) => void` | |
+| `onFailure` | `(error: unknown) => void` | required |
+
+### `DiagramCanvas`
+
+The props of a `div`, and:
+
+| Prop | Type | |
+| --- | --- | --- |
+| `children` | `(id: string, state: { selected: boolean }) => ReactNode` | what a node shows |
+| `translations` | `Partial<DiagramCanvasTranslations>` | `description` |
+
+### `DiagramControls`
+
+The props of a `div`, and `orientation` and `translations` — `camera`, `zoomIn`, `zoomOut`, `fit`.
+
+[Why the diagram is built this way](/docs/design/graph#a-diagram-is-a-second-view) is on the design
+page.

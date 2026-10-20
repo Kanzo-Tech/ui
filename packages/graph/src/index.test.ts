@@ -99,6 +99,14 @@ describe("@kanzo-tech/graph public surface", () => {
     expect(scaleOf({ symbol: "kind" }).shape(4)).toBe("cross");
   });
 
+  // `./diagram`'s parts import React Flow and ELK, optional peers; on this barrel they would be
+  // installed by every host that draws a GraphAr graph. `optional-peers.test.ts` holds the imports.
+  it("keeps the diagram on its own subpath", () => {
+    expect(surface.DiagramRoot).toBeUndefined();
+    expect(surface.DiagramCanvas).toBeUndefined();
+    expect(surface.DiagramControls).toBeUndefined();
+  });
+
   it("merges its own defaults instead of publishing them to be spread", () => {
     expect(surface.DEFAULT_LOOK).toBeUndefined();
     expect(surface.DEFAULT_SIM).toBeUndefined();

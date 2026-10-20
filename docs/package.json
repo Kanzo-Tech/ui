@@ -53,7 +53,9 @@
     "@uwdata/mosaic-core": "^0.32.0",
     "@uwdata/mosaic-sql": "^0.32.0",
     "@uwdata/vgplot": "^0.32.0",
+    "@xyflow/react": "^12.12.0",
     "ai": "^7.0.126",
+    "elkjs": "^0.12.0",
     "fumadocs-core": "16.9.3",
     "fumadocs-mdx": "15.0.11",
     "fumadocs-ui": "16.9.3",
@@ -67,7 +69,7 @@
     "shiki": "^4.2.0",
     "zod": "^4.4.3"
   },
-  "//deps": "@kanzo-tech/{ui,theme,mosaic,graph,ai,llm,auth,navigation,testing} are workspace deps; the pages and examples import Mosaic through `@kanzo-tech/mosaic`, as a host does. `ai` and `@ai-sdk/react` are @kanzo-tech/ai's required peers, installed once here as a host would; the examples and showcases build their models with `@kanzo-tech/llm/testing`'s double, over `ai/test`'s mock and `@kanzo-tech/testing`'s script — which is why that package is a dependency here — so nothing on the site calls a provider. The one exception is `/fixtures/ask-eval`, the page Ask's evaluation set (`packages/ai/eval`) asks on, which runs `@kanzo-tech/llm/local`'s model in the page: `@browser-ai/web-llm` and `@mlc-ai/web-llm` are that subpath's optional peers, installed here for it, pinned as `@kanzo-tech/llm` pins them. There is no colour-derivation package any more: a theme is a flat CSS file that ships with @kanzo-tech/theme.",
+  "//deps": "@kanzo-tech/{ui,theme,mosaic,graph,ai,llm,auth,navigation,testing} are workspace deps; the pages and examples import Mosaic through `@kanzo-tech/mosaic`, as a host does. `ai` and `@ai-sdk/react` are @kanzo-tech/ai's required peers, installed once here as a host would; the examples and showcases build their models with `@kanzo-tech/llm/testing`'s double, over `ai/test`'s mock and `@kanzo-tech/testing`'s script — which is why that package is a dependency here — so nothing on the site calls a provider. The one exception is `/fixtures/ask-eval`, the page Ask's evaluation set (`packages/ai/eval`) asks on, which runs `@kanzo-tech/llm/local`'s model in the page: `@browser-ai/web-llm` and `@mlc-ai/web-llm` are that subpath's optional peers, installed here for it, pinned as `@kanzo-tech/llm` pins them. There is no colour-derivation package any more: a theme is a flat CSS file that ships with @kanzo-tech/theme. `@xyflow/react` and `elkjs` are `@kanzo-tech/graph/diagram`'s optional peers, installed here as a host that draws a diagram installs them.",
   "devDependencies": {
     "@codemirror/legacy-modes": "^6.5.3",
     "@fossil-lang/executor": "^0.3.0-alpha.33",

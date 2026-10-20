@@ -4,6 +4,7 @@
     "index",
     "layout",
     "workspace",
+    "diagram",
     "benchmarks"
   ]
 }

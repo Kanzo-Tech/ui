@@ -758,8 +758,10 @@ packages/graph/src/
 │   └── graph-looks · graph-model · graph-sim · obligations · css-color · webgl
 ├── react/                    use-graph · use-graph-state · graph-root · use-graph-prefs
 ├── parts/                    the canvas, legend, counts, toolbar, inspector, search, looks; overlays · gesture · shape-glyph
+├── diagram/                  the ./diagram entry's parts and its layout, over React Flow and ELK
 ├── index.ts
-└── section.ts                the ./section entry
+├── section.ts                the ./section entry
+└── diagram.ts                the ./diagram entry
 ```
 
 **What would reverse it:** a layer whose reference stops describing what it does. Then either the
@@ -996,6 +998,9 @@ types              GraphRootProps · GraphRootProviderProps · UseGraphProps · 
                    Channels · Placement · Look · LookPatch · Shape · Sim · Motion · VertexSelection · VertexSelectionSource
                    Tool · GraphCommands · VertexId
 ./section          GRAPH_SECTION
+./diagram          DiagramRoot · DiagramCanvas · DiagramControls
+                   DiagramRootProps · DiagramCanvasProps · DiagramControlsProps · DiagramEdge
+                   DiagramCanvasTranslations · DiagramControlsTranslations · DiagramNodeRender · DiagramOrientation
 ```
 
 `GraphRoot` takes `from`, `engine`, `filterBy`, `fill`, `symbol`, `stroke`, `r`, `title`, `x`,
@@ -1154,6 +1159,63 @@ or readers asking for a named starting point the axes' defaults do not give them
 
 *Held by* `packages/graph/src/section.test.ts`, "still draws the three pictures the three names drew";
 `packages/graph/src/render/graph-looks.ts`, `lookFrom`.
+
+## A diagram is a second view
+
+**`@kanzo-tech/graph/diagram` draws a host's own small graph — five to a few dozen nodes and the
+labelled edges between them — as DOM, laid out in layers: React Flow (`@xyflow/react`) draws, and
+ELK's layered algorithm (`elkjs`) places, in a worker.** Its first consumer is an assistant's picture
+of the kinds of thing a conversation has found — a box per kind with a name, a count, a few fields
+and a marker that asks a question, and *won by* or *born in* between them; the second, planned, is a
+program's flow from files to columns to rules to kinds. Neither is a GraphAr graph, and neither wants
+the canvas: a reader reads every word of a diagram, a node holds a button and a popover, and Tab
+reaches each node. That is DOM's case and not WebGL's, so the diagram shares the package with the
+graph view and nothing else — no store, no engine, no catalog. It knows nothing of RDF, fossil or the
+products: a node is an id, an edge a pair of ids, and what a node shows is the host's render prop.
+
+**It adopts both libraries rather than writing either.** React Flow gives the ports, the edges, pan
+and zoom, fit, selection and a focusable node with Enter, Space and Escape; ELK gives a layered
+layout with crossing minimisation, which is a research problem and not an afternoon's. What the
+subpath adds is the part neither ships: **the layout stays put.** ELK runs when the shape changes —
+the node ids, each edge's ends, the orientation — and at no other time, after React Flow has measured
+every node, so a count that moves or a label that is reworded moves nothing under the reader, and a
+new node is invisible until it is placed. The parts are `DiagramRoot`, which renders no element, as
+`GraphRoot` does; `DiagramCanvas`, the element; and `DiagramControls`, the camera's three buttons
+drawn with `@kanzo-tech/ui`'s `Button` in `GraphToolbar`'s cluster rather than React Flow's
+`Controls` in its own stylesheet's colours. The edges and their labels read the theme through React
+Flow's own custom properties, set to tokens on the canvas.
+
+**Both are optional peers behind the subpath, never the root barrel.** Measured 2026-10-20 from the
+installed 12.12.0 and 0.12.0: React Flow's ESM and its `@xyflow/system` are 388 kB unminified, 87 kB
+gzipped; ELK's worker is 1.6 MB minified, 462 kB gzipped. A host that draws only a GraphAr graph
+installs neither. **The licences differ:** React Flow is MIT, as everything here is; `elkjs` is
+EPL-2.0 OR GPL-3.0-or-later. EPL-2.0 is copyleft at the file level, and as we read it a host that
+ships ELK unmodified, as its own asset, owes ELK's notice and its source and nothing over its own
+code — a reading, not counsel's. It is the first engine here that is not MIT, and an optional peer
+makes installing it the host's act.
+
+**The worker is ELK's own script, copied and not bundled.** It is named by specifier as
+`new URL(…, import.meta.url)` apart from `new Worker(…)`, so the host's bundler emits the published
+file as an asset and the page loads it from its own origin; written inline, Vite would bundle the
+worker into this package's `dist/`. The one ELK is built on the first layout and kept for the page.
+
+**React Flow's attribution stays.** Its MIT licence allows hiding it with
+`proOptions.hideAttribution`, and its type declares the authors' one request: *if you hide the
+attribution, please support our work with a subscription*. We hold none.
+
+**What would reverse it:** ELK's weight, on pages that never draw more than a handful of kinds —
+half a megabyte gzipped for a dozen boxes — or its licence, if a host cannot ship EPL. Then the
+layered layout is kanzo-ui's own, over SVG, behind the same subpath, and the parts do not move. A
+diagram that must be edited by hand — dragged, connected — reopens *nothing is edited*, which is a
+prop React Flow already has. The attribution goes when Kanzo subscribes to React Flow Pro. And a
+diagram past a few hundred nodes is the graph view's case, not this one's.
+
+*Held by* `packages/graph/src/diagram/diagram.test.tsx`, "keeps every node where it is when a label
+or a node's contents change", "lays out again when a node arrives, and places it after the one it
+hangs from", "leaves a key pressed on a button inside a node to the button", "reaches the host as
+thrown, and leaves the nodes unplaced rather than piled at the origin";
+`packages/graph/src/index.test.ts`, "keeps the diagram on its own subpath";
+`packages/ui/src/optional-peers.test.ts`, "are reached from no package's root entry".
 
 ## What is still open
 

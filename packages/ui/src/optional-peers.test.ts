@@ -64,7 +64,7 @@ const ROOTS = SHIPPED.flatMap(({ name, src }) => {
 
 describe("optional peers", () => {
   it("finds a root entry with optional peers in the packages that declare them", () => {
-    expect(ROOTS.map((r) => r.name)).toEqual(expect.arrayContaining(["ui", "ai"]));
+    expect(ROOTS.map((r) => r.name)).toEqual(expect.arrayContaining(["ui", "ai", "graph"]));
   });
 
   it("are reached from no package's root entry", () => {

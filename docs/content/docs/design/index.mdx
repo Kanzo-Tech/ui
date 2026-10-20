@@ -270,6 +270,10 @@ is the cost — then a whole-library gauge comes back for that entry, named as t
 - **`@kanzo-tech/auth`** and **`@kanzo-tech/navigation`**: a door reaching through another. The
   root must never learn a protocol or a router, and the Node doors must never learn React; a jump of
   kilobytes on any of them means one of those happened.
+- **`@kanzo-tech/graph/diagram`**: the subpath's own code, React Flow and ELK left out as every
+  package is. A jump means the diagram grew a part of its own where it should have composed one of
+  `@kanzo-tech/ui`'s or React Flow's. esbuild warns that `import.meta` is empty here too: that is
+  `diagram/layout.ts`'s worker URL, as `engine.ts`'s is below.
 - **`@kanzo-tech/mosaic`**: the only gauge that measures it, since graph and ui leave it out. esbuild
   warns that `import.meta` is empty under the format it measures with; that is `engine.ts`'s
   `new URL(…, import.meta.url)`, which changes what a URL resolves to and not the size.
@@ -371,6 +375,7 @@ rows are not comparable with the gauges above them.
 | 2026-10-15 | auth root, `./server`, `./next`; `./testing` gone | 2.5 → 0.8, 5.45 → 1.25, 8.71 → 3.35 kB (lowered) | 2.3 kB → 785 B, 5.44 → 1.24 kB, 8.48 → 3.32 kB | the relying party moved to the platform's edge (`/docs/design/auth`, *The session is the platform's edge*): the routes, the stores, the sealed cookie, the issuer, renewal, back-channel logout and the exchange went; `./server` is `jose`'s verification of the forwarded token, the root a provider handed the session as a prop |
 | 2026-10-15 | auth `./server` | 1.25 → 1.3 kB, approved by the owner (standing approval, 2026-10-15) | 1.24 → 1.26 kB | the forwarded token must be an access token (`/docs/design/auth`): `typ: "Bearer"` is checked, so an ID token signed by the same realm is refused as `token/refused`; `./next` stayed under its 3.35 kB at 3.34 |
 | 2026-10-16 | relations root | 5.9 → 6.2 kB, approved by the owner (standing approval, 2026-10-15) | → 6.1 kB | a `JoinGraph` refused where it is made (`/docs/design/relations`): `checked()` at the end of `readJoinGraph` and `withMapping` — duplicate type or edge names, a key not among its columns, an edge end or a union member that is not a type, as `relations/invalid` — on top of `readCounts` reading `fossil:stats` as fossil writes it |
+| 2026-10-20 | graph diagram | 2.7 kB | 2.59 kB | first measurement: `DiagramRoot`, `DiagramCanvas`, `DiagramControls` and the ELK call |
 
 A difference of a few bytes on a package the change did not touch is the measurement, not the code.
 

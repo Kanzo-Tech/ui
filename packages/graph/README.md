@@ -15,8 +15,9 @@ writer counted — and a view per type.
 pnpm add @kanzo-tech/graph @cosmos.gl/graph @kanzo-tech/graphar-duckdb @kanzo-tech/mosaic @kanzo-tech/ui lucide-react @uwdata/mosaic-core @uwdata/mosaic-sql
 ```
 
-Every peer is required. `@kanzo-tech/mosaic` is the page's one DuckDB-WASM engine and its
-crossfilter, cosmos.gl draws, and the parts are built from `@kanzo-tech/ui` and its icons.
+Every peer is required but `./diagram`'s two (below). `@kanzo-tech/mosaic` is the page's one
+DuckDB-WASM engine and its crossfilter, cosmos.gl draws, and the parts are built from
+`@kanzo-tech/ui` and its icons.
 `@kanzo-tech/graphar-duckdb` is the host's, to attach the graph with; the graph never imports it.
 
 ## The one path
@@ -120,6 +121,29 @@ reader of it, on the page's engine with the load's signal; the same function is 
 
 The full guide — the parts, layout and camera, and the workspace recipe — is at
 [kanzo-tech.github.io/ui/docs/graph](https://kanzo-tech.github.io/ui/docs/graph).
+
+## The diagram
+
+`@kanzo-tech/graph/diagram` is a second view sharing nothing with the first but the package: a
+host's own small graph — a few dozen boxes and the labelled edges between them — drawn as DOM by
+React Flow and laid out in layers by ELK, in a worker.
+
+```sh
+pnpm add @xyflow/react elkjs
+```
+
+```tsx
+import { DiagramCanvas, DiagramControls, DiagramRoot } from "@kanzo-tech/graph/diagram";
+
+<DiagramRoot nodes={ids} edges={edges} selected={selected} onSelect={setSelected} onFailure={report}>
+  <DiagramCanvas>{(id, { selected }) => <KindBox kind={kinds.get(id)} selected={selected} />}</DiagramCanvas>
+  <DiagramControls className="absolute end-2 top-2" />
+</DiagramRoot>;
+```
+
+Both are optional peers, reached from this subpath alone; `elkjs` is EPL-2.0 OR GPL-3.0-or-later.
+The layout runs when the node ids or the edges' ends change, never for a label or a node's contents.
+The guide is at [kanzo-tech.github.io/ui/docs/graph/diagram](https://kanzo-tech.github.io/ui/docs/graph/diagram).
 
 ## Why a package, and not part of `@kanzo-tech/ui`
 
