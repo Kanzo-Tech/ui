@@ -1,6 +1,6 @@
 import { act, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { attach, settle } from "../../test/corpus";
+import { attach, grow, settle } from "../../test/corpus";
 import { readTitles } from "../core/source";
 import { GraphRoot, useGraphContext } from "../react/graph-root";
 import { internalsOf } from "../react/use-graph";
@@ -71,7 +71,7 @@ describe("label levels over a large graph", () => {
     ["visible", 150 + Math.min(100, IN_VIEW)],
     ["all", 150 + IN_VIEW],
   ] as [LabelLevel, number][])("mounts no more labels at %s than the view holds", async (level, bound) => {
-    const corpus = await attach(PEOPLE);
+    const corpus = await grow(await attach(), PEOPLE);
     render(
       <GraphRoot from={corpus.from} engine={corpus.engine} look={{ labels: level }} onFailure={() => {}} title="name">
         <GraphCanvas />

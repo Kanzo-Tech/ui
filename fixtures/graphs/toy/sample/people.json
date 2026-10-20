@@ -1,0 +1,12 @@
+[
+  {"id": 0, "name": "Person 0", "team": 0, "score": 1, "lon": 0.0, "lat": 0.0, "born": 1900, "nickname": "nick 0", "place": 0},
+  {"id": 1, "name": "Person 1", "team": 1, "score": 2, "lon": 1.0, "lat": 0.0, "born": 1901, "nickname": "nick 1", "place": 1},
+  {"id": 2, "name": "Person 2", "team": 2, "score": 3, "lon": 2.0, "lat": 0.0, "born": 1902, "nickname": "nick 2", "place": 2},
+  {"id": 3, "name": "Person 3", "team": 3, "score": 4, "lon": 3.0, "lat": 0.0, "born": 1903, "nickname": "nick 3", "place": 3},
+  {"id": 4, "name": "Person 4", "team": 0, "score": 5, "lon": 4.0, "lat": 0.0, "born": 1904, "nickname": "nick 4", "place": 4},
+  {"id": 5, "name": "Person 5", "team": 1, "score": 6, "lon": 5.0, "lat": 0.0, "born": 1905, "nickname": "nick 5", "place": 5},
+  {"id": 6, "name": "Person 6", "team": 2, "score": 7, "lon": 6.0, "lat": 0.0, "born": 1906, "nickname": "nick 6", "place": 0},
+  {"id": 7, "name": "Person 7", "team": 3, "score": 8, "lon": 7.0, "lat": 0.0, "born": 1907, "nickname": "nick 7", "place": 1},
+  {"id": 8, "name": "Person 8", "team": 0, "score": 9, "lon": 8.0, "lat": 0.0, "born": 1908, "nickname": "nick 8", "place": 2},
+  {"id": 9, "name": "Person 9", "team": 1, "score": 10, "lon": 9.0, "lat": 0.0, "born": 1909, "nickname": "nick 9", "place": 3}
+]

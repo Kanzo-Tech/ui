@@ -2,7 +2,7 @@
   "name": "@kanzo-tech/fixtures",
   "private": true,
   "version": "0.0.0",
-  "description": "The test fixtures: the Nobel laureates, OpenFlights and LDBC SNB, each a sample of the dataset written to a GraphAr graph by fossil's executor and checked in, and the door that attaches one to a real DuckDB-WASM in Node with @kanzo-tech/graphar-duckdb's attachGraph. Never published.",
+  "description": "The test fixtures: the Nobel laureates, OpenFlights and LDBC SNB, each a sample of the dataset, and a toy graph small enough to count by hand, written to a GraphAr graph by fossil's executor and checked in, and the door that attaches one to a real DuckDB-WASM in Node with @kanzo-tech/graphar-duckdb's attachGraph. Never published.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"

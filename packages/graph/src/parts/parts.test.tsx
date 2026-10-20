@@ -112,7 +112,10 @@ describe("GraphLegend", () => {
 
   it("says so when no edge has both ends on the map", async () => {
     const corpus = await attach();
-    await corpus.coordinator.exec(`UPDATE ${corpus.from}."Person" SET lat = NULL`);
+    await corpus.coordinator.exec(
+      `ALTER VIEW ${corpus.from}."Person" RENAME TO written;
+       CREATE VIEW ${corpus.from}."Person" AS SELECT * REPLACE (NULL::DOUBLE AS lat) FROM ${corpus.from}.written;`,
+    );
     render(
       <GraphRoot {...over(corpus)} onFailure={() => {}} x="lon" y="lat">
         <GraphLegend />

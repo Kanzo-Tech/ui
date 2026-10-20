@@ -295,8 +295,8 @@ asked".
 
 ## A test reads from one real engine, and a model's test replays a recording
 
-*Status: the engine and the fixtures are built, and the answer tests read SNB's; the graph's own toy
-corpus and the cassettes are not — each says so below.*
+*Status: the engine and the fixtures are built, and `graph`'s and `ai`'s tests read them; the
+cassettes are not — they say so below.*
 
 **Every test that needs a database runs on DuckDB-WASM in Node. There is no native DuckDB and no
 double that imitates one.** The belief that "this build of DuckDB-WASM cannot open a Parquet file in
@@ -322,10 +322,12 @@ the Nobel laureates, OpenFlights (the airports) and LDBC SNB, each a copy of kea
 `fetch.sh` — which Ask's evaluation set writes whole. Cordis stays a demo and is not a fixture. What a
 test reads is a **sample**, small enough to count by hand: the prizes of 2000 to 2004 (196 vertices),
 the airports of Spain and Portugal and the routes between them (54), and twelve SNB people who know
-one another with what they wrote early on (1,267). `sample.mjs` derives each from its dataset, keeping
+one another with what they wrote early on (1,267). A fourth, `toy`, has no dataset behind it: ten
+people, six places and four tags whose sample is written by hand and is its source, for the tests
+that count in global ids. `sample.mjs` derives each from its dataset, keeping
 every row a kept row names, and is the one step that needs the network, run by hand; `write.mjs` writes
 each graph from its sample with fossil's executor, through `docs/scripts/write-corpus.mjs`, offline.
-Both the sample and the graph are checked in, about 1.3 MB, and `check:generated` writes the graphs
+Both the sample and the graph are checked in, about 375 kB, and `check:generated` writes the graphs
 again and fails on a byte of difference, so a graph is never edited by hand and never stale against
 its program or the lockfile's executor. A test that needs a chunk with a property of its own (a
 footer key, a row-group statistic) writes it in-process with `COPY … (FORMAT parquet, COMPRESSION
@@ -341,14 +343,17 @@ instantiating its own. The first thing it found was a bug: fossil writes `fossil
 hand-built corpus wrote the shape the reader expected — so no column of a real graph had counts, and
 no test could see it.
 
-**Not yet on fixtures.** `graph`'s `test/corpus.ts` still states its own small graph — ten people,
-six places, four tags, the information relations as views — because a hundred of the canvas's and the
-parts' assertions are its arithmetic in global ids, and fossil numbers types in its own document's
-order; and one label test needs 327,000 vertices, which no checked-in sample holds. Its footers are
-DuckDB's own, written in fossil's document. It is the next conversion. `ai`'s answer tests read
-SNB's twelve people (`src/testing/snb.ts`), where they read six seeded by hand: whom one knows is two
-hops through a `Knowing`, as fossil writes it, and a measure is a post's length, since a person has
-no number of their own.
+**`graph`'s corpus is the toy graph, and `ai`'s answer tests read SNB.** `graph`'s `test/corpus.ts`
+attaches `toy` through the same door and keeps only the engine around it — what was sent, what has
+settled, a statement refused on demand. Fossil numbers types in its program's order and rows in the
+sample's, so the canvas's and the parts' arithmetic in global ids held: of 298 tests, four changed,
+each where the hand-built graph had said what the writer does not — every property nullable, `int32`
+where fossil writes `int64`, a table where `attachGraph` makes a view. The one label test that needs
+327,000 people grows the toy's `Person` in-process past the writer's ten, because writing a graph that
+size takes fossil about 25 s and 4.8 MB. `ai`'s answer tests read SNB's twelve people
+(`src/testing/snb.ts`), where they read six seeded by hand: whom one knows is two hops through a
+`Knowing`, as fossil writes it, and a measure is a post's length, since a person has no number of
+their own.
 
 *Held by* `packages/relations/src/graphar.test.ts`, "reads what fossil counted from each chunk's
 footer, and the footer's nulls and extent" and "reads nothing from a footer whose fossil:stats is of a

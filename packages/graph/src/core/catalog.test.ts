@@ -2,7 +2,7 @@ import { Query, count, isNotNull } from "@kanzo-tech/mosaic";
 import { relationQuery } from "@kanzo-tech/relations";
 import { describe, expect, it } from "vitest";
 import { readJoinGraph } from "@kanzo-tech/relations";
-import { attach, chunkOf, writeChunk, type Attached } from "../../test/corpus";
+import { attach, chunkOf, writeChunk, writtenChunkOf, type Attached } from "../../test/corpus";
 import { columnNamed, identityOf, sizeOf, vertexTypes } from "./source";
 
 /** `readJoinGraph` as the canvas reads it: the vertex types it draws, how many vertices, and the edges. */
@@ -63,14 +63,14 @@ describe("the catalog, as the canvas reads it", () => {
     expect(person.columns.map((c) => c.name)).toEqual(["dense_id", "subject", "name", "team", "score", "lon", "lat", "born", "nickname"]);
     expect(columnNamed(person, "dense_id")).toMatchObject({ type: "UINTEGER", role: "address", nullable: false });
     expect(columnNamed(person, "subject")).toMatchObject({ type: "VARCHAR", role: "identity", nullable: false });
-    expect(columnNamed(person, "born")).toMatchObject({ type: "INTEGER", nullable: true });
+    expect(columnNamed(person, "born")).toMatchObject({ type: "BIGINT", nullable: false });
   });
 
   it("reads a multi-valued property as a list column of the type that owns it, and counts none of a list", async () => {
     const corpus = await attach();
     const { vertices } = await readCatalog(corpus.engine, corpus.from);
     const nickname = columnNamed(vertices.find((v) => v.name === "Person")!, "nickname");
-    expect(nickname).toMatchObject({ type: "VARCHAR[]", nullable: true });
+    expect(nickname).toMatchObject({ type: "VARCHAR[]", nullable: false });
     expect(nickname?.stats).toBeUndefined();
   });
 
@@ -123,14 +123,14 @@ describe("the catalog, as the canvas reads it", () => {
     const corpus = await attach();
     // The second chunk states what the first does, read back from its footer.
     const [{ stats }] = (await corpus.coordinator.query(
-      `SELECT decode(value) AS stats FROM parquet_kv_metadata('${chunkOf(corpus.from, "Person")}') WHERE decode(key) = 'fossil:stats'`,
+      `SELECT decode(value) AS stats FROM parquet_kv_metadata('${writtenChunkOf(corpus.from, "Person")}') WHERE decode(key) = 'fossil:stats'`,
       { type: "json" },
     )) as unknown as [{ stats: string }];
     writeChunk(chunkOf(corpus.from, "Person", 1), corpus.from, "Person", stats);
     await corpus.coordinator.exec(
       `CREATE OR REPLACE VIEW ${corpus.from}.graphar_chunks AS
-         SELECT * FROM (VALUES ('Person', 'vertex', '${chunkOf(corpus.from, "Person")}'), ('Person', 'vertex', '${chunkOf(corpus.from, "Person", 1)}'),
-           ('Place', 'vertex', '${chunkOf(corpus.from, "Place")}'), ('Tag', 'vertex', '${chunkOf(corpus.from, "Tag")}')) t(type, kind, path);`,
+         SELECT * FROM (VALUES ('Person', 'vertex', '${writtenChunkOf(corpus.from, "Person")}'), ('Person', 'vertex', '${chunkOf(corpus.from, "Person", 1)}'),
+           ('Place', 'vertex', '${writtenChunkOf(corpus.from, "Place")}'), ('Tag', 'vertex', '${writtenChunkOf(corpus.from, "Tag")}')) t(type, kind, path);`,
     );
     const { vertices } = await readCatalog(corpus.engine, corpus.from);
     const person = vertices.find((v) => v.name === "Person")!;

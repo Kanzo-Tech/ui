@@ -1,0 +1,29 @@
+# The toy graph's shapes: the input vocabulary of program.fossil. A person
+# lives somewhere, knows other people and is tagged; a place opened on a date;
+# a tag is its subject and nothing else.
+
+PREFIX ex:  <https://toy.example/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+ex:Person {
+  ex:name     xsd:string ? ;
+  ex:team     xsd:int ? ;
+  ex:score    xsd:int ? ;
+  ex:lon      xsd:double ? ;
+  ex:lat      xsd:double ? ;
+  ex:born     xsd:int ? ;
+  ex:nickname xsd:string * ;
+  ex:knows    @ex:Person * ;
+  ex:livesIn  @ex:Place ? ;
+  ex:tagged   @ex:Tag *
+}
+
+ex:Place {
+  ex:name   xsd:string ? ;
+  ex:lon    xsd:double ? ;
+  ex:lat    xsd:double ? ;
+  ex:opened xsd:date ?
+}
+
+ex:Tag {
+}

@@ -1,0 +1,10 @@
+name: fossil
+vertices:
+  - Person.vertex.yml
+  - Place.vertex.yml
+  - Tag.vertex.yml
+edges:
+  - Person_knows_Person.edge.yml
+  - Person_livesIn_Place.edge.yml
+  - Person_tagged_Tag.edge.yml
+version: gar/v1

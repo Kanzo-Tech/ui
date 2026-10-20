@@ -1,0 +1,14 @@
+src_type: Person
+edge_type: tagged
+dst_type: Tag
+chunk_size: 1
+src_chunk_size: 10
+dst_chunk_size: 4
+prefix: edge/Person_tagged_Tag/
+directed: true
+adj_lists:
+  - ordered: true
+    aligned_by: src
+    prefix: ordered_by_source/
+    file_type: parquet
+version: gar/v1

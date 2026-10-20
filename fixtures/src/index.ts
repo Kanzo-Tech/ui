@@ -7,13 +7,14 @@ import type { Queryable, Table } from "@kanzo-tech/kernel";
 
 /**
  * **The fixture graphs, and the one door a test reaches them through.** Each is a sample of a dataset
- * — the Nobel laureates, OpenFlights' airports and routes, LDBC SNB — written to a GraphAr graph by
- * fossil's executor (`write.mjs`) and checked in under `graphs/<name>/graph/`, then attached here the
+ * — the Nobel laureates, OpenFlights' airports and routes, LDBC SNB — or the toy graph a test counts
+ * by hand in global ids, written to a GraphAr graph by fossil's executor (`write.mjs`) and checked in
+ * under `graphs/<name>/graph/`, then attached here the
  * way a page attaches one: `@kanzo-tech/graphar-duckdb`'s `attachGraph`, on DuckDB-WASM, in this
  * process. What a test reads is what the writer wrote and what the attach made of it; nothing is
  * stated by hand (`/docs/design/testing#a-test-reads-from-one-real-engine-and-a-models-test-replays-a-recording`).
  */
-export type FixtureGraph = "nobel" | "openflights" | "snb";
+export type FixtureGraph = "nobel" | "openflights" | "snb" | "toy";
 
 const require = createRequire(import.meta.url);
 

@@ -1,0 +1,28 @@
+type: Place
+chunk_size: 6
+prefix: vertex/Place/
+property_groups:
+  - prefix: subject_name_lon_lat_opened/
+    file_type: parquet
+    properties:
+      - name: subject
+        data_type: string
+        is_primary: true
+        is_nullable: false
+      - name: name
+        data_type: string
+        is_primary: false
+        is_nullable: false
+      - name: lon
+        data_type: double
+        is_primary: false
+        is_nullable: false
+      - name: lat
+        data_type: double
+        is_primary: false
+        is_nullable: false
+      - name: opened
+        data_type: date
+        is_primary: false
+        is_nullable: false
+version: gar/v1

@@ -1,0 +1,8 @@
+[
+  {"id": 0, "name": "Place 0", "lon": 0.0, "lat": 1.0, "opened": "2000-01-01"},
+  {"id": 1, "name": "Place 1", "lon": 1.0, "lat": 1.0, "opened": "2001-01-01"},
+  {"id": 2, "name": "Place 2", "lon": 2.0, "lat": 1.0, "opened": "2002-01-01"},
+  {"id": 3, "name": "Place 3", "lon": 3.0, "lat": 1.0, "opened": "2003-01-01"},
+  {"id": 4, "name": "Place 4", "lon": 4.0, "lat": 1.0, "opened": "2004-01-01"},
+  {"id": 5, "name": "Place 5", "lon": 5.0, "lat": 1.0, "opened": "2005-01-01"}
+]

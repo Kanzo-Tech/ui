@@ -10,7 +10,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -168,8 +168,9 @@ const SAMPLES = {
   },
 };
 
+// The toy graph has no dataset to sample: its sample is its source, written by hand.
 const names = process.argv.slice(2);
-for (const name of names.length ? names : readdirSync(GRAPHS)) {
+for (const name of names.length ? names : Object.keys(SAMPLES)) {
   const dir = join(GRAPHS, name);
   execFileSync("sh", [join(dir, "fetch.sh")], { stdio: "inherit" });
   const sample = join(dir, "sample");

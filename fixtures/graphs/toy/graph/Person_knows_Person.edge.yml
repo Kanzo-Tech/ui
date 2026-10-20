@@ -1,0 +1,14 @@
+src_type: Person
+edge_type: knows
+dst_type: Person
+chunk_size: 9
+src_chunk_size: 10
+dst_chunk_size: 10
+prefix: edge/Person_knows_Person/
+directed: true
+adj_lists:
+  - ordered: true
+    aligned_by: src
+    prefix: ordered_by_source/
+    file_type: parquet
+version: gar/v1
