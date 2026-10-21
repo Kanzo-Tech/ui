@@ -11,7 +11,7 @@ is about pages that combine parts, and about the BI kit.
 
 **Symptom.** A widget of your own reads *This chart could not be drawn.* the moment someone picks a
 bar in a dashboard over another relation, and the console says `Binder Error: Referenced column
-"Person.hour" not found`.
+"person.hour" not found`.
 
 **Why.** A clause is a predicate that names columns — `hour BETWEEN 3 AND 12`, `region IN (…)`.
 Every part under a `MosaicProvider` filters by the page's one selection, and the selection crosses a
@@ -19,11 +19,12 @@ clause into another relation only for a part that says which relation it reads. 
 that says nothing gets every clause as published, and a relation without that column cannot answer
 it.
 
-**Instead.** Say what it reads. A `MosaicClient` of your own carries a `relation` — a type's name or
-a path over the provider's `joins` — and the clauses it publishes say theirs with `onRelation`; a
-`useChartQuery` inside a `MosaicClients relation={…}`, or given `relation`, does both for you. Then a
-clause on another relation reaches it as a semi-join on the key the joins share, or keeps none of it
-where they share none ([across relations](/docs/analytics/charts#across-relations)).
+**Instead.** Say what it reads. A `MosaicClient` of your own carries a `relation` — the `Relation`
+`relationOver(graph, pattern)` answers — and the clauses it publishes say theirs with `onRelation`; a
+`useChartQuery` inside a `MosaicClients relation={…}`, or given a pattern as `relation`, does both for
+you. Then a clause on another relation reaches it landed on the vertex both hold, or carried along the
+graph's one shortest path, or keeps none of it where there is no way across
+([across relations](/docs/analytics/charts#across-relations)).
 
 ## Columns named like a channel
 
@@ -47,28 +48,22 @@ same names, so it is not one query to fix but a family. The channel names are `x
 
 **What `Dashboard` does.** It reads the relation without those columns —
 `SELECT <every other column> FROM relation` — so an alias can only ever mean the alias, and it never
-offers them as fields. The same contracts with a `dense_id` and their own `x` and `y`;
-the line over `closed` draws:
-
-<ComponentPreview componentName="dashboard" fileName="example-channels" hasMaxHeight={false} />
+offers them as fields. A pattern's columns are `variable.property` and each variable's index, so a
+dashboard meets a channel-named column only where a vertex's variable is called `x` or `fill`; call
+it something else, and nothing is projected away.
 
 **The trade-off.** The plots cannot see those columns at all, so a clause on one of them — published
 by something else on the page — cannot filter the dashboard by it. The projection has no `x`, DuckDB
-falls back to the plot's own `x` alias, and the chart fails instead. Publish on a key the relation
-keeps (`dense_id`), never on a coordinate; and if a channel-named column is *data* you want to chart,
-rename it in the relation you hand over (`SELECT x AS x_position, …`).
+falls back to the plot's own `x` alias, and the chart fails instead. If a channel-named column is
+*data* you want to chart, rename it in the table you hand over (`SELECT x AS x_position, …`).
 
 **Composing the parts yourself.** The projection is `Dashboard`'s, not the parts'. A host that places
-`ChartCard` or `DashboardStat` directly over such a relation asks `plotRelation` for the same pair —
-the relation without the channel-named columns, and the fields without them — and hands the parts
-those:
+`ChartCard` or `DashboardStat` directly over a table of its own with such a column asks `plotRelation`
+for the same pair — the relation without the channel-named columns, and the fields without them —
+and hands the parts those:
 
 ```tsx
-const stats = useFieldStats(table);
-const readable = useMemo(
-  () => (stats.fields && stats.columns ? plotRelation(table, { fields: stats.fields, columns: stats.columns }) : null),
-  [stats.fields, stats.columns, table],
-);
+const readable = useMemo(() => plotRelation(table, { fields, columns }), [fields, columns, table]);
 // <ChartCard relation={readable.table} fields={readable.fields} card={card} />
 ```
 

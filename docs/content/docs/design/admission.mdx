@@ -461,12 +461,12 @@ outside consumer; if it lands on inventing its own `<pre>` too, that is the seco
 two call sites that each wrote the reading by hand — a host's error view, over `Diagnostic`'s parts,
 and the graph docs' failure overlay, a `code` lookup over an `Alert` — and it reads **a shape, not a
 class**: `code` in `area/kind`, `title`, `message`, `data`, `cause`, and `severity`, `help` and
-`related` where they are present. The library is to throw one class, the kernel's
-[`Problem`](/docs/design/kernel#problem), and the four it throws today are to go (*to be built*; the
+`related` where they are present. The library is to throw one class, `problems`'
+[`Problem`](/docs/design/problems#problem), and the four it throws today are to go (*to be built*; the
 tree wins until then), and the shape is still what is read: fossil's `FossilError`, a host's `ApiError` and a `Problem` rebuilt from a worker's
 message are other objects of the same shape, so the composite imports no class and tests with
 `isCode`. That is what lets one component show all of them, and one more nobody has written yet. The
-composite and the class share a name; [the kernel page](/docs/design/kernel#one-name-two-things) says
+composite and the class share a name; [the problems page](/docs/design/problems#two-names-that-collide) says
 how a file that needs both spells it.
 
 **The words are the host's, through one function.** `describe(code, data)` returns a title, a

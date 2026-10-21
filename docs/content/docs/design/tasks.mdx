@@ -8,8 +8,8 @@ description: Why Ask and Fossil's assistant become one pattern — a small model
 (`defineTask`, `runTask`, `propose`, `verify`), a screen's list is `useTask`, the model is
 [`localModel`](/docs/ai/llm#localmodel) — in the page, served from the host's origin, held to a
 schema or a grammar — and [Ask](/docs/ai/data#ask) is a Task behind the chat, with its offers and its
-chips. The model writes every field as a path from the type it measures and
-[`JoinResolver`](/docs/design/relations) resolves the paths. *To be built:* the repair on this page
+chips. The model writes a pattern and every field as `variable.property`, and the graph's own
+`match` reads it. *To be built:* the repair on this page
 ([Repair is bounded](#repair-is-bounded-and-reads-how-a-generation-ended)), which needs the call
 settings and finish reasons of [Asking data](/docs/design/ai#a-call-has-settings-and-a-wait-has-a-bound).
 Keasy's assistant is built on these parts and stays keasy's: its three Tasks are product code. A graph it builds is write-once and read-many: once built, a conversation is a closed record, and the in-thread *I assumed … Change* door exists only before the build, on the preview. Where
@@ -111,7 +111,7 @@ that ends a generation each way.
 ## Three kinds of step
 
 **A step is deterministic when its answer is a fact of the data or the program** — columns, keys,
-paths in the join graph, whether it compiles, whether a competency question returns rows.
+whether the graph matches a pattern, whether it compiles, whether a competency question returns rows.
 Interpreting what someone meant is not a fact, and turning it into hand-written rules (written
 synonyms, heuristics over the question) only moves the guess into code, where it is more fragile and
 nobody evaluates it.
@@ -130,185 +130,125 @@ is reopened per step, by the evaluation set, not as a whole.
 
 ## Ask: from agent to form
 
-**The model fills the spec, and the spec says its joins.** It writes every field as a dotted path
-from the type it measures, as Malloy writes one from its source — `affiliation.university.name`,
-`category.name` — and `JoinResolver` turns the paths into the relation the answer shows and the
-semi-joins it is narrowed by. Nothing is chosen: a path either names steps the join graph has, or it
-is a diagnostic at its pointer before anything runs. A follow-up such as *and in Germany?* is still a
+**The model fills the spec, and the spec says its pattern.** It writes the pattern it reads, `match`,
+as SQL/PGQ writes a `MATCH` — a vertex, then an edge and a vertex, each vertex named — and every field
+as `variable.property`: `award`, `university`, `university.name`. The graph's own `match` reads the
+pattern, so nothing is chosen and nothing is resolved here: a pattern either is the graph's, or it is
+a diagnostic at its pointer before anything runs. A follow-up such as *and in Germany?* is still a
 patch to the previous spec, one more `where`.
 
 ```
-Question ─▶ Linker ─▶ Planner ─▶ JoinResolver ─▶ tileQuery ─▶ Check ─▶ Chips
-            words→     fills     paths → relation  the tile's   empty,   editable
-            types      paths     filters → crossing  SQL        reach
+Question ─▶ Linker ─▶ Planner ─▶ graph.match ─▶ tileQuery ─▶ Check ─▶ Chips
+            words→     fills      pattern →      the tile's   empty,   editable
+            types      pattern    relation       SQL          reach
 ```
 
-The model touches only the planner, which writes paths from a closed enum. Every chip opens its
-computed alternatives, and editing one re-checks without the model. The sentence in the reply is
-written from the rows, not by the model.
+The model touches only the planner, which writes from closed enums. Every chip opens its computed
+alternatives, and editing one re-checks without the model. The sentence in the reply is written from
+the rows, not by the model.
 
 This replaced the agent's relations ([Asking data](/docs/design/ai#which-relations-are-offered)), its
 token budget ([Asking within a context](/docs/design/ai-context#the-linker-is-the-budget)) and a
 resolver that *chose* the relation, which the owner rejected on 13 October 2026 as a heuristic:
-*base it on existing things, don't invent.*
+*base it on existing things, don't invent.* It then replaced the dotted paths from a measured type
+(`of: "LaureateAward"`, `university.name`, `^laureate.category.name`) that `JoinResolver` in
+`@kanzo-tech/relations` walked: the pattern says the same with the walk written by the model and read
+by the graph, and the page's dashboards read the same patterns ([Analytics](/docs/design/analytics)).
 
-### A field is a path from what is measured
+### A field is a variable and a property
 
-**The reference is Malloy.** A Malloy source declares its joins, and a query names a joined field by
-its dotted path from the source — `group_by: carriers.nickname`, `aircraft.aircraft_models.manufacturer`
-— in `group_by`, `aggregate` and `where` alike; a join that no field names is not in the SQL. Here the
-join graph is the source's declarations, already: `JoinGraph`'s edges are the joins, and the measured
-type, the spec's `of`, is the source. So a spec's every field — `show.x`, a measure's `field`,
-`color`, `facet`, `trend`, a table's `columns`, each `where[].field` — is a path:
+**The reference is SQL/PGQ and GQL, as Cypher and SPARQL write it**: a pattern binds a variable to
+each vertex, and a column is `variable.property`. A spec's every field — `show.x`, a measure's
+`field`, `color`, `facet`, `trend`, a table's `columns`, each `where[].field` — names a vertex the
+pattern binds and one of its type's properties. The pattern's first vertex is what is measured, so
+`count` counts it once per group, whatever rows its edges make, and a count may name another vertex,
+`{ op: "count", variable: "laureate" }` ([Analytics](/docs/design/analytics#count-counts-the-measured-type)).
+The name a model writes is the column `relationOver` reads, the name a dashboard's tile stores and the
+name a chip publishes a clause on ([the graph's page](/docs/design/graph#a-patterns-columns-are-named-by-its-variables)).
 
-| Segment | Means | Reference |
-| --- | --- | --- |
-| `category` | the out-edge labelled `category` that leaves the type reached so far | Malloy's join name |
-| `^laureate` | the in-edge labelled `laureate`, walked backwards: the awards *of* a laureate | SPARQL 1.1's inverse path `^iri` (§9.1); ShExJ's `inverse: true`, `^` in ShExC |
-| `Award_category_Category` | the edge by its name, where two edges of one label leave the same type the same way | Malloy's join names are unique in a source; fossil's edge `name` is unique because the label repeats |
-| `name` (last) | the column of the type reached | Malloy's field |
+**The schema offers only what the graph has within reach.** The spec is the one property, `spec`, of
+an object — a tool's input schema must be one: Anthropic's and OpenAI's APIs refuse a root `anyOf`.
+`match` is a list of vertices and edges whose `type` and `edge` are enums of the types the linker
+offers and those within three edges of them; a field is a pattern, a short lowercase variable and one
+of their properties' names. Which variable holds which type is the pattern's, so the graph's `match`
+checks the rest, and its misses are diagnostics at their pointers, sent back for a repair:
+`ask/unnamed` for a vertex with no variable, `ask/no-match` for a pattern the graph refuses, and
+`ask/unmatched` for a field, a condition or a count on a variable or a property the pattern lacks.
 
-The empty path is the measured type: `gender` on `of: "Laureate"` is the laureate's own. Paths are
-walked from the root, never back along the edge just taken, within three hops.
+**What the pattern removes.** Two questions a resolver once answered for the model are written by it
+now. *Which way:* *prizes by country* on the Nobel graph has two countries two hops from a prize; the
+model writes one pattern or the other, that is the answer, and the chip offers the other. *Which
+vertex, when a type repeats:* on `person-knows->friend` a condition on `person.firstName` and one on
+`friend.firstName` are two strings.
 
-**A relation's column is named by its path, everywhere.** `relationQuery` names a column by the path
-that reaches it from the root — `year`, `affiliation.university.name`, and on a self-join
-`knows.firstName` — so the name Ask's model writes is the name the SQL has, the name a dashboard's
-tile stores and the name a chip publishes a clause on. The root's key is on the empty path, so it
-keeps its bare name, which every crossing depends on, for the reason
-[the graph's page](/docs/design/graph#a-relations-columns-are-named-by-their-path-and-the-roots-key-is-bare)
-gives. It replaced `<alias>.<column>` (`University.name`, `Person2.firstName`), which gave a field two
-spellings and a self-join a name that is not a type.
+**What would reverse it:** an evaluation set on which the small model, writing patterns under the
+enums, answers a shape of question worse than a resolver's choice did; then that shape, and only it,
+gets a `compute` step back, as a rule with an evidence line, not a search. Or a provider that refuses
+an `anyOf` anywhere: then the vertex and edge branches fold into one object and the oracle holds each
+element to its kind.
 
-**The schema offers only paths the graph has.** The spec is the one property, `spec`, of an object,
-and its schema is an `anyOf` with one branch per type the linker offers, each `of: { const }` beside
-its own enum of paths under `$defs`, so a decoder cannot write a path from one type on an answer about
-another. The object is there because a tool's input schema must be one: Anthropic's and OpenAI's APIs
-refuse a root `anyOf`, and the branches were once the root. The model writes `{ spec }` and the
-schema's `validate` hands the Task the spec. A provider that does not constrain is checked by
-`JoinResolver.relation` and `field`, whose misses — `relations/no-step`, `relations/unmatched`, `relations/invalid` —
-are diagnostics at the field's pointer, sent back for a repair. A count may name a path too,
-`{ op: "count", path: "affiliation" }` ([Analytics](/docs/design/analytics#count-counts-the-measured-type)).
-
-**What the path removes.** Two questions the resolver answered for the model are written by it now.
-*Which way:* *prizes by country* on the Nobel graph has two countries two hops from a prize; the model
-writes `laureate.birthPlace.name` or `university.addressCountry.name`, that is the answer, and the
-chip offers the other first. *Which step, when a type repeats:* on `Person>knows>Person` a condition
-on `Person` could not say the person or the one they know, so *people who know an Ann* was not
-expressible; `firstName` and `knows.firstName` are two strings.
-
-**What would reverse it:** an evaluation set on which the small model, writing paths under the enum,
-answers a shape of question worse than the resolver's choice did; then that shape, and only it, gets a
-`compute` step back, as a rule with an evidence line, not a search. Or an enum too large to compile at
-the linker's widest context: then the field becomes a grammar, `segment ("." segment)* "." column`,
-which a Task may already declare. Or a provider that refuses an `anyOf` anywhere: then the branches
-fold into one object and the oracles hold each path to its `of`. *Not measured:* the size of the
-schema, which lists every path to three hops for each type offered, on a graph like SNB's.
-
-*Held by* `packages/ai/src/data/ask.test.ts`, "is one branch per type offered, each its own enum of
-paths from it"; "hands the model an object at the schema's root, and reads the spec out of it"; "says
-what the joins refuse: no such step, no such field, two branches, a chip out of reach"; "asks nothing
-when two paths reach one field: the model's path is the answer's".
+*Held by* `packages/ai/src/data/ask.test.ts`, "holds the object at its root, the types and edges in
+reach as enums, and a field as a variable and a property"; "reads the spec out of the object the model
+writes"; "says what the graph refuses: an unnamed vertex, an edge it lacks, a property, a count, a chip
+out of reach".
 
 ### Physics awards by university, as the model writes it
 
 ```json
 {
-  "of": "LaureateAward",
-  "where": [{ "field": "category.name", "in": ["Physics"] }],
+  "match": [
+    { "as": "award", "type": "LaureateAward" },
+    { "edge": "university", "direction": "out" },
+    { "as": "university", "type": "University" }
+  ],
   "show": { "kind": "chart", "type": "bar", "x": "university.name", "y": { "op": "count" } }
 }
 ```
 
-In Malloy this is `group_by: university.name` with `where: category.name = 'Physics'` over the
-`laureate_award` source. `JoinResolver.relation("LaureateAward", ["university.name"])` is the relation
-the answer shows, `LaureateAward>university>University`, whose column is the path itself.
-`JoinResolver.field(relation, "category.name")` finds that `category` is not a step of it, so it is read
-through the branch `LaureateAward>category>Category` and crossed at the root's key —
-`dense_id IN (SELECT dense_id FROM (…) WHERE "category.name" IN ('Physics'))` — and the bars count
-`count(DISTINCT dense_id)`, each prize once per university. *Laureates with a Physics prize, by
-gender* is `"of": "Laureate"` with `"field": "^laureate.category.name"`: the shown relation is
-`Laureate` alone, the condition is read through `Laureate<laureate<LaureateAward>category>Category`
-and crossed at the laureate's key, so a laureate with two Physics prizes is counted once.
+In GQL this is `MATCH (award:LaureateAward)-[:university]->(university:University)` grouped by
+`university.name`, counting `award` once per group. A condition in `where` is on the pattern's own
+fields; *Physics awards* is one more hop, `-category->` to a `category` vertex, and a condition on
+`category.name`. A chip on the page over another pattern narrows the answer as it narrows a tile: the
+page's crossfilter carries it in by the vertex both hold, or along the graph's one shortest path
+([Crossfilter](/docs/design/crossfilter#one-selection-across-relations)).
 
-### A filter off the shown path is crossed in, not joined
+**Malloy's way, and what it costs here.** Malloy joins every path a query names into one query and
+keeps every aggregate right over the fan-out by computing it *symmetrically*, which its DuckDB dialect
+writes as `(SELECT sum(a.val) FROM (SELECT UNNEST(list(distinct {key: k, val: v})) a))` per group (read
+in `packages/malloy/src/dialect/duckdb/duckdb.ts`, 13 October 2026). A pattern's rows fan out as a
+join's do, and `count` is right over them because it counts the measured vertex's index distinctly;
+`sum` and `avg` over a fanned row are not deduplicated, so *the mean age of laureates by prize* over a
+pattern where a laureate repeats per prize weighs each laureate per prize. That is what the pattern
+says, and it is the answer the model asked for.
 
-**`JoinResolver.crossing`, the semi-join the page already uses.** A condition whose path leaves the
-shown relation is read through the branch from the step it leaves at, and narrows the answer as a chip
-on another relation narrows a tile: `step key IN (SELECT branch root key FROM branch WHERE …)`. A
-condition on the shown relation is its clause, as it is.
+**What would reverse it:** a question whose measure must not fan out over the pattern — a mean over the
+measured vertex under a hop that repeats it — measured common in the evaluation set. Then that measure
+is symmetric, Malloy's, and only it.
 
-**Malloy's way, and what it costs here.** Malloy joins every path a query names into one query (left
-outer joins, `join_many` declared on the join) and keeps every aggregate right over the fan-out by
-computing it *symmetrically*: `sum` and `avg` over a joined row are deduplicated by key, which its
-DuckDB dialect writes as `(SELECT sum(a.val) FROM (SELECT UNNEST(list(distinct {key: k, val: v})) a))`
-per group (read in `packages/malloy/src/dialect/duckdb/duckdb.ts`, 13 October 2026).
+*Held by* `packages/ai/src/data/ask.test.ts`, "answers with the pattern the model wrote: prizes by
+university, under a chip on the prizes"; `packages/ai/src/data/answer.test.ts`, "reads across the
+pattern's edges: whom the women know, by gender, ranked", "counts the pattern's first vertex once,
+whatever rows its edges make: who knows anyone, by gender", "reads a chip on another pattern crossed in
+by the vertex both hold, as the page's tiles are crossed".
 
-| | Semi-join (`crossing`) | Joins and symmetric aggregates |
-| --- | --- | --- |
-| Rows the measure sees | the shown relation's, never multiplied by a filter | multiplied by every many-branch, then deduplicated |
-| Measures | `measureExpr` as it is, all eight | a symmetric variant of each; Malloy lists only `count`, `sum` and `avg` as having one |
-| mosaic-sql | `InOpNode` over a `ScalarSubqueryNode`, what `crossing` builds | no node for `list(distinct {…})`: raw `sql` in every measure |
-| DuckDB-WASM | a hash semi-join on keys, one per branch | the fanned rows held per group in lists, inside the page's memory |
-| The page | one way to narrow by another relation: a chip and a condition are the same predicate | a second way beside the crossfilter's |
+### The chips offer what the pattern holds
 
-Where the two agree is every question a filter asks — *awards with a Physics category* is the same set
-of awards either way, and a count of them is the same number. Where they differ is a measure *on* the
-branch, which is no longer a filter: it is a second shown path.
+**What is counted is any vertex the pattern names; what a chart is by, any field of the pattern but a
+number; what a condition keeps, the values the graph answers for its property (`graph.values`).** Each
+option is a whole spec the oracles accept, so taking a chip re-reads the answer at once, with no
+question in between. Nothing is asked before the answer is read, and nothing offers a second pattern:
+the other way across is the model's to write when the reader asks again.
 
-**Two shown paths must be one path.** The relation an answer shows is one path — what a tile is keyed
-by, what a clause is published on, what `relationQuery` compiles. Paths that diverge
-(`x: category.name`, `color: university.name`) are a `relations/invalid` miss, said before anything runs.
-
-**What would reverse it:** a condition whose meaning needs the branch row and the shown row to be one
-row — *awards by university where that university's laureate is a woman* — which a semi-join on the
-branch's root cannot say; or a question that shows two branches. Either makes the relation a tree,
-and a tree is Malloy's: joins, `join_one`/`join_many` declared from the shape's cardinality, and
-symmetric aggregates.
-
-*Held by* `packages/ai/src/data/answer.test.ts`, "crosses a condition off the shown path in at the
-root's key, counting each person once"; `packages/relations/src/crossfilter.test.ts`, "crosses a
-condition off the relation in at the step its branch leaves, not the first of its type".
-
-### `JoinResolver` is the one door to the joins
-
-**Resolving a path and crossing a clause are one thing: resolving joins over the graph.** So they are
-one class, `JoinResolver` in `@kanzo-tech/relations` (Mosaic's own resolver extended), sharing the
-graph and one notion of a step and its key: `steps(relation)`, `paths(root, hops)`, `relation(root,
-shown)`, `field(on, path)`, `at(to, from)` and `crossing(from, predicates, to, at?)`. The dashboard
-reaches it through the page's selection; Ask reaches the same instance through the same selection, or
-one over its graph where there is no page. Nothing of the shortest-path search survives — the walk that
-enumerates paths for the schema chooses nothing. `crossing` takes `at`, because a branch says which
-step it leaves from: on `Person>knows>Person` a condition on `knows.knows.firstName` is crossed at the
-`knows` step's key, where the type-matching rule would have taken the root.
-
-**What would reverse it:** a caller of the joins that is neither a page nor an answer, a second resolver
-with no selection; which splits the path half into a module beside the crossing half, not a second
-concept.
-
-*Held by* `packages/relations/src/crossfilter.test.ts`, "names each step of a relation by its path from
-the root, with its key: the root's bare"; "finds the one relation the shown paths lie on, each path
-its own column there"; "says why a path is not the graph's, at the segment that is not".
-
-### Two paths of one length are the model's, with the other on the chip
-
-**The model's path is the answer, and the chip on that field offers the other path of the same
-length to the same column of the same type first** — `laureate.birthPlace.name` beside
-`university.addressCountry.name`. Nothing is asked before the answer is read. *What would reverse
-it:* the evaluation set showing readers take the chip's alternative more often than they keep the
-model's path — then that shape asks, as a decision with the two paths as its options, through the
-question part ([Asking data](/docs/design/ai#a-question-to-the-person-is-the-question-part)).
-
-*Held by* `packages/ai/src/data/ask.test.ts`, "offers the other of two paths of one length to the same
-field first".
+*Held by* `packages/ai/src/data/ask.test.ts`, "offers each slot's other values, as whole specs, a
+condition's as the graph answers them"; "offers a condition only any until its values are read".
 
 ### Titles name no plural
 
 **A tile's title is *\{measure\} by \{field\}* — *Count by university.name*, *Mean age* — and Ask's
-words are the paths it wrote.** No title in any language then asks for a plural, and no labelling
+words are the fields it wrote.** No title in any language then asks for a plural, and no labelling
 vocabulary carries one: a plural is always derived, and derived English is wrong outside English and
-for every irregular noun. The words a field is read by — its `rdfs:label`, in the page's language —
-come with [What a field is](/docs/design/fields); until then a field is read by its path.
+for every irregular noun. The `Graph` states no label ([What a field is](/docs/design/fields#the-words-are-names)),
+so a field is read by its name.
 *What would reverse it:* a labelling vocabulary that carries a plural — then it is read, not derived.
 
 ### The sentence after a chart is a minimal template
@@ -335,14 +275,12 @@ named together, through its translations".
 - **`resolveRelation`'s choice of the shortest path** covering the spec's types and the page's
   clauses, and **#199's branches from the nearest step**: a search that guessed what a question meant
   wherever two ways existed and could not name a step of a repeated type. *Back if* the evaluation
-  set shows the model writing paths worse than the search chose them, for a shape of question; then
-  that shape gets a `compute` step inside `JoinResolver`, not a module beside it.
-- **Joins and symmetric aggregates for a filter off the path** (Malloy's, LookML's). *Back if* a
-  condition needs the branch row and the shown row to be one, or an answer shows two branches.
-- **`<alias>.<column>` as `relationQuery`'s column names.** Two spellings of one field, and a name on a
-  self-join that is no type. *Back if* a column name must be a valid identifier somewhere a path
-  cannot go; none has been found, since every reader quotes it.
-- **A choice put to the person between two paths of one length** gives back the search, as a question.
+  set shows the model writing patterns worse than the search chose them, for a shape of question.
+- **Dotted paths from a measured type, resolved by `JoinResolver`** (`of` and `^laureate.category.name`),
+  with conditions off the shown path crossed in by a semi-join. A second walker of the graph beside
+  graphar's `match`, and a vocabulary the page's dashboards did not share once they read patterns.
+  *Back if* the small model writes patterns measurably worse than it wrote paths; then the path is a
+  spelling Ask compiles to a pattern, and the graph still reads the pattern.
 - **English pluralisation** of a word, and a column named `name`, `label` or `title` standing for its
   type. *Back if* a labelling vocabulary carries a plural, or graphs without IRIs are the common
   case, and then as a host's labels first.
@@ -469,7 +407,7 @@ SDK's names".
 | `@kanzo-tech/llm/local` | `@browser-ai/web-llm`, `@mlc-ai/web-llm`, optional | `localModel` (one registry, a grammar per call), `loadLocalModel`, `localProvider`, `setLocalProvider`, `serveLocalModel`; `llm/unavailable` without WebGPU or with nothing served. It names no test ([Testing](/docs/design/testing#a-model-is-resolved-through-one-registry)) |
 | `@kanzo-tech/ai/task` | none | the types, `defineTask`, `runTask`, `propose`, `verify` |
 | `@kanzo-tech/ai` | none beyond the root's | `useTask`, `Assist`, `Chat` |
-| `@kanzo-tech/ai/data` | `@kanzo-tech/relations` and the engine, per [the entry's peers](/docs/design/architecture#packaging-follows-the-entry) | `ask`, `useAskChat`, `askOffers`, `AskChips`, `AnswerCard` |
+| `@kanzo-tech/ai/data` | `@kanzo-tech/mosaic` and the engine, per [the entry's peers](/docs/design/architecture#packaging-follows-the-entry) | `ask`, `useAskChat`, `askOffers`, `AskChips`, `AnswerCard` |
 
 `/local` is a subpath for the reason [the optional-peer door](/docs/philosophy#the-engine-rule) exists:
 a static import of WebLLM from a root barrel breaks `import { Assist }` for every host that did not
@@ -514,7 +452,7 @@ with `'strict-dynamic'`, which ignores host allow-lists for scripts
 | Ask's set is small and by shape: Nobel, plus SNB for what Nobel lacks | What it must cover is the shapes of a question, not a count; two graphs from two domains catch a linker fitted to one vocabulary; OpenFlights is the third canonical dataset ([testing](/docs/design/testing)) and joins the set only with a shape the other two lack | A Task that passes the set and fails a third graph's questions of a shape the set has; then that graph joins the set |
 | Every piece on a standard or a reference library | Less code of our own, known behaviour, someone else's documentation | A reference that requires a server runtime or persistent state not needed here; then we take its shape, not its package |
 | Generate, verify, repair instead of a free agent | The model decides little and every decision has an oracle | A free agent with the same small model matching execution accuracy across the set |
-| The relation is the paths the model wrote, resolved | A path is checked before anything runs, and two ways to one field are the model's to write, not the code's to guess | The set showing the model writing paths worse than a search chose relations, for a shape of question |
+| The relation is the pattern the model wrote, read by the graph | A pattern is checked before anything runs, and two ways to one field are the model's to write, not the code's to guess | The set showing the model writing patterns worse than a search chose relations, for a shape of question |
 | The mapping is Fossil, written under a grammar with the names closed | The language is statically typed: the grammar stops a name that does not exist and the checker judges the rest; a format of our own in between was built, and reverted | A small model under the grammar failing the competency questions where a spec it filled and an emitter wrote passes them |
 | Profile replaces introspect, and is sans-IO inside the wasm closure | One way to read sources for the compiler, the assistant and the linker, watched by the wasm gate | A host that cannot afford the statistics (a mode of Profile, not a second package); a query only one host can run (marked per host) |
 | A truncation is repaired once; a refusal and a silence are not | The context filling is the budget, and the same request meets the same refusal | A device where a retry after truncation never succeeds |
@@ -530,9 +468,8 @@ with `'strict-dynamic'`, which ignores host allow-lists for scripts
 library ships the loop, the proposal, the oracle and decision types and `useKeptChat`; a Task that
 names a product's sources and its wizard's steps is not a part to grow from. A package that exposes
 a capability is not rewritten by the product that uses it: where keasy built the pre-run shape of
-a program itself (`joinGraphOf`), fossil's `describe` returns it from declared types
-([Relations](/docs/design/relations#the-pre-run-shape-comes-from-the-compiler)) and the product's
-copy goes. *What would reverse it:* a second product writing the same three Tasks; then they are
+a program itself (`joinGraphOf`), fossil's `describe` returns it from declared types, and
+the product's copy goes. *What would reverse it:* a second product writing the same three Tasks; then they are
 a part, on the admission rule's second call site.
 
 ## References

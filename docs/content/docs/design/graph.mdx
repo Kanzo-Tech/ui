@@ -15,17 +15,13 @@ are decided and not built; the *Breaking* list at the end is what a consumer edi
 on the page is the tree.
 
 <Callout type="info">
-The contract is a catalog. `@kanzo-tech/graphar-duckdb`'s `attachGraph(engine, name, resolve, { entry })`
-attaches an [Apache GraphAr](https://graphar.apache.org/) graph to the page's DuckDB as the catalog
-`name`: a view per vertex type, `"<name>"."<type>"`, holding `_graphArVertexIndex` — GraphAr's
-index within the type, `0 … count − 1` — and its properties; a view per edge type,
-`"<name>"."<src_type>_<edge_type>_<dst_type>"`, holding `_graphArSrcIndex` and `_graphArDstIndex`
-into its two types; and the information files as relations,
-`graphar_vertex_types(type, count, ordinal)`,
-`graphar_edge_types(name, src_type, edge_type, dst_type, count, directed, ordinal)`,
-`graphar_properties(type, property, data_type, is_primary, is_nullable, ordinal)` and
-`graphar_extra_info(key, value)` (0.1.0-alpha.0, Kanzo-Tech/graphar `9cae19a`). The graph reads the
-first three. The graph carries no position.
+The contract is a `Graph`. `@kanzo-tech/graphar-duckdb`'s `attachGraph(engine, name, resolve, { entry })`
+attaches an [Apache GraphAr](https://graphar.apache.org/) graph to the page's DuckDB and answers the
+`Graph`: its vertex types (each with its count, the relation that holds its rows, the column of its
+index within the type, `0 … count − 1`, and its properties with what the writer counted of them), its
+edge types (their ends and the relation of their pairs), and the reads a page makes of it — a vertex,
+the links of an edge type, a search, a property's values, a pattern's rows, and the vertices a set of
+others reaches. The graph carries no position.
 </Callout>
 
 **The reference is Cosmograph v2**, read from its shipped 2.5.1 bundle — its code is CC-BY-NC, so
@@ -36,219 +32,117 @@ cluster column fed to `setPointClusters`; filtering as a query for the surviving
 GPU greyout; widgets and search as clients of the same coordinator. It has no map mode, and neither
 does this: `lon`/`lat` as `x`/`y` is what there is.
 
-## The graph reads SQL, through the page's coordinator
+## The graph is GraphAr's to read
 
-The host attaches the graph and names the catalog; `GraphRoot` reads it with SQL — the catalog for
-its `JoinGraph`, once, through `readJoinGraph` (below), the views for rows and links, one `SELECT` for a focused row,
-a `LIMIT`ed `ILIKE` for a search — every statement built
-from mosaic-sql's nodes and run through `coordinator.query(query, { type: "arrow" })`. A search is text
-a reader typed, so no statement is a template string: the nodes quote their own identifiers and
-literals. It imports nothing of graphar's or fossil's.
+**Everything this package knows of a graph is what the `Graph` says, and nothing here names a column,
+a file or a catalog table GraphAr defines.** The host attaches the graph and hands `GraphRoot` the
+`Graph`; the canvas sizes itself from the vertex types' counts, reads each edge type's pairs with
+`graph.links`, a focused vertex with `graph.vertex`, a label's text the same way, and a search with
+`graph.search`. The two statements it writes itself — the rows of a column for every type, and the
+crossfilter's client — are built from mosaic-sql's nodes over the relation and the index column the
+`Graph` names for each type, run through the engine, with no identifier of the format's spelled in
+a string.
 
 ```text
 host                                                    @kanzo-tech/graph
 engine() → DuckDB-WASM + coordinator                    parts     GraphCanvas · GraphLegend · GraphStatus · GraphCounts · GraphToolbar · GraphInspector · GraphSearch
-attachGraph(engine, name, resolve) → "<name>".<type>    adapter   useGraph · GraphRoot · GraphRootProvider · useGraphContext · useGraphState
-  "<name>".graphar_vertex_types · _edge_types · _properties · _chunks  render  typed arrays → cosmos.gl, uploaded once per graph
-<GraphRoot from={name} coordinator filterBy>            core      source: SQL through the coordinator · client · load · store
+attachGraph(engine, name, resolve) → Graph              adapter   useGraph · GraphRoot · GraphRootProvider · useGraphContext · useGraphState
+                                                        render    typed arrays → cosmos.gl, uploaded once per graph
+<GraphRoot graph engine filterBy>                       core      source: the Graph's reads, and SQL over its relations · client · load · store
 ```
 
-**Every read of the catalog is one function, `@kanzo-tech/relations`'s `readJoinGraph`**: the canvas
-and every other reader read the `JoinGraph` it answers, through the engine,
-so a page that draws the graph and a dashboard over it reads the catalog once, and nothing else in the
-library names a catalog relation or reads a footer. An edge's label is GraphAr's `edge_type` and its ends its
-`src_type` and `dst_type`, never parsed out of a view's name. *What would reverse it:* a reader that
-needs a fact of the graph at a moment `readJoinGraph` is not run — then the fact is added to what it
-answers, not read a second way.
+**The reference is the format, read in one place.** GraphAr's specification states what a type, an
+index and a chunk are, and `graphar-duckdb` is written against it and the C++ library, beside the
+conformance files; a second reader here would be a second reading of the same specification, in a
+repository that does not hold it. The package takes the `Graph`'s types and nothing else: the page
+attaches, and the graph is handed what was attached.
 
-**It replaced fossil's manifest relations**, `fossil_tables`, `fossil_columns`, `fossil_annotations`
-and `fossil_stats`, which `@fossil-lang/corpus`'s `attach` made of a `fossil/1` corpus. fossil's
-run moves to writing a GraphAr graph, and `@fossil-lang/corpus` goes with the format (fossil's
-`/docs/design/graphar`, its step F1), so the one reader of a graph's metadata is `graphar-duckdb`, in
-GraphAr's words, and this function reads those words. The `JoinGraph` it answers kept its shape where GraphAr
-states the same fact, and lost every field GraphAr does not state ([below](#what-graphar-does-not-carry)).
-*What would reverse it:* a graph format other than GraphAr — then a second `CatalogReader` reads that
-catalog, and nothing past it moves.
+**It replaced `readJoinGraph`**, `@kanzo-tech/relations`' reader of the catalog — `graphar_vertex_types`,
+`graphar_edge_types`, `graphar_properties`, `graphar_chunks` and every chunk's footer, by name — and
+the `JoinGraph` it answered, a model of our own every reader here shared. Two readers of one format
+drift: a rename in the attach changed what the catalog was called in exactly one function between two
+releases, and only a test against a real graph noticed. The `JoinGraph`'s fields the `Graph` does not
+state went with it: the RML mapping's labels, classes and datatypes (`withMapping`), the paths a
+dashboard walked (`JoinResolver`), the words a type was called by. A type, an edge and a property are
+called by their names.
 
-**It replaced "no SQL in `@kanzo-tech/graph`"**, under which every read went through fossil's
-`scan` on a connection of its own: rows decoded on the main thread, a cache nobody else shared, and a
-second reader of the same bytes beside the coordinator every chart used. Through the engine there is
-one connection and one cache, and a chart and the graph asking the same question get one answer.
-
-**What would reverse it:** a graph the page cannot reach as SQL — served only through an API with
-no DuckDB views — or a second host that has to draw without Mosaic. Then a reader comes back behind
-the loader, and the parts do not move.
+**What would reverse it:** a fact a drawing needs that the `Graph` does not state, and that no
+second reader would ask for — then it is asked of graphar, not read around it; or a graph format
+other than GraphAr, which is a second package answering the same `Graph`.
 
 *Held by* `packages/graph/src/layers.test.ts`, "builds statements only where it reads, writes none in
-a string, and imports nothing of graphar's or fossil's"; `packages/graph/src/index.test.ts`, "keeps the second reader deleted: no opener, no
-source, no slice"; `packages/graph/src/core/store.test.ts`, "reads the structure from GraphAr's
-relations, and every vertex by its global id"; `packages/graph/src/core/catalog.test.ts`, "takes
-an edge's label and its ends from graphar_edge_types, never from the view's name".
+a string, names no GraphAr column, and takes only types from graphar"; `packages/graph/src/index.test.ts`,
+"keeps the second reader deleted: no opener, no source, no slice"; `packages/graph/src/core/store.test.ts`,
+"reads the structure from the Graph, and every vertex by its global id".
 
 ## The global id is the graph's arithmetic
 
-GraphAr numbers vertices **within a type**, and the graph needs one number per vertex across every
-type: it is the index into cosmos.gl's buffers, and mosaic's cross-type semi-join
-(`dense_id IN (…)`) needs one id space. **Nothing writes it, and the graph computes it**:
+GraphAr numbers vertices **within a type**, and the canvas needs one number per vertex across every
+type: it is the index into cosmos.gl's buffers, and the canvas's pick (`dense_id IN (…)`) needs one
+id space. **Nothing writes it, and the canvas computes it**:
 
 ```text
-first(t)  = Σ count of the vertex types before t, in graphar_vertex_types.ordinal (the graph document's order)
-dense_id  = CAST(first(t) + _graphArVertexIndex AS UINTEGER)
-src, dst  = CAST(first(src_type) + _graphArSrcIndex AS UINTEGER), and the same for dst_type
+first(t)  = Σ count of the vertex types before t, in the Graph's order (the graph document's)
+dense_id  = first(t) + index(t)
+src, dst  = first(src type) + the pair's source index, and the same for the destination
 ```
 
-Each type's `table` in the join graph is that projection over the type's
-view, and every reader reads the type through it — the rows, the links, the crossfilter's client,
-`vertices` and every relation a dashboard builds — so a clause published on `dense_id` means the
-same vertex everywhere. A lookup by id (the focused row, a label's text) reads the view by GraphAr's
-own index, `id − first(t)`, which a chunk's statistics can skip on. The cast keeps the Arrow at four
-bytes an id, where GraphAr's `int64` is eight; fossil's writer refuses more than 2³² vertices, so it
-fits. **The sum runs over every vertex type**, so the ids are `0 … V − 1` with no hole. The key is the graph's own constant, `KEY` in `core/source.ts`, and each type's `first` is a field of
-its `JoinType`:
-GraphAr states no global id to read it from.
-
-**It replaced the corpus's `dense_id` and "the key is read, not written down"**, when fossil wrote a
-global id into every vertex table and gave its column the `address` role, which the graph read. The
-arithmetic was measured by fossil before the format moved (`/docs/design/graphar` there, 2026-10-14:
-2,000,000 edges read through it in DuckDB-WASM within the run-to-run spread of the stored id —
-183 and 201 ms medians against 205 and 172 — and the Arrow at 16.0 MB, where GraphAr's `int64`
-read uncast is 32.0 MB).
+`verticesOf(graph)` — every vertex as one relation, the one the canvas's client reads and the
+timeline beside it — is that projection over each type's relation, so a clause published on
+`dense_id` means the same vertex on the canvas and on any chart over every vertex. A pattern's rows
+carry each vertex's index within its type instead, and the page's resolver lands a clause on either by
+the vertex's type ([Crossfilter](/docs/design/crossfilter#formally)). A lookup by id (the focused
+row, a label's text) asks the `Graph` for the vertex at `id − first(t)` of its type. **The sum runs
+over every vertex type**, so the ids are `0 … V − 1` with no hole. The key is the canvas's own
+constant, `KEY` in `core/source.ts`: GraphAr states no global id to read it from.
 
 **What would reverse it:** a reader that needs the global id **in the files**, with no query between
-it and them — then a writer stores it beside GraphAr's index and the graph reads that column; or the
-arithmetic measured above a fifth of a read on a quiet host.
+it and them — then a writer stores it beside GraphAr's index and the graph reads that column.
 
-*Held by* `packages/graph/src/core/catalog.test.ts`, "numbers the types in the graph document's
-order, each from the counts before it", "gives each edge its
-ends as global ids, from GraphAr's per-type indices"; `packages/graph/src/core/crossfilter.property.test.ts`,
-whose oracle computes the id by hand from `_graphArVertexIndex`.
+*Held by* `packages/graph/src/core/source.test.ts`, "numbers the types in the graph's order, each from
+the counts before it", "gives each edge its ends as global ids, from the Graph's per-type indices",
+"is every vertex as one relation, each type's vertex its index where the row is of it";
+`packages/graph/src/core/crossfilter.property.test.ts`, whose oracle writes every vertex's global id
+by hand from the `Graph`'s counts.
 
 ## A vertex type is a node type, a list property is a value
 
-**Every GraphAr vertex type is drawn.** Its **identity** — what a label falls back to, what the
-inspector shows as its IRI, and the type's `identity` role in the join graph — is its `is_primary`
-property, and the global id itself where the type has none.
+**Every vertex type is drawn.** Its **identity** — what a label falls back to and what the inspector
+shows as its IRI — is its primary property, and the global id itself where the type has none.
 
-**A multi-valued property is a `list` property of the type that owns it** (`cardinality: list`;
-fossil's decision, 2026-10-14): `nickname` is a `VARCHAR[]` column of `Person`, a row has all its
-nicknames, and no type of rows-per-value exists to join. What the graph does with a list column:
-
-- It is a column of its type, in the join graph and in `vertices`, and a search can name it
-  (`nickname:ana`); the inspector shows its values, comma-separated.
-- It is **not a field**. It is not offered as a position, a group or a timeline column in the
-  graph's settings, and `fieldStats` leaves it out (Mosaic's `jsType` has no word for a list), so
-  no dashboard facet, axis or question is made of it. Its counts are never read, because a
-  distinct count of lists would not be a count of the values a person sees.
-
-**It replaced the multi-valued property as a type of the join graph**, reached by a hop named by the
-property through its own table, which fossil's `fossil_tables` made possible by naming the table's
-source and the column holding its key. A dashboard over the join graph no longer reaches
-`laureate.nickname` as a step; it is a list column of `laureate`.
+**A multi-valued property is a `list` property of the type that owns it**: `nickname` is a
+`VARCHAR[]` column of `Person`, and a row has all its nicknames. It is a column of its type, in
+`verticesOf` too, and a search can name it (`nickname:ana`); the inspector shows its values,
+comma-separated. It is **not a field**: it is not offered as a position, a group or a timeline column
+in the graph's settings, and `fieldStats` leaves it out (Mosaic's `jsType` has no word for a list), so
+no dashboard facet, axis or question is made of it.
 
 **What would reverse it:** a reader who groups or filters by a value of a list — a facet of nicknames.
-Then the join graph states a list column as a type of its elements, `UNNEST`ed and keyed by its
-owner's id, which is the table the old format wrote, made by the engine and not by the writer.
+Then a pattern names a list property's elements, `UNNEST`ed by the `Graph`, and a field is made of it.
 
-*Held by* `packages/graph/src/core/catalog.test.ts`, "reads a multi-valued property as a list column of
-the type that owns it, and counts none of a list", "makes a vertex type with no primary key a type of
-its own, labelled by its id"; `packages/graph/src/parts/graph-section.test.tsx`, "offers the corpus's
-numeric fields to the map, from the root that attached it"; `packages/graph/src/parts/parts.test.tsx`,
-"reads the focused vertex's row with one statement, grouped, and draws a host's extra fields after its
+*Held by* `packages/graph/src/parts/graph-section.test.tsx`, "offers the corpus's numeric fields to
+the map, from the root that attached it"; `packages/graph/src/parts/parts.test.tsx`, "reads the
+focused vertex's row with one read of the graph, grouped, and draws a host's extra fields after its
 values"; `packages/graph/src/core/store.test.ts`, "refuses a graph with no vertex as
 graph/nothing-to-draw".
 
-## What GraphAr does not carry
+## What a property holds is what the writer counted
 
-GraphAr states a type, its count, its properties' types, which one is the primary key and which may
-be null, and an edge type's ends; its chunks' footers add what fossil's writer counted. **The
-`JoinGraph` `readJoinGraph` answers holds exactly those.** What fossil's manifest added beyond them is gone from it, and from
-the join graph's types and columns, each falling back to what a reader did without it:
+A property's counts — nulls, distinct values, its extent, its commonest values — are the `Graph`'s
+`stats`, read by graphar from the chunks' footers where fossil's writer put them; a property whose
+chunks state nothing has none. The canvas reads none of them; the dashboard's fields read nothing
+else ([Fields](/docs/design/fields)). A year stored as an integer is a number, because the `Graph`
+states GraphAr's types and no datatype beyond them: the timeline offers a `date` or a `timestamp`.
 
-| fact | where it is now | what the graph does without it |
-| --- | --- | --- |
-| a column's role (`address`, `identity`, `endpoint`) | the global id is the graph's `address`; `is_primary` is the `identity` | states both in the join graph itself |
-| class and predicate IRIs, term types | the RML mapping (`mapping.ttl`, named in `graphar_extra_info`) | reads none; an identity is an identifier by its role |
-| annotations — a label in a language | the mapping, when fossil emits it with a reader for it (R-b) | a type, an edge and a field are called by their names (`labelOf` falls back) |
-| a datatype beyond GraphAr's — `xsd:gYear` over an `int32` | the mapping (fossil's D4) | a year is a number; a time is GraphAr's `date` or `timestamp` |
-| a column's counts — nulls, distinct values, extent, commonest values | each chunk's Parquet footer ([below](#what-a-column-holds-is-read-from-the-footers)) | `useFieldStats` reads the relation with one `SUMMARIZE` |
-| candidate keys | derived | the global id and the primary key |
-
-**What would reverse it:** for datatypes, the host passing them from rudof's `Mapping.model()` after
-the first paint (fossil's D4) — then a year is a time again. For annotations, the mapping read the
-same way, after the first paint, by whoever reads RDF: the graph never parses it.
-
-## What a column holds is read from the footers
-
-fossil's writer counts each column once, at write, into the Parquet footer of the chunk that holds
-it: nulls and the extent in the row groups' own `Statistics`, the distinct count and the commonest
-values with their share of the rows in the file's `key_value_metadata` under `fossil:stats` (JSON,
-keyed by column). `attachGraph` lists every vertex chunk in `graphar_chunks` by the name the engine
-reads it with, so `readJoinGraph` reads them with DuckDB's own `parquet_kv_metadata(path)` and
-`parquet_metadata(path)` — two statements, through the coordinator, after the catalog's — and no
-code that knows fossil's file layout.
-
-- **A column is counted when exactly one chunk of its type states it.** A distinct count does not
-  combine across chunks, and fossil's writer makes one chunk of a table, so a column stated in two
-  chunks (a table cut into several) is uncounted rather than summed wrongly.
-- **A bound is kept for a number or a time, and only when every row group states it exact.** A
-  text's bound is truncated by the writer and never read; nulls a row group does not state leave
-  the column uncounted. A list column is never counted.
-- **A graph whose chunks state nothing is a graph with no counts**, and one that a foreign writer
-  made is exactly that: `useFieldStats` reads such a relation with one `SUMMARIZE`, as it reads any
-  relation nothing counted. There is one path: the counts or the `SUMMARIZE`, never both for a
-  column.
-- **The `vertices` union carries none**, because they were counted per type and do not combine.
-
-**It replaced `fossil_stats`**, the manifest relation `@fossil-lang/corpus` made of the same counts.
-They moved from a relation fossil's reader built to the footers, so a Parquet reader that never
-heard of fossil can read them too; the graph reads them through the coordinator it already has.
-
-**What would reverse it:** a Parquet release with table-level distinct counts or frequent values in
-its footer — then each fact is read from its field and `fossil:stats` goes; or the footer reads
-measured as a cost on the first paint, which moves them after it (a column is `SUMMARIZE`d until
-they arrive).
-
-*Held by* `packages/graph/src/core/catalog.test.ts`, "reads what the writer counted from the
-chunks' footers: its distinct and commonest values, and the footer's nulls and extent", "counts
-nothing for a graph whose chunks state none", "counts nothing of a column that two chunks of its type
-state, because counts do not combine"; `packages/graph/src/layers.test.ts`, "builds statements only
-where it reads, writes none in a string, and imports nothing of graphar's or fossil's".
-
-## One catalog type, and the graph keeps none
-
-**The canvas reads a `JoinGraph`, and nothing in this package describes the graph a second time.**
-`Structure` — the canvas's vertex, edge and property tables — and the 110-line bridge that renamed it
-into mosaic's `JoinGraph` (`sourceKey` to `src`, `sqlType` to `type`, `first` dropped, a `vertices`
-union invented on the way) were two descriptions of one catalog with a renamer between them.
-[Relations](/docs/design/relations#joingraph-is-the-read-model) holds the model and the reader
-contract; of the two facts only a drawing needs, `first` is a field of `JoinType` the reader fills,
-and `identity` is the column whose `role` is `identity` (the key where a type has none), already in
-the description, so the canvas reads `type.first` and `identityOf(type)` and keeps no table of its own. The snapshot's
-`structure` is that `JoinGraph`, and a part that selects from it selects the fields every other reader
-names. `Structure`, `readCatalog`, `joinGraphOf` and `readJoinGraph` left the package: a host that wants the model
-and no canvas builds it without installing `@cosmos.gl/graph`.
-
-**The failure scenario is the migration, not the duplicate.** GraphAr numbers vertices per type from
-zero ("corresponding to the row number", the specification's wording as graphar's attach reads it)
-and the library numbers them graph-wide. With two descriptions, the same edge column meant "an index
-into the source type" to the resolver's `src` and "a graph id after adding `first`" to the canvas;
-one reader reconciles them in one place, `first`, and refuses a type whose ids have a gap.
-
-**What would reverse it:** a fact the drawing needs and no second reader would ask for. Then it stays
-local to the canvas, as a field of the snapshot and not of the catalog; the test is whether a second
-reader would ask for it. A fact `JoinGraph` cannot carry is [relations'](/docs/design/relations)
-reversal, and it grows the field, not a sibling type.
-
-*Not yet held:* a `layers.test.ts` case that the package defines no catalog type and no second reader
-of the catalog, and a canvas test that loads from a `JoinGraph` made by the real reader over a vendored
-GraphAr fixture.
+**What would reverse it:** the `Graph` stating a datatype from the mapping — then a year is a time
+again, and the timeline offers it with no change here.
 
 ## The graph is a client of the page's coordinator
 
 `GraphClient` is a `MosaicClient` connected, through the engine, to the page's coordinator, like every
-chart beside it, and it reads `vertices`: every vertex table, as one relation. The coordinator hands it the page's
+chart beside it, and it reads `verticesOf(graph)`: every vertex table, as one relation. The coordinator hands it the page's
 predicate minus the graph's own clause, every clause published on another relation already crossed
-into `vertices` by the page's resolver
+into that relation by the page's resolver
 ([across relations](#the-clause-rule-column-predicates-or-a-semi-join-on-identity)), and it answers
 with the vertices that survive: `SELECT dense_id … WHERE <predicate>` per vertex table, `UNION ALL`.
 **The predicate runs as Mosaic wrote it** — nothing is translated. Which table a clause filters is
@@ -259,7 +153,7 @@ under all of them, and a clause no table can answer keeps nothing
 table that could not answer a clause was left unfiltered by it and a clause no table could answer was
 refused as `graph/unfilterable`; the timeline already greyed a type without its column, and two chips
 that looked alike in the bar greyed different things. The rule is held per table rather than by
-`NULL` in the union a chart reads `vertices` as: a clause that tests for `NULL` would keep a type
+`NULL` in the union a chart reads `verticesOf(graph)` as: a clause that tests for `NULL` would keep a type
 without the column there, and a column whose type differs across tables is not in the union at all.
 
 **A filtered-out vertex is greyed, never hidden.** The surviving ids become cosmos.gl's
@@ -343,19 +237,20 @@ relation keyed by anything else crosses the same way. A column clause a vertex t
 keeps none of that table.
 
 **A clause published on one relation reaches a client of another as the second form, written by the
-page.** A dashboard over a relation filters its tiles by `"Person.country"`, which `vertices` has
+page.** A dashboard over a pattern filters its tiles by `"person.country"`, which the vertex union has
 not. The tiles publish into the page's one selection, each clause saying the relation it was
-published on (`onRelation`), and the graph says the one it reads (`relation = "vertices"`); the
-page's selection is `crossfilterOver(joins)` (in `@kanzo-tech/relations`) — Mosaic's crossfilter, with a resolver of ours through
-Mosaic's own extension point, `new Selection(resolver)` — which at predicate time hands a client of
-the same relation the clause as published and a client of another `k IN (SELECT key FROM <relation>
-WHERE <every clause on it>)`, into the client's step of the clause's root type, or `FALSE` where it
-has none ([one selection across relations](/docs/design/crossfilter#one-selection-across-relations)). So the graph
+published on (`onRelation`), and the graph says the one it reads (`verticesOf(graph)`); the page's
+selection is `crossfilterOver(graph)` (in `@kanzo-tech/mosaic`) — Mosaic's crossfilter, with a
+resolver of ours through Mosaic's own extension point, `new Selection(resolver)` — which at predicate
+time hands a client of the same relation the clause as published, and a client of another the indices
+the clauses keep, landed on the client's vertex of the same type or carried along the graph's one
+shortest path (`graph.reach`), or `FALSE` where there is no way across
+([one selection across relations](/docs/design/crossfilter#one-selection-across-relations)). So the graph
 answers a dashboard by the rule it already had, and nothing in `GraphClient` names a dashboard. A
-timeline over the graph is `ChartTimeline relation="vertices"`: its window is `date BETWEEN …` on
-`vertices`, the graph's own relation, so the graph reads it as published, and a type without a date
+timeline over the graph is `ChartTimeline relation={verticesOf(graph)}`: its window is `date BETWEEN …`
+on the graph's own relation, so the graph reads it as published, and a type without a date
 holds `NULL` there and is greyed, as Cosmograph greys it ([why](/docs/design/timeline)); a
-dashboard's relation reads it through its root, with no rows when the root has no date. A clause is
+dashboard's pattern reads it through its first vertex, with no rows when that type has no date. A clause is
 retracted where it is held, on the one selection: a chip's × is Mosaic's `selection.reset([clause])`,
 which calls the clause's source back.
 
@@ -389,44 +284,37 @@ statement that selects them", "names the key alone: a subquery's columns are ano
 relation its subquery reads", "publishes the reader's pick as a semi-join on dense_id, and is exempt
 from its own clause", "lets the pick go when its clause is retracted where it was published";
 `packages/mosaic/src/clause.test.ts`, "names a semi-join by its publisher's label, and does not
-count its members"; `packages/relations/src/crossfilter.test.ts`, "crosses a clause into
-another relation by the key of the step of its root's type", "keeps none of a relation with no step
-of the clause's type";
+count its members"; `packages/mosaic/src/crossfilter.test.ts`, "lands on the client's vertex of the same type: the
+people who live in Place 3", "keeps none where the graph has no way across";
 `packages/ui/src/mosaic-public-api.test.ts`, "reaches no underscore member of a Mosaic object in
 any shipped package";
 `packages/graph/src/core/one-selection.test.ts`, "filters the graph by what the tiles' brushes keep,
-as the root vertices they keep", "filters the dashboard by the graph's pick, crossed into the
-relation by its root's key".
+as the root vertices they keep", "filters the dashboard by the graph's pick, landed on the
+pattern's vertex of the same type".
 
-## A relation's columns are named by their path, and the root's key is bare
+## A pattern's columns are named by its variables
 
-**Every column of a relation is named by its path from the root.** `relationQuery` names a column by
-the hops that reach it — `country` on the root, `knows.country` one hop away, `^hasCreator.length`
-back along an edge — because a join puts two types' columns side by side and a bare `country` would be
-ambiguous. The root's columns are on the empty path, so its key keeps its own name, `dense_id` and not
-`Person.dense_id`: what was once the one exception to an `<alias>.<column>` rule is now the rule. A
-relation's rows are its root's, keyed the way the root's table is, so the semi-join a relation
-publishes to the page — `dense_id IN (SELECT dense_id FROM <relation> WHERE …)` — names a column every
-vertex table answers, and a lasso's `dense_id IN (3, 4)` filters a joined relation exactly as it
-filters the root's table. Prefixed, the root's key would be a column no other relation has, and every
-crossing would need a map from one name to the other. The path is Malloy's dotted path from a source,
-and why a field is one is on [Tasks](/docs/design/tasks#a-field-is-a-path-from-what-is-measured); it
-replaced `Person.country` and `Person2.country`, which named a self-join's second step by a type and a
-number that were no path.
+**Every column of a pattern's relation is `variable.property`, and each named vertex's index is the
+bare variable.** `relationOver(graph, pattern)` asks `graph.match` for the pattern's rows with a column
+per named vertex, holding its index within its type, and one per property of every named element:
+`person`, `person.country`, `friend.country`. A join puts two types' columns side by side, and the
+variable is what tells them apart — the name the reader gave the vertex, and the one Cypher and
+SPARQL give it. A crossing reads the variable's index: the resolver carries a clause as the indices of
+one type, `person IN (SELECT …)`, so no column name is shared across relations and none needs a map
+from one name to the other. It replaced paths from a root — `country`, `knows.country`,
+`^hasCreator.length` — which named a column by the hops that reached it and made the root's key the
+one bare name; a pattern names its own elements, so the hops are no longer a name anyone writes.
 
-**A host reaches a step's key by `JoinResolver.steps(relation)`, never by spelling it.** Each step is
-its path, its type and its key as the relation names it; the root is the first, at the empty path.
-`relationSteps`, `relationIdentities` and `relationRootKey` were three readings of that one list, and
-folded into it.
+**A host reaches a relation's vertices by `relation.vertices`, never by spelling them.** Each is its
+type, its index as SQL over the relation's columns and its variable; `roots` is what a row stands for
+when a clause on it crosses elsewhere — the pattern's first vertex, or every type of the union.
 
-**What would reverse it:** a page whose types are keyed by different columns, so that the root's
-bare key no longer names anything the rest of the page is keyed by — then keeping the name buys
-nothing, and the root's key would be named by a path like every other column, with `steps` returning
-that name and the publishing code unchanged.
+**What would reverse it:** a pattern element GraphAr names that a variable cannot — an anonymous vertex a
+reader must filter by — measured common enough that requiring a name costs more than it says.
 
-*Held by* `packages/relations/src/relation.test.ts`, "joins an out-hop through its edge table, and names
-each column by its path from the root"; `packages/relations/src/crossfilter.test.ts`, "names each step of
-a relation by its path from the root, with its key: the root's bare".
+*Held by* `packages/mosaic/src/crossfilter.test.ts`, "reads a column per named vertex for its index and
+one per property of every named element, as variable.property", "refuses a pattern whose first vertex
+has no name: it is what the relation counts and crosses by".
 
 ## The canvas's tools edit the canvas's own clause
 
@@ -524,7 +412,7 @@ reader takes the camera, and starts again with Frame"; `packages/graph/src/core/
 fossil cites this decision by its number, so the label stays.
 
 **The canvas holds the whole graph.** The links — one statement per relation — and the bound
-columns of every vertex type are read into arrays sized from `graphar_vertex_types`' `count` and uploaded to
+columns of every vertex type are read into arrays sized from each vertex type's `count` on the `Graph` and uploaded to
 cosmos.gl once. **Detail is fetched, not carried**: a focused row, a label's text, a hover card and a
 search are statements of their own, read when needed. **Identity is an id, and the id is the
 index**: a vertex type is the contiguous range `first … first + rows − 1` of [the global
@@ -539,8 +427,8 @@ owner, or one past cosmos.gl's link addressing (see [*A dense id is a buffer
 index*](#a-dense-id-is-a-buffer-index)). Then a partial read comes in **behind the loader** — a
 `WHERE` on the statements it already runs — never a prop, and never a camera in the store.
 
-*Held by* `packages/graph/src/core/store.test.ts`, "reads the structure from GraphAr's relations,
-and every vertex by its global id"; `packages/graph/src/index.test.ts`, "ships a canvas
+*Held by* `packages/graph/src/core/store.test.ts`, "reads the structure from the Graph, and every
+vertex by its global id"; `packages/graph/src/index.test.ts`, "ships a canvas
 that owns the renderer, and neither load nor Loaded".
 
 ## Position is a channel
@@ -743,7 +631,7 @@ Every module stays under four hundred lines:
 ```text
 packages/graph/src/
 ├── core/                     no React; nothing here imports cosmos.gl
-│   ├── source.ts             the catalog's statements: structure, columns, links, a row, titles, search
+│   ├── source.ts             the Graph's reads and the vertex union: columns, links, a row, titles, search
 │   ├── client.ts             GraphClient — the crossfilter's survivors — and the clause the graph publishes
 │   ├── load.ts               answers → buffers by dense_id; the seeded start; the layout's square
 │   ├── channels.ts           Plot's bindings, and the columns they read
@@ -837,7 +725,7 @@ GraphRootProvider takes, useGraphContext reads".
 
 ## The parts own the vocabulary; the host owns the policy
 
-`GraphRoot` is a facade: the host names a catalog and an engine and a few props, and the parts
+`GraphRoot` is a facade: the host hands it a `Graph` and an engine and a few props, and the parts
 under it read the root.
 
 - **`GraphCanvas`** — the element, and what the look declares around it: the grid under the points, a
@@ -885,7 +773,7 @@ under it read the root.
 - **`GraphInspector`** — the focused vertex, Linkurious's inspector: headed by its title or its IRI's
   local name under its type, **Locate** beside it (`reveal`: frame it with its neighbours, and keep the
   camera there), the IRI under it with its copy button, then its row in two columns, in
-  `graphar_properties`' order, grouped as values and dates, and a render prop for fields a product adds.
+  the order the `Graph` states its properties in, grouped as values and dates, and a render prop for fields a product adds.
   Sections and rules, not a card: in a dock a card is a second border. **It does nothing with the
   neighbourhood**: a count per relation repeated what the canvas draws one click away, a "select
   neighbours" repeated what a click and Locate already select, and three icon buttons (zoom, focus,
@@ -936,7 +824,7 @@ but a clause of its own, named by the `id` it passes `usePick`. It was `order` a
 then `external`, which were a host's panels spelled into the renderer's type. What would reverse it:
 a part of this package that must tell two of the canvas's own gestures apart by more than the three.
 
-**Names are data on the root.** The catalog names no category values, so the host passes
+**Names are data on the root.** The `Graph` names no category values, so the host passes
 `categories` on the root, where the legend, the hover card and the inspector all read it.
 
 **Policy stays out, through the root's callbacks** — `onSelect`, `onFocus` and `onFailure`. No part
@@ -950,14 +838,13 @@ policy. That part goes back to the call site and is deleted from the package.
 
 *Held by* `packages/graph/src/index.test.ts`, "carry no callback but the root's";
 `packages/graph/src/parts/parts.test.tsx`, "draws the domain before the graph has loaded, named by
-the root", "reads the focused vertex's row with one statement, grouped, and draws a host's extra fields after
-its values"; `packages/graph/src/core/store.test.ts`, "fixes the categorical domain before the
+the root", "reads the focused vertex's row with one read of the graph, grouped, and draws a host's extra fields after its values"; `packages/graph/src/core/store.test.ts`, "fixes the categorical domain before the
 graph loads".
 
 ## Attaching is the host's
 
 **Where the graph is and what signs it are the host's**, and so are attaching and detaching:
-`attachGraph` answers the attachment whose `detach()` gives the catalog back. The graph is handed a name and the page's one
+`attachGraph` answers the `Graph`, and the host detaches it when the page goes. The graph view is handed that `Graph` and the page's one
 coordinator — one per page, because `MosaicProvider` makes its coordinator vgplot's active one and
 that setter is process-wide. [Discovery workspace](/docs/graph/workspace) is the wiring, and
 [the workspace showcase](/docs/showcases/workspace) the reference composition: what it writes is the
@@ -965,9 +852,9 @@ product's — the pairings of look and channels, the hall's name in the inspecto
 nothing in it reads a renderer or a buffer.
 
 **The graph bounds the one wait it owns.** The waits inside `attachGraph` are the host's, and the host awaits
-them before it names the catalog; the reads after that have a signal and no deadline
+them before it hands the root the `Graph`; the reads after that have a signal and no deadline
 ([failure](/docs/design/failure#the-waits-it-bounds)). cosmos.gl's `ready` never
-settles when no device can be made, so after 10 s the root fails, by the kernel's `within` and not a timer of the graph's own, with `graph/no-webgl` and
+settles when no device can be made, so after 10 s the root fails, by the `within` of `problems` and not a timer of the graph's own, with `graph/no-webgl` and
 `data.after`.
 
 **What would reverse it:** a host that draws a graph on a second engine — two engines, two caches —
@@ -1078,7 +965,7 @@ range — which brings back a map built once at load; or a graph past 2²⁴ ver
 plan shows the canvas can address.
 
 *Held by* `packages/graph/src/core/source.ts`, `Float32Array`; `packages/graph/src/core/store.test.ts`,
-"reads the structure from GraphAr's relations, and every vertex by its global id".
+"reads the structure from the Graph, and every vertex by its global id".
 
 ## A look is form, and a channel is a binding
 
@@ -1157,13 +1044,13 @@ or readers asking for a named starting point the axes' defaults do not give them
 
 ## What is still open
 
-- **Names for a channel's values.** The catalog names no categories, so the host passes
-  `categories`. If GraphAr's catalog ever carries them, the catalog's win.
+- **Names for a channel's values.** The `Graph` names no categories, so the host passes
+  `categories`. If GraphAr ever carries them, GraphAr's win.
 - **A column two types share.** A column clause carries no table, so a filter on `name` filters
   every vertex type that has one — a `WHERE` over a union. A host reading it wrongly would reopen it;
   a clause that means one type is a semi-join, whose subquery names it. And a column whose type differs
-  across tables is absent from the `vertices` union, so the timeline's list of dates does not offer it
-  and nothing says why; whether the reader reports it is [relations'](/docs/design/relations) to decide.
+  across tables is absent from the `verticesOf(graph)` union, so the timeline's list of dates does not
+  offer it and nothing says why; whether the reader reports it is this package's to decide.
 
 ## Production-grade axes
 
@@ -1172,7 +1059,7 @@ or readers asking for a named starting point the axes' defaults do not give them
 | Failure and recovery | Every read has the load's signal and the engine interrupts it; `retry()`; a lost context restored inside a bound; a failed filter is a failure; one code per cause, and `graph/too-large` before any wrong picture |
 | Security and privacy | Statements are built from nodes and carry no literal in a failure ([the engine](/docs/design/engine#redaction-a-failure-never-carries-a-literal-or-a-secret)); a pick's ids stay out of SQL text above `K`; the graph does no network I/O of its own; the stored placement is a column name read only against the attached graph, and a host that syncs preferences to a server syncs those names too |
 | Performance and size | The proven limit stated, the guard at 2²⁴, the 1M / 5M plan with criteria set before the runs; the peer's cost reported beside the gauge; nothing promised between the tiers |
-| Stable API, accessibility, tests | One catalog type; a role, a name, a keyboard model and a reduced-motion rule for the canvas, committed and not yet audited; a test corpus above 20 vertices and a conformance double |
+| Stable API, accessibility, tests | One graph type, graphar's `Graph`; a role, a name, a keyboard model and a reduced-motion rule for the canvas, committed and not yet audited; a test corpus above 20 vertices and a conformance double |
 
 ## References, and how far each was read
 
@@ -1196,8 +1083,11 @@ or readers asking for a named starting point the axes' defaults do not give them
   `graph/too-large` is new.
 - A graph of more than 16,777,216 vertices is refused, where it used to draw links attached to the wrong
   vertices.
-- `readJoinGraph` moved to `@kanzo-tech/relations`; the snapshot's `structure` is a `JoinGraph`,
-  whose vertex types are its `types` without `of`, each with `first` and `rows`.
+- `GraphRoot` and `useGraph` take `graph`, the `Graph` `@kanzo-tech/graphar-duckdb`'s `attachGraph`
+  answers, in place of `from` and `mapping`; the snapshot's `structure` is that `Graph`. The mapping's
+  labels, classes and datatypes are no longer read, so a year the mapping typed `xsd:gYear` is a number.
+- `verticesOf(graph)` is every vertex as one relation — what `relation="vertices"` named — for a chart
+  beside the canvas.
 - `retry()` is on the api. A failure whose `status` is not `failed` is a degradation: do not blank the
   canvas on it.
 - The canvas is a focusable `role="application"` with the keys above; a host that bound `F`, `P`, `[`

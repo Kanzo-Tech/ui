@@ -1,6 +1,6 @@
 ---
 title: The layers, and the one rule at each seam
-description: Five layers with imports pointing down, a dependency-free kernel at the bottom, one rule for each place two packages meet, and the guards that make the direction a test instead of a sentence.
+description: Five layers with imports pointing down, a dependency-free package of problems at the bottom, one rule for each place two packages meet, and the guards that make the direction a test instead of a sentence.
 ---
 
 The family is nine packages that import each other in one direction and agree on that by
@@ -11,7 +11,7 @@ the direction is, what the lowest layer holds, which rule governs each seam betw
 which guard holds each rule.
 
 <Callout type="warn">
-**Status: to be built.** The layer map, the kernel, the split of `mosaic` and the guards below are
+**Status: to be built.** The layer map, the split of `mosaic` and the guards below are
 decided and not yet in the tree. Where this page and the tree disagree the tree wins, and the
 disagreement is the work. *Breaking*, at the end, lists the changes in a consumer's words; the
 pages named there carry the rest.
@@ -21,9 +21,9 @@ pages named there carry the rest.
 
 | Layer | Holds | Imports |
 | --- | --- | --- |
-| **L0** | `@kanzo-tech/kernel` | nothing |
+| **L0** | `@kanzo-tech/problems` | nothing |
 | **L1** | `theme`, the `@uwdata/*` door (`@kanzo-tech/mosaic`), `llm`, `auth`, `navigation` | L0 |
-| **L2** | the engine (`@kanzo-tech/mosaic/engine`), `@kanzo-tech/relations` | L0, L1 |
+| **L2** | the engine (`@kanzo-tech/mosaic/engine`) | L0, L1 |
 | **L3** | `ui` (its root, `/table`, `/editor`) | L0, L1, L2 |
 | **L4** | `ai`, `graph`, `ui/analytics` | L0 to L3, and the edges named below |
 
@@ -60,29 +60,23 @@ allow-list of edges with no table above it. Until then the ladder costs one fiel
 
 No test holds this yet; the package-layers guard, below, is to be added.
 
-## The kernel holds what four packages each wrote
+## `problems` holds what four packages each wrote
 
-`@kanzo-tech/kernel` has no dependency, no peer, no React, no DOM and no side effect at import. It
-holds the five things that two or more packages already define for themselves, and nothing else.
+`@kanzo-tech/problems` has no dependency, no peer, no React, no DOM and no side effect at import. It
+holds the two things that two or more packages already defined for themselves, and nothing else.
 It is the family's counterpart of OpenTelemetry's API package: library code imports a small package
-with nothing behind it, and the application owner installs an implementation (the overview, read:
-"Instrumentation authors MUST NOT directly reference any SDK package"). The budget is about three
-hundred lines, held by a gauge of its own.
+with nothing behind it (the overview, read: "Instrumentation authors MUST NOT directly reference any
+SDK package").
 
 | Piece | Is | Replaces |
 | --- | --- | --- |
 | `Problem`, `isProblem` | the one error class, in the shape of RFC 9457's problem details: `code`, `title`, `detail`, `data`, `cause`, `help`, `related`, `severity`; and the structural predicate that narrows an `unknown` | `EngineError` in `mosaic`, `GraphError` in `graph`, `LlmError` in `llm`, `AuthError` in `auth`, and the regex in `ui`'s `Problem` composite |
 | `within` | the bounded wait: `within(ms, work, { signal })`, rejecting with a `Problem` on `AbortSignal.any` composition | the 60 s timer in the engine boot, the 30 s `deadline.ts` in `auth`, the 10 s timer in `graph`'s renderer |
-| `Queryable` and its Arrow-like `Table`, `Vector` | the read-only port: `query(sql, { signal })` resolving to columns | `Table` and `Vector` in `mosaic`, `Answer` in `graph`, the `Pick<Engine, "query">` in `ai/data` |
-| the disposal convention | a `Disposable` type and the symbols `Symbol.dispose` and `Symbol.asyncDispose` for every handle a caller must give back | `release` and `serial` in the engine, each package's own unsubscribe closure |
-| `mark` | `mark(name, start, detail?)`: a `kanzo:`-prefixed `performance.measure` and nothing more | the `kanzo:llm:*` spans written by hand in `llm` |
 
 Each piece has its rule, its motivating failure, its reference and its reversal on
-[the kernel page](/docs/design/kernel) and nowhere else: [`Problem`](/docs/design/kernel#problem),
-[`within`](/docs/design/kernel#within), [`Queryable`](/docs/design/kernel#queryable) (whose contract
-is [the engine's](/docs/design/engine)), [disposal](/docs/design/kernel#disposable) and
-[`mark`](/docs/design/kernel#mark). What this page adds is the direction: every package may import
-the kernel, the kernel imports none of them, and the registry of codes the one class carries is
+[the problems page](/docs/design/problems) and nowhere else: [`Problem`](/docs/design/problems#problem)
+and [`within`](/docs/design/problems#within). What this page adds is the direction: every package may
+import `problems`, it imports none of them, and the registry of codes the one class carries is
 [the failure page's](/docs/design/failure#the-registry-is-generated).
 
 ## The seams, one rule each
@@ -92,13 +86,12 @@ the rule is written.
 
 | Seam | The rule | Owner |
 | --- | --- | --- |
-| a failure crosses a package | a `Problem`, thrown whole, `area/kind` | [kernel](/docs/design/kernel); [failure](/docs/design/failure) |
-| a wait | `within`, by the party that makes the request, once | kernel; [failure](/docs/design/failure) |
-| a read of the database | `Queryable`, and an abort **interrupts the statement** in the engine; an adapter that cannot says so and fails loudly | kernel type; [engine](/docs/design/engine) |
-| a lifecycle | the dispose symbols | kernel |
+| a failure crosses a package | a `Problem`, thrown whole, `area/kind` | [problems](/docs/design/problems); [failure](/docs/design/failure) |
+| a wait | `within`, by the party that makes the request, once | problems; [failure](/docs/design/failure) |
+| a read of the database | `query(sql, { signal })`, and an abort **interrupts the statement** in the engine; an adapter that cannot says so and fails loudly | [engine](/docs/design/engine) |
 | a library reads data | a query on the host's client | [reads](/docs/design/reads) |
 | the engine reaches a chart or a graph | the component takes `engine`; the coordinator is the engine's internal cache and no component accepts one | engine; [analytics](/docs/design/analytics), [graph](/docs/design/graph) |
-| a catalog becomes a model | `JoinGraph` is the one read-model; a reader is a typed `CatalogReader` taking a `Queryable` | `relations` |
+| a graph becomes a model | the `Graph` `@kanzo-tech/graphar-duckdb`'s `attachGraph` answers is the one read-model, taken as a type; no package here names a column, a file or a catalog table GraphAr defines | [graph](/docs/design/graph#the-graph-is-graphars-to-read) |
 | a model | the AI SDK's `LanguageModel`, with its middleware as the extension point; one registry | `llm`; [ai](/docs/design/ai) |
 | an identity | the `Auth` port with a `SessionStore`; a server door that reaches no React | `auth`; [auth](/docs/design/auth) |
 | a router | the root knows none; a subpath adapts one | `navigation`; [navigation](/docs/design/navigation) |
@@ -109,24 +102,28 @@ the rule is written.
 The row that moves most is the engine. `mosaic` carried five reasons to change in about fifteen
 hundred lines, so it splits where those lines run: the door stays `@kanzo-tech/mosaic` at L1, the
 engine is `@kanzo-tech/mosaic/engine` at L2 with the DuckDB-WASM dependency declared for that entry
-alone, and the model, the crossfilter and the words move to `@kanzo-tech/relations`. The reasoning for
-each part, and the rule that an abort interrupts the statement, are [the engine's](/docs/design/engine)
-and [relations'](/docs/design/relations); the layer is this page's.
+alone, and the crossfilter across a graph's patterns stays in the door, over `Graph.reach`. The
+reasoning for each part, and the rule that an abort interrupts the statement, are
+[the engine's](/docs/design/engine) and [the crossfilter's](/docs/design/crossfilter); the layer is
+this page's.
 
 **What would reverse the seam rows.** A row that no host ever branches on, which folds into its
 neighbour; and a second implementation of one row that cannot honour its rule, which makes the
 rule a conformance test and not a sentence. The table is the roster; `ls` of the guards is the
 check that it has not grown a row without one.
 
-## The catalog is a port, and it was not named
+## The graph is a port, and it is graphar's
 
-The only constructor of a `JoinGraph`, which `ui/analytics`, `ai/data` and `graph` all consume,
-lived in `graph`, the heaviest of the three: a host that wants a dashboard and no canvas installed
-`@kanzo-tech/graph` and `@cosmos.gl/graph` to build a model. The model sat below the code that builds
-it, and the relation names a catalog is read from were swapped for another producer's in exactly one
-function between two releases, which measures that the seam is real and single and shows it was typed
-nowhere. It is typed now: a `CatalogReader`, in `relations`, whose rule and reversal are
-[that page's](/docs/design/relations#a-catalog-is-read-by-a-catalogreader).
+`ui/analytics`, `ai/data` and `graph` all read one model of a graph: its vertex and edge types, each
+type's properties with what the writer counted of them, and the reads a page makes — a vertex, the
+links, a search, a property's values, a pattern's rows, the vertices a set of others reaches. That
+model is the `Graph` `@kanzo-tech/graphar-duckdb`'s `attachGraph` answers, and every package here
+takes it as a type, so the format's details — the per-type index column, the catalog tables, the
+chunks and their footers — are graphar's to know, in one place, next to the specification they come
+from. It replaced a model of our own (`JoinGraph`, in a package that read GraphAr's catalog tables
+by name), which was a second reader of the format, and which a rename in the writer broke in exactly
+one function between two releases. The rule and its reversal are
+[the graph page's](/docs/design/graph#the-graph-is-graphars-to-read).
 
 ## Packaging follows the entry
 
@@ -181,8 +178,8 @@ citation until it is a real `it()`.
 | --- | --- | --- |
 | `package-layers.test.ts` | the layer table is derived from `kanzo.layers`; every static import in a shipped `src/` is of a lower layer or a named sibling edge; `@kanzo-tech/ui` is imported from no layer below L3 | dynamic `import()` and type-only imports, as `optional-peers.test.ts` skips them; a re-export through a workspace alias |
 | `entry-peers.test.ts` | the static closure of every `exports` entry reaches only the peers `kanzo.entryPeers` lists for it; replaces the root-only walk in `optional-peers.test.ts`, which is deleted when this lands | a peer reached only by a dynamic import |
-| `one-failure-model.test.ts` | every class extending the built-in Error in `SHIPPED` is the kernel's `Problem` or on a short allow-list, and the count of plain `new Error(` per file may not rise | a failure thrown by a dependency; a `Problem` built with a wrong code; that a plain error is a fault and not a condition |
-| `one-deadline.test.ts` | no `setTimeout(` whose callback aborts or rejects, outside the kernel | a wait built on `setInterval` or a promise race; fossil holds the same rule with a lint rule in its own repo |
+| `one-failure-model.test.ts` | every class extending the built-in Error in `SHIPPED` is `problems`' `Problem` or on a short allow-list, and the count of plain `new Error(` per file may not rise | a failure thrown by a dependency; a `Problem` built with a wrong code; that a plain error is a fault and not a condition |
+| `one-deadline.test.ts` | no `setTimeout(` whose callback aborts or rejects, outside `problems` | a wait built on `setInterval` or a promise race; fossil holds the same rule with a lint rule in its own repo |
 | `no-ambient.test.ts` | `Symbol.for(`, `globalThis` and `window.__` appear only in the files that own a documented global: the engine, the local-model registry, the testing hook | a global assigned through a computed key |
 | `client-boundary.test.ts` widened | the corpus becomes every package that declares `react` as a peer, not those that declare `tailwind-variants`, closing the hole [the auth page](/docs/design/auth) names | a directive that survives the source but is lost in `dist/`: only the docs build evaluates that |
 | `stale-citation.test.ts` | every backticked repository path in a design page resolves in the tree, and no page cites `path:NN`: a line number is a claim about a revision | a path that resolves to the wrong file; a symbol renamed inside a real file |
@@ -198,13 +195,12 @@ list, and the list should be a rule of its own.
 
 | Source | Status | Used for |
 | --- | --- | --- |
-| OpenTelemetry overview | read | the API and SDK split behind the kernel; that the API ships a no-op default is **unverified** |
+| OpenTelemetry overview | read | the API and SDK split behind `problems`; that the API ships a no-op default is **unverified** |
 | RFC 9457 | read | the shape of `Problem` |
-| ADBC specification | read | the shape of `Queryable` |
+| ADBC specification | read | the shape of the engine's read port |
 | Cockburn, hexagonal architecture; Martin, dependency rule | read | ports owned by the driver of the conversation; plain data across a seam |
 | TanStack Query package listing; Zag introduction | read | headless core and adapters, and why the family does not split them yet |
 | Auth.js adapter guide; Better Auth database page | read | `SessionStore` as an object of methods |
-| TC39 explicit resource management | read | the dispose symbols |
 | MDN `AbortSignal.any` | read | `within` |
 | Hyrum's Law | read | why a behaviour two repositories state differently is one that diverges |
 | Radix, TanStack Table and Virtual, Parnas, Hickey, SemVer | **unverified** | cited nowhere above as authority |
@@ -213,8 +209,10 @@ list, and the list should be a rule of its own.
 
 - `EngineError`, `GraphError`, `LlmError` and `AuthError` are gone. Catch a `Problem`, or narrow with
   `isProblem`, and read `code`.
-- Crossfilter, `JoinGraph`, the relation words and `readJoinGraph` import from
-  `@kanzo-tech/relations`, not from `@kanzo-tech/mosaic` or `@kanzo-tech/graph`.
+- `@kanzo-tech/kernel` is `@kanzo-tech/problems`, and holds `Problem` and `within` alone.
+- `@kanzo-tech/relations` is gone: a page hands its `MosaicProvider`, `GraphRoot` and Ask the
+  `Graph` `attachGraph` answered, and the crossfilter (`crossfilterOver`, `relationOver`,
+  `onRelation`) is `@kanzo-tech/mosaic`'s.
 - The engine imports from `@kanzo-tech/mosaic/engine`; `@duckdb/duckdb-wasm` is installed for that
   entry only.
 - `MosaicProvider`, `GraphRoot` and the analytics components take `engine`, not `coordinator`.

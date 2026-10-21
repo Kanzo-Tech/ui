@@ -9,8 +9,7 @@ description: Why every package reaches DuckDB through one read-only port and one
 > one pending-query path, `queryableConformance` is in `@kanzo-tech/testing`, the engine is its own
 > subpath, `@kanzo-tech/mosaic/engine`, and `graph` and `analytics` take an `engine`, not a
 > `coordinator`: the coordinator is private to the engine, and the graph's own reads go through
-> `engine.query` with their signal. Still to be built: the `Queryable` port in the kernel and the
-> `Problem` class (the engine throws `EngineError` with the same codes today), the `cancels` member,
+> `engine.query` with their signal. Still to be built: the `cancels` member,
 > `observe` and disposal, the rest of the split into three packages, and the one test double. The *Breaking*
 > list at the end is what a consumer edits.
 
@@ -23,17 +22,19 @@ around it: whether the signal reaches the statement, what a refusal is called, w
 die. Beside them sat a second door, the Mosaic `Coordinator`, which `graph` and `analytics` read
 through, with a cache and a queue and no signal.
 
-## One read-only port: `Queryable`
+## One read-only port: `query`
 
-**Every package that reads through DuckDB asks for a `Queryable` from `@kanzo-tech/kernel` and
-nothing more.** The port is one method and two shapes.
+**Every package that reads through DuckDB asks for one method and nothing more**: `query(sql,
+{ signal })`, answering Arrow columns. It is written once, as `@kanzo-tech/graphar-duckdb`'s `Engine`
+— the reader of every graph a page draws, which takes it to attach and to read — and the engine here
+satisfies it structurally, without importing it.
 
 ```ts
-interface Queryable {
-  query(sql: string, options: { signal: AbortSignal }): Promise<Table>;
+interface Engine {
+  query(sql: string, options: { readonly signal: AbortSignal }): Promise<Table>;
 }
-// Table and Vector are the Arrow subset every reader uses:
-// numRows, schema.fields, getChild(name), and Vector.get(i) / toArray().
+// Table is the Arrow subset a reader uses:
+// numRows, schema.fields, getChild(name), and a column's get(i) / toArray().
 ```
 
 **The reference is ADBC.** `adbc.h` separates the database, the connection and the statement, reads a
@@ -44,9 +45,8 @@ port returns one materialised `Table`, because every reader in the family reads 
 (`ai`'s rows, `graph`'s typed arrays). Streaming is the thing that would reverse that, below.
 
 The port is **read-only by type**: it has no `registerFiles`, no `dropFiles`, no DDL surface. A
-package that only reads — `ai/data`'s `readAnswer`, graphar's reader, rudof's `Mapping.triples`, a
-`CatalogReader` ([relations](/docs/design/relations)) — takes a `Queryable`, so it can be handed any
-engine, a test double, or a server-side one. Writing files into the engine is the engine's own
+package that only reads — `ai/data`'s `readAnswer`, graphar's reader, rudof's `Mapping.triples` —
+takes the port, so it can be handed any engine, a test double, or a server-side one. Writing files into the engine is the engine's own
 surface, below.
 
 **Why Arrow-like and not Arrow.** `Table` and `Vector` are structural, a subset a reader can satisfy
@@ -55,10 +55,11 @@ kit asserts both: `get(i)` is `null` for SQL `NULL` (while `toArray()` returns `
 column), and a `BIGINT` comes back as `bigint` and is converted by the reader, never silently by the
 port.
 
-**Deleted:** mosaic's `Table`/`Vector`, fossil's, graphar's narrower one, `Pick<Engine, "query">` at
-three sites in `ai`. graphar and rudof stay free of every kanzo package (graphar is upstream-bound);
-they keep a one-member structural `Query` and say in a comment that it is a deliberate subset of
-`Queryable`, so the subset relation is stated and the shapes cannot drift unseen.
+**Deleted:** mosaic's exported `Table`/`Vector`, the graph's `Answer`, `Pick<Engine, "query">` at three
+sites in `ai`, and the `Queryable` a package of ours held beside graphar's. graphar and rudof stay
+free of every kanzo package (graphar is upstream-bound), so the port is theirs and ours is the
+structural match: one copy, in the package that reads the format, and a test here holds the engine
+to it (`queryableConformance`).
 
 **What would reverse it:** a reader that must stream — a result too large to materialise, which the
 heap measurement below names — or a second engine that cannot return columns. Then the port grows an
@@ -91,7 +92,7 @@ is not served. That case was "two coordinators, two caches" before; it is now no
 door says so by not accepting a coordinator.
 
 **What would reverse it:** a host with a non-DuckDB Mosaic connector that must draw the same
-charts. Then `MosaicProvider` takes a `Queryable` plus a `Coordinator` built over it, and the
+charts. Then `MosaicProvider` takes a port plus a `Coordinator` built over it, and the
 coordinator is a second optional argument, not a second door.
 
 ## Aborting interrupts the statement
@@ -129,7 +130,7 @@ aggregate per mouse-move pays the sum of the ones it abandoned.
 **An adapter that cannot interrupt says so and fails loudly.** An engine declares `cancels: boolean`;
 one whose value is `false` rejects a `query` handed a signal with `engine/cannot-cancel` at the call,
 instead of accepting the signal and ignoring it. A test double that only checks
-`signal.throwIfAborted()` is therefore not an engine; it is a `Queryable` that must be used without
+`signal.throwIfAborted()` is therefore not an engine; it is a port that must be used without
 a signal, which the type forbids.
 
 **Measured.** A statement that would run about 27 s (`SELECT sum(i * i) FROM range(1000000000)`),
@@ -246,7 +247,7 @@ interface nobody calls is an alias for a log line.
 
 ## The engine's own surface: files and boot
 
-The engine is a `Queryable` plus what only it can do:
+The engine is the port plus what only it can do:
 
 | Member | Why only the engine |
 | --- | --- |
@@ -268,19 +269,18 @@ Boot is bounded at 60 s as `engine/unavailable`, with `data.after`.
 *Held by* `packages/mosaic/src/engine-boot.test.ts`, "rejects with data.after when the worker never
 answers within the 60 s deadline".
 
-## Three packages, one direction
+## Two entries, one direction
 
-mosaic is split because it held three things with three costs, and the heaviest dictated the layer
+mosaic is split because it held things with different costs, and the heaviest dictated the layer
 the lightest could sit in ([architecture](/docs/design/architecture)):
 
 | Package | Holds | Layer | Depends on |
 | --- | --- | --- | --- |
-| `@kanzo-tech/mosaic` | The `@uwdata` door: the names of mosaic-core, mosaic-sql and the clause rule (`clauseSemiJoin`, `relaySelection`, `numbers`) | L1 | `kernel`; peers mosaic-core, mosaic-sql |
-| `@kanzo-tech/mosaic/engine` (a subpath of the engine package, below) | `engine()`, DuckDB-WASM, the registry, the coordinator | L2 | `kernel`, the door; `@duckdb/duckdb-wasm` |
-| `@kanzo-tech/relations` | `JoinGraph`, `JoinResolver`, paths, `CatalogReader`, `words` ([relations](/docs/design/relations)) | L2 | `kernel`, the door |
+| `@kanzo-tech/mosaic` | The `@uwdata` door: the names of mosaic-core, mosaic-sql and the clause rule (`clauseSemiJoin`, `relaySelection`, `numbers`), and the crossfilter across a graph's patterns ([crossfilter](/docs/design/crossfilter)) | L1 | `problems`, `@kanzo-tech/graphar-duckdb`'s types; peers mosaic-core, mosaic-sql |
+| `@kanzo-tech/mosaic/engine` (a subpath of the engine package, below) | `engine()`, DuckDB-WASM, the registry, the coordinator | L2 | `problems`, the door; `@duckdb/duckdb-wasm` |
 
 The engine sits behind its own subpath so that a page that only draws from a host-supplied
-`Queryable` — a test, a server-rendered chart spec — imports no DuckDB. `@duckdb/duckdb-wasm` stays an
+engine — a test, a server-rendered chart spec — imports no DuckDB. `@duckdb/duckdb-wasm` stays an
 exact-pinned dependency of that subpath alone (a *dev* build, `1.33.1-dev57.0`, today). The gauge
 for each entry is measured separately; the engine's 36 MB module is outside any gauge and is
 reported beside the wrapper's size, since the wrapper's 5.2 kB tells a reader nothing about what a
@@ -346,7 +346,8 @@ test, and the double's interrupt is a documented model of it.
   `engine()` and pass it to all of them and to `ai`. `Graph` no longer needs the pair.
 - `import { engine } from "@kanzo-tech/mosaic/engine"`; the root of `@kanzo-tech/mosaic` is the
   `@uwdata` door and no longer has `engine`.
-- `Table` and `Vector` come from `@kanzo-tech/kernel`.
+- `Table` and `Vector` are gone from every package: an answer is the Arrow table it is, and a
+  reader's engine is typed as `@kanzo-tech/graphar-duckdb`'s `Engine`.
 - Stop on a long statement now stops it; a page that relied on the statement finishing in the
   background no longer gets it.
 - After `engine/lost`, call `engine()` again and attach again.

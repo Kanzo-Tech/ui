@@ -1,22 +1,23 @@
 ---
 title: Dashboard
-description: A dashboard over any relation for finding what it holds — a filter bar and tiles (figures, charts, tables), chosen from the relation's stats, edited where they sit, and kept as a JSON spec the host saves.
+description: A dashboard over a pattern of a graph for finding what it holds — a filter bar and tiles (figures, charts, tables), chosen from what the graph says of each property, edited where they sit, and kept as a JSON spec the host saves.
 ---
 
-`Dashboard` is the charts grammar composed for a relation you have not seen. It reads the
-relation's fields from what its data says of them — a graph's description and counts, or one DuckDB
-`SUMMARIZE` — draws a dashboard from them — or from a spec you
-saved — and lets the reader edit every tile of it. The host brings four things: a
-`MosaicProvider`, the relation, somewhere to keep the spec, and an aside for the editor. The relation can be a table or a
-[join over a graph of types](#relations), and the dashboard cannot tell the two apart.
+`Dashboard` is the charts grammar composed for a relation you have not seen. Its relation is a
+[pattern](#patterns) over the page's graph — a vertex, or a vertex and the edges and vertices taken
+from it — and it reads the fields from what the graph says of each property, draws a dashboard from
+them — or from a spec you saved — and lets the reader edit every tile of it. The host brings four
+things: a `MosaicProvider` with the graph, the pattern, somewhere to keep the spec, and an aside for
+the editor.
 
 <ComponentPreview componentName="dashboard" fileName="example-default" hasMaxHeight={false} />
 
 The references are Grafana's panel model — tiles of a kind in an ordered layout, each with a width —
 edited in place the way Notion and Linear edit a block, Metabase's filter bar drawn as Linear's chips,
 Metabase's X-ray for the dashboard a relation gets before anybody has edited one, and Looker's
-explores and Malloy's sources for a relation that joins. What it leaves out is their query layer:
-every tile reads the one relation the `Dashboard` is given, under one crossfilter.
+explores and Malloy's sources for a relation that joins, written as GQL writes a `MATCH`. What it
+leaves out is their query layer: every tile reads the one pattern the `Dashboard` is given, under
+one crossfilter.
 
 ## Usage
 
@@ -24,13 +25,16 @@ every tile reads the one relation the `Dashboard` is given, under one crossfilte
 import { ShellAside, ShellBody, ShellMain } from "@kanzo-tech/ui";
 import { Dashboard, FilterBar, MosaicProvider, TileEditorAside, useTileEditorOpen } from "@kanzo-tech/ui/analytics";
 
-function Sightings({ e, saved, save }: Props) {
+const SIGHTINGS: Pattern = [{ as: "sighting", type: "Sighting" }];
+
+// `graph` is what `attachGraph` from `@kanzo-tech/graphar-duckdb` answered.
+function Sightings({ e, graph, saved, save }: Props) {
   return (
-    <MosaicProvider engine={e}>
+    <MosaicProvider engine={e} graph={graph}>
       <ShellBody>
         <ShellMain>
-          <FilterBar relation="sightings" rowNoun="sightings" />
-          <Dashboard relation="sightings" value={saved} onChange={save} />
+          <FilterBar relation={SIGHTINGS} rowNoun="sightings" />
+          <Dashboard relation={SIGHTINGS} value={saved} onChange={save} />
         </ShellMain>
         <Format />
       </ShellBody>
@@ -84,40 +88,36 @@ exported and works on its own inside a `MosaicProvider`; `Dashboard` is what the
 decides the arrangement. [Arranging the parts yourself](#arranging-the-parts-yourself) is the other
 way.
 
-## How a relation is read
+## How a pattern is read
 
-`useFieldStats(relation)` reads what the data says of each column, and guesses nothing from a
-column's name or a count. Over the page's `joins` — an attached graph's, from
-[`readJoinGraph`](/docs/graph#readjoingraph) — each column is described by the graph, what it is
-and what its writer counted in it, and nothing is queried. Anywhere else, and for a relation whose
-columns the writer did not count, it runs one `SUMMARIZE` — a query on the host's `QueryClient`, so
-the `QueryClientProvider` [the analytics page asks for](/docs/analytics#what-to-install) is above
-it — over `SELECT * FROM` the relation, built with mosaic-sql, so a join is summarized like a table,
-and keeps whatever the joins say each column is. Every column is classified twice — by **kind**, from
-its DuckDB type through Mosaic's own `jsType` (so a column is numeric here exactly when it is numeric
-to every mark), or from its datatype where it has one, and by **role**, from what the data declares.
+`useFieldStats(pattern)` reads what the graph says of each property, and guesses nothing from a
+column's name or a count. Every named vertex's properties are fields, named `variable.property` —
+`sighting.beast`, `home.name` — each described by its type's property on the `Graph`: its DuckDB type,
+whether it is the type's primary key, and the nulls, extent and distinct count its chunks' statistics
+state. Nothing is queried, so a dashboard draws at once. Every field is classified twice — by
+**kind**, from its DuckDB type through Mosaic's own `jsType` (so a column is numeric here exactly
+when it is numeric to every mark), and by **role**, from what the graph declares.
 
 | Kind | DuckDB types |
 | --- | --- |
 | `numeric` | every integer width up to `HUGEINT`, signed or not; `DOUBLE`, `FLOAT`, `REAL`, `DECIMAL` |
-| `temporal` | `DATE`, `TIME`, `TIMESTAMP`, `TIMESTAMP_MS`, `TIMESTAMP_NS`, `TIMESTAMP WITH TIME ZONE`; and a number or a time whose datatype is `xsd:date`, `xsd:dateTime`, `xsd:gYear` or `xsd:gYearMonth` — a year stored as its integer |
+| `temporal` | `DATE`, `TIME`, `TIMESTAMP`, `TIMESTAMP_MS`, `TIMESTAMP_NS`, `TIMESTAMP WITH TIME ZONE` — a year stored as its integer is a number |
 | `categorical` | `VARCHAR`, `ENUM`, `UUID`, `JSON`, `BOOLEAN` |
 | — not a field | lists, arrays, structs, maps, blobs, `GEOMETRY`, and types Mosaic does not know (`INTERVAL`, `BIT`, `UHUGEINT`, `TIMESTAMP_S`, `TIME WITH TIME ZONE`) |
 
 The last three read as a number and two times, and are still not fields: every vgplot mark runs
-Mosaic's `jsType` on its columns before it queries, and throws on them. Cast such a column in the
-relation you hand over — `ts::TIMESTAMP` — and it is a field like any other.
+Mosaic's `jsType` on its columns before it queries, and throws on them. Write such a property as
+a supported type, and it is a field like any other.
 
 | Role | When | Used as |
 | --- | --- | --- |
-| `identifier` | the writer's `address`, `identity` or `endpoint` column; a column whose `termType` is an IRI or a blank node; a column of the type's `candidateKeys` — never null, never repeated | searched, never grouped |
+| `identifier` | the type's primary key | searched, never grouped |
 | `measure` | every other number | aggregated, binned, either side of a scatter |
 | `dimension` | every time; all other text | grouped, filtered, a series, a panel |
 
-A relation with no joins behind it declares nothing, so nothing in it is an identifier: a column
-named `id` is a number or a text like any other. Say what it is in the joins you hand the
-`MosaicProvider` — a type over your table, with the column among its `candidateKeys` — as the
-example below does, or exclude it.
+A property that is not its type's primary key is never an identifier, whatever it is called: a column
+named `id` is a number or a text like any other. Declare the key where the graph is written, or
+exclude it.
 
 The filter control and the charts a field can be follow from those two words alone:
 
@@ -127,20 +127,21 @@ The filter control and the charts a field can be follow from those two words alo
 | A number (measure) | `ChartSlider`, a range | an axis, a measure, either side of a scatter; a tile's trend |
 | A category (dimension) | `ChartFilter`, a facet filter with counts | bars; series (2–8 values); panels (2–6 values) |
 | A key (identifier text) | `ChartSearch`, a match over what you type | — |
-| A numeric key (`dense_id`) | none | — |
+| A numeric key | none | — |
 
 Past eight series a chart wants to be a table, not more hues; past six panels small multiples stop
 being comparable. Those are the dataviz limits, and the editors enforce them.
 
-A relation with a time, and one control of every kind — the timeline over `closed`, facet filters,
-a search over `id`, which the page declares the contracts' key, and a slider over `reward`:
+A pattern with a time — the timeline over `contract.closed`, facet filters, and a slider over
+`contract.reward`; a property the graph declares its type's primary key would add a search:
 
 <ComponentPreview componentName="dashboard" fileName="example-temporal" hasMaxHeight={false} />
 
 <Callout type="warn">
 A column named like a plot channel — `x`, `y`, `x1`, `x2`, `y1`, `y2`, `fx`, `fy`, `z`, `fill`,
-`stroke` — is never a field, and the plots read the relation without it. A layout's coordinates on a
-graph are the usual case. [Why, and what it costs](/docs/analytics/pitfalls#columns-named-like-a-channel).
+`stroke` — is never a field, and the plots read the relation without it. A pattern's columns are
+`variable.property`, so a dashboard meets one only where a vertex's variable is so named: call it
+something else. [Why, and what it costs](/docs/analytics/pitfalls#columns-named-like-a-channel).
 </Callout>
 
 ## The automatic dashboard
@@ -353,47 +354,35 @@ view and takes focus.
 
 ### useFieldStats and fieldStats
 
-`useFieldStats(relation, { exclude })` returns `{ fields, columns, error }`: `fields` are the
-classified `FieldStat`s, `columns` every column of the relation in its own order, fields or not.
-`relation` is what `ChartRoot` takes — a table by name, a path over the provider's joins, or SQL.
-Both are `null` until the fields are known. `error` is the thrown value, whole and typed `unknown`,
-and it is also handed to the provider's `onFailure`; narrow it before reading `.message`.
+`useFieldStats(pattern, { exclude })` returns `{ fields, columns }` at once: `fields` are the
+classified `FieldStat`s, `columns` every column of the pattern's relation in its own order — a column
+per named vertex for its index, then every property of every named element — fields or not. It reads
+the provider's `graph`, queries nothing, and throws where the provider has none.
 
-A field carries what the graph says beside its kind and role: `distinct`, the writer's exact count
-(or `SUMMARIZE`'s estimate where there is none), its extent, its commonest `values` and its
-`annotations` — its `rdfs:label` among them.
-
-Where a summary is read, it is a TanStack Query query on the host's `QueryClient`, so it needs a
-`QueryClientProvider` above it. Every part of the page that asks for the same relation on the same
-provider shares one read — the dashboard, a part you placed yourself, an Ask answer's card — and
-`exclude` is applied to that read, so two parts that hide different columns still read once. It
-never retries and is kept for the page's life; a new relation is a new read, and a failed read is
-not kept, so the next part to ask reads again. It goes to the engine's own door,
-`engine.query(sql, { signal })`, with the query's signal: when every part that asked has unmounted
-while it runs, the engine interrupts the `SUMMARIZE`. The reads appear in your client's devtools and go
-when you clear it — clear it on sign-out, as you would any other data of the person's.
+A field carries what the graph says beside its kind and role: `distinct`, the exact count the chunks
+state or the least they allow where they only bound it, `0` where they say nothing; and its extent,
+where they state one.
 
 `fieldStats(columns, options)` is the classification on its own: column descriptions in — a
-`FieldColumn` is a `JoinColumn` and whether its type's writer found it a key — the same
-`{ fields, columns }` out, nothing queried. Reach for it with a join graph of your own and no page:
-`relationColumns(graph, relation)`, from `@kanzo-tech/relations`, describes a relation's columns under
-the names it reads them by.
+`FieldColumn` is a `name`, a DuckDB `type`, whether it is `primary`, and its `stats` — the fields out,
+nothing queried. `patternColumns(graph, pattern)` describes a pattern's columns under the names it
+reads them by, for a host with a graph and no page:
 
 ```ts
-const graph = await readJoinGraph(e, jobId, { signal });
-const { fields, columns } = fieldStats(relationColumns(graph, { root: "Person", path: [] }), { exclude: ["dense_id"] });
+const { described } = patternColumns(graph, [{ as: "person", type: "Person" }]);
+const fields = fieldStats(described, { exclude: ["person.id"] });
 ```
 
 ### plotRelation
 
 `plotRelation(table, { fields, columns })` returns `{ table, fields }` as the plots can read them:
 the relation itself, or a projection without the columns named like a plot channel, and the fields
-without those. `Dashboard` calls it on its own summary; a host placing the parts over a relation
-with a layout's `x`/`y` calls it on `useFieldStats`' answer and hands the parts both halves —
+without those. `Dashboard` calls it on its own fields; a host placing the parts over a table of its
+own with a layout's `x`/`y` calls it with that table's fields and hands the parts both halves —
 [why](/docs/analytics/pitfalls#columns-named-like-a-channel).
 
-`exclude` is for the host's bookkeeping — a key, an internal identity, a layout's coordinates under
-names that are not channels. An excluded column is still in the relation (a clause on it still
+`exclude` is for the host's bookkeeping — a key, an internal identity, a layout's coordinates —
+named as fields are, `variable.property`. An excluded column is still in the relation (a clause on it still
 applies); it is just never offered as a field.
 
 ## Arranging the parts yourself
@@ -404,7 +393,7 @@ what that opens is the host's — here, the same `TileEditor` `Dashboard` uses, 
 <ComponentPreview componentName="dashboard" fileName="example-parts" hasMaxHeight={false} />
 
 `Dashboard` does two things the parts do not: it drops the channel-named columns from the relation
-and from the fields, and it owns the spec. A host composing parts over a relation with an `x` column
+and from the fields, and it owns the spec. A host composing parts over a table with an `x` column
 does the first itself — [how](/docs/analytics/pitfalls#columns-named-like-a-channel).
 
 ## Interaction
@@ -415,140 +404,86 @@ timeline filters by a range. The readout counts what survives. A clause publishe
 on the page — a `ChartFilter` you placed above the dashboard, a lasso on a graph — is applied the
 same way, and *Clear every filter* retracts it too.
 
-The tiles publish on the dashboard's relation, and a part on another relation — a graph, another
-dashboard — reads them crossed by key; a clause from there reaches every tile the same way — see
+The tiles publish on the dashboard's pattern, and a part on another relation — a graph, another
+dashboard — reads them crossed by the vertices both hold; a clause from there reaches every tile the
+same way — see
 [what the page sees](#what-the-page-sees).
 
-## Relations
+## Patterns
 
-The `relation` can be a table, or a path over the provider's `joins`. A **relation** is
-a root type and the hops taken from it — Looker's explore, Malloy's source — over a **join graph**:
-types, each a table with a key, and the edge tables between them. A type on its own is a relation
-with no hops, so there is no second path for it.
+The `relation` is a `Pattern` over the provider's graph — `@kanzo-tech/graphar-duckdb`'s, as GQL
+writes a `MATCH`: a vertex, then an edge and a vertex, any number of times, each vertex named by a
+variable. The first vertex is what is measured: a bare `count` counts it once per group, however many
+rows its edges make. A type on its own is a pattern of one vertex.
 
 <ComponentPreview componentName="dashboard" fileName="example-relations" hasMaxHeight={false} />
 
 ```tsx
-import { JoinResolver, relationKey } from "@kanzo-tech/relations";
+import type { Pattern } from "@kanzo-tech/graphar-duckdb";
+import { patternKey } from "@kanzo-tech/mosaic";
 import { Dashboard, MosaicProvider, RelationPicker } from "@kanzo-tech/ui/analytics";
 
-<MosaicProvider engine={e} joins={graph}>
-<RelationPicker graph={graph} value={relation} onValueChange={setRelation} />
-<Dashboard
-  key={relationKey(graph, relation)}
-  relation={relation}
-  exclude={new JoinResolver(graph).steps(relation).map((s) => s.key)}
-  value={byRelation[relationKey(graph, relation)]}
-/>
+const [pattern, setPattern] = useState<Pattern>([{ as: "person", type: "Person" }]);
+
+<MosaicProvider engine={e} graph={graph}>
+  <RelationPicker graph={graph} value={pattern} onValueChange={setPattern} />
+  <Dashboard key={patternKey(pattern)} relation={pattern} value={byPattern[patternKey(pattern)]} />
 </MosaicProvider>
 ```
 
-- **`relationQuery(graph, relation)`** is what a `relation` with a path reads — one mosaic-sql `Query`: every type along the path joined
-  through its edge tables, every column named by its path from the root — `country`, `knows.country`,
-  `^hasCreator.length` — Malloy's dotted path. The root's columns, its key among them, keep their own
-  names.
-- **`relationKey(graph, relation)`** is the canonical identity a saved dashboard is keyed by:
-  `Person`, `Person>knows>Person`, `Person<hasCreator<Post`.
-- **`relationHops(graph, type)`** lists the hops that leave a type, out-edges then in-edges, each
-  with its `fanOut` — the edge's rows per row of the type it leaves — when the graph carries
-  `rows` on its types and edges (`joinGraphOf` does, from the catalog's record counts).
-  `RelationPicker` is built on it: the root as a select, then **+ Add related…**, a menu of
-  sentences in two groups — *Follow from each Place* (*The place it is part of*) and *Bring in
-  what points at it* (*Comment · located in this place*) — each sorted by fan-out and saying it,
-  *~103 per Place*, in warning colour above ten. The path is chips, any of which can be removed,
-  cutting the path there, and under them the grain: *One row per Comment · 151,043 rows · Places
-  without comments are left out*. The hops are inner joins, so that last clause is literal.
-  No noun is inflected: an in-edge reads as the type and the edge, never a plural the library would
-  have to guess. `phrase(edge, direction)` rewords a hop the templates read wrong, and every word —
-  the two sentence patterns among them — is an entry of `translations`:
+- **`relationOver(graph, pattern)`**, from `@kanzo-tech/mosaic`, is what a pattern reads — the
+  graph's `match` of it, with a column per named vertex holding its index within its type and one per
+  property of every named element, `person.country`, `friend.country`. A pattern whose first vertex
+  has no variable is refused: it is what the relation counts and crosses by.
+- **`patternKey(pattern)`** is the identity a saved dashboard is keyed by: the elements as written.
+- **`RelationPicker`** walks a pattern: the root as a select, then **+ Add related…**, a menu of
+  sentences in two groups — *Follow from each Place* (*isPartOf → Place*) and *Bring in what points at
+  it* (*Comment isLocatedIn → this Place*) — each sorted by fan-out and saying it, *~103 per Place*, in
+  warning colour above ten. The fan-out is the edge type's `count` over the vertex type's, both on the
+  `Graph`. Every vertex it adds is named by `variableFor` — the type's name, its first letter lower,
+  and a number where the pattern already names one: `person`, `person2` — so its properties are
+  fields. The path is chips, any of which can be removed, cutting the pattern there. A pattern's rows
+  are its matches, so a root with no edge along a hop is left out. No noun is inflected, and the words
+  are the graph's names. `phrase(edge, direction)` rewords a hop, and every word — the two sentence
+  patterns among them — is an entry of `translations`:
 
 ```tsx
 <RelationPicker
   graph={graph}
-  value={relation}
-  onValueChange={setRelation}
+  value={pattern}
+  onValueChange={setPattern}
   phrase={(e, direction) =>
-    e.source === e.destination ? (direction === "out" ? "Its parent place" : "Its child places") : undefined
+    e.srcType === e.dstType ? (direction === "out" ? "Its parent place" : "Its child places") : undefined
   }
   translations={{ in: (source, label, destination) => `${source} · ${label} → ${destination}` }}
 />
 ```
 
-### The joins' one door
-
-`JoinResolver` — the page's resolver, `selection.resolver` under a `MosaicProvider` with `joins`, or
-`new JoinResolver(graph)` — is the one door to the joins: what the page crosses a clause with, and
-what a path is resolved by.
-
-- **`steps(relation)`** is each step of a relation, the root first: its `path` (`""` the root,
-  `knows`, `knows.^hasCreator`), its `type`, and its `key` as the relation names it — the root's
-  bare, `dense_id`, every other step's after its path, `knows.dense_id`. A clause on the relation
-  crosses to the rest of the page by the root's key, so a `clauseSemiJoin` on it — a lasso on a graph
-  — filters a joined relation exactly as it filters the root's table; the keys are identity, not
-  data, so a dashboard leaves them out of its fields.
-- **`paths(root, hops = 3)`** is every field path from a type within `hops`, in the graph's order,
-  never back along the edge just taken: what [Ask](/docs/ai/data)'s model may write.
-- **`relation(root, shown)`** is the one relation the `shown` paths lie on, each its own column there
-  (a path that ends on a step names that step), or a miss: `relations/no-step`, `relations/unmatched`, or
-  `relations/invalid` for two paths that leave each other.
-- **`field(on, path)`** is where `path`, written from `on`'s root, is read: on `on`, or through the
-  branch that leaves it at `at`, with the column as the branch names it.
-- **`at(to, from)`** and **`crossing(from, predicates, to, at?)`**: the step a clause on `from` crosses
-  into `to` at — the first whose type meets `from`'s root, or the step `at` names — and the clause
-  crossed, `key IN (SELECT key FROM from WHERE …)`, or `FALSE` where there is none. A relation the
-  joins cannot walk is not none: `crossing` throws a `Problem`, `code` `"relations/no-step"`, so a part
-  reads a failure and not an empty chart. *Held by* `packages/relations/src/crossfilter.test.ts`, "fails,
-  coded, on a relation the joins cannot walk, rather than keeping none of it".
-
-```ts
-const joins = new JoinResolver(graph);
-const shown = joins.relation("LaureateAward", ["university.name"]); // LaureateAward>university>University
-const f = joins.field(shown as Relation, "category.name");
-// { relation: LaureateAward>category>Category, column: "category.name", at: "" }
-```
-
 ### What the page sees
 
-A tile's clause on a relation names the relation's columns — `"knows.country" IN ('ES')` — and
-nothing else on the page has them. So the clause says which relation it was published on, and the
-page's selection crosses it for every reader that is on another one
+A tile's clause on a pattern names the pattern's columns — `"friend.country" IN ('ES')` — and nothing
+else on the page has them. So the clause says which relation it was published on, and the page's
+selection — `crossfilterOver(graph)` from `@kanzo-tech/mosaic`, which `MosaicProvider` makes —
+crosses it for every reader that is on another one
 ([across relations](/docs/analytics/charts#across-relations)):
 
-- the other tiles, on the same relation, read it **as published** — they crossfilter each other on
-  the relation's columns, and Mosaic pre-aggregates them as it would any chart;
-- a graph beside the dashboard reads `dense_id IN (SELECT dense_id FROM <relation> WHERE <every
-  clause on it>)`: it greys out every vertex but the roots of the rows the tiles keep;
-- another relation's dashboard reads the same, into its own step of the root's type — or nothing,
-  where it has no such step.
+- the other tiles, on the same pattern, read it **as published** — they crossfilter each other on the
+  pattern's columns;
+- a graph beside the dashboard reads the indices of the first vertex the tiles keep, as the vertex's
+  global id: it greys out every vertex but those;
+- another pattern's dashboard reads the same, landed on its own vertex of that type — or, where it
+  holds none, carried along the graph's one shortest path to its first vertex (`graph.reach`); where
+  there is no path, or more than one of the same length, it keeps none of its rows.
 
-The clauses on one relation cross together, not one by one — on a joined relation, *a person with a
+The clauses on one pattern cross together, not one by one — on a pattern with a hop, *a person with a
 row where a and b* is not *a person with a row where a, and one where b*. `FilterBar` shows each as
-its own chip — *knows.country Spain* — and removing one retracts that clause alone, on the one
+its own chip — *friend.country Spain* — and removing one retracts that clause alone, on the one
 selection, calling back the tile that published it. A lasso on the graph reaches every tile crossed
 the other way, and the graph stays exempt from its own pick.
 
-The `JoinGraph` is plain data a reader builds from its own catalog — `JoinType` (`name`, `table`,
-`key`, `columns`, and `of` for a type that is the union of others) and `JoinEdge` (`name`, `label`, `source`, `destination`, `table`, and the `src`
-and `dst` columns holding each end's key). A type's `columns` are descriptions, `JoinColumn`: a
-column's name and DuckDB type, and whatever its catalog states of it — its `role`, `datatype`,
-`termType`, `iri`, whether it is `nullable`, its `annotations` (`JoinAnnotation`) and what its writer
-counted in it (`stats`, a `JoinColumnStats`). For a GraphAr graph, `@kanzo-tech/graph`'s
-[`readJoinGraph`](/docs/graph#readjoingraph) builds it from the catalog the graph already reads; a
-graph of your own describes what it knows, and only `name` and `type` are required.
-
-A multi-valued property — fossil keeps one in a table of its own, a row per value — is a type with a
-`value`, the column a path that ends on it reads, reached from its source by an edge whose `table` is
-its own: the key is held in the row, so the hop is one join, and the path to it names its value,
-`nickname`, not `nickname.nickname`. `RelationPicker` offers it as a hop like any other.
-
-**A thing's words are its labels.** `labelOf(annotations, language?)` is what a type, an edge or a
-column is called: its `rdfs:label` in the page's language (`<html lang>`, RFC 4647's lookup —
-`es-AR`, then `es` — then an untagged one), or `undefined`. `namingColumn(type)` is the column whose
-property IRI is a labelling property — `skos:prefLabel`, `rdfs:label`, then schema.org's and FOAF's
-`name` — never a column because it is called `name`. `relationColumns` gives each column the `label`
-the data gives it — its own, or its type's for the naming column — and `fieldStats` carries it as
-`FieldStat.label`, which tile titles and `RelationPicker`'s sentences read; where nothing labels a
-name, a title reads its path and the picker `splitWords(name)` — *birth place*, never inflected.
+A pattern's tiles are not pre-aggregated: Mosaic's pre-aggregator needs a base table it can trace,
+and a pattern is the SQL text the graph's `match` answers. A chart of a host table under the same
+provider still is.
 
 ## Series vocabulary
 
@@ -557,9 +492,9 @@ a status column wearing the status colours and their icons:
 
 ```tsx
 <Dashboard
-  relation="sightings"
+  relation={SIGHTINGS}
   config={{
-    verdict: {
+    "sighting.verdict": {
       confirmed: { label: "Confirmed", color: "var(--success)", icon: CheckCircle2Icon },
       hoax: { label: "Hoax", color: "var(--destructive)", icon: TriangleAlertIcon },
     },
@@ -571,17 +506,17 @@ A configured field is drawn in the config's order and colours, with its labels i
 field without one takes the categorical scheme in order of frequency over the whole relation, so a
 filter never repaints a survivor.
 
-## When the relation cannot be read
+## When the pattern cannot be read
 
-A failed `SUMMARIZE` — a relation that does not exist, a catalog that is not attached — draws an
-alert, *The relation could not be summarized*, with DuckDB's message, and reports the error to the
-provider's `onFailure`. A failed card, tile or input says so in its own frame and reports the same
-way. Nothing fails blank.
+A pattern the graph cannot match — a type or an edge it does not have — throws graphar's
+`GraphArError` where the dashboard reads it, and a provider with no `graph` throws too: both are a
+fault of the host's wiring, caught by the host's error boundary. A failed card, tile or input says
+so in its own frame and reports to the provider's `onFailure`. Nothing fails blank.
 
 ## Testing
 
 `DashboardHarness` and `FilterBarHarness` from [`@kanzo-tech/testing`](/docs/testing). A dashboard
-is `aria-busy` while it reads the relation's fields, and `settled()` waits for nothing in it to be busy;
+is `aria-busy` while a tile reads, and `settled()` waits for nothing in it to be busy;
 `tile(title)` finds a tile by its title. The bar is the region *Filters*, and its readout a `status`
 that is `aria-busy` while it counts, which `readout()` waits out.
 
@@ -600,7 +535,7 @@ await expect.poll(async () => (await env.getHarness(FilterBarHarness)).readout()
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `relation` | `string \| Relation \| ExprNode` — a table by name, a path over the provider's `joins` ([relations](#relations)), or SQL for a relation in [another catalog](/docs/analytics/charts#a-relation-in-another-catalog) | — |
+| `relation` | `Pattern` — a pattern over the provider's `graph` ([patterns](#patterns)) | — |
 | `value` | `DashboardSpec` | the automatic dashboard |
 | `onChange` | `(spec: DashboardSpec) => void` | — (read-only without it) |
 | `exclude` | `readonly string[]` | — |
@@ -662,69 +597,29 @@ Takes no props of its own; every prop goes to its `div` (`data-slot="tile-editor
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `graph` | `JoinGraph` | — |
-| `value` | `Relation` | — |
-| `onValueChange` | `(relation: Relation) => void` | — |
-| `phrase` | `(edge: JoinEdge, direction: "out" \| "in") => string \| undefined` | the patterns in `translations` |
+| `graph` | `Graph` | — |
+| `value` | `Pattern` | — |
+| `onValueChange` | `(pattern: Pattern) => void` | — |
+| `phrase` | `(edge: EdgeType, direction: "out" \| "in") => string \| undefined` | the patterns in `translations` |
 | `translations` | `Partial<RelationPickerTranslations>` | English, below |
 
 `RelationPickerTranslations`: `relation` (*Relation*, the group's name), `root` (*Root type*), `add`
 (*Add related…*), `follow(from)` (*Follow from each \{from\}*), `bringIn` (*Bring in what points at
 it*), `remove(sentence)` (*Remove \{sentence\}*), `perRow(count, from)` (*\{count\} per \{from\}*),
-and the two sentences, given each type and the edge's label in words: `out(to, label)` — *The
-\{to\} it \{label\}*, *The place it is part of* — and `in(source, label, destination)` —
-*\{Source\} · \{label\} this \{destination\}*, *Comment · located in this place*. In English a
-label `has…` reads *whose …*, and a lone `is` drops out of an in-edge.
+and the two sentences, given each type and the edge type as the graph names them: `out(to, label)` —
+*\{label\} → \{to\}*, *isPartOf → Place* — and `in(source, label, destination)` —
+*\{source\} \{label\} → this \{destination\}*, *Comment isLocatedIn → this Place*.
 
 ```ts
-function relationQuery(graph: JoinGraph, relation: Relation): Query;
-function relationKey(graph: Pick<JoinGraph, "edges">, relation: Relation): string;
-function relationHops(graph: JoinGraph, type: string): RelationHop[];
-function relationColumns(graph: JoinGraph, relation: string | Relation, language?: string): RelationColumn[];
-function labelOf(annotations: readonly JoinAnnotation[] | undefined, language?: string): string | undefined;
-function namingColumn(type: Pick<JoinType, "columns">): string | undefined;
-function splitWords(name: string): string;
+function variableFor(pattern: Pattern, type: string): string;
+// From @kanzo-tech/mosaic:
+function relationOver(graph: Graph, pattern: Pattern): Relation;
+function patternKey(pattern: Pattern): string;
+function crossfilterOver(graph?: Graph | null): Selection;
+function onRelation(clause: SelectionClause, relation: Relation | null | undefined): SelectionClause;
 
-class JoinResolver {
-  constructor(joins: JoinGraph | null);
-  readonly joins: JoinGraph | null;
-  steps(relation: RelationRef): readonly JoinStep[];
-  paths(root: string, hops?: number): readonly string[];
-  relation(root: string, shown: readonly string[]): Relation | JoinMiss;
-  field(on: Relation, path: string): JoinField | JoinMiss;
-  at(to: RelationRef, from: RelationRef): JoinStep | undefined;
-  crossing(from: RelationRef, predicates: readonly ExprNode[], to: RelationRef, at?: string): ExprNode;
-}
-
-interface Relation { root: string; path: readonly Hop[] }
-interface Hop { edge: string; direction: "out" | "in" }
-interface RelationHop { hop: Hop; label: string; to: string; fanOut?: number }
-interface JoinStep { path: string; type: string; key: string }
-interface JoinField { relation: Relation; column: string; at: string }
-type JoinMiss =
-  | { code: "relations/no-step"; path: string; segment: string; at: string }
-  | { code: "relations/unmatched"; path: string; type: string; column: string }
-  | { code: "relations/invalid"; paths: readonly [string, string] };
-interface JoinGraph { types: readonly JoinType[]; edges: readonly JoinEdge[] }
-interface JoinType {
-  name: string; table: TableExpr; key: string; columns: readonly JoinColumn[]; rows?: number; of?: readonly string[];
-  candidateKeys?: readonly string[]; iri?: string; annotations?: readonly JoinAnnotation[];
-  value?: string; // a multi-valued property's: the column a path that ends on it reads
-}
-interface JoinEdge {
-  name: string; label: string; source: string; destination: string; table: TableExpr; src: string; dst: string; rows?: number;
-  iri?: string; annotations?: readonly JoinAnnotation[];
-}
-interface JoinColumn {
-  name: string; type: string; role?: string; datatype?: string; termType?: string; iri?: string; nullable?: boolean;
-  annotations?: readonly JoinAnnotation[]; stats?: JoinColumnStats;
-}
-interface JoinColumnStats {
-  nullCount: number; distinctCount: number; minValue?: string; maxValue?: string;
-  mostCommonVals: readonly string[]; mostCommonFreqs: readonly number[];
-}
-interface JoinAnnotation { predicate: string; object: string | { value: string; language?: string; datatype?: string } }
-interface RelationColumn extends JoinColumn { of: string; candidateKey: boolean; label?: string } // `of` the type it is counted over
+interface Relation { key: string; table: TableExpr; vertices: readonly RelationVertex[]; roots: readonly RelationVertex[] }
+interface RelationVertex { type: string; index: ExprNode; variable?: string }
 ```
 
 ### FilterBar
@@ -742,26 +637,23 @@ Every other prop goes to the root `section` (`data-slot="filter-bar"`).
 ### Field stats
 
 ```ts
-function useFieldStats(relation: RelationExpr, options?: FieldStatsOptions): FieldStatsState;
-function fieldStats(columns: readonly FieldColumn[], options?: FieldStatsOptions): FieldStats;
+function useFieldStats(pattern: Pattern, options?: FieldStatsOptions): FieldStats;
+function fieldStats(described: readonly FieldColumn[], options?: FieldStatsOptions): FieldStat[];
+function patternColumns(graph: Graph, pattern: Pattern): { columns: string[]; described: FieldColumn[] };
 function autoDashboard(fields: readonly FieldStat[]): DashboardSpec;
 
 interface FieldStat {
-  name: string;
+  name: string;        // variable.property
   type: string;        // DuckDB's type
   kind: FieldKind;     // "numeric" | "temporal" | "categorical"
   role: FieldRole;     // "dimension" | "measure" | "identifier"
-  distinct: number;    // the writer's count, or SUMMARIZE's approx_unique where there is none
+  distinct: number;    // the chunks' count, the least they allow, or 0 where they say nothing
   min?: number;        // the extent of a numeric or temporal field —
   max?: number;        //   a temporal one in epoch milliseconds
-  values?: readonly string[];               // the commonest values, where the writer counted them
-  annotations?: readonly JoinAnnotation[];  // what the graph annotates the column with
-  label?: string;                           // what the data calls it: what a title reads
 }
-type FieldColumn = JoinColumn & { candidateKey?: boolean; label?: string };
+interface FieldColumn { name: string; type: string; primary?: boolean; stats?: Stats } // Stats is graphar's
 interface FieldStatsOptions { exclude?: readonly string[] }
 interface FieldStats { fields: FieldStat[]; columns: string[] }
-interface FieldStatsState { fields: FieldStat[] | null; columns: string[] | null; error: unknown }
 ```
 
 The spec's types — `DashboardSpec`, `Tile`, `TileKind`, `TileSpan`, `StatTile`, `ChartTile`,

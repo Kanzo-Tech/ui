@@ -116,8 +116,9 @@ pnpm add @kanzo-tech/mosaic @uwdata/mosaic-core @uwdata/mosaic-sql @uwdata/vgplo
 the Mosaic `Coordinator` inside it and the file registry beside it. Hand it to `MosaicProvider`,
 which registers its coordinator as vgplot's active one and owns the page's one
 `Selection`: every chart beneath it filters by it and publishes into it, and nobody passes one in.
-Hand it `joins` — a join graph, `readJoinGraph` for an attached GraphAr graph — and a clause published on one
-relation reaches a chart reading another ([across relations](#across-relations)). DuckDB-WASM is browser-only, so ask for it in a
+Hand it `graph` — the `Graph` `@kanzo-tech/graphar-duckdb`'s `attachGraph` answers — and a part may read
+a `Pattern` over it, and a clause published on one relation reaches a chart reading another
+([across relations](#across-relations)). DuckDB-WASM is browser-only, so ask for it in a
 `"use client"` island loaded with `ssr: false`, render a skeleton until it is ready, and let the
 chart hydrate:
 
@@ -202,16 +203,16 @@ coordinator (every example below does — see `docs/examples/charts/mosaic-boot.
 
 Every `relation` — on `ChartRoot`, `ChartTimeline`, `ChartStat`, `ChartFilter`, `ChartSearch`,
 `ChartSlider`, `FilterBar` and the dashboard's parts — is one word for what a part reads: a table by
-name, a path over the provider's `joins` (a `Relation`, see [across relations](#across-relations)),
-or SQL. A table reads the way Mosaic reads one. A **string is one
+name, a `Pattern` over the provider's `graph` ([across relations](#across-relations)), or SQL. A table reads the way Mosaic reads one. A **string is one
 identifier** in the default catalog: `"sightings"` is `FROM "sightings"`, and a dot inside it is
 part of the name, not a path. A relation anywhere else is a **mosaic-sql node**, which goes into
 the SQL as written: `asTableRef(["guild", "sightings"])` for a path you hold in parts, `verbatim(sql)`
 for a name a backend hands you already quoted.
 
-An attached GraphAr graph is the second case. `attach(name, …)` attaches every table as a view in the catalog
-`name`, so a vertex type is `"<name>"."Sighting"`, catalog and all; the bare type name is nothing in
-the default catalog:
+A graph's own tables are the second case: a vertex type's table is the `table` the `Graph` names for
+it, catalog and all, and the bare type name is nothing in the default catalog. Read a graph by a
+`Pattern` and none of this is yours to spell; reach for a type's table only for a chart the pattern
+cannot say:
 
 ```tsx
 "use client";
@@ -229,7 +230,7 @@ function SightingsByRegion({ relation }: { relation: string }) {
   );
 }
 
-// after attach("archive", { engine, url }): relation is '"archive"."Sighting"'
+// relation is graph.vertexTypes.find((t) => t.type === "Sighting")!.table
 ```
 
 A node is keyed by its SQL, not by its identity, so writing `verbatim(relation)` inline does not
@@ -244,21 +245,24 @@ through its own extension point, the selection's resolver: a clause published on
 by a part on another.
 
 - A part's `relation` is what its clauses are published on, and what a clause published elsewhere
-  reaches it as. A **name** — `"Person"`, or a table — is one step; a **`Relation`**, a root type and
-  hops over the joins, is longer, compiled with `relationQuery`.
+  reaches it as. A **`Pattern`** — `[{ as: "person", type: "Person" }, { edge: "knows", direction:
+  "out" }, { as: "friend", type: "Person" }]` — is read as the graph's `match` of it
+  (`relationOver`), with a column per named vertex for its index and `variable.property` for every
+  property. A table names no relation.
 - On **the same relation**, a clause arrives as published.
-- On **another relation the joins reach**, it arrives as `key IN (SELECT key FROM T WHERE …)`: the
-  rows of the relation it was published on, under every clause published there at once, crossed by
-  their root's key into the step of this relation that is of that type.
-- With **no step of that type**, it keeps none of the relation — `FALSE`
+- On **another relation**, it arrives as the indices of the vertices the clause's rows stand for —
+  under every clause published there at once — landed on this relation's vertex of the same type:
+  `person IN (SELECT …)`. Where this relation holds no vertex of that type, they are carried along the
+  graph's one shortest path to its first vertex (`graph.reach`).
+- With **no way across** — no path, or two shortest — it keeps none of the relation, `FALSE`
   ([why](/docs/design/crossfilter#the-thesis-everything-is-a-filter)).
 
 `relation` may change: the chart re-queries and withdraws the clause it published on the old one, and
 nothing else needs to know. A part handed SQL over a relation — a projection, an answer's rows — is
 told which relation it is by a `MosaicClients relation={…}` around it.
 
-The types: `RelationExpr` is what every `relation` prop takes — a `TableExpr` or a `Relation` — and
-`RelationRef` the relation as the page knows it, a name or a path. A `MosaicClient` of your own takes
+The types: `RelationExpr` is what every `relation` prop takes — a `TableExpr`, a `Pattern`, or a
+`Relation` already built, such as `verticesOf(graph)` from `@kanzo-tech/graph`. A `MosaicClient` of your own takes
 part by implementing `RelationClient` — a `relation` it reads now — and publishing its clauses through
 `onRelation(clause, relation)`.
 
@@ -491,7 +495,7 @@ function Total({ rows }: { rows: number }) {
 | `color(key)` | the series colour, already resolved to `rgb(...)` — safe in CSS and in Plot |
 | `formatNumber(value, options?)` | the chart's `Intl.NumberFormat`, from the root's `locale` / `numberFormat` — one number vocabulary for axes, legend and tooltip |
 | `config` | what the root was given |
-| `table`, `relation` | what the marks read — the root's `relation`, compiled over the provider's `joins` — and the relation the page knows the chart by, what its clauses are on |
+| `table`, `relation` | what the marks read — the root's `relation`, a pattern read over the provider's `graph` — and the relation the page knows the chart by, what its clauses are on |
 | `selection` | the page's one selection: what the marks read and the interactors write |
 | `engine` | the page's engine, for a part that queries alongside the plot |
 | `plot()` | the vgplot `Plot` on screen as `ChartPlot` — its `interactors` — or `null` before the first build; a part that moves a brush asks the brush, as `ChartTimeline` does |
@@ -513,7 +517,7 @@ control's.
 ```
 
 It counts the rows that have the column; a row without one has no bar to stand in. Over a graph,
-`relation="vertices"` — every vertex type as one relation, which `readJoinGraph` includes — draws
+`relation={verticesOf(graph)}` — every vertex type as one relation, from `@kanzo-tech/graph` — draws
 every vertex with the column, and its window keeps only those: a type without the column is greyed,
 as Cosmograph greys it.
 
@@ -686,7 +690,7 @@ await (await env.getHarness(ChartHarness.with({ title: "Sightings by beast" })))
 | Prop | Type | Default |
 | --- | --- | --- |
 | `engine` | `Engine` — `engine()`'s | — |
-| `joins` | `JoinGraph \| null` — the graph a part's `relation` names a type or a path over, and a clause crosses relations through | `null` |
+| `graph` | `Graph \| null` — graphar's, what a part's `Pattern` is read over and a clause crosses relations along | `null` |
 | `onFailure` | `(error: unknown) => void` | — |
 
 `onFailure` receives what a failed query threw, whole — DuckDB's error, or `engine()`'s `Problem`
@@ -695,7 +699,7 @@ failed in its own frame: a failed chart reads *This chart could not be drawn.*, 
 `useChartQuery` and `useMosaicInput` return the same value as `error`.
 
 The provider owns the page's one selection; nobody passes one. `useMosaic()` returns
-`{ engine, selection, joins, onFailure }` — `selection.reset()` clears every clause on the page,
+`{ engine, selection, graph, onFailure }` — `selection.reset()` clears every clause on the page,
 `selection.reset([clause])` that clause, which is what a chip's remove button does, and `onFailure`
 reports a failure of your own part the way the library's do. It throws outside a `MosaicProvider`.
 
@@ -704,7 +708,7 @@ reports a failure of your own part the way the library's do. It throws outside a
 | Prop | Type | Default |
 | --- | --- | --- |
 | `enabled` | `boolean` — whether the clients beneath it query; a nested `false` wins | `true` |
-| `relation` | `string \| Relation` — the relation the clients beneath it read, for a part handed SQL over it | the enclosing one's |
+| `relation` | `Relation` — the relation the clients beneath it read, for a part handed SQL over it | the enclosing one's |
 
 `MosaicClientsProps` also takes `children`.
 
@@ -733,7 +737,7 @@ its rows, and runs the query it was owed once enabled".
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `relation` | `string \| Relation \| ExprNode` — a table by name, a path over the provider's `joins`, or SQL ([another catalog](#a-relation-in-another-catalog)) | — (omit it when every mark carries its own `data`) |
+| `relation` | `RelationExpr` — a table by name, a `Pattern` over the provider's `graph`, a `Relation`, or SQL ([another catalog](#a-relation-in-another-catalog)) | — (omit it when every mark carries its own `data`) |
 | `config` | `ChartConfig` | `{}` |
 | `height` | `number` | `200` (width is measured from the container) |
 | `margin` | `number \| { top, right, bottom, left }` | vgplot's default |
@@ -839,8 +843,7 @@ import — taking them raw is what an escape hatch *is*.
 From `@kanzo-tech/mosaic`, and from nowhere else: the aggregates `count` `sum` `avg` `min` `max`
 `median` `quantile` `stddev` `mode`, and `sql`; the boot vocabulary `engine` `Coordinator` `Selection`
 and the `load*` loaders; [`Query`](/docs/hooks/use-chart-query) and `asc` `desc`, the two
-directions its `.orderby()` takes; the relation algebra (`Relation`, `JoinGraph`, `relationKey`, …)
-and `RelationExpr`, what every part's `relation` takes; `TableExpr`, `numbers` and `queryFailure`.
+directions its `.orderby()` takes; the page's crossfilter over a graph (`crossfilterOver`, `relationOver`, `Relation`, `patternKey`, …); `TableExpr`, `numbers` and `queryFailure`.
 
 ```tsx
 import { count, Query } from "@kanzo-tech/mosaic";
@@ -864,9 +867,8 @@ reaches for is here.
 | Loaders | `loadObjects` `loadCSV` `loadJSON` `loadParquet` `loadSpatial` `loadExtension` |
 | The engine | `engine` `Engine` `Problem` `queryFailure` `numbers` `TableExpr` |
 | The clause rule, ours | `clauseSemiJoin` `clauseAntiJoin` `clauseColumns` `clauseParts` `clauseLabel` `ClauseParts` `SemiJoinMembers` `SemiJoinMetadata` `SemiJoinOptions` `AntiJoinMetadata` |
-| The page's crossfilter | `crossfilterOver` `JoinResolver` `JoinStep` `JoinField` `JoinMiss` `onRelation` `relationOf` `sameRelation` `readOf` `preaggregateOwnRelation` `relaySelection` `RelayOptions` `RelationClient` `RelationExpr` `RelationRef` `RelationMetadata` |
+| The page's crossfilter | `crossfilterOver` `GraphResolver` `relationOver` `patternKey` `onRelation` `relationOf` `sameRelation` `preaggregateOwnRelation` `relaySelection` `Relation` `RelationVertex` `RelationClient` |
 | First draws | `holdFirstDraw` `firstDrawsPending` `onFirstDraws` |
-| Relations over a join graph | `Relation` `JoinGraph` `JoinEdge` `JoinType` `Hop` `RelationHop` `relationQuery` `relationKey` `relationHops` |
 
 For a descriptor of your own, `chartDescriptor(displayName, compile)` mints one; `compile` returns
 plain data (`{ kind: "mark", mark: "barY", source, options }`), never a `vg.*` call.

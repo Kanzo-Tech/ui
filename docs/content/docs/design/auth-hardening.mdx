@@ -71,7 +71,7 @@ the config is read".
 
 ## The forwarder bounds its hop and ends it when the person leaves
 
-**The forwarder waits for the upstream through the kernel's `within`, with the request's own signal:
+**The forwarder waits for the upstream through the `within` of `problems`, with the request's own signal:
 bounded until the upstream's headers, and a bound that fires is `api/silent`, 504.** It passed no signal
 at all once, so a hung handler held the application's connection until the HTTP client's own timeouts
 (not looked up), and a person navigating away cancelled nothing upstream: N tabs against one hung API

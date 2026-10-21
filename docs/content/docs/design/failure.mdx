@@ -10,7 +10,7 @@ of codes it names itself, and the figures of the waits it bounds.
 
 *Status: to be built.* The tree still has four classes, a `deadline()` in auth and equal figures on
 nested waits; each section says what it deletes, and the *Breaking* list at the end is the migration.
-The pieces named here live in [the kernel](/docs/design/kernel).
+The pieces named here live in [problems](/docs/design/problems).
 
 ## The thrown value, whole, by one path
 
@@ -29,7 +29,7 @@ typed string" and "bites on a class extending MosaicClient with no queryError".
 
 ## One class
 
-**A failure that leaves a package is a `Problem` (from `@kanzo-tech/kernel`) or an `AbortError`.**
+**A failure that leaves a package is a `Problem` (from `@kanzo-tech/problems`) or an `AbortError`.**
 `EngineError`, `GraphError`, `LlmError` and `AuthError` are one class four times, written by copy with
 the constructor `(code, message, data, options)`, and what they were for, "one class per package, named
 for it", was a convention the code could not hold: `@kanzo-tech/llm` once coded `ai/unavailable` while
@@ -44,7 +44,7 @@ problem, because it means no semantics beyond the status (§4.2.1), and `title` 
 short summary of the type (§3.1.3), not the status phrase. `packages/auth/src/problem.ts` still writes
 the `about:blank` form today and moves with the migration. A host tests with
 `isProblem(error, code?)`, structurally and never by `instanceof`
-([the kernel](/docs/design/kernel#problem) argues why).
+([problems](/docs/design/problems#problem) argues why).
 
 **The wire is `application/problem+json`, from every server that speaks for the family.** The BFF
 already answered that way; keasy's Rust server answered `application/json` with a bespoke
@@ -70,14 +70,14 @@ the list is a generated artifact each side reads, which is the next section. Or 
 read `problem+json`; there is none.
 
 *Not yet held:* the guards that make four classes into one
-(`one-failure-model.test.ts` in [the kernel](/docs/design/architecture#the-guards)) are to be
+(`one-failure-model.test.ts` on [the architecture page](/docs/design/architecture#the-guards)) are to be
 added.
 
 ## The registry is generated
 
-**The codes are written once, in `problems.bnf` beside the kernel, and every projection is generated
+**The codes are written once, in `problems.bnf` beside the class, and every projection is generated
 from it: the TypeScript table by a script in this repository, the Rust table by the server's own
-`xtask` from the file the kernel publishes.** It is fossil's pattern: its `problem.gen.ts` is generated,
+`xtask` from the file `problems` publishes.** It is fossil's pattern: its `problem.gen.ts` is generated,
 never edited, and a code in it is "stable once released, never reworded, never reused". A row is the
 code, its HTTP status where it crosses a wire, its title (the type's, one per code), and the fields of
 its `data`, and the file's one `base` is the prefix every `type` is made from. The file's grammar is in
@@ -94,8 +94,8 @@ this library. fossil's own codes stay in fossil's catalogue, generated from its 
 
 **The Rust generator is the consuming server's, in its own `xtask`, and this library ships the
 `.bnf`, not a generator** (decision 1-B, 16 October 2026). keasy's `xtask` reads `problems.bnf` from
-the `@kanzo-tech/kernel` package it installs from npm — the file is in the package's `files` and its
-`exports` (`@kanzo-tech/kernel/problems.bnf`) for exactly this — and writes its Rust table beside its
+the `@kanzo-tech/problems` package it installs from npm — the file is in the package's `files` and its
+`exports` (`@kanzo-tech/problems/problems.bnf`) for exactly this — and writes its Rust table beside its
 own `rbac/*` registry, with the same generator over both. What this repository fixes is the grammar,
 the file and the version it is published at; a server pins the version its table was generated from,
 and a new code reaches it when it upgrades the package, as any dependency's change does. The
@@ -109,7 +109,7 @@ disagree through — then the generator is shared, published once, and this para
 **What would reverse it:** the registry having one writer in one language, in which case it is a
 module and not a generated file.
 
-*Not yet held:* the table-driven test in the kernel (every row builds, serialises and rebuilds) and
+*Not yet held:* the table-driven test in `problems` (every row builds, serialises and rebuilds) and
 `check:generated` over `problems.gen.ts` are to be added.
 
 ## The codes this library names
@@ -131,12 +131,14 @@ keys all three. `data.after` is milliseconds when a deadline fired.
 | `llm/unavailable` | n/a | the page cannot run the model: no WebGPU for `localModel` | `reason` | says the model cannot run here |
 | `llm/truncated` | n/a | a structured answer the model's context cut off | `reason` `"context"` | a Task repairs it once, then shows it |
 | `llm/silent` | n/a | the model's load or a generation made no progress within its bound | `after`, `stage` | frees the turn and offers a retry |
-| `relations/invalid`, `relations/unmatched`, `relations/no-step` | n/a | a `JoinGraph` that contradicts itself; a mapping term that names nothing in the catalog; a path step that resolves to nothing | the type or term named | fixes the catalog or the mapping; it is a fault of wiring, shown, never an empty result |
 | `session/*`, `idp/*`, `api/unreachable`, `callback/*`, `token/*`, `organization/*`, `claims/*` | from the code | see [the auth layer](/docs/design/auth) | `after`, `status` where named | the BFF answers them; the registry holds status |
 | `api/silent` | 504 | a forwarded API did not answer its headers within the forwarder's bound | `after` | retries or shows it |
 
-`engine/lost`, `engine/failed`, `engine/cannot-cancel`, `relations/*`, `graph/too-large`, `llm/silent` and
-`api/silent` are new. `engine/failed` is fossil's own code for the same event, which the Mosaic
+`engine/lost`, `engine/failed`, `engine/cannot-cancel`, `graph/too-large`, `llm/silent` and
+`api/silent` are new. The `relations/*` codes went with `@kanzo-tech/relations`: a pattern the graph
+refuses is graphar's `GraphArError`, handed to the host whole as every thrown value is, and a clause
+with no way across the graph keeps nothing, which is a decided state and no failure
+([Crossfilter](/docs/design/crossfilter#formal-semantics)). `engine/failed` is fossil's own code for the same event, which the Mosaic
 engine did not code at all, so a refused statement arrived as DuckDB's raw error and was wrapped
 differently by each reader (`engine/failed` in fossil, `GraphArError("engine")` in graphar, a string in
 rudof). `engine/lost` is the supported state of a DuckDB worker that dies, an out-of-memory sort being
@@ -201,7 +203,7 @@ rewrapped the loser as `session/unavailable`. The transport went when the sessio
 server hands down, and a host bounds its own API calls in the requests it makes
 ([the auth layer](/docs/design/auth-failure#one-party-bounds-each-wait)).
 
-**`within` is the only helper** ([the kernel](/docs/design/kernel#within) has its rules). It composes the
+**`within` is the only helper** ([problems](/docs/design/problems#within) has its rules). It composes the
 caller's signal with its own, so an outer Stop or an outer deadline reaches every inner wait; this is
 what the forwarder lacked, which passed no `signal` to the upstream `send` and so neither bounded the
 hop nor cancelled it when the person navigated away: N tabs against one hung API exhaust the web
@@ -232,7 +234,7 @@ that is shorter than its inner is a bug in the arithmetic, not a position.
 
 *Held by* `packages/auth/src/next-proxy.test.ts`, "answers 504, as a problem naming api/silent, when
 the API sends no headers within the bound". To be added: the one-deadline guard (no timer that aborts or
-rejects outside the kernel) and a nesting test in `auth` that reads the package's table of bounds and
+rejects outside the problems package) and a nesting test in `auth` that reads the package's table of bounds and
 asserts rules 1 and 2 on it. *Cannot prove:* a bound set in another repository (the Rust server's, the
 reverse proxy's), which is why the table names each owner.
 
@@ -325,7 +327,7 @@ that fails does not fail the load; the next call pays what it would have. `ready
 can generate", and is published once it has, so a screen that waits for it does not start its
 questions behind a warm-up. The load, the warm-up and the first call (to its first token, or to its
 result when asked whole) are spans named `kanzo:llm:load`, `kanzo:llm:warm-up` and
-`kanzo:llm:first-call`, written by the kernel's `mark` and readable under Timings in Chrome's
+`kanzo:llm:first-call`, written with `performance.measure` and readable under Timings in Chrome's
 Performance panel. They are also where the model's two silence bounds above are read off.
 
 **What would reverse it:** the first call costing no less after the warm-up than before, in those
@@ -340,7 +342,7 @@ and the first call in the performance timeline, once each".
 In the consumer's words; one changeset for each package named.
 
 - `EngineError`, `GraphError`, `LlmError` and `AuthError` are gone. Test with `isProblem(error, code)`
-  from `@kanzo-tech/kernel`; the codes are unchanged except where the table says new.
+  from `@kanzo-tech/problems`; the codes are unchanged except where the table says new.
 - keasy's server answers `application/problem+json`. A client that parsed `{code, title, detail, data}`
   from `application/json` reads `Problem.from(body)`; the server's `auth/session-required` is
   `session/absent` and `auth/keys-unavailable` is `idp/unreachable`.

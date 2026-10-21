@@ -159,13 +159,13 @@ No value here is chosen by eye. Each is a cited default or follows from a stated
 client of the same relation reads it as published; a client of another reads it crossed into
 identity form, `key IN (SELECT key FROM <relation> WHERE …)`, by the page's resolver — the timeline,
 a dashboard and the canvas alike, with no route of their own ([below](#one-selection-across-relations)).
-The timeline stops being a special path: it is `ChartTimeline` over `vertices`.
+The timeline stops being a special path: it is `ChartTimeline` over `verticesOf(graph)`.
 
 **A clause a type cannot answer keeps none of that type, everywhere.** It is the timeline's rule and
 Cosmograph's (a point with no value answers `isBetween` false and is greyed,
 [Timeline](/docs/design/timeline)). `GraphClient` asks only the vertex tables that answer every
 clause, under all of them, and the search's `inside` reads the same rule; a clause on another
-relation reaches the graph already crossed by key, which every vertex table answers. The rule is held
+relation reaches the graph already crossed, onto every vertex's id, which every vertex type answers. The rule is held
 per table rather than by the `NULL` a type without the column holds in the `vertices` union: a
 clause that tests for `NULL` would keep that type, and a column whose type differs across tables is
 not in the union at all.
@@ -296,18 +296,23 @@ no bridge between selections and no second way to retract a clause.
 ### What a host writes
 
 ```tsx
-<MosaicProvider engine={e} joins={joins}>
+const graph = await attachGraph(e, "archive", resolve, { entry: "fossil.graph.yml" });
+
+<MosaicProvider engine={e} graph={graph}>
   <FilterBar />
-  <GraphCanvas />                                   {/* the graph is one more client */}
-  <ChartTimeline relation="vertices" field="date" />
-  <RelationPicker value={relation} onValueChange={setRelation} />
-  <Dashboard relation={relation} />
+  <GraphCanvas />                                        {/* the graph is one more client */}
+  <ChartTimeline relation={verticesOf(graph)} field="date" />
+  <RelationPicker graph={graph} value={pattern} onValueChange={setPattern} />
+  <Dashboard relation={pattern} />
 </MosaicProvider>
 ```
 
-No selection, no bridge, no key. `joins` is the graph's join graph (`readJoinGraph`), which holds
-one more type, `vertices`: every vertex table as one relation, `NULL` where a table has no such
-column.
+No selection, no bridge, no key. `graph` is the `Graph` `@kanzo-tech/graphar-duckdb` answers; a
+`pattern` is one of its patterns (`[{ as: "award", type: "LaureateAward" }, { edge: "category",
+direction: "out" }, { as: "category", type: "Category" }]`), read as a relation by `relationOver`:
+`graph.match`'s rows, a column per named vertex holding its index and one per property of every
+named element, `award.year`. `verticesOf(graph)` is every vertex as one relation, `NULL` where a type
+has no such property.
 
 ### Who does what
 
@@ -318,29 +323,40 @@ column.
 - **Ours, the one thing Mosaic cannot do: a clause published on relation *A* read by a client on
   relation *B*.** One `SelectionResolver` — Mosaic's own extension point, `new Selection(resolver)`,
   whose `predicate(clauses, active, client)` receives the client (`@uwdata/mosaic-core` 0.32.0,
-  `Selection.ts`) — built over `joins` by `crossfilterOver(joins)`. A clause carries the relation it
-  was published on (`meta.relation`, `onRelation`); a client exposes the one it reads now
-  (`relation`). Every part does both: a chart's interactors publish on its `relation`, its marks
-  read it, and SQL handed to a part is named by a `MosaicClients relation` around it.
+  `Selection.ts`) — built over the graph by `crossfilterOver(graph)`, in `@kanzo-tech/mosaic`. A
+  clause carries the relation it was published on (`meta.relation`, `onRelation`); a client exposes
+  the one it reads now (`relation`). Every part does both: a chart's interactors publish on its
+  `relation`, its marks read it, and SQL handed to a part is named by a `MosaicClients relation`
+  around it.
+- **The graph's, the way across.** Which vertices of one type a set of another's reaches is
+  `Graph.reach`, which walks the graph's one shortest path between the two types and answers the
+  condition on the far type. The resolver writes no join: it asks.
 
 ### Formally
 
-For a clause *c* published on relation *A* with predicate *p_c*, and a client on relation *B*, let
-*root(A)* be the key of *A*'s root and its type, and *steps(B)* the key of each step of *B* with its
-type, in path order. Two types **meet** when they are one, or one is a union (`of`) holding the
-other. Then the resolver hands the client
+A relation names the vertices its rows carry, *vertices(R)*, each with its type and its index within
+it as SQL over the rows, and the ones a row *stands for*, *roots(R)*: a pattern's first vertex, or
+every type of `verticesOf`. For a clause *c* published on relation *A* with predicate *p_c*, and a
+client on relation *B*, let *K_r = SELECT index_r FROM A WHERE ⋀_\{c′ on A\} p_\{c′\}* for each
+*r ∈ roots(A)*. Then the resolver hands the client the disjunction, over *r ∈ roots(A)*, of
 
-> *r(c, B) = p_c* if *A = B*;
-> *r(c, B) = k IN (SELECT key_A FROM A WHERE ⋀_\{c′ on A\} p_\{c′\})* for the first *(k, t) ∈ steps(B)*
-> whose type meets *root(A)*'s;
-> *r(c, B) = FALSE* when no step meets it.
+> *v IN K_r* for the first *v ∈ vertices(B)* of *r*'s type;
+> else *b IN reach(K_r, type(b))* for *B*'s first vertex *b*, where `Graph.reach` finds one
+> shortest path between the two types;
+> else nothing;
 
-Every clause published on one relation crosses **together** — on a joined relation, a root with a
-row where *a* and *b* hold is not a root with a row where *a* and one where *b*. A clause or a client
-that names no relation is Mosaic's: the clause as published. *kept* is then the conjunction of
-[Formal semantics](#formal-semantics), read per client: *ans(c, v)* is false for a type with no step
-of *A*'s root type, and over `vertices` a column clause keeps none of a type without the column,
-because `GraphClient` asks only the tables that answer every clause.
+and *r(c, B) = p_c* if *A = B*, *FALSE* if the disjunction is empty. Every clause published on one
+relation crosses **together** — on a pattern, a row where *a* and *b* hold is not a row where *a*
+holds and another where *b*. A clause or a client that names no relation is Mosaic's: the clause as
+published. *kept* is then the conjunction of [Formal semantics](#formal-semantics), read per client:
+*ans(c, v)* is false where the graph has no way across, and over `verticesOf` a column clause keeps
+none of a type without the column, because `GraphClient` asks only the types that answer every
+clause.
+
+**No path, or more than one shortest, is `FALSE`.** `Graph.reach` refuses both (`GraphArError`
+`unknown` and `ambiguous`), and the resolver reads either as a crossing that keeps nothing, which is
+the same answer as a pattern with no vertex of the clause's type: the chart says what the page keeps,
+and the page keeps none of it. Any other failure is thrown.
 
 ### A relation that changes
 
@@ -348,7 +364,7 @@ because `GraphClient` asks only the tables that answer every clause.
 dashboard switched to another relation — by a `RelationPicker`, or by an answer's *Open on the
 dashboard* — unmounts its tiles. Neither takes a clause off the page. The clause stays on the page's
 one selection, a chip in the `FilterBar` named as `clauseLabel` names it, and the resolver crosses
-it into the new relation by key, as it crosses every other clause — the crossing Ask already reads
+it into the new pattern, as it crosses every other clause — the crossing Ask already reads
 its answers under. No other client needs anything, because the resolver reads each client's relation
 when it asks. A filter goes only when the reader removes it: its chip, the chart's own clear or
 re-pick, *Clear every filter*, or taking the filter off the dashboard that draws it.
@@ -364,9 +380,8 @@ new interactor takes the place its own key names.
 
 **A part does not withdraw on unmount.** Withdrawing would take a filter off the page whenever its
 chart unmounted or its relation changed, so that a filter on one relation never reached the next: a
-pick of *Physics* on a dashboard over `LaureateAward > category > Category`, Ask answering *under the
-page's filter: Category.name Physics*, then the dashboard switched to
-`LaureateAward > university > University` — and the pick would be gone, the chip with it, and the next
+pick of *Physics* on a dashboard over awards and their category, Ask answering *under the page's
+filter: category.name Physics*, then the dashboard switched to awards and their university — and the pick would be gone, the chip with it, and the next
 answer over every category with nothing on screen to say so. The reference is Kibana: a filter in its
 filter bar belongs to the app, not to the visualization that added it, and stays across
 visualizations until it is removed. It is also what this page claims — one selection for the page,
@@ -387,7 +402,7 @@ no `FilterBar` becoming a shape this library supports: then a part on such a pag
 unmount, and a page with a bar keeps its filters.
 
 *Held by* `packages/graph/src/parts/relation-switch.test.tsx`, "stays on the page as a chip, filters
-the new relation by key, goes with its chip, and is drawn again where it was made";
+the new pattern, goes with its chip, and is drawn again where it was made";
 `packages/graph/src/parts/timeline.test.tsx`, "keeps its window on the page when it unmounts,
 undelivered or not, and draws it again when it mounts";
 `packages/ui/src/charts/chart-inputs.test.tsx`, "disconnects its client on unmount and leaves its
@@ -402,9 +417,15 @@ columns of another relation: a failed statement where the column is missing, and
 the same name exists, **the wrong rows**. `preaggregateOwnRelation(coordinator)`, which the provider
 installs once per coordinator, answers *no view* for a client the active clause crosses into, so it
 asks the plain query the resolver crosses; a client of the clause's own relation is pre-aggregated
-exactly as before. Measured on the test corpus (`crossing-preagg.test.ts`): a brush on Places'
-`lon` over 1–3 keeps Places 11–13; a tile of places reads it from a `mosaic.preagg_*` view; a tile of
-people reads `[]` with the guard, and **`lon` 1–3 of people — three wrong rows — without it**.
+exactly as before. Measured on the test corpus (`crossing-preagg.test.ts`), over each type's own
+table: a brush on Places' `lon` over 1–3 keeps Places 1–3; a tile of places reads it from a
+`mosaic.preagg_*` view; a tile of people reads the six who live there with the guard, and **`lon`
+1–3 of people — three wrong rows — without it**.
+
+**A pattern is never pre-aggregated.** `graph.match` answers SQL text, and the pre-aggregator
+pre-aggregates only a query it can trace to one base table (`preagg-columns.ts`, `baseTable`), so a
+tile over a pattern asks its plain query on every brush; `relation-preagg.test.ts` measures both
+sides. The guard above still holds for a host's own relation over a table.
 
 ### The load waits for the charts, not for one part
 
@@ -414,35 +435,35 @@ is drawn, fails, or stops asking under a `MosaicClients` that is off.
 
 ### What would reverse it
 
-- **A relation whose keys do not share a space** — two graphs on one page, whose `dense_id`s
-  collide: then a key is a pair and the crossing a tuple semi-join.
-- **A path ambiguous enough to need choosing** — a relation with two steps of the clause's root type
-  where the first is the wrong one often enough to matter: then a clause names the step it crosses
-  into, and the resolver stops picking the first.
+- **Two graphs on one page**: the resolver holds one, so a clause on a pattern of the other crosses
+  nowhere. Then a relation names its graph, and two relations of different graphs never meet.
+- **A path ambiguous enough to need choosing** — two shortest paths between the types a reader
+  crosses between often enough that `FALSE` reads as a wrong answer: then a clause names the edges
+  it crosses along (`reach`'s `via`), and the resolver stops refusing.
+- **`graph.match` answering a node Mosaic can trace** — a pattern of one vertex as its type's own
+  table: then a pattern's tile pre-aggregates like a table's.
 - **Mosaic exposing a per-client pre-aggregation veto, or a resolver hook it calls before
   pre-aggregating**: then `preaggregateOwnRelation`, which wraps the pre-aggregator's public
   `request`, goes for it.
 - **A measured cost of the crossing subquery** at the largest graph — it reads the relation the
-  clause was published on once per crossed client per update: then the keys are materialised once
-  per clause. At 200,000 people in DuckDB-WASM under Node the canvas's query over the `vertices`
-union measured the same as over the per-table union it keeps for the clause rule (median of 15:
-19.7 ms against 19.9 ms for a column clause, 25.9 ms against 29.7 ms for 500 ids); the graph
-benchmark in a browser was not run for this step.
+  clause was published on once per crossed client per update: then the vertices kept are
+  materialised once per clause. Not measured since the crossing moved onto `Graph.reach`.
 
-*Held by* `packages/relations/src/crossfilter.test.ts`, "hands a clause to a client of the relation it
-was published on as it was published", "crosses a clause into another relation by the key of the
-step of its root's type", "keeps none of a relation with no step of the clause's type", "crosses
-every clause on one relation together, and leaves clauses that name no relation as published",
-"reads the client's relation when it asks, so a client that moves needs nothing else", "is asked for
-a clause on the client's own relation, and not for one crossed into it";
-`packages/graph/src/core/crossing.property.test.ts`, "reads a clause on one relation from another
-exactly as the semi-join on its root's key, and as nothing without a step of its type", "retracts a
-chip's clause for every reader, whatever relation it was published on";
+*Held by* `packages/mosaic/src/crossfilter.test.ts`, "reaches a client of its own relation as
+published", "lands on the client's vertex of the same type: the people who live in Place 3", "is
+carried along the graph's one shortest path where the client holds no vertex of its type", "crosses
+every clause of one relation together: the rows where both hold, not each one's", "keeps none where
+the graph has no way across", "reaches every client as published where the clause or the client
+names no relation";
+`packages/graph/src/core/crossing.property.test.ts`, "reads a clause on one pattern from another
+exactly as the semi-join on its first vertex, landed by type or carried by the one shortest path",
+"retracts a chip's clause for every reader, whatever relation it was published on";
 `packages/graph/src/core/crossing-preagg.test.ts`, "pre-aggregates a client of the clause's own
 relation, and asks a crossed one the plain query", "would index a crossed client by a column of the
 same name on its own table without it — the wrong rows";
 `packages/graph/src/core/one-selection.test.ts`, "filters the graph by what the tiles' brushes keep,
-as the root vertices they keep";
+as the root vertices they keep", "carries a clause along the graph's one path to a relation with no
+vertex of its type";
 `packages/graph/src/parts/timeline.test.tsx`, "holds the graph's loading until its bars are drawn,
 as any chart on its page, and mounts its band once", "crosses a window on it into every other
 relation, keeping none of a type without the column".
@@ -472,7 +493,7 @@ resolution strategies, `cross` and `empty`; it lists no custom resolver and no c
 
 | Hook | What the crossing does with it | Why it is not public |
 | --- | --- | --- |
-| The resolver class | `JoinResolver` subclasses it, reached as `Selection.crossfilter().resolver.constructor`, and `new Selection(resolver)` is the extension point | mosaic-core 0.32.0 declares `SelectionResolver` as a type only |
+| The resolver class | `GraphResolver` subclasses it, reached as `Selection.crossfilter().resolver.constructor`, and `new Selection(resolver)` is the extension point | mosaic-core 0.32.0 declares `SelectionResolver` as a type only |
 | `meta.relation` on a clause, `relation` on a client | read by the subclass in `predicate(clauses, active, client)` | undocumented upstream |
 | `preaggregator.request` | `preaggregateOwnRelation` wraps it to veto a pre-aggregate for a client the clause crosses into | no per-client veto exists |
 
@@ -503,24 +524,20 @@ and replacing what merely restates the paper by a pointer and the delta (answera
 *keeps none* rule), is owed, and nothing here claims they agree.
 
 **A crossing that cannot be resolved is a failure, not a chart with no rows.** `FALSE` is the answer
-for exactly one case, the decided one: the relation has no step whose type meets the clause's root,
-so nothing of it can be read across and it keeps none. The resolver also swallowed *every* error into
-`FALSE` — an unknown relation name, a step lookup that threw — so a typo rendered as "no rows" and no
-`onFailure` was called, which is one state shown as another. A name that resolves to nothing throws a
-`Problem` (`relations/no-step`, [relations](/docs/design/relations#a-path-reads-as-malloys-dots-and-sparqls-inverse)),
-and the `catch` is deleted. A throw from `predicate` happens while Mosaic builds the client's query, so
-it should reach that client's `queryError`, which the provider already routes to `onFailure`; that is
-read from mosaic-core's request path and not run, and a test through the real coordinator is owed
-before the rule is relied on.
+for exactly the decided cases: the graph has no path between the two types, or more than one
+shortest (`Graph.reach`'s `unknown` and `ambiguous`), or the client's relation names a type the
+graph does not have. Every other error `reach` throws is thrown on, while Mosaic builds the client's
+query, so it should reach that client's `queryError`, which the provider already routes to
+`onFailure`; that is read from mosaic-core's request path and not run, and a test through the real
+coordinator is owed before the rule is relied on.
 
 **What would reverse it:** upstream accepting the three, which deletes the hooks and keeps the guard
 for the public ones; or rejecting them, which leaves them a documented fork point with the guard as its
-permanent test. The failure rule reverses only for a host that legitimately switches relations
-faster than its joins refresh: then the gap is a transient state the provider names, never a
-catch-all.
+permanent test. The failure rule reverses only for a host that legitimately switches graphs faster
+than its relations follow: then the gap is a transient state the provider names, never a catch-all.
 
-*Not yet held:* the behavioural guard; a `crossfilter.test.ts` case that an unknown relation rejects
-with `relations/no-step` and keeps no `FALSE` behind it.
+*Not yet held:* the behavioural guard; a test that a failure of `reach` other than its two decided
+refusals reaches `onFailure` through the real coordinator.
 
 ## References
 

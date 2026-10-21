@@ -361,20 +361,23 @@ while nothing is stored".
 
 ## A hop reads as a sentence, and says what it costs
 
-`RelationPicker` offers the hops that leave the last type as sentences, not as schema. An out-edge
-reads *The \{to\} it \{label\}* — *The place it is part of* — and an in-edge reads as the type it
-brings in and the edge, *\{Source\} · \{label\} this \{destination\}* — *Comment · located in this
-place*. The predicate is the edge's label in words: `isPartOf` is *is part of*, `isLocatedIn`
-*located in* where a lone `is` drops out, `hasCreator` *whose creator is*. A host's
-`phrase(edge, direction)` overrides any sentence (a self-edge's *parent* and *children* wording), and
-both patterns, like every other word the picker draws, are entries of its `translations`.
+`RelationPicker` builds a `Pattern` — a root type, then hops, each an edge to the type at its other
+end, every vertex named by `variableFor` (`person`, then `person2`) so its properties are fields — and
+offers the hops that leave the last type as sentences, not as schema. An out-edge reads
+*\{label\} → \{to\}* — *isPartOf → Place* — and an in-edge reads as the type it brings in and the
+edge, *\{Source\} \{label\} → this \{destination\}* — *Comment isLocatedIn → this Place*. The
+words are the graph's names: the `Graph` states no label, and splitting `isLocatedIn` into *located
+in* was a guess the library made for every graph ([What a field is](/docs/design/fields#the-words-are-names)).
+A host's `phrase(edge, direction)` overrides any sentence (a self-edge's *parent* and *children*
+wording, or a host's own words for its edges), and both patterns, like every other word the picker
+draws, are entries of its `translations`.
 
 **No noun inflects** (decided 13 October 2026). The in-edge read *Comments located in this place*,
 and the plural was the library's guess: an `+s` rule, and `plural(type)` for every noun it got wrong
 (*People*). The rule that titles name no plural ([Tasks](/docs/design/tasks#titles-name-no-plural))
 holds here too, for its reason: no labelling vocabulary carries a plural, so a plural is always
 derived, and derived English is wrong outside English and for every irregular noun. The sentence is
-written so it needs none — the type as its label, singular, beside the edge's words — and the `+s`
+written so it needs none — the type as its name, singular, beside the edge's — and the `+s`
 rule and `plural` are gone. *What would reverse it:* a labelling vocabulary that carries a plural;
 then it is read, not derived, as on Tasks.
 
@@ -382,15 +385,15 @@ The menu has two groups, *Follow from each \{Root\}* for out-edges and *Bring in
 for in-edges, each sorted by fan-out ascending. Each item says its fan-out — *1 per Place*,
 *~103 per Place*, *≤1 per Place* — and warns above ten, because one choice keeps the row count and
 the next multiplies it by a hundred. The fan-out is the edge's rows over the rows of the type it
-leaves: `JoinType.rows` and `JoinEdge.rows`, which `joinGraphOf` carries from the `record_count`
-`readStructure` already read. No query is added, and the counts are as fresh as the last load.
+leaves: the edge type's `count` over the vertex type's, both on the `Graph`. No query is added, and
+the counts are the graph's as attached.
 
 The path is chips — *Place › Comment · located in this place* — and any chip can be removed, which
 cuts the path there. Nothing is written under them: the fan-out on each item already says what a
 hop does to the rows before it is taken, which is where every reference below says it, and a line
-restating the grain sat on every dashboard as chrome nobody read (the owner, 2026-10-11). The joins
-stay **inner**, as `relationQuery` has always built them (mosaic-sql's `join()` defaults to
-`INNER`).
+restating the grain sat on every dashboard as chrome nobody read (the owner, 2026-10-11). A
+pattern's rows are its matches, so a root with no edge along a hop has none — the joins are
+**inner**, as `relationQuery`'s were and as a `MATCH` is.
 
 The references, verified 2026-10-10: Looker's join `relationship` (`one_to_one`, `many_to_one`,
 `one_to_many`, `many_to_many`) exists so measures survive fan-out; Metabase's notebook joins
@@ -413,17 +416,18 @@ then the join becomes left; or a reader surprised that a hop dropped roots — t
 takes it says so, beside its fan-out.
 
 *Held by* `packages/ui/src/charts/relation-picker.test.tsx`, "reads each hop as a sentence, grouped
-by direction and sorted by fan-out", "removes any chip, cutting the path there" and "lets a host
-phrase an edge, and words every sentence through its translations"; `packages/relations/src/relation.test.ts`, "gives each hop its fan-out when
-the graph carries counts".
+by direction and sorted by fan-out" and "lets a host
+phrase an edge, and words every sentence through its translations", "walks a pattern, naming every
+vertex so its properties are fields, and removes any chip, cutting the path there".
 
 ## A tile carries its own question
 
 **A tile holds its own conditions and its own ranking — `where` and `top` — beside what it shows,
-and is drawn under them and under the page's clauses.** A condition is a path and a predicate — `in`,
-`between`, `contains` — and a path off the tile's relation is crossed in by `JoinResolver.crossing`,
-as [Tasks](/docs/design/tasks#a-filter-off-the-shown-path-is-crossed-in-not-joined) says, so a tile's
-condition and a page's chip are the same predicate. `top` keeps a bar chart's first bars by its
+and is drawn under them and under the page's clauses.** A condition is a field of the tile's
+pattern and a predicate — `in`, `between`, `contains` — and it narrows the tile as a page's chip on
+that pattern does: the same predicate, on the same column. A condition on a field the pattern does not
+name is refused as what the tile lacks; to narrow by what lies beyond the pattern, the pattern takes
+the hop ([Tasks](/docs/design/tasks#physics-awards-by-university-as-the-model-writes-it)). `top` keeps a bar chart's first bars by its
 measure, ties broken by the bar, or a table's first rows; on any other chart it is refused when the
 spec is read, because a line's or a histogram's steps are not a ranking.
 
@@ -437,7 +441,7 @@ gives the relation narrowed by the tile's own question — what a chart's marks,
 table and *Filter the page* read — the measure on it, and the tile's rows, which Ask reads. Ask had a
 second, `answerQuery`, which shared `measureExpr` and `bucketExpr` and not the grouping, the order,
 `top` or the cap, so the rows a reply described and the chart beside it could differ. A tile naming a
-field or a path its relation cannot read is drawn as what it lacks, as a chart's missing field was.
+field, a vertex or a condition its pattern cannot read is drawn as what it lacks, as a chart's missing field was.
 
 **What would reverse it:** a tile whose own condition must be edited by the page's filters — a
 dashboard where a reader expects the page's chip on *Category* to replace the tile's *Physics*
@@ -445,40 +449,38 @@ rather than narrow it. Then the tile's condition is a default the page overrides
 *listens to* does, and it is still the tile's.
 
 *Held by* `packages/ui/src/charts/dashboard-spec.test.ts`, "narrows by a condition on the relation as
-its clause, and crosses one off it in at the step it leaves"; "keeps a bar chart's top bars by its
-measure, ties by the bar, and refuses a top on any other chart"; "says what the relation cannot read:
-a field it lacks, a path the joins do not have, a step it does not reach".
+its clause"; "keeps a bar chart's top bars by its measure, ties by the bar, and refuses a top on any
+other chart"; "says what the relation cannot read: a field it lacks, a vertex it does not name, a
+condition off it".
 
 ## `count` counts the measured type
 
-**`{ op: "count" }` is a `count(DISTINCT …)` of the relation's root key, on a tile and on an
-answer.** On a type alone it is the row count, as before — its keys are its rows, so it is written
-`count(*)`, which Mosaic can pre-aggregate; across a hop it is how many of the measured type the
-group holds, not how many joined rows. *Prizes by university* counts a prize once per university,
-however many paths lead there. The reference is Malloy's `count()`, which counts the source's distinct
-rows whatever the query joined.
+**`{ op: "count" }` is a `count(DISTINCT …)` of the index of the pattern's first vertex, on a tile and
+on an answer.** On a vertex alone it is the row count — its indices are its rows, so it is written
+`count(*)`; across a hop it is how many of the
+measured type the group holds, not how many matches. *Prizes by university* counts a prize once per
+university, however many matches lead there. The reference is Malloy's `count()`, which counts the
+source's distinct rows whatever the query joined, and GQL's `count(DISTINCT award)`.
 
-The other measures stay what `measureExpr` makes them, over the relation's rows: a `sum` or an
-`avg` across a hop that fans out sees a measured row once per path. Malloy computes those
-symmetrically too, and the cost of doing so here — no mosaic-sql node, the fanned rows held in
-DuckDB-WASM's memory — is on [Tasks](/docs/design/tasks#a-filter-off-the-shown-path-is-crossed-in-not-joined).
+The other measures stay what `measureExpr` makes them, over the pattern's rows: a `sum` or an `avg`
+across a hop that fans out sees a measured row once per match. Malloy computes those symmetrically
+too, and why this does not is on [Tasks](/docs/design/tasks#physics-awards-by-university-as-the-model-writes-it).
 
-**A path has its count too: Malloy's `path.count()`.** A count may name a path —
-`{ op: "count", path: "affiliation" }` — and then counts the distinct rows at that path's end: a
-`count(DISTINCT …)` of the key of the step the path reaches, which `JoinResolver.steps` names, so the
-measure goes through the same door as every other path. The path must lie on the shown relation, as
-every shown path must; a path off it is a `relations/invalid` miss, said before anything runs. `count`
-with no path keeps its meaning, the measured type's.
+**A named vertex has its count too: Malloy's `join.count()`.** A count may name a variable —
+`{ op: "count", variable: "friend" }` — and then counts the distinct vertices it binds: a
+`count(DISTINCT friend)` of the index the relation carries for it. A variable the pattern does not
+bind is refused before anything runs. `count` with no variable keeps its meaning, the first vertex's.
 
-**What would reverse it:** readers reading a bare `count` across a hop as the joined rows, often
-enough in the evaluation set or in keasy that the measured type's count misleads more than it
-helps — then a bare `count` says which type it counts in its title, as Malloy's `count()` does by
-its source. A path's count would be reversed only by a reader who needs the joined rows themselves,
-duplicates and all, which no reference offers as a count.
+**What would reverse it:** readers reading a bare `count` across a hop as the matches, often enough in
+the evaluation set or in keasy that the measured type's count misleads more than it helps — then a
+bare `count` says which type it counts in its title, as Malloy's `count()` does by its source. A named
+vertex's count would be reversed only by a reader who needs the matches themselves, duplicates and
+all, which no reference offers as a count.
 
-*Held by* `packages/ui/src/charts/dashboard-spec.test.ts`, "counts what is measured once per group
-across a hop, a path's step when it names one, and rows on a type alone"; `packages/ai/src/data/answer.test.ts`,
-"counts a path's step when the count names one: the people the women know".
+*Held by* `packages/ui/src/charts/dashboard-spec.test.ts`, "counts the pattern's first vertex once per
+group across a hop, a named vertex when the count names one, and rows on a vertex alone";
+`packages/ai/src/data/answer.test.ts`, "counts a named vertex when the count names one: the people the
+women know".
 
 ## A count's axis is whole, and a bar's label fits before it is cut
 
@@ -506,7 +508,7 @@ count of 2"; "fits a label before it cuts one".
 **`@kanzo-tech/mosaic` is the one door to Mosaic: `/analytics` re-exports none of it, and
 `@kanzo-tech/ui`'s charts import Mosaic through it, not from `@uwdata/mosaic-core` or
 `@uwdata/mosaic-sql`.** `/analytics` re-exported about forty-five of its names, keasy imported
-`JoinGraph` from both, and the SQL vocabulary arrived from three modules — the aggregates from vgplot,
+the join graph's types from both, and the SQL vocabulary arrived from three modules — the aggregates from vgplot,
 `asc` and `desc` from mosaic, `Query` from mosaic-sql through a chart module. `graph` reached
 Mosaic only through the door, and `ai` but for one type it now takes from it; the charts are the third. Every SQL builder a host writes — the
 aggregates, `sql`, `verbatim`, `asc`, `desc`, `Query` — is imported from `@kanzo-tech/mosaic`, which
@@ -533,10 +535,12 @@ item's `value` is their text, and `ChartFilter` maps it back to the column's val
 it, and otherwise publishes the text, which DuckDB casts to the column's type as it casts any string
 literal it compares with one.
 
-The model of a graph is not Mosaic's, and has its own door: `JoinGraph`, `JoinResolver` and the
-crossfilter that rests on them come from `@kanzo-tech/relations`
-([relations](/docs/design/relations)), and a host importing them from `@kanzo-tech/mosaic` is the
-two-spellings case this rule exists to end.
+The model of a graph is not Mosaic's, and is not ours either: the `Graph` and its `Pattern` are
+`@kanzo-tech/graphar-duckdb`'s ([The graph](/docs/design/graph#the-graph-is-graphars-to-read)), and
+what is Mosaic's about a graph — the page's crossfilter over it, `crossfilterOver(graph)` and
+`relationOver(graph, pattern)` — is `@kanzo-tech/mosaic`'s, beside the rest of the door. It was
+`@kanzo-tech/relations`', a package of its own whose `JoinGraph` re-stated what graphar already
+read; that package is deleted.
 
 **What would reverse it:** a Mosaic name a host needs that `@kanzo-tech/mosaic` does not export —
 then mosaic exports it, and `/analytics` still does not. A host that writes an open expression
@@ -555,32 +559,32 @@ value or type"; `packages/ui/src/charts/chart-inputs.test.tsx`, "takes its items
 and skips the lookup", "publishes a ticked item's text, which it read no column value for"; `packages/ui/src/table/data-table-toolbar.test.tsx`, "honours its items and
 their labels".
 
-## `MosaicProvider` is pure, and its selection outlives the join graph
+## `MosaicProvider` is pure, and its selection outlives the graph
 
 **Rendering the provider changes nothing outside it, and its selection is made once per engine.**
 `setActiveCoordinator` and `preaggregateOwnRelation` ran inside `useMemo`: an effect in a render,
 which StrictMode and concurrent rendering run twice, and the first call sets a process-wide value.
-The same memo was keyed on `[coordinator, joins]`, so a `joins` that changed identity — a host
-rebuilding its graph in render, which nothing forbids — built a new `crossfilterOver(joins)` selection
+The same memo was keyed on the coordinator and the graph, so a graph that changed identity — a host
+re-attaching it, or rebuilding its join graph in render, which nothing forbids — built a new selection
 and orphaned every clause and every client attached to the old one: the chips, a brush, the graph's
 pick. The symptom class is already in `docs/CLAUDE.md` ("a second coordinator leaves the first set of
 charts empty"); this is the other way to get it.
 
 - **The selection is created once for the `engine`** and lives as long as the provider does.
-- **`joins` is read, not captured.** The resolver already reads it when it builds a predicate, so a
-  new `joins` is assigned to the resolver and the clients are asked to query again; no selection is
+- **`graph` is read, not captured.** The resolver reads it when it builds a predicate, so a new
+  `graph` is assigned to the resolver and the clients are asked to query again; no selection is
   replaced and no clause is lost.
 - **The two process-wide effects run in an effect**, once, with the engine's coordinator made vgplot's
   active one by the means the engine gives the provider (specified on the engine's page), and
   `preaggregateOwnRelation` is applied to the clients as they connect, not as the provider renders.
 
-**What would reverse it:** a page on which two join graphs must coexist. Then two providers, as it is
+**What would reverse it:** a page on which two graphs must coexist. Then two providers, as it is
 today, each with its own selection; vgplot's active coordinator is the one engine's either way. The
 alternative that was weighed, vgplot taking a coordinator per plot, is not established in the version
 used and is not relied on.
 
 *Not yet held:* `mosaic-provider.test.tsx` cases that a StrictMode render makes one selection, and that
-a new `joins` object keeps the clauses already published.
+a new `graph` keeps the clauses already published.
 
 ## A chart has a text alternative, and the page announces its filters once
 
@@ -649,9 +653,14 @@ conformance is still claimed only after the check has run.
 
 ## Breaking, in the consumer's words
 
-- `MosaicProvider` takes `engine`, not `coordinator`; it keeps its selection when `joins` changes
-  identity.
-- `JoinGraph`, `JoinResolver` and the crossfilter import from `@kanzo-tech/relations`.
+- `MosaicProvider` takes `engine`, not `coordinator`, and `graph`, the `Graph` graphar's
+  `attachGraph` answers, in place of `joins`; it keeps its selection when `graph` changes identity.
+- `@kanzo-tech/relations` is gone. `crossfilterOver(graph)`, `relationOver(graph, pattern)`,
+  `onRelation` and `patternKey` import from `@kanzo-tech/mosaic`; `JoinGraph` and `JoinResolver` have
+  no replacement, because the `Graph` is the model and a `Pattern` the relation.
+- A dashboard, a `FilterBar` and a `RelationPicker` take a `Pattern` as `relation`; a field is
+  `variable.property`, a count names a `variable`, and a stored dashboards document is keyed by
+  `byPattern`.
 - A chart renders a table of its rows for assistive technology, and its picture is `aria-hidden`; a
   test that queried the picture by role queries the table.
 - A host that offers a brush offers a `FilterBar` with *Add a filter* for the same field.

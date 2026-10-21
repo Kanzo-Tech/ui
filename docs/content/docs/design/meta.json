@@ -4,9 +4,8 @@
   "pages": [
     "index",
     "architecture",
-    "kernel",
+    "problems",
     "engine",
-    "relations",
     "admission",
     "references",
     "naming",

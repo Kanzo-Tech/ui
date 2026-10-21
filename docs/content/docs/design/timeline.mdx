@@ -5,7 +5,7 @@ description: Why a time filter is a histogram whose brush owns its clause and st
 
 A timeline is a brushable histogram of one temporal column, which filters the page to the brushed
 range and can play that range forward. `ChartTimeline` is the analytics part, and a timeline under a
-graph canvas is the same part over `vertices`, every vertex type as one relation, on the column the
+graph canvas is the same part over `verticesOf(graph)`, every vertex type as one relation, on the column the
 graph's `time-by` setting chooses. The reference is Cosmograph's
 `CosmographTimeline`, read from `@cosmograph/ui` and `@cosmograph/cosmograph` 2.5.1. This page is
 why ours is shaped as it is.
@@ -199,24 +199,21 @@ a value, as `Slider` does. Then play writes the `Param`, and `ChartTimeline` sto
 
 ## Time is read from the schema, never guessed
 
-**A column is temporal when the graph says it is: a GraphAr `date` or `timestamp` column, or a
-number or a time whose datatype in the graph's mapping is a time.** Cosmograph instead samples 100
-values and calls a column of year-like integers a year. A count of rows, a price or an id in that
-range would be read as a date, and the schema already says which column is a time. GraphAr has no
-year type: the `xsd:gYear` a shape declared over an `int32` lives in the graph's RML mapping, which
-the host reads with rudof's `Mapping.model()` and hands the root as `mapping` — fossil's D4 — so the
-timeline offers a year once the mapping has arrived, and not before. Without one, a year is a number.
-The datatypes that are a time are one set, `@kanzo-tech/relations`'s `TEMPORAL_DATATYPES`, which the
-dashboard's fields read too: the timeline lost the year when the graph moved to GraphAr (0.47) while
-the dashboard kept it, because each had its own list. A mapping that arrives after the graph
-re-describes the `JoinGraph` already read and reads nothing.
+**A column is temporal when the graph says it is: a property whose DuckDB type is a date or a
+timestamp, as the `Graph` describes it.** Cosmograph instead samples 100 values and calls a column of
+year-like integers a year. A count of rows, a price or an id in that range would be read as a date,
+and the graph already says which column is a time. GraphAr has no year type: the `xsd:gYear` a shape
+declared over an `int32` lives in the graph's RML mapping, which the `Graph` does not carry, so a year
+the writer stored as an integer is a number, here and on the dashboard alike — one rule, Mosaic's
+`jsType` of the property's type ([What a field is](/docs/design/fields#a-fields-kind-and-role-are-read-not-guessed)).
+It replaced `mapping`, rudof's `Mapping.model()` handed to the root so a year was offered once the
+mapping arrived; the root now takes the `Graph` alone, and kanzo-ui reads no RDF.
 
-**What would reverse it:** a GraphAr type for a year, or a catalog that states a column's datatype —
-then the timeline reads it there, and `mapping` is no longer how a year is known.
+**What would reverse it:** a GraphAr type for a year, or the `Graph` stating a property's datatype —
+then the timeline reads it there with no change but the rule's one test.
 
 *Held by* `packages/graph/src/parts/graph-section.test.tsx`, "offers the timeline the graph's
-temporal fields, by the type the engine reads", "offers the timeline a year the mapping says is one,
-even when the mapping arrives after the graph".
+temporal fields, by the type the engine reads".
 
 **The column is a setting of the graph, not a selector of the part's.** `time-by` sits beside
 *X axis* and *Group by* in `GRAPH_SECTION`, and the root answers its options from the graph's
@@ -227,13 +224,14 @@ tables that have the column, one colour, and while a window is set only the vert
 column inside it stay in colour.
 
 **The window reaches every other relation as identity, not as its column.** A window is `date
-BETWEEN …` on `vertices`, and only the types with a date can answer it. The canvas reads `vertices`
-too, so it reads the window as published; a dashboard's relation, or a filter over a type with no
-date, reads it as the page's resolver crosses it — `dense_id IN (SELECT dense_id FROM vertices WHERE
-<the window>)` — the way a dashboard's tiles cross ([one selection across
-relations](/docs/design/crossfilter#one-selection-across-relations)). It names the key alone,
-so every client answers it, without a Binder error. The chip reads *date 1910 – 1940*: the clause
-itself, on the page's one selection.
+BETWEEN …` on `verticesOf(graph)`, and only the types with a date can answer it. The canvas reads that
+relation too, so it reads the window as published; a dashboard's pattern reads it as the page's
+resolver crosses it — for each type the union holds, the indices the window keeps, landed on the
+pattern's vertex of that type, `person IN (SELECT … FROM <the union> WHERE <the window>)`, or carried
+along the graph's one shortest path to its first vertex — the way a dashboard's tiles cross ([one
+selection across relations](/docs/design/crossfilter#one-selection-across-relations)). It names the
+pattern's own column, so every client answers it, without a Binder error. The chip reads *date 1910 –
+1940*: the clause itself, on the page's one selection.
 
 **A vertex without the column is outside every window, so it is greyed, as Cosmograph greys it.**
 The crossing was first an anti-join, `dense_id NOT IN (… WHERE NOT <the window>)`, which dropped only
@@ -370,7 +368,7 @@ lets the window go"; "plays and pauses with Space on the focused timeline"; "wai
 answer each window before the next one"; "neither rebuilds nor redraws the plot while a brush is
 dragged"; "holds one window, which each brush replaces — through a re-render and a rebuild of the
 plot"; "draws the window's bars in colour by clipping the bars in front to it, with no query"; "draws
-the axis at the top, each label right of its rule, whole, the first at the axis's start"), `packages/relations/src/crossfilter.test.ts`
-("crosses into and out of a union by the key its types share") and
+the axis at the top, each label right of its rule, whole, the first at the axis's start"), `packages/graph/src/core/one-selection.test.ts`
+("filters the dashboard by the graph's pick, landed on the pattern's vertex of the same type") and
 `packages/graph/src/parts/graph-section.test.tsx` ("offers the timeline the graph's temporal fields,
 by the type the engine reads": a GraphAr `date`, and no `int32` year).
