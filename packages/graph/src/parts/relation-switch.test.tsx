@@ -1,22 +1,19 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { KanzoThemeProvider } from "@kanzo-tech/ui";
 import { Dashboard, FilterBar, MosaicProvider, useMosaic, type DashboardSpec } from "@kanzo-tech/ui/analytics";
 import { useState, type ReactNode } from "react";
-import type { JoinGraph, Relation } from "@kanzo-tech/relations";
+import type { Pattern } from "@kanzo-tech/graphar-duckdb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { attach, settle } from "../../test/corpus";
-import { readJoinGraph } from "@kanzo-tech/relations";
 import { GRAPH_SECTION } from "../section";
 
 /** The host's one client: every read the parts make is a query on it. */
-const queries = new QueryClient();
 
 /**
  * **A filter is the page's, not the chart's that made it.** A dashboard over one relation, a pick on
  * its bar chart, and the page switching the dashboard to another relation — as a `RelationPicker`
  * does, or an answer's *Open on the dashboard*. The first dashboard's tiles unmount; the pick stays a
- * chip in the `FilterBar`, crossed into the new relation by key, until the reader removes it; and the
+ * chip in the `FilterBar`, landed on the new pattern's vertex of its type, until the reader removes it; and the
  * chart that made it, mounted again, draws it rather than publishing a second one.
  */
 
@@ -24,18 +21,18 @@ const WAIT = { timeout: 10_000 };
 
 const ON_PLACE: DashboardSpec = {
   filters: [],
-  tiles: [{ id: "place", kind: "chart", span: 1, type: "bar", title: "Count by livesIn.name", x: "livesIn.name", y: { op: "count" } }],
+  tiles: [{ id: "place", kind: "chart", span: 1, type: "bar", title: "Count by home.name", x: "home.name", y: { op: "count" } }],
 } as unknown as DashboardSpec;
 
 const ON_TEAM: DashboardSpec = {
   filters: [],
-  tiles: [{ id: "team", kind: "chart", span: 1, type: "bar", title: "Count by team", x: "team", y: { op: "count" } }],
+  tiles: [{ id: "team", kind: "chart", span: 1, type: "bar", title: "Count by person.team", x: "person.team", y: { op: "count" } }],
 } as unknown as DashboardSpec;
 
 let switchTo: (relation: "A" | "B") => void = () => {};
 let page: { clauses: readonly { source: unknown }[] } | null = null;
 
-function Page({ relations }: { relations: Record<"A" | "B", Relation> }) {
+function Page({ relations }: { relations: Record<"A" | "B", Pattern> }) {
   const [at, setAt] = useState<"A" | "B">("A");
   switchTo = setAt;
   page = useMosaic().selection;
@@ -103,19 +100,18 @@ describe("a pick when the dashboard switches relation", { timeout: 60_000 }, () 
     vi.restoreAllMocks();
   });
 
-  it("stays on the page as a chip, filters the new relation by key, goes with its chip, and is drawn again where it was made", async () => {
+  it("stays on the page as a chip, filters the new pattern, goes with its chip, and is drawn again where it was made", async () => {
     const corpus = await attach();
-    const joins: JoinGraph = await readJoinGraph(corpus.engine, corpus.from, { signal: new AbortController().signal });
-    const lives = joins.edges.find((e) => e.source === "Person" && e.destination === "Place")!;
-    const relations = {
-      A: { root: "Person", path: [{ edge: lives.name, direction: "out" }] },
-      B: { root: "Person", path: [] },
-    } as Record<"A" | "B", Relation>;
+    const person = { as: "person", type: "Person" } as const;
+    const relations: Record<"A" | "B", Pattern> = {
+      A: [person, { edge: "livesIn", direction: "out" }, { as: "home", type: "Place" }],
+      B: [person],
+    };
     const { container } = render(
       <Theme>
-        <QueryClientProvider client={queries}><MosaicProvider engine={corpus.engine} joins={joins}>
+        <MosaicProvider engine={corpus.engine} graph={corpus.graph}>
           <Page relations={relations} />
-        </MosaicProvider></QueryClientProvider>
+        </MosaicProvider>
       </Theme>,
     );
     const chips = () => within(screen.getByRole("region", { name: "Filters" })).queryAllByRole("button", { name: /^Remove / });
@@ -134,44 +130,44 @@ describe("a pick when the dashboard switches relation", { timeout: 60_000 }, () 
       }, WAIT);
 
     // On relation A, a click on the bar of Place 1 — the Toggle's own pointerdown.
-    await drawn("Count by livesIn.name");
-    const svg = figure("Count by livesIn.name")!.querySelector("svg")!;
-    const toggle = toggleOf("Count by livesIn.name")!;
+    await drawn("Count by home.name");
+    const svg = figure("Count by home.name")!.querySelector("svg")!;
+    const toggle = toggleOf("Count by home.name")!;
     const at = Array.from(toggle.mark.data.columns[toggle.as[0]!]!).indexOf("Place 1");
     const bar = [...svg.querySelectorAll(`g[data-index='${toggle.mark.index}'] rect`)].find((r) => (r as unknown as { __data__: number }).__data__ === at)!;
     fireEvent.pointerEnter(svg);
     fireEvent.pointerDown(bar);
-    await vi.waitFor(() => expect(labels()).toEqual(["Remove livesIn.name Place 1"]), WAIT);
+    await vi.waitFor(() => expect(labels()).toEqual(["Remove home.name Place 1"]), WAIT);
     // Person 1 and Person 7 live in Place 1.
     await vi.waitFor(() => expect(readout()).toBe("2 of 10 rows"), WAIT);
     const [picked] = page!.clauses;
 
     // Switched to relation B: the chart that made the pick is gone, and the pick is not.
     act(() => switchTo("B"));
-    await drawn("Count by team");
-    expect(figure("Count by livesIn.name")).toBeNull();
-    expect(labels()).toEqual(["Remove livesIn.name Place 1"]);
+    await drawn("Count by person.team");
+    expect(figure("Count by home.name")).toBeNull();
+    expect(labels()).toEqual(["Remove home.name Place 1"]);
     await vi.waitFor(() => expect(readout()).toBe("2 of 10 rows"), WAIT);
 
     // Back on A, the chart draws the pick it still holds: the one clause, under the same source.
     act(() => switchTo("A"));
-    await drawn("Count by livesIn.name");
-    await vi.waitFor(() => expect(toggleOf("Count by livesIn.name")?.value).toEqual([["Place 1"]]), WAIT);
+    await drawn("Count by home.name");
+    await vi.waitFor(() => expect(toggleOf("Count by home.name")?.value).toEqual([["Place 1"]]), WAIT);
     await act(() => settle(corpus));
     expect(page!.clauses.map((c) => c.source)).toEqual([picked!.source]);
-    expect(labels()).toEqual(["Remove livesIn.name Place 1"]);
+    expect(labels()).toEqual(["Remove home.name Place 1"]);
 
     // On B again, its chip removes it — and A, mounted once more, holds nothing.
     act(() => switchTo("B"));
-    await drawn("Count by team");
+    await drawn("Count by person.team");
     fireEvent.click(chips()[0]!);
     await act(() => settle(corpus));
     await vi.waitFor(() => expect(readout()).toBe("10 rows"), WAIT);
     expect(page!.clauses).toHaveLength(0);
     act(() => switchTo("A"));
-    await drawn("Count by livesIn.name");
+    await drawn("Count by home.name");
     await act(() => settle(corpus));
-    expect(toggleOf("Count by livesIn.name")?.value ?? null).toBeNull();
+    expect(toggleOf("Count by home.name")?.value ?? null).toBeNull();
     expect(labels()).toEqual([]);
   });
 });

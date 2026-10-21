@@ -27,9 +27,9 @@ the tree had no comparison, no code and no test, so a graph past the limit drew 
 | **Measured** | the viewer's p95 frame interval at 200,000 vertices against cosmos.gl alone; load and settle at 500,000 vertices and 2,000,000 links, one run a row on an Apple M4 Pro; a live layout with links drawn practical to about 50,000 vertices | [The viewer costs what cosmos.gl costs](/docs/design/graph#the-viewer-costs-what-cosmosgl-costs) and [Layout and camera](/docs/graph/layout#how-the-layout-scales) |
 | **Unmeasured** | 1,000,000 and 5,000,000 vertices; the greyout, the lasso and the load's heap at any size above 500,000; a hidden tab | the plan below; nothing is promised |
 
-The guard is one comparison on the `JoinGraph`'s counts, in the store's load, because the limit is
-the canvas's and not the catalog reader's ([relations](/docs/design/relations)). It runs before any
-buffer is allocated, so a refused graph costs a catalog read and nothing else. The package's
+The guard is one comparison on the `Graph`'s counts, in the store's load, because the limit is
+the canvas's and not graphar's ([The graph](/docs/design/graph#the-graph-is-graphars-to-read)). It runs
+before any buffer is allocated, so a refused graph costs nothing past the attach. The package's
 description and its page say the measured row and not "cosmos.gl on the GPU", which reads as a
 promise of millions.
 
@@ -99,7 +99,7 @@ store holds the geometry, the encoding and the last arrangement.
   was while the chip said the clause was active: one state shown as another, the first thing
   [failure](/docs/design/failure) forbids.
 - **A lost context is restored.** On `webglcontextlost` the renderer still calls `preventDefault()`,
-  which is what asks the browser to restore it, and starts one bounded wait, by the kernel's
+  which is what asks the browser to restore it, and starts one bounded wait, by `problems`'
   `within`, for `webglcontextrestored`. On restore it builds a new cosmos.gl over the geometry and
   encoding the store holds, the path an unmounted canvas already takes when it comes back. Not restored
   inside the bound, the root fails `graph/context-lost`.
@@ -144,7 +144,7 @@ measured it.
   graph does not carry — is a literal list up to `K` ids and a table above it.** Above `K` the ids are
   written once into a relation the engine holds, named by the clause's source, and the clause is
   `key IN (SELECT id FROM <that relation>)`. The relation is disposed when the clause is retracted,
-  replaced or its holder unmounts (the kernel's dispose convention), so a pick never outlives the
+  replaced or its holder unmounts , so a pick never outlives the
   clause it exempts. `K` comes from the measurement in [the plan](#the-scale-limit-is-guarded-and-raised-only-by-measurement),
   not a guess: below the point where a literal list costs, the simple form stays. The engine gains the
   one member this needs, to write a column of ids into a named relation; it is specified on

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { claims } from "./claims";
-import { Problem } from "@kanzo-tech/kernel";
+import { Problem } from "@kanzo-tech/problems";
 
 /**
  * The claim vocabulary, as a specification.

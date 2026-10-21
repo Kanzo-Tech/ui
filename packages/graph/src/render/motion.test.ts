@@ -1,3 +1,4 @@
+import type { Graph } from "@kanzo-tech/graphar-duckdb";
 import { describe, expect, it } from "vitest";
 import { keptOf } from "../core/kept";
 import type { Geometry } from "../core/load";
@@ -5,7 +6,7 @@ import { decayFor, highlighted, simulating } from "./motion";
 
 /** Four vertices on a path `0 → 1 → 2 → 3`, links `0, 1, 2`. */
 const path = {
-  structure: { types: [], edges: [] },
+  structure: { vertexTypes: [], edgeTypes: [] } as unknown as Graph,
   size: 4,
   positions: new Float32Array(8),
   bound: false,
@@ -36,7 +37,7 @@ describe("the layout's rules", () => {
   });
 
   it("runs when the positions are a start unless simulate says not, and never when they are data", () => {
-    const options = { from: "c", engine: null, onFailure: () => {} };
+    const options = { graph: null, engine: null, onFailure: () => {} };
     expect(simulating(options, path)).toBe(true);
     expect(simulating(options, { ...path, bound: true })).toBe(false);
     expect(simulating({ ...options, simulate: false }, path)).toBe(false);

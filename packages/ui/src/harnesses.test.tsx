@@ -1,5 +1,6 @@
-import { answerOf, engineOver } from "../test/engine";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { Pattern } from "@kanzo-tech/graphar-duckdb";
+import { engineOver } from "../test/engine";
+import { graphOf } from "../test/graph";
 import {
   ChartHarness,
   DashboardHarness,
@@ -21,7 +22,6 @@ import { Dashboard } from "./charts/dashboard.js";
 import type { DashboardSpec } from "./charts/dashboard-spec.js";
 import { FilterBar } from "./charts/filter-bar.js";
 import { RelationPicker } from "./charts/relation-picker.js";
-import type { JoinGraph, Relation } from "@kanzo-tech/relations";
 import { MosaicProvider, useMosaic } from "./charts/mosaic-provider.js";
 import {
   FindingsBadge,
@@ -36,7 +36,6 @@ import { ShellDockItem, ShellDockSwitcher } from "./layouts/shell-dock.js";
 import { DiagnosticList } from "./simples/diagnostic.js";
 
 /** The host's one client: every read the parts make is a query on it. */
-const queries = new QueryClient();
 
 /** The page's selection, which the provider owns: handed out from inside it. */
 function Page({ into }: { into: (selection: Selection) => void }) {
@@ -51,19 +50,26 @@ function Page({ into }: { into: (selection: Selection) => void }) {
  * needs a layout or a drawn plot (a brush, a pick) is held by the suite in `packages/testing/e2e`.
  */
 
+/** Ten sightings, of two fields. */
+const GRAPH = graphOf([
+  {
+    type: "Sighting",
+    count: 10,
+    properties: [
+      { name: "region", type: "VARCHAR", stats: { distinct: { exact: 4 } } },
+      { name: "bounty", type: "DOUBLE", stats: { distinct: { exact: 9 }, min: "1", max: "9" } },
+    ],
+  },
+]);
+const SIGHTINGS: Pattern = [{ as: "s", type: "Sighting" }];
+
 /**
- * A coordinator over ten sightings: `SUMMARIZE` answers two fields, a count answers ten rows, or four
- * when the query has a filter, and every other query answers that one row too.
+ * A coordinator over ten sightings: a count answers ten rows, or four when the query has a filter,
+ * and every other query answers that one row too.
  */
 function stubCoordinator(): Coordinator {
   const coordinator = {
-    query: async (sql: string) =>
-      sql.startsWith("SUMMARIZE")
-        ? answerOf([
-            { column_name: "region", column_type: "VARCHAR", approx_unique: 4, min: "a", max: "d", count: 10 },
-            { column_name: "bounty", column_type: "DOUBLE", approx_unique: 9, min: 1, max: 9, count: 10 },
-          ])
-        : [],
+    query: async () => [],
     // What the real coordinator's filter groups do: a client queries again when what it filters by moves.
     connect(client: MosaicClient) {
       client.coordinator = coordinator as unknown as Coordinator;
@@ -92,10 +98,10 @@ describe("FilterBarHarness", () => {
     const env = dom();
     let crossfilter!: Selection;
     render(
-      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
+      <MosaicProvider engine={engineOver(stubCoordinator())} graph={GRAPH}>
         <Page into={(s) => (crossfilter = s)} />
         <FilterBar rowNoun="sightings" relation="sightings" />
-      </MosaicProvider></QueryClientProvider>,
+      </MosaicProvider>,
     );
     const bar = await env.getHarness(FilterBarHarness);
     expect(await bar.readout()).toBe("10 sightings");
@@ -113,16 +119,16 @@ describe("FilterBarHarness", () => {
 
   it("reads a dashboard's filter as column: value, and opens its control by the column", async () => {
     const env = dom();
-    const spec: DashboardSpec = { filters: [{ field: "bounty" }], tiles: [] };
+    const spec: DashboardSpec = { filters: [{ field: "s.bounty" }], tiles: [] };
     render(
-      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
+      <MosaicProvider engine={engineOver(stubCoordinator())} graph={GRAPH}>
         <FilterBar />
-        <Dashboard relation="sightings" value={spec} />
-      </MosaicProvider></QueryClientProvider>,
+        <Dashboard relation={SIGHTINGS} value={spec} />
+      </MosaicProvider>,
     );
     const bar = await env.getHarness(FilterBarHarness);
-    await expect.poll(() => bar.chips()).toEqual(["bounty: Any"]);
-    await bar.open("bounty");
+    await expect.poll(() => bar.chips()).toEqual(["s.bounty: Any"]);
+    await bar.open("s.bounty");
   });
 });
 
@@ -133,13 +139,13 @@ describe("DashboardHarness", () => {
       filters: [],
       tiles: [
         { id: "n", kind: "stat", title: "Sightings", measure: { op: "count" } },
-        { id: "b", kind: "stat", title: "Bounty paid", measure: { op: "sum", field: "bounty" } },
+        { id: "b", kind: "stat", title: "Bounty paid", measure: { op: "sum", field: "s.bounty" } },
       ],
     };
     render(
-      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
-        <Dashboard relation="sightings" value={spec} />
-      </MosaicProvider></QueryClientProvider>,
+      <MosaicProvider engine={engineOver(stubCoordinator())} graph={GRAPH}>
+        <Dashboard relation={SIGHTINGS} value={spec} />
+      </MosaicProvider>,
     );
     const dashboard = await env.getHarness(DashboardHarness);
     await dashboard.settled();
@@ -152,11 +158,11 @@ describe("ChartHarness", () => {
   it("finds a chart as a figure by its title, and busy until it has drawn", async () => {
     const env = dom();
     const { unmount } = render(
-      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
+      <MosaicProvider engine={engineOver(stubCoordinator())} graph={GRAPH}>
         <ChartRoot aria-label="Count by region" relation="sightings">
           <ChartBarY x="region" y="n" />
         </ChartRoot>
-      </MosaicProvider></QueryClientProvider>,
+      </MosaicProvider>,
     );
     const chart = await env.getHarness(ChartHarness.with({ title: "Count by region" }));
     expect(await chart.title()).toBe("Count by region");
@@ -279,15 +285,16 @@ describe("DockHarness", () => {
 describe("RelationPickerHarness", () => {
   // Ark's select scrolls its content to the top on open, and jsdom has no `scrollTo`.
   if (typeof Element.prototype.scrollTo !== "function") Element.prototype.scrollTo = () => {};
-  const edge = (source: string, label: string, destination: string, rows: number) => ({
-    name: `${source}_${label}_${destination}`, label, source, destination, table: "e", src: "src", dst: "dst", rows,
-  });
-  const graph: JoinGraph = {
-    types: ["Place", "Comment", "Person"].map((name) => ({ name, table: name, key: "dense_id", columns: [], rows: 10 })),
-    edges: [edge("Place", "isPartOf", "Place", 9), edge("Comment", "isLocatedIn", "Place", 100), edge("Person", "isLocatedIn", "Place", 10)],
-  };
+  const graph = graphOf(
+    ["Place", "Comment", "Person"].map((type) => ({ type, count: 10 })),
+    [
+      { srcType: "Place", edgeType: "isPartOf", dstType: "Place", count: 9 },
+      { srcType: "Comment", edgeType: "isLocatedIn", dstType: "Place", count: 100 },
+      { srcType: "Person", edgeType: "isLocatedIn", dstType: "Place", count: 10 },
+    ],
+  );
   function Picked() {
-    const [value, setValue] = useState<Relation>({ root: "Person", path: [] });
+    const [value, setValue] = useState<Pattern>([{ as: "person", type: "Person" }]);
     return <RelationPicker graph={graph} onValueChange={setValue} value={value} />;
   }
 
@@ -298,14 +305,14 @@ describe("RelationPickerHarness", () => {
     await picker.pick("Place");
     expect(await picker.root()).toBe("Place");
     await picker.add("<isLocatedIn<Comment");
-    expect(await picker.path()).toEqual(["Comment · located in this place"]);
-    await picker.remove("Comment · located in this place");
+    expect(await picker.path()).toEqual(["Comment isLocatedIn → this Place"]);
+    await picker.remove("Comment isLocatedIn → this Place");
     // A self-edge's label names two hops, so it takes the step; a unique label is enough.
     await expect(picker.add("isPartOf")).rejects.toThrow(/names 2 hops/);
     await picker.add(">isPartOf>Place");
-    await picker.add("Person · located in this place");
-    expect(await picker.path()).toEqual(["The place it is part of", "Person · located in this place"]);
-    await picker.remove("The place it is part of");
+    await picker.add("Person isLocatedIn → this Place");
+    expect(await picker.path()).toEqual(["isPartOf → Place", "Person isLocatedIn → this Place"]);
+    await picker.remove("isPartOf → Place");
     expect(await picker.path()).toEqual([]);
   });
 });

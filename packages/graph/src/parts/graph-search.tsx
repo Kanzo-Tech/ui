@@ -33,7 +33,7 @@ import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { tv } from "tailwind-variants";
 import { nameOf } from "../core/categories";
 import { bindingOf } from "../core/channels";
-import { localName, matchingIds, parseQuery, searchVertices, tableOf, vertexTypes, type Found, type VertexQuery } from "../core/source";
+import { matchingIds, parseQuery, searchVertices, tableOf, type Found, type VertexQuery } from "../core/source";
 import { internalsOf } from "../react/use-graph";
 import { useGraphContext } from "../react/graph-root";
 import { usePick } from "../react/use-pick";
@@ -118,7 +118,7 @@ interface Entry {
   /** The vertex it goes to, or `null` for a type the empty palette offers as a chip. */
   vertex: number | null;
   label: string;
-  /** What tells it apart from a match of the same name: its identity's local name, or its type. */
+  /** What tells it apart from a match of the same name: the property that matched, or its type. */
   detail: string;
   /** Its vertex table, {@link RECENT} for a vertex the search went to before, or {@link TYPES}. */
   group: string;
@@ -135,8 +135,8 @@ const TYPES = "\0types";
 /**
  * **Find a vertex and go to it** — a palette in Raycast's and Linear's shape over Cosmograph's search,
  * with Neo4j Bloom's prefixes: `type:<Type>` keeps a vertex table, `<column>:<value>` a column that
- * contains the value, and the rest is text the vertex's `title` — or its table's `identity` — must
- * contain. Each pause in typing asks the graph once, on the page's engine, for the first
+ * contains the value, and the rest is text some text property of the vertex must contain —
+ * `Graph.search`. Each pause in typing asks the graph once, on the page's engine, for the first
  * `limit` matches and how many there are of each type; nothing is read before the reader types, and
  * no vertex's text is held in the page.
  *
@@ -150,8 +150,8 @@ const TYPES = "\0types";
  * to start from: the vertices the search went to before, kept by the root while it lives, then every
  * vertex type with how many it holds — picking one makes it a `type:` chip, GitHub's palette scopes.
  * Typed, matches are grouped by vertex type, named by the root's `categories` and counted past the
- * limit, each with the glyph the canvas draws it in and, on the right, its identity's local name, as
- * Linear prints an issue's key — a title is not unique, and the key is what tells two apart. **Enter**
+ * limit, each with the glyph the canvas draws it in and, on the right, the property that matched —
+ * a text is not unique, and where it matched is what tells two apart. **Enter**
  * reveals the highlighted one — the canvas frames it and selects it with its neighbours — closes the
  * palette and puts it at the head of the recents. **⌘Enter** adds every match to the subset: the
  * search's own clause (`usePick("search")`), which a new search replaces and every other pick
@@ -183,7 +183,7 @@ export function GraphSearch({ className, limit = 50, size = "sm", translations, 
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const id = useId();
-  const { title, categories, engine } = options;
+  const { categories, engine } = options;
   const binding = bindingOf(options);
   const bound = binding.byTable || binding.category !== undefined;
 
@@ -208,7 +208,7 @@ export function GraphSearch({ className, limit = 50, size = "sm", translations, 
     const stop = new AbortController();
     const query = parseQuery(input, structure);
     const timer = setTimeout(() => {
-      searchVertices(engine, structure, { query, title, limit, subset: predicate() }, stop.signal).then(
+      searchVertices(engine, structure, { query, limit, subset: predicate() }, stop.signal).then(
         (found) => stop.signal.aborted || setAnswered({ input, query, found }),
         (error: unknown) => {
           if (stop.signal.aborted) return;
@@ -221,7 +221,7 @@ export function GraphSearch({ className, limit = 50, size = "sm", translations, 
       stop.abort();
       clearTimeout(timer);
     };
-  }, [api, predicate, structure, engine, input, title, limit]);
+  }, [api, predicate, structure, engine, input, limit]);
 
   const typed = input !== "";
   const result = answered !== null && answered.input === input ? answered : null;
@@ -231,18 +231,17 @@ export function GraphSearch({ className, limit = 50, size = "sm", translations, 
       if (!found) return [];
       return found.matches.map((m) => {
         const label = m.text || `#${m.id}`;
-        const key = localName(m.key);
-        return { value: String(m.id), vertex: m.id, label, detail: key === label ? "" : key, group: m.type };
+        return { value: String(m.id), vertex: m.id, label, detail: m.key, group: m.type };
       });
     }
-    const typeOf = (vertex: number) => (structure ? nameOf(tableOf(structure, vertex)?.name, categories) : "");
+    const typeOf = (vertex: number) => (structure ? nameOf(tableOf(structure, vertex)?.type.type, categories) : "");
     return [
       ...recent.map((r) => ({ value: String(r.vertex), vertex: r.vertex, label: r.text, detail: typeOf(r.vertex), group: RECENT })),
-      ...(structure ? vertexTypes(structure) : []).map((table) => ({
-        value: `type:${table.name}`,
+      ...(structure?.vertexTypes ?? []).map((table) => ({
+        value: `type:${table.type}`,
         vertex: null,
-        label: nameOf(table.name, categories),
-        detail: figure.format(table.rows ?? 0),
+        label: nameOf(table.type, categories),
+        detail: figure.format(table.count),
         group: TYPES,
       })),
     ];
@@ -271,7 +270,7 @@ export function GraphSearch({ className, limit = 50, size = "sm", translations, 
   const addAll = async () => {
     if (!structure || !engine || !result) return;
     try {
-      search.pick(await matchingIds(engine, structure, result.query, { title, subset: predicate() }), `“${result.input}”`);
+      search.pick(await matchingIds(engine, structure, result.query, predicate()), `“${result.input}”`);
       setOpen(false);
     } catch (error) {
       api.getState().options.onFailure(error);

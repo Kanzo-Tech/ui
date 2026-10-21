@@ -152,7 +152,7 @@ jobs:
       # --no-git-checks because the stamp above leaves the tree dirty by design.
       - name: Publish
         if: ${{ github.event_name == 'release' || !inputs.dry-run }}
-        # One token publish for @kanzo-tech/kernel, which has never shipped (step 1 of
+        # One token publish for @kanzo-tech/problems, which has never shipped (step 1 of
         # AUTH above). Delete this env and the secret once its trusted publisher is set.
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

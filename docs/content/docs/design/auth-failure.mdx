@@ -59,7 +59,7 @@ a query on the host's client as the read door says.
 
 **Every refusal with a code that the auth layer sends is an RFC 9457 problem: `application/problem+json`
 with `status`, `title` and `detail`, and the library's `code` and `data` as extension members; and it is
-the one `Problem` of [the kernel](/docs/design/kernel#problem), with its status read from the generated
+the one `Problem` of [problems](/docs/design/problems#problem), with its status read from the generated
 registry, not from a table kept here.** Under the edge the forwarder is the one part that answers a
 browser's request itself, so it is the one that sends them. There were five shapes on the wire once:
 routes answering `{ error, message }`; a forwarder computing a code and sending a bodiless status, so
@@ -67,7 +67,7 @@ keasy coined `bff/failed` for an `organization/denied` the library knew; a probl
 carrying `?code=`; two status tables that disagreed; and keasy's Rust server answering
 `application/json` with no `status`.
 
-The shape and why `type` is absent are [the kernel's](/docs/design/kernel#problem). One thing keeps its
+The shape and why `type` is absent are [the problems page's](/docs/design/problems#problem). One thing keeps its
 shape: a required session that fails is a redirect to the product's `problemPage` with the code in the
 URL, because a page is what a person reads. An answer about the request rather than a credential — a
 cross-site request's 403, a path under no mount — has no code to name and no body.
@@ -124,8 +124,8 @@ and "throws the outage to a page that did not require a session, which reads it 
 ## One party bounds each wait
 
 **The package makes two waits and bounds both: the realm's keys, 10 s, handed to `jose`'s own timeout
-as `idp/silent`; and the forwarder's hop to an API, 25 s until its headers, through the kernel's
-`within` as `api/silent`. A host bounds its own API calls in the requests it makes.** The rule is
+as `idp/silent`; and the forwarder's hop to an API, 25 s until its headers, through the `within`
+of `problems` as `api/silent`. A host bounds its own API calls in the requests it makes.** The rule is
 [the failure page's](/docs/design/failure#one-deadline-per-wait): the party that makes the request
 bounds it, and where a library makes it, the library is handed the figure. The browser half makes no
 request at all since the session became a prop, so the 30 s bound on its session read went with it.

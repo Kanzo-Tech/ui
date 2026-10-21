@@ -1,8 +1,7 @@
 "use client";
 
-import { holdFirstDraw, queryFailure, relaySelection, type TableExpr, Selection, type SelectionClause } from "@kanzo-tech/mosaic";
+import { holdFirstDraw, onRelation, queryFailure, relaySelection, type Relation, type TableExpr, Selection, type SelectionClause } from "@kanzo-tech/mosaic";
 import { type Engine } from "@kanzo-tech/mosaic/engine";
-import { onRelation, type RelationExpr, type RelationRef } from "@kanzo-tech/relations";
 import { createContext, useContext, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
@@ -23,7 +22,7 @@ import {
   type ChartSpecContext,
 } from "./chart-spec.js";
 import { claimPlace, heldClause, releasePlace, type ClausePlace } from "./clause-place.js";
-import { useClientsEnabled, useMosaic, useRelation } from "./mosaic-provider.js";
+import { useClientsEnabled, useMosaic, useRelation, type RelationExpr } from "./mosaic-provider.js";
 import { resolveTokenColor } from "../lib/token-color.js";
 import { ChartAlternative, readAlternatives, type Alternative, type AlternativeMark } from "./chart-alternative.js";
 import { TokenizedPlot } from "./tokenized-plot.js";
@@ -34,7 +33,7 @@ import { DenseStackMark } from "./dense-stack.js";
  * clients this library does not define, and their `queryError` does nothing — a failed mark leaves
  * the plot on its last render — so `ChartRoot` answers it for them.
  */
-type PlotMark = { queryError(error: Error): unknown; enabled: boolean; relation?: RelationRef | null; destroy(): void };
+type PlotMark = { queryError(error: Error): unknown; enabled: boolean; relation?: Relation | null; destroy(): void };
 type PlotElement = HTMLElement & {
   value: ChartPlot & { marks: PlotMark[]; pending(mark: PlotMark): void; render(): Promise<void>; element: HTMLElement };
 };
@@ -88,7 +87,7 @@ interface Slot {
  *
  * Returns what to run once the new plot has drawn.
  */
-function handOver(slots: Slot[], after: readonly unknown[], same: boolean, relation: RelationRef | null, title: unknown): () => void {
+function handOver(slots: Slot[], after: readonly unknown[], same: boolean, relation: Relation | null, title: unknown): () => void {
   const next = after.map((item, i) => {
     const heir = item as Publisher;
     const old = slots[i];
@@ -96,7 +95,7 @@ function handOver(slots: Slot[], after: readonly unknown[], same: boolean, relat
     if (old && !keeps) releasePlace(old.place);
     const slot: Slot = keeps
       ? old
-      : { place: claimPlace(heir.selection!, `${title}\0${JSON.stringify(relation)}\0${i}\0${heir.constructor.name}\0${[heir.fields, heir.field, heir.xfield, heir.yfield]}`), current: heir };
+      : { place: claimPlace(heir.selection!, `${title}\0${relation?.key}\0${i}\0${heir.constructor.name}\0${[heir.fields, heir.field, heir.xfield, heir.yfield]}`), current: heir };
     if (!keeps) slot.place.onReset = () => slot.current.reset?.();
     heir.value = keeps ? old.current.value : heldClause(slot.place)?.value;
     adopt(slot, heir, relation);
@@ -114,7 +113,7 @@ function handOver(slots: Slot[], after: readonly unknown[], same: boolean, relat
 }
 
 /** `interactor` takes `slot`: it publishes under the place's source from now on, on the chart's relation. */
-function adopt(slot: Slot, interactor: Publisher, relation: RelationRef | null): void {
+function adopt(slot: Slot, interactor: Publisher, relation: Relation | null): void {
   slot.current = interactor;
   const own = interactor.clause?.bind(interactor);
   if (own) {
@@ -177,10 +176,10 @@ export interface ChartContextValue {
   /** The page's engine, for a consumer that queries alongside the plot. */
   engine: Engine;
   config: ChartConfig;
-  /** What the marks read: the root's `relation`, compiled over the provider's joins. */
+  /** What the marks read: the root's `relation`, read over the provider's graph. */
   table?: TableExpr;
   /** The relation the page knows the chart by — what its clauses are on — or `null` for SQL it names none for. */
-  relation: RelationRef | null;
+  relation: Relation | null;
   /** The page's selection: what the marks filter by and the interactors publish into. */
   selection: Selection;
   /**
@@ -226,9 +225,8 @@ export interface ChartRootProps
   extends Omit<React.ComponentProps<typeof ark.div>, "children">,
     ChartFacetOptions {
   /**
-   * What the marks read: a table by name — a type of the provider's `joins`, read as it is — a path
-   * over the joins (a `Relation`, compiled with `relationQuery`), or SQL as a mosaic-sql node —
-   * `verbatim(relation.sql)`, `asTableRef([catalog, name])`. Its clauses are published on it, and a
+   * What the marks read: a table by name, a `Pattern` of the provider's `graph` (read with
+   * `relationOver`), or SQL as a mosaic-sql node — `asTableRef([catalog, name])`. Its clauses are published on it, and a
    * clause on another relation reaches the marks crossed into it. It may change: the plot re-queries
    * and the clauses it published on the old one stay the page's. Omit it when every mark carries its own
    * `data`.

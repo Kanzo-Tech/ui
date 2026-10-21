@@ -1,71 +1,69 @@
-import { relationKey, withMapping, type JoinGraph } from "@kanzo-tech/relations";
 import { describe, expect, it } from "vitest";
 import type { LanguageModel } from "ai";
 import { runTask } from "../task/index.js";
 import { askOffers } from "./ask-chat.js";
-import { ask, askAlternatives, askAnswer, askSchema, link, type AskInput, type AskSpec } from "./ask.js";
+import { ask, askAlternatives, askAnswer, askSchema, askValues, link, type AskInput, type AskSpec } from "./ask.js";
 import { NOBEL, answering, asking } from "../testing/nobel.js";
 
 const input = (question: string, extra: Partial<AskInput> = {}): AskInput => ({ question, graph: NOBEL, ...extra });
 
-const byUniversity: AskSpec = { of: "LaureateAward", show: { kind: "chart", type: "bar", x: "university.name", y: { op: "count" } } };
+const award = { as: "award", type: "LaureateAward" } as const;
+const university = { as: "university", type: "University" } as const;
+const PRIZES_BY_UNIVERSITY = [award, { edge: "university", direction: "out" }, university] as const;
+const byUniversity: AskSpec = { match: PRIZES_BY_UNIVERSITY, show: { kind: "chart", type: "bar", x: "university.name", y: { op: "count" } } };
 
 describe("link", () => {
-  it("offers the types the question names, and their neighbours", () => {
-    const types = link(input("Which universities won the most prizes?")).types.map((t) => t.relation.root);
+  it("offers the types the question names, and their neighbours", async () => {
+    const { types } = await link(input("Which universities won the most prizes?"));
     // In the graph's order: a university's country, the university, its prizes.
     expect(types).toEqual(["Country", "University", "LaureateAward"]);
   });
 
-  it("finds a type by a value it holds, and keeps what the page's chips are on", () => {
-    // A value is one the writer counted among a column's commonest, which a value that never repeats
-    // is not: `female` is a laureate's, and no country's name repeats.
-    const types = link(input("And the female ones?", { under: ["Category"] })).types.map((t) => t.relation.root);
+  it("finds a type by a value the graph answers for it, and keeps what the page's chips are on", async () => {
+    const { types, values } = await link(input("And the female ones?", { under: [["Category"]] }));
+    expect(values["Laureate.gender"]).toContain("female");
     expect(types).toContain("Laureate");
     expect(types).toContain("Category");
   });
 
-  it("offers every type to a question that names none", () => {
-    expect(link(input("What is going on?")).types).toHaveLength(NOBEL.types.length);
+  it("offers every type to a question that names none", async () => {
+    expect((await link(input("What is going on?"))).types).toHaveLength(NOBEL.vertexTypes.length);
   });
 });
 
 describe("the ask schema", () => {
-  it("is one branch per type offered, each its own enum of paths from it", () => {
-    const schema = askSchema(link(input("Which universities won the most prizes?")), NOBEL) as {
-      properties: { spec: { anyOf: { properties: { of: { const: string } } }[] } };
-      $defs: Record<string, { enum: string[] }>;
+  it("holds the object at its root, the types and edges in reach as enums, and a field as a variable and a property", async () => {
+    // Anthropic's and OpenAI's tool inputs refuse a root `anyOf`: the spec is a property.
+    const schema = askSchema(await link(input("Which universities won the most prizes?")), NOBEL) as {
+      type: string;
+      required: string[];
+      properties: { spec: { properties: { match: { items: { anyOf: { properties: Record<string, { enum?: string[] }> }[] } }; where: { items: { anyOf: { properties: { field: { pattern: string } } }[] } } } } };
     };
-    expect(schema.properties.spec.anyOf.map((b) => b.properties.of.const)).toEqual(["Country", "University", "LaureateAward"]);
-    expect(schema.$defs.f2!.enum).toEqual(expect.arrayContaining(["share", "university.name", "laureate.birthPlace.name", "university.addressCountry.name"]));
-    // Back along the edge that leads from a university to its prizes, and on from them.
-    expect(schema.$defs.f1!.enum).toEqual(expect.arrayContaining(["name", "^university.share", "^university.category.name"]));
-    // No key, and no type's name where a path goes.
-    expect(JSON.stringify(schema.$defs)).not.toMatch(/dense_id|University\.name/);
+    expect(schema).toMatchObject({ type: "object", required: ["spec"] });
+    const [vertex, edge] = schema.properties.spec.properties.match.items.anyOf;
+    expect(vertex!.properties.type!.enum).toEqual(expect.arrayContaining(["LaureateAward", "University", "Country"]));
+    expect(edge!.properties.edge!.enum).toEqual(expect.arrayContaining(["university", "addressCountry"]));
+    const field = new RegExp(schema.properties.spec.properties.where.items.anyOf[0]!.properties.field.pattern);
+    expect(field.test("university.name")).toBe(true);
+    expect(field.test("University.name")).toBe(false);
+    expect(field.test("name")).toBe(false);
   });
 });
 
 describe("the ask Task", () => {
-  it("hands the model an object at the schema's root, and reads the spec out of it", async () => {
-    // Anthropic's and OpenAI's tool inputs refuse a root `anyOf`: the branches are the `spec` property.
-    const context = link(input("Which universities won the most prizes?"));
-    const schema = askSchema(context, NOBEL);
-    expect(schema).toMatchObject({ type: "object", required: ["spec"], additionalProperties: false });
-    expect(schema).not.toHaveProperty("anyOf");
-    expect(schema).not.toHaveProperty("oneOf");
-    const one = askSchema(link(input("How many?", { graph: { ...NOBEL, types: NOBEL.types.slice(0, 1) } })), NOBEL);
-    expect(one).toMatchObject({ type: "object", required: ["spec"] });
-    const output = ask.output!(input("Which universities won the most prizes?"), context) as { jsonSchema: unknown; validate: (v: unknown) => Promise<unknown> | unknown };
+  it("reads the spec out of the object the model writes", async () => {
+    const asked = input("Which universities won the most prizes?");
+    const output = ask.output!(asked, await link(asked)) as { validate: (v: unknown) => Promise<unknown> | unknown };
     expect(await output.validate({ spec: byUniversity })).toEqual({ success: true, value: byUniversity });
     expect(await output.validate(byUniversity)).toMatchObject({ success: false });
   });
 
-  it("takes the relation from the paths the model wrote: prizes by university, under a chip on the prizes", async () => {
-    const asked = input("Which universities won the most prizes?", { under: ["LaureateAward"] });
+  it("answers with the pattern the model wrote: prizes by university, under a chip on the prizes", async () => {
+    const asked = input("Which universities won the most prizes?", { under: [["LaureateAward"]] });
     const proposal = await runTask(ask, asked, { model: asking(byUniversity), id: "a1" });
     expect(proposal.verdict).toEqual({ ok: true });
     const answer = askAnswer(proposal.value, asked, "a1")!;
-    expect(relationKey(NOBEL, answer.relation)).toBe("LaureateAward>university>University");
+    expect(answer.pattern).toEqual(PRIZES_BY_UNIVERSITY);
     expect(answer.tile).toMatchObject({ id: "a1", kind: "chart", x: "university.name" });
   });
 
@@ -74,99 +72,53 @@ describe("the ask Task", () => {
     expect(offers.map((o) => o.value)).toEqual([byUniversity]);
   });
 
-  it("asks nothing when two paths reach one field: the model's path is the answer's", async () => {
-    const byCountry: AskSpec = { of: "LaureateAward", show: { kind: "chart", type: "bar", x: "university.addressCountry.name", y: { op: "count" } } };
-    const proposal = await runTask(ask, input("Prizes by country?"), { model: asking(byCountry) });
-    expect(proposal.verdict).toEqual({ ok: true });
-    expect(relationKey(NOBEL, askAnswer(proposal.value, input(""), "a2")!.relation)).toBe("LaureateAward>university>University>addressCountry>Country");
-  });
-
-  it("sends a path the graph does not have back, at its pointer, and takes the repair", async () => {
-    const lost: AskSpec = { of: "LaureateAward", show: { kind: "chart", type: "bar", x: "University.name", y: { op: "count" } } };
+  it("sends a field the pattern does not have back, at its pointer, and takes the repair", async () => {
+    const lost: AskSpec = { ...byUniversity, show: { ...byUniversity.show, x: "University.name" } as AskSpec["show"] };
     const proposal = await runTask({ ...ask, attempts: 2 }, input("Prizes by university?"), { model: asking(lost, byUniversity) });
     expect(proposal.attempts).toBe(2);
     expect(proposal.verdict).toEqual({ ok: true });
   });
 
-  it("says what the joins refuse: no such step, no such field, two branches, a chip out of reach", async () => {
+  it("says what the graph refuses: an unnamed vertex, an edge it lacks, a property, a count, a chip out of reach", async () => {
     const refusal = async (spec: AskSpec, extra: Partial<AskInput> = {}) => {
       const proposal = await runTask({ ...ask, attempts: 1 }, input("", extra), { model: asking(spec) });
       return proposal.verdict.ok ? [] : "diagnostics" in proposal.verdict ? proposal.verdict.diagnostics.map((d) => [d.code, d.at]) : [];
     };
-    const chart = (x: string, color?: string): AskSpec => ({ of: "LaureateAward", show: { kind: "chart", type: "bar", x, y: { op: "count" }, ...(color ? { color } : {}) } });
-    expect(await refusal(chart("university.label"))).toEqual([["relations/unmatched", "/show/x"]]);
-    expect(await refusal(chart("university.city.name"))).toEqual([["relations/no-step", "/show/x"]]);
-    expect(await refusal(chart("category.name", "university.name"))).toEqual([["relations/invalid", "/show/color"]]);
-    expect(await refusal({ ...chart("category.name"), where: [{ field: "laureate.age", in: [3] }] })).toEqual([["relations/unmatched", "/where/0/field"]]);
-    expect(await refusal({ of: "Category", show: { kind: "stat", measure: { op: "count" } } }, { under: ["Country"] })).toEqual([["ask/out-of-reach", "/of"]]);
+    const chart = (x: string, more: Partial<AskSpec> = {}): AskSpec => ({ ...byUniversity, show: { ...byUniversity.show, x } as AskSpec["show"], ...more });
+    expect(await refusal(chart("university.name", { match: [{ type: "LaureateAward" }] }))).toEqual([["ask/unnamed", "/match/0"]]);
+    expect(await refusal(chart("university.name", { match: [award, { edge: "category", direction: "out" }, university] }))).toEqual([["ask/no-match", "/match"]]);
+    expect(await refusal(chart("university.label"))).toEqual([["ask/unmatched", "/show/x"]]);
+    expect(await refusal(chart("country.name"))).toEqual([["ask/unmatched", "/show/x"]]);
+    expect(await refusal({ ...byUniversity, where: [{ field: "university.age", in: [3] }] })).toEqual([["ask/unmatched", "/where/0/field"]]);
+    expect(await refusal({ ...byUniversity, show: { ...byUniversity.show, y: { op: "count", variable: "laureate" } } as AskSpec["show"] })).toEqual([["ask/unmatched", "/show/y/variable"]]);
   });
 });
 
 describe("askAlternatives", () => {
   // Women laureates by the country they were born in.
   const women: AskSpec = {
-    of: "Laureate",
-    show: { kind: "chart", type: "bar", x: "birthPlace.name", y: { op: "count" } },
-    where: [{ field: "gender", in: ["female"] }],
+    match: [{ as: "laureate", type: "Laureate" }, { edge: "birthPlace", direction: "out" }, { as: "country", type: "Country" }],
+    show: { kind: "chart", type: "bar", x: "country.name", y: { op: "count" } },
+    where: [{ field: "laureate.gender", in: ["female"] }],
   };
 
-  it("words a type by the label a mapping states, in the page's language, and by its name in words where it states none", () => {
-    const EX = "https://example.org/";
-    const label = (value: string, language: string) => ({ subject: `${EX}Award`, predicate: "http://www.w3.org/2000/01/rdf-schema#label", value: { termType: "Literal", value, language } });
-    const mapping = { tables: [{ id: "_:a", source: { kind: "table", name: "LaureateAward" }, subject: { kind: "column" }, classes: [`${EX}Award`], annotations: [label("prize", "en")], columns: [], relations: [] }] };
-    const chips = (graph: JoinGraph) => askAlternatives(byUniversity, input("", { graph })).find((c) => c.slot === "of")!;
-    expect(chips(withMapping(NOBEL, mapping)).value).toBe("prize");
-    expect(chips(NOBEL).value).toBe("laureate award");
-  });
-
-  it("offers each slot's other values, as whole specs", () => {
-    const chips = askAlternatives(women, input(""));
+  it("offers each slot's other values, as whole specs, a condition's as the graph answers them", async () => {
+    const values = await askValues(women, NOBEL);
+    const chips = askAlternatives(women, input(""), values);
     expect(chips.map((c) => [c.slot, c.label, c.value])).toEqual([
-      ["of", "Counting", "laureate"],
-      ["x", "By", "birthPlace.name"],
-      ["where.0", "gender", "female"],
+      ["count", "Counting", "laureate"],
+      ["x", "By", "country.name"],
+      ["where.0", "laureate.gender", "female"],
     ]);
+    expect(chips[0]!.options.map((o) => o.label)).toEqual(["country"]);
     const where = chips[2]!.options;
     expect(where.map((o) => o.label)).toEqual(["male", "any"]);
-    expect(where[0]!.spec.where).toEqual([{ field: "gender", in: ["male"] }]);
+    expect(where[0]!.spec.where).toEqual([{ field: "laureate.gender", in: ["male"] }]);
     expect(where[1]!.spec.where).toEqual([]);
   });
 
-  it("offers the other of two paths of one length to the same field first", () => {
-    const germany: AskSpec = { ...byUniversity, show: { ...byUniversity.show, x: "category.name" } as AskSpec["show"], where: [{ field: "laureate.birthPlace.name", in: ["Germany"] }] };
-    const chip = askAlternatives(germany, input("")).find((c) => c.slot === "where.0")!;
-    expect(chip.options[0]).toEqual({ label: "university.addressCountry.name", spec: { ...germany, where: [{ field: "university.addressCountry.name", in: ["Germany"] }] } });
-    const by = askAlternatives({ ...byUniversity, show: { ...byUniversity.show, x: "laureate.birthPlace.name" } as AskSpec["show"] }, input("")).find((c) => c.slot === "x")!;
-    expect(by.options[0]!.label).toBe("university.addressCountry.name");
-  });
-});
-
-describe("a multi-valued property", () => {
-  // A laureate's nicknames, a row per value in a table of their own, as `readJoinGraph` reads fossil's.
-  const NICKNAMES: JoinGraph = {
-    types: [
-      ...NOBEL.types,
-      {
-        name: "Laureate_nickname",
-        table: "Laureate_nickname",
-        key: "src",
-        value: "nickname",
-        columns: [
-          { name: "src", type: "UBIGINT", role: "endpoint" },
-          { name: "nickname", type: "VARCHAR", stats: { nullCount: 0, distinctCount: 3, mostCommonVals: ["Marie"], mostCommonFreqs: [0.5] } },
-        ],
-      },
-    ],
-    edges: [...NOBEL.edges, { name: "Laureate_nickname", label: "nickname", source: "Laureate", destination: "Laureate_nickname", table: "Laureate_nickname", src: "src", dst: "src" }],
-  };
-
-  it("is a path Ask may write and read its value by, and never a type it measures", () => {
-    const context = link({ question: "What were laureates called?", graph: NICKNAMES });
-    expect(context.types.map((t) => t.relation.root)).not.toContain("Laureate_nickname");
-    const schema = askSchema(context, NICKNAMES) as { $defs: Record<string, { enum: string[] }> };
-    expect(Object.values(schema.$defs).flatMap((d) => d.enum)).toContain("laureate.nickname");
-    const spec: AskSpec = { of: "LaureateAward", show: { kind: "chart", type: "bar", x: "laureate.nickname", y: { op: "count" } } };
-    const answer = askAnswer(spec, { graph: NICKNAMES }, "a");
-    expect(answer?.relation.path.map((h) => h.edge)).toEqual(["LaureateAward_laureate_Laureate", "Laureate_nickname"]);
+  it("offers a condition only any until its values are read", () => {
+    const chip = askAlternatives(women, input("")).find((c) => c.slot === "where.0")!;
+    expect(chip.options.map((o) => o.label)).toEqual(["any"]);
   });
 });

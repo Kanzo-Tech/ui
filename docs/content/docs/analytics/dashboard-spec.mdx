@@ -1,6 +1,6 @@
 ---
 title: Dashboard spec
-description: The JSON a Dashboard is drawn from and hands back on every edit — every field, what it accepts, how an invalid one is treated, how a host keys it by relation, and the one way to read it back.
+description: The JSON a Dashboard is drawn from and hands back on every edit — every field, what it accepts, how an invalid one is treated, how a host keys it by pattern, and the one way to read it back.
 ---
 
 A dashboard is data. `Dashboard` draws a `DashboardSpec`, its editor produces the next one, and the
@@ -9,8 +9,8 @@ survives `JSON.stringify`, a database column and a version-control diff.
 
 It is shaped after Grafana's panel model and Metabase's dashboard JSON — tiles of a kind in an
 ordered layout, each with a width, and a filter row scoping every tile — without their query layer.
-Every field name in a spec is a column of the **one relation** the `Dashboard` is given; the spec
-does not say which relation that is, and the host keeps that association
+Every field name in a spec is a column of the **one pattern** the `Dashboard` is given,
+`variable.property`; the spec does not say which pattern that is, and the host keeps that association
 ([below](#persisting-it)).
 
 ## A whole spec
@@ -19,18 +19,18 @@ The one the Sightings showcase draws, abridged:
 
 ```json
 {
-  "filters": [{ "field": "region" }, { "field": "hall" }, { "field": "leagues" }],
+  "filters": [{ "field": "sighting.region" }, { "field": "sighting.hall" }, { "field": "sighting.leagues" }],
   "tiles": [
-    { "id": "sightings", "kind": "stat", "title": "Sightings", "measure": { "op": "count" }, "trend": "hour" },
-    { "id": "hour", "kind": "chart", "span": 3, "type": "line", "x": "hour", "y": { "op": "count" }, "title": "Sightings by hour" },
+    { "id": "sightings", "kind": "stat", "title": "Sightings", "measure": { "op": "count" }, "trend": "sighting.hour" },
+    { "id": "hour", "kind": "chart", "span": 3, "type": "line", "x": "sighting.hour", "y": { "op": "count" }, "title": "Sightings by hour" },
     {
       "id": "hoaxes", "kind": "stat", "title": "Hoaxes",
-      "measure": { "op": "share", "field": "verdict", "equals": "hoax" }, "trend": "hour", "goodWhenUp": false
+      "measure": { "op": "share", "field": "sighting.verdict", "equals": "hoax" }, "trend": "sighting.hour", "goodWhenUp": false
     },
-    { "id": "bounty", "kind": "chart", "span": 3, "type": "area", "x": "hour", "y": { "op": "sum", "field": "bounty" }, "facet": "region" },
-    { "id": "fit", "kind": "chart", "span": 2, "type": "regression", "x": "leagues", "y": { "op": "value", "field": "bounty" } },
-    { "id": "hall", "kind": "chart", "span": 1, "type": "bar", "x": "hall", "y": { "op": "count" }, "color": "verdict" },
-    { "id": "rows", "kind": "table", "span": 3, "columns": ["beast", "region", "hall", "hour", "leagues", "bounty", "verdict"] }
+    { "id": "bounty", "kind": "chart", "span": 3, "type": "area", "x": "sighting.hour", "y": { "op": "sum", "field": "sighting.bounty" }, "facet": "sighting.region" },
+    { "id": "fit", "kind": "chart", "span": 2, "type": "regression", "x": "sighting.leagues", "y": { "op": "value", "field": "sighting.bounty" } },
+    { "id": "hall", "kind": "chart", "span": 1, "type": "bar", "x": "sighting.hall", "y": { "op": "count" }, "color": "sighting.verdict" },
+    { "id": "rows", "kind": "table", "span": 3, "columns": ["sighting.beast", "sighting.region", "sighting.hall", "sighting.hour", "sighting.leagues", "sighting.bounty", "sighting.verdict"] }
   ]
 }
 ```
@@ -46,7 +46,7 @@ The one the Sightings showcase draws, abridged:
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| `field` | `string` | The column to filter by. The control is chosen from the field's stats when the dashboard draws — a timeline, a facet filter, a search or a slider ([the table](/docs/analytics/dashboard#how-a-relation-is-read)) — and is never stored. |
+| `field` | `string` | The column to filter by. The control is chosen from the field's stats when the dashboard draws — a timeline, a facet filter, a search or a slider ([the table](/docs/analytics/dashboard#how-a-pattern-is-read)) — and is never stored. |
 
 A filter on a field that has no control, or that the relation no longer has, is skipped.
 
@@ -59,11 +59,11 @@ A filter on a field that has no control, or that the relation no longer has, is 
 | `id` | `string` | Stable identity, used as the React key. Unique within `tiles`. |
 | `kind` | `"stat" \| "chart" \| "table"` | What the tile is. |
 | `title` | `string?` | Overrides the title derived from what the tile reads — *Mean bounty*, *Count by hall and verdict*, *leagues × bounty*, *Rows*. |
-| `where` | `Condition[]?` | The tile's own conditions, under the page's filter: `{ field, in: [values] }`, `{ field, between: [low, high] }` (inclusive; a time as an ISO date) or `{ field, contains: text }`. A field is a path from the relation's root; one off the relation is [crossed in](/docs/analytics/dashboard#the-joins-one-door) at the step it leaves. |
+| `where` | `Condition[]?` | The tile's own conditions, under the page's filter: `{ field, in: [values] }`, `{ field, between: [low, high] }` (inclusive; a time as an ISO date) or `{ field, contains: text }`. A field is the pattern's; to narrow by what lies beyond the pattern, the pattern takes the hop. |
 
 Every field a tile names — `x`, a measure's `field`, `color`, `facet`, `trend`, a table's `columns`,
-a condition's `field` — is the relation's column, named by its path from the root: `gender` on the
-root, `knows.gender` one hop away.
+a condition's `field` — is the pattern's column, named by its variable and a property of the vertex's
+type: `person.gender`, `friend.gender` one hop away.
 
 A chart and a table also have:
 
@@ -110,11 +110,11 @@ A number per group, or the raw column for the two charts that plot rows.
 | `op` | `DashboardAggregate \| "value"` | The aggregate — see below. |
 | `field` | `string?` | What the aggregate reads. None for `count`. |
 | `equals` | `string \| number \| boolean` | For `share` only: the value whose share is measured. |
-| `path` | `string?` | For `count` only: a step of the relation — `affiliation` — whose rows are counted in place of the root's. |
+| `variable` | `string?` | For `count` only: a vertex the pattern names — `friend` — counted in place of the first. |
 
 | `op` | SQL | `field` | Notes |
 | --- | --- | --- | --- |
-| `count` | `count(DISTINCT key)` of the relation's root — or of `path`'s step | — | what is measured, once per group however many joined rows lead there; on a type alone, `count(*)` |
+| `count` | `count(DISTINCT index)` of the pattern's first vertex — or of `variable`'s | — | what is measured, once per group however many matches lead there; on a vertex alone, `count(*)` |
 | `distinct` | `count(DISTINCT field)` | any field | |
 | `sum` · `avg` · `min` · `max` · `median` | the aggregate of `field` | a number | `avg` is labelled *Mean*, `sum` *Total* |
 | `share` | `100 * count(*) FILTER (WHERE field = equals) / count(*)` | a category | a percentage; a tile's delta is in `pp`. Written in the spec, not offered by the editor, because it needs a value |
@@ -136,9 +136,9 @@ valid when it draws:
   becomes `count`. A mark or a kind the relation has nothing to draw with is disabled.
 
 A host that writes specs by hand — a template, an import — gets no such normalisation on the way in:
-the fields it names are drawn as named. Check it with [`parseDashboards`](#reading-it-back) — one relation's spec is
-`{ byRelation: { [relation]: spec } }` — and the
-relation's `useFieldStats` before saving one, or let a reader open it and save one edit.
+the fields it names are drawn as named. Check it with [`parseDashboards`](#reading-it-back) — one pattern's spec is
+`{ byPattern: { [patternKey(pattern)]: spec } }` — and the
+pattern's `useFieldStats` before saving one, or let a reader open it and save one edit.
 
 ## The automatic spec
 
@@ -150,12 +150,12 @@ relation's `useFieldStats` before saving one, or let a reader open it and save o
 The first `onChange` hands the host the automatic tiles as a real spec, so from that edit on the
 dashboard is what was saved, not what the stats would choose today. *Reset to automatic*, in the
 dashboard's options menu, calls `onChange(undefined)`: the host deletes what it stored for the
-relation, and the dashboard draws `autoDashboard` again — and follows the stats from then on.
+pattern, and the dashboard draws `autoDashboard` again — and follows the stats from then on.
 
 ## Persisting it
 
-A spec names columns, so it belongs to a relation. The host stores **one spec per relation**, keyed
-by the relation's identity, and hands it back as `value` with the same `table`.
+A spec names columns, so it belongs to a pattern. The host stores **one spec per pattern**, keyed
+by `patternKey(pattern)`, and hands it back as `value` with the same pattern.
 
 - **Store what `onChange` hands you, whole.** Never merge a patch into a stored spec: the editor
   already produced the complete next state, and a merge resurrects what the reader removed.
@@ -168,16 +168,16 @@ by the relation's identity, and hands it back as `value` with the same `table`.
 
 ### Dashboards
 
-A host that draws dashboards over the [relations](/docs/analytics/dashboard#relations) of a join
-graph keeps every one of them in one document, keyed by `relationKey`:
+A host that draws dashboards over the [patterns](/docs/analytics/dashboard#patterns) of a graph
+keeps every one of them in one document, keyed by `patternKey` from `@kanzo-tech/mosaic`:
 
 ```ts
 interface Dashboards {
-  byRelation: Record<string, DashboardSpec>; // "Person", "Person>knows>Person", … → its dashboard
+  byPattern: Record<string, DashboardSpec>; // patternKey(pattern) → its dashboard
 }
 ```
 
-A relation nobody has edited has no entry, and draws its automatic dashboard. A product keeps the
+A pattern nobody has edited has no entry, and draws its automatic dashboard. A product keeps the
 document per whatever owns the graph — a job, a dataset — written whole after a pause.
 
 ### Reading it back
@@ -185,12 +185,12 @@ document per whatever owns the graph — a job, a dataset — written whole afte
 What a host stored comes back through one door, checked against the spec's own declaration — the
 types on this page are inferred from it, so the check and the types cannot disagree:
 
-- **`parseDashboards(saved)`** reads the document. `null` or `undefined` is `{ byRelation: {} }`.
+- **`parseDashboards(saved)`** reads the document. `null` or `undefined` is `{ byPattern: {} }`.
 - **`parseTile(tile)`** reads one tile, for a tile made outside the editor — an
   [answer](/docs/ai/data) a model filled — before it is drawn or saved: `not a tile at y: …`.
 
 Anything that is not a current spec **throws**, naming the first field that is wrong and, from
-`parseDashboards`, the relation: `not a dashboards document at byRelation.Person.tiles.0.span: …`.
+`parseDashboards`, the pattern: `not a dashboards document at byPattern.<key>.tiles.0.span: …`.
 Nothing is coerced, defaulted or dropped, and a key the spec does not have is refused, so a
 document is current or it is not read: a reader never half-understands one and then overwrites it
 with its first edit. Show the failure where the dashboard would be, not the automatic dashboard.
@@ -201,7 +201,7 @@ and a migration chain come back together the day a release has to carry stored d
 change of shape, never one without the other.
 
 Four checks hold whatever the relation: every measure but `count` names a `field`, a `share` names
-the value it measures (`equals`), only a `count` names a `path`, and only a bar chart keeps a `top`. Whether the fields exist is the relation's to say, and is
+the value it measures (`equals`), only a `count` names a `variable`, and only a bar chart keeps a `top`. Whether the fields exist is the relation's to say, and is
 [treated when it draws](#how-an-invalid-spec-is-treated).
 
 ## Types
@@ -265,14 +265,14 @@ interface DashboardMeasure {
   op: DashboardAggregate | "value";
   field?: string;
   equals?: string | number | boolean;
-  path?: string;
+  variable?: string;
 }
 
 type DashboardChartType = "bar" | "line" | "area" | "histogram" | "dot" | "regression";
 type DashboardAggregate = "count" | "distinct" | "sum" | "avg" | "min" | "max" | "median" | "share";
 
 interface Dashboards {
-  byRelation: Record<string, DashboardSpec>;
+  byPattern: Record<string, DashboardSpec>;
 }
 
 function parseDashboards(saved: unknown): Dashboards;
@@ -289,8 +289,7 @@ function tileQuery(table: TableExpr, tile: Tile, context: TileContext): TileQuer
 
 interface TileContext {
   fields: readonly FieldStat[];
-  relation?: RelationRef | null; // the relation as the page knows it: a count's key, a condition off it
-  resolver?: JoinResolver;       // the page's, selection.resolver
+  relation?: Relation | null;    // the relation as the page knows it: what a count's vertex is read through
   filter?: FilterExpr;           // the page's filter, which `rows` is read under
   limit?: number;                // TILE_ROWS, 1000
 }

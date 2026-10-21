@@ -3,7 +3,8 @@
 # megabytes at the top sizes. A compiler output belongs in a build, not in history.
 /public/bench/
 
-# The workspace's archive, written by showcases/workspace/corpus/build-corpus.mjs. Compiler output,
+# The workspace's archive, written by showcases/workspace/corpus/build-corpus.mjs, and the dashboard
+# pages' sightings and contracts, by examples/dashboard/corpus/build.mjs. Compiler output,
 # like the benchmark corpora beside it, and for the same reason: the showcase reads a corpus because
 # that is what a product reads, and a corpus is written once by the real writer rather than built in
 # the tab.

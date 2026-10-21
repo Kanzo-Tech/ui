@@ -1,7 +1,7 @@
 "use client";
 
 import { type ExprValue, Query } from "@kanzo-tech/mosaic";
-import type { RelationExpr } from "@kanzo-tech/relations";
+import type { RelationExpr } from "./mosaic-provider.js";
 import { FormatNumber } from "@ark-ui/react/format";
 import { StatValue, type StatValueProps } from "../simples/stat.js";
 import { useChartContextOptional } from "./chart-root.js";

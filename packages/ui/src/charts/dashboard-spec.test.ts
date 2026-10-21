@@ -12,7 +12,8 @@ import {
   tileQuery,
   type ChartTile,
 } from "./dashboard-spec.js";
-import { JoinResolver, type JoinGraph, type Relation } from "@kanzo-tech/relations";
+import { patternKey, relationOver } from "@kanzo-tech/mosaic";
+import { graphOf } from "../../test/graph";
 import { Query, count, verbatim } from "@uwdata/mosaic-sql";
 import type { FieldStat } from "./field-stats.js";
 
@@ -89,59 +90,59 @@ describe("measureExpr", () => {
   });
 });
 
-const NOBEL: JoinGraph = {
-  types: ["Award", "Category", "Affiliation", "University"].map((name) => ({ name, table: name, key: "dense_id", columns: [{ name: name === "Award" ? "year" : "name", type: "VARCHAR" }] })),
-  edges: [
-    { name: "Award_category_Category", label: "category", source: "Award", destination: "Category", table: "Award_category_Category", src: "src", dst: "dst" },
-    { name: "Award_affiliation_Affiliation", label: "affiliation", source: "Award", destination: "Affiliation", table: "Award_affiliation_Affiliation", src: "src", dst: "dst" },
-    { name: "Affiliation_university_University", label: "university", source: "Affiliation", destination: "University", table: "Affiliation_university_University", src: "src", dst: "dst" },
+const NOBEL = graphOf(
+  [
+    { type: "Award", properties: [{ name: "year", type: "INTEGER" }] },
+    { type: "Affiliation", properties: [{ name: "name", type: "VARCHAR" }] },
+    { type: "University", properties: [{ name: "name", type: "VARCHAR" }] },
   ],
-};
-const resolver = new JoinResolver(NOBEL);
-const BY_UNIVERSITY: Relation = {
-  root: "Award",
-  path: [
-    { edge: "Award_affiliation_Affiliation", direction: "out" },
-    { edge: "Affiliation_university_University", direction: "out" },
+  [
+    { edgeType: "affiliation", srcType: "Award", dstType: "Affiliation" },
+    { edgeType: "university", srcType: "Affiliation", dstType: "University" },
   ],
-};
-const ON_UNIVERSITY = [F("year", "numeric", "measure", 100, [1901, 2024]), F("affiliation.name", "categorical", "dimension", 40), F("affiliation.university.name", "categorical", "dimension", 30)];
-const bars = (extra: Partial<ChartTile> = {}): ChartTile => ({ id: "a", kind: "chart", span: 2, type: "bar", x: "affiliation.university.name", y: { op: "count" }, ...extra });
+);
+const BY_UNIVERSITY = relationOver(NOBEL, [
+  { as: "award", type: "Award" },
+  { edge: "affiliation" },
+  { as: "affiliation", type: "Affiliation" },
+  { edge: "university" },
+  { as: "university", type: "University" },
+]);
+const AWARDS = relationOver(NOBEL, [{ as: "award", type: "Award" }]);
+const ON_UNIVERSITY = [F("award.year", "numeric", "measure", 100, [1901, 2024]), F("affiliation.name", "categorical", "dimension", 40), F("university.name", "categorical", "dimension", 30)];
+const bars = (extra: Partial<ChartTile> = {}): ChartTile => ({ id: "a", kind: "chart", span: 2, type: "bar", x: "university.name", y: { op: "count" }, ...extra });
 
 describe("tileQuery, the one compiler of a tile", () => {
-  it("counts what is measured once per group across a hop, a path's step when it names one, and rows on a type alone", () => {
-    const across = tileQuery("r", bars(), { fields: ON_UNIVERSITY, relation: BY_UNIVERSITY, resolver });
-    expect(String("measure" in across && across.measure)).toBe('count(DISTINCT "dense_id")');
-    const path = tileQuery("r", bars({ y: { op: "count", path: "affiliation" } }), { fields: ON_UNIVERSITY, relation: BY_UNIVERSITY, resolver });
-    expect(String("measure" in path && path.measure)).toBe('count(DISTINCT "affiliation.dense_id")');
-    const alone = tileQuery("Award", { id: "s", kind: "stat", measure: { op: "count" } }, { fields: [], relation: "Award", resolver });
+  it("counts the pattern's first vertex once per group across a hop, a named vertex when the count names one, and rows on a vertex alone", () => {
+    const across = tileQuery("r", bars(), { fields: ON_UNIVERSITY, relation: BY_UNIVERSITY });
+    expect(String("measure" in across && across.measure)).toBe('count(DISTINCT "award")');
+    const named = tileQuery("r", bars({ y: { op: "count", variable: "affiliation" } }), { fields: ON_UNIVERSITY, relation: BY_UNIVERSITY });
+    expect(String("measure" in named && named.measure)).toBe('count(DISTINCT "affiliation")');
+    const alone = tileQuery("r", { id: "s", kind: "stat", measure: { op: "count" } }, { fields: [], relation: AWARDS });
     expect(String("measure" in alone && alone.measure)).toBe("count(*)");
   });
 
-  it("narrows by a condition on the relation as its clause, and crosses one off it in at the step it leaves", () => {
-    const tile = bars({ where: [{ field: "affiliation.name", in: ["CERN"] }, { field: "category.name", in: ["Physics"] }] });
-    const compiled = tileQuery("r", tile, { fields: ON_UNIVERSITY, relation: BY_UNIVERSITY, resolver });
+  it("narrows by a condition on the relation as its clause", () => {
+    const tile = bars({ where: [{ field: "affiliation.name", in: ["CERN"] }] });
+    const compiled = tileQuery("r", tile, { fields: ON_UNIVERSITY, relation: BY_UNIVERSITY });
     if ("missing" in compiled) throw new Error(compiled.missing.join());
-    const sql = String(compiled.table);
-    expect(sql).toContain(`("affiliation.name" IN ('CERN'))`);
-    expect(sql).toContain(`("dense_id" IN (SELECT "dense_id" FROM (SELECT "t0"."dense_id" AS "dense_id", "t0"."year" AS "year", "t1"."dense_id" AS "category.dense_id", "t1"."name" AS "category.name"`);
-    expect(sql).toContain(`WHERE ("category.name" IN ('Physics'))`);
+    expect(String(compiled.table)).toContain(`("affiliation.name" IN ('CERN'))`);
     // The rows read what the marks read, grouped by the bar.
-    expect(String(compiled.rows)).toContain(`GROUP BY "affiliation.university.name"`);
+    expect(String(compiled.rows)).toContain(`GROUP BY "university.name"`);
   });
 
   it("keeps a bar chart's top bars by its measure, ties by the bar, and refuses a top on any other chart", () => {
-    const compiled = tileQuery("r", bars({ top: 5 }), { fields: ON_UNIVERSITY, relation: BY_UNIVERSITY, resolver });
+    const compiled = tileQuery("r", bars({ top: 5 }), { fields: ON_UNIVERSITY, relation: BY_UNIVERSITY });
     if ("missing" in compiled) throw new Error(compiled.missing.join());
     expect(String(compiled.table)).toContain(
-      `WHERE ("affiliation.university.name" IN (SELECT "affiliation.university.name" FROM "r" GROUP BY "affiliation.university.name" ORDER BY count(DISTINCT "dense_id") DESC, "affiliation.university.name" LIMIT 5))`,
+      `WHERE ("university.name" IN (SELECT "university.name" FROM "r" GROUP BY "university.name" ORDER BY count(DISTINCT "award") DESC, "university.name" LIMIT 5))`,
     );
     expect(() => parseDashboard({ filters: [], tiles: [{ ...bars({ top: 5 }), type: "line" }] })).toThrow(/only a bar chart keeps a top/);
   });
 
-  it("says what the relation cannot read: a field it lacks, a path the joins do not have, a step it does not reach", () => {
-    const tile = bars({ y: { op: "count", path: "laureate" }, where: [{ field: "category.label", in: ["x"] }], color: "gender" });
-    expect(tileQuery("r", tile, { fields: ON_UNIVERSITY, relation: BY_UNIVERSITY, resolver })).toEqual({ missing: ["gender", "laureate", "category.label"] });
+  it("says what the relation cannot read: a field it lacks, a vertex it does not name, a condition off it", () => {
+    const tile = bars({ y: { op: "count", variable: "laureate" }, where: [{ field: "category.name", in: ["x"] }], color: "laureate.gender" });
+    expect(tileQuery("r", tile, { fields: ON_UNIVERSITY, relation: BY_UNIVERSITY })).toEqual({ missing: ["laureate.gender", "category.name", "laureate"] });
   });
 });
 
@@ -206,24 +207,25 @@ describe("parseDashboard and parseDashboards", () => {
 
   it("reads a current spec as itself, through JSON both ways", () => {
     expect(parseDashboard(JSON.parse(JSON.stringify(spec)))).toEqual(spec);
-    const saved = { byRelation: { Person: spec } };
+    const saved = { byPattern: { [patternKey([{ as: "p", type: "Person" }])]: spec } };
     expect(parseDashboards(JSON.parse(JSON.stringify(saved)))).toEqual(saved);
   });
 
   it("reads nothing stored as no dashboards", () => {
-    expect(parseDashboards(null)).toEqual({ byRelation: {} });
-    expect(parseDashboards(undefined)).toEqual({ byRelation: {} });
+    expect(parseDashboards(null)).toEqual({ byPattern: {} });
+    expect(parseDashboards(undefined)).toEqual({ byPattern: {} });
   });
 
   it("refuses what an earlier release saved, whole, rather than reading part of it", () => {
     expect(() => parseDashboard({ version: 2, ...spec })).toThrow(/not a dashboard spec/);
-    expect(() => parseDashboards({ version: 2, byRelation: {} })).toThrow(/not a dashboards document/);
+    expect(() => parseDashboards({ version: 2, byPattern: {} })).toThrow(/not a dashboards document/);
+    expect(() => parseDashboards({ byRelation: {} })).toThrow(/not a dashboards document/);
     expect(() => parseDashboards({ version: 1, byType: {} })).toThrow(/not a dashboards document/);
   });
 
   it("names the relation and the field that is wrong", () => {
     const bad = { ...spec, tiles: [{ id: "a", kind: "chart", span: 4, type: "bar", x: "region", y: { op: "count" } }] };
-    expect(() => parseDashboards({ byRelation: { Person: bad } })).toThrow(/at byRelation\.Person\.tiles\.0\.span/);
+    expect(() => parseDashboards({ byPattern: { people: bad } })).toThrow(/at byPattern\.people\.tiles\.0\.span/);
     expect(() => parseDashboard({ ...spec, tiles: [{ id: "a", kind: "map", span: 1 }] })).toThrow(/at tiles\.0\.kind/);
   });
 

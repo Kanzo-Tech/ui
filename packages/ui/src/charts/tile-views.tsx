@@ -1,6 +1,6 @@
 "use client";
 
-import type { RelationExpr } from "@kanzo-tech/relations";
+import type { RelationExpr } from "./mosaic-provider.js";
 import type React from "react";
 import { cn } from "../lib/cn.js";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "../simples/card.js";
@@ -44,7 +44,7 @@ function TableCard({ relation, fields, tile, onEdit, actions, className }: TileV
   return (
     <Card className={cn("[--space:--spacing(4)] min-w-0 gap-3", className)}>
       <CardHeader>
-        <CardTitle className="truncate font-medium text-sm">{tileTitle(tile, fields)}</CardTitle>
+        <CardTitle className="truncate font-medium text-sm">{tileTitle(tile)}</CardTitle>
         {onEdit || actions ? (
           <CardAction className="-my-1 flex items-center gap-1">
             {actions}

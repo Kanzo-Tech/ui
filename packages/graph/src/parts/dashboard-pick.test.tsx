@@ -1,23 +1,21 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { KanzoThemeProvider } from "@kanzo-tech/ui";
 import { ChartTimeline, Dashboard, FilterBar, MosaicClients, MosaicProvider, useMosaic, type DashboardSpec } from "@kanzo-tech/ui/analytics";
 import { useState, type ReactNode } from "react";
-import type { JoinGraph, Relation } from "@kanzo-tech/relations";
+import type { Pattern } from "@kanzo-tech/graphar-duckdb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { attach, settle, type Attached } from "../../test/corpus";
-import { readJoinGraph } from "@kanzo-tech/relations";
+import { verticesOf } from "../core/source";
 import { GraphRoot, useGraphContext } from "../react/graph-root";
 import { internalsOf } from "../react/use-graph";
 import { GRAPH_SECTION } from "../section";
 
 /** The host's one client: every read the parts make is a query on it. */
-const queries = new QueryClient();
 
 /**
  * A workspace page, cut down: the graph, the page's `FilterBar`, a dashboard kept mounted and hidden
- * under a `MosaicClients` that is off in Graph view, and a timeline over `vertices`. A pick on the
- * dashboard's bar chart — a path rooted at `Person` — filters the graph's vertices whichever view is
+ * under a `MosaicClients` that is off in Graph view, and a timeline over every vertex. A pick on the
+ * dashboard's bar chart — a pattern whose first vertex is a `Person` — filters the graph's vertices whichever view is
  * shown, and stays on the page when the timeline's window is taken off the bar: a chip's × retracts
  * its own clause and no other.
  */
@@ -27,7 +25,7 @@ const WAIT = { timeout: 10_000 };
 const SPEC: DashboardSpec = {
   filters: [],
   tiles: [
-    { id: "place", kind: "chart", span: 1, type: "bar", title: "Count by knows.livesIn.name", x: "knows.livesIn.name", y: { op: "count" } },
+    { id: "place", kind: "chart", span: 1, type: "bar", title: "Count by home.name", x: "home.name", y: { op: "count" } },
   ],
 } as unknown as DashboardSpec;
 
@@ -40,12 +38,12 @@ function Snapshot() {
   return null;
 }
 
-function Page({ corpus, relation }: { corpus: Attached; relation: Relation }) {
+function Page({ corpus, relation }: { corpus: Attached; relation: Pattern }) {
   const { selection } = useMosaic();
   const [view, setView] = useState<"graph" | "dashboard">("dashboard");
   show = setView;
   return (
-    <GraphRoot engine={corpus.engine} filterBy={selection} from={corpus.from} onFailure={() => {}}>
+    <GraphRoot engine={corpus.engine} filterBy={selection} graph={corpus.graph} onFailure={() => {}}>
       <Snapshot />
       <FilterBar />
       <MosaicClients enabled={view === "dashboard"}>
@@ -54,7 +52,7 @@ function Page({ corpus, relation }: { corpus: Attached; relation: Relation }) {
         </div>
       </MosaicClients>
       <div hidden={view !== "graph"} style={{ minHeight: 44 }}>
-        <ChartTimeline field="born" height={44} relation="vertices" title="Timeline: born" />
+        <ChartTimeline field="born" height={44} relation={verticesOf(corpus.graph)} title="Timeline: born" />
       </div>
     </GraphRoot>
   );
@@ -120,16 +118,19 @@ describe("a pick on a hidden dashboard, under the timeline", { timeout: 60_000 }
 
   it("keeps a pick made on the dashboard when the timeline's window is taken off the bar", async () => {
     const corpus = await attach();
-    const joins: JoinGraph = await readJoinGraph(corpus.engine, corpus.from, { signal: new AbortController().signal });
-    const lives = joins.edges.find((e) => e.source === "Person" && e.destination === "Place")!;
-    const knows = joins.edges.find((e) => e.source === "Person" && e.destination === "Person")!;
-    // Two hops, the pick on a hop's column, as the demo's Laureate.gender is.
-    const relation: Relation = { root: "Person", path: [{ edge: knows.name, direction: "out" }, { edge: lives.name, direction: "out" }] };
+    // Two hops, the pick on the far vertex's property, as the demo's laureate.gender is.
+    const relation: Pattern = [
+      { as: "person", type: "Person" },
+      { edge: "knows", direction: "out" },
+      { as: "friend", type: "Person" },
+      { edge: "livesIn", direction: "out" },
+      { as: "home", type: "Place" },
+    ];
     const { container } = render(
       <Theme>
-        <QueryClientProvider client={queries}><MosaicProvider engine={corpus.engine} joins={joins}>
+        <MosaicProvider engine={corpus.engine} graph={corpus.graph}>
           <Page corpus={corpus} relation={relation} />
-        </MosaicProvider></QueryClientProvider>
+        </MosaicProvider>
       </Theme>,
     );
     const chips = () => within(screen.getByRole("region", { name: "Filters" })).queryAllByRole("button", { name: /^Remove / });
@@ -155,7 +156,7 @@ describe("a pick on a hidden dashboard, under the timeline", { timeout: 60_000 }
     // The dashboard drawn, then the Graph view and a window on the timeline.
     await vi.waitFor(async () => {
       await act(() => settle(corpus));
-      expect(figure("Count by knows.livesIn.name").querySelector("svg g[aria-label=bar] rect")).toBeTruthy();
+      expect(figure("Count by home.name").querySelector("svg g[aria-label=bar] rect")).toBeTruthy();
     }, WAIT);
     act(() => show("graph"));
     await brush(1900, 1909);
@@ -164,15 +165,15 @@ describe("a pick on a hidden dashboard, under the timeline", { timeout: 60_000 }
     // On the dashboard, a click on the bar of Place 1 — the Toggle's own pointerdown.
     act(() => show("dashboard"));
     await act(() => settle(corpus));
-    const svg = figure("Count by knows.livesIn.name").querySelector("svg")!;
-    const toggle = plotOf("Count by knows.livesIn.name")!.interactors[0] as { mark: { index: number; data: { columns: Record<string, ArrayLike<unknown>> } }; as: string[] };
+    const svg = figure("Count by home.name").querySelector("svg")!;
+    const toggle = plotOf("Count by home.name")!.interactors[0] as { mark: { index: number; data: { columns: Record<string, ArrayLike<unknown>> } }; as: string[] };
     const at = Array.from(toggle.mark.data.columns[toggle.as[0]!]!).indexOf("Place 1");
     const bar = [...svg.querySelectorAll(`g[data-index='${toggle.mark.index}'] rect`)].find((r) => (r as unknown as { __data__: number }).__data__ === at)!;
     fireEvent.pointerEnter(svg);
     fireEvent.pointerDown(bar);
     act(() => show("graph"));
-    await vi.waitFor(() => expect(labels()).toEqual(["Remove born 1900 – 1909", "Remove knows.livesIn.name Place 1"]), WAIT);
-    // Person2 in Place 1 is Person 1 or 7, so the roots are 0 and 6.
+    await vi.waitFor(() => expect(labels()).toEqual(["Remove born 1900 – 1909", "Remove home.name Place 1"]), WAIT);
+    // A friend in Place 1 is Person 1 or 7, so the people who know one are 0 and 6.
     await vi.waitFor(() => expect(snapshot().matching).toBe(2), WAIT);
 
     // The window's chip removed, as the harness does: its button, again while it is still drawn.
@@ -181,7 +182,7 @@ describe("a pick on a hidden dashboard, under the timeline", { timeout: 60_000 }
     if (born()) fireEvent.click(born()!);
     await act(() => settle(corpus));
     await vi.waitFor(() => expect(born()).toBeUndefined(), WAIT);
-    expect(labels()).toEqual(["Remove knows.livesIn.name Place 1"]);
+    expect(labels()).toEqual(["Remove home.name Place 1"]);
     await vi.waitFor(() => expect(snapshot().matching).toBe(2), WAIT);
   });
 });

@@ -1,7 +1,7 @@
 import { Selection, clauseInterval, clausePoint, clauseSemiJoin } from "@kanzo-tech/mosaic";
 import fc from "fast-check";
 import { describe, expect, it, vi } from "vitest";
-import { attach, settle, type Attached } from "../../test/corpus";
+import { attach, globalRows, settle, type Attached } from "../../test/corpus";
 import { highlighted } from "../render/motion";
 import { matchingIds, parseQuery } from "./source";
 import { createGraph } from "./store";
@@ -32,12 +32,7 @@ async function oracle(corpus: Attached, sets: readonly (readonly number[])[], pl
     ...sets.map((ids) => (ids.length === 0 ? "FALSE" : `dense_id IN (${ids.join(", ")})`)),
     ...(placed ? ["lon IS NOT NULL", "lat IS NOT NULL"] : []),
   ];
-  // The global id by hand, from GraphAr's per-type index: Person from 0, Place from 10, Tag from 16.
-  const union = [
-    `SELECT _graphArVertexIndex AS dense_id, lon, lat FROM ${corpus.from}."Person"`,
-    `SELECT 10 + _graphArVertexIndex AS dense_id, lon, lat FROM ${corpus.from}."Place"`,
-    `SELECT 16 + _graphArVertexIndex AS dense_id, NULL AS lon, NULL AS lat FROM ${corpus.from}."Tag"`,
-  ].join(" UNION ALL ");
+  const union = globalRows(corpus.graph, ["lon", "lat"]);
   const sql = `SELECT dense_id FROM (${union}) ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY dense_id`;
   const table = (await corpus.coordinator.query(sql)) as { getChild(name: string): { toArray(): ArrayLike<number> } | null };
   return Array.from(table.getChild("dense_id")?.toArray() ?? [], Number);
@@ -48,7 +43,7 @@ const ids = (mask: Uint8Array | null | undefined) => [...(mask ?? [])].flatMap((
 async function mapped() {
   const corpus = await attach();
   const crossfilter = Selection.crossfilter();
-  const store = createGraph({ from: corpus.from, engine: corpus.engine, onFailure: vi.fn(), filterBy: crossfilter, x: "lon", y: "lat" });
+  const store = createGraph({ graph: corpus.graph, engine: corpus.engine, onFailure: vi.fn(), filterBy: crossfilter, x: "lon", y: "lat" });
   // A subscriber connects the graph's client, as a mounted canvas does.
   store.subscribe(() => {});
   await settle(corpus);
@@ -217,13 +212,11 @@ describe("the page's crossfilter, as properties of kept", () => {
  * **A clause a type cannot answer keeps none of that type** — the rule decided on
  * `/docs/design/crossfilter#formal-semantics`, `ans(c, v) = false` when `T(v)` lacks a column of `c`.
  * Column clauses join the identity ones here: `score` only Person has, `name` Person and Place have,
- * and Tag has neither. The oracle applies the rule table by table in SQL, a clause on a column a table
- * lacks being `FALSE` there, so it is read from the tables' own columns and not from the store.
+ * and Tag has neither. The oracle applies the rule in SQL over every type's rows, a column a type lacks
+ * reading NULL there so that a clause on it keeps none of them — read from the types' own relations and
+ * not from the store.
  */
 describe("a clause a type cannot answer", () => {
-  const COLUMNS: Record<string, readonly string[]> = { Person: ["name", "score"], Place: ["name"], Tag: [] };
-  /** Each type's first global id, by hand. */
-  const FIRST: Record<string, number> = { Person: 0, Place: 10, Tag: 16 };
   type Column = { kind: "score"; range: [number, number] } | { kind: "name"; value: string };
   const column: fc.Arbitrary<Column> = fc.oneof(
     fc.tuple(fc.integer({ min: 0, max: 11 }), fc.integer({ min: 0, max: 11 })).map(([a, b]) => ({ kind: "score" as const, range: [Math.min(a, b), Math.max(a, b)] as [number, number] })),
@@ -232,14 +225,12 @@ describe("a clause a type cannot answer", () => {
   const sqlOf = (c: Column) => (c.kind === "score" ? `score BETWEEN ${c.range[0]} AND ${c.range[1]}` : `name = '${c.value}'`);
 
   async function oracle(corpus: Attached, columns: readonly Column[], sets: readonly (readonly number[])[]): Promise<number[]> {
-    const branches = Object.entries(COLUMNS).map(([table, has]) => {
-      const where = [
-        ...columns.map((c) => (has.includes(c.kind) ? sqlOf(c) : "FALSE")),
-        ...sets.map((ids) => (ids.length === 0 ? "FALSE" : `dense_id IN (${ids.join(", ")})`)),
-      ];
-      const global = `SELECT ${FIRST[table]} + _graphArVertexIndex AS dense_id, * FROM ${corpus.from}."${table}"`;
-      return `SELECT dense_id FROM (${global})${where.length ? ` WHERE ${where.join(" AND ")}` : ""}`;
-    });
+    const where = [
+      ...columns.map((c) => sqlOf(c)),
+      ...sets.map((ids) => (ids.length === 0 ? "FALSE" : `dense_id IN (${ids.join(", ")})`)),
+    ];
+    // A property a type lacks reads NULL, so a clause on it keeps none of that type's rows.
+    const branches = [`SELECT dense_id FROM (${globalRows(corpus.graph, ["name", "score"])})${where.length ? ` WHERE ${where.join(" AND ")}` : ""}`];
     const table = (await corpus.coordinator.query(`SELECT dense_id FROM (${branches.join(" UNION ALL ")}) ORDER BY dense_id`)) as { getChild(name: string): { toArray(): ArrayLike<number> } | null };
     return Array.from(table.getChild("dense_id")?.toArray() ?? [], Number);
   }
@@ -255,7 +246,7 @@ describe("a clause a type cannot answer", () => {
         columns.forEach((c, i) => page.update(c.kind === "score" ? clauseInterval("score", c.range, { source: [source, { reset() {} }][i]! }) : clausePoint("name", c.value, { source: [source, { reset() {} }][i]! })));
         sets.forEach((set) => page.update(clauseSemiJoin("dense_id", set, { source: { reset() {} }, label: "set" })));
         const subset = page.clauses.map((clause) => clause.predicate).filter((p) => p !== null) as never[];
-        const found = await matchingIds(corpus.engine, structure, parseQuery("", structure), { subset });
+        const found = await matchingIds(corpus.engine, structure, parseQuery("", structure), subset);
         const expected = subset.length === 0 ? Array.from({ length: SIZE }, (_, i) => i) : await oracle(corpus, columns, sets);
         expect([...found].sort((a, b) => a - b)).toEqual(expected);
       }),

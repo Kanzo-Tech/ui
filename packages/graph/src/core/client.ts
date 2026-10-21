@@ -1,10 +1,10 @@
-import { MosaicClient, type ClauseSource, Query, cast, clauseAntiJoin, clauseSemiJoin, float64, literal, queryFailure, type FilterExpr, type Selection } from "@kanzo-tech/mosaic";
-import { onRelation, type JoinGraph, type RelationClient } from "@kanzo-tech/relations";
-import { KEY, VERTICES, answers, clausesOf, vertexTypes, type Answer } from "./source";
+import type { Graph } from "@kanzo-tech/graphar-duckdb";
+import { MosaicClient, type ClauseSource, Query, cast, clauseAntiJoin, clauseSemiJoin, float64, literal, onRelation, queryFailure, type FilterExpr, type Relation, type RelationClient, type Selection } from "@kanzo-tech/mosaic";
+import { KEY, answers, clausesOf, placed, rowsOf, type Answer } from "./source";
 
 /**
  * **The graph as a client of the engine's coordinator** — one Mosaic client, like every chart beside
- * it, reading `vertices`: every vertex as one relation. The coordinator hands it the page's
+ * it, reading `vertices`: every vertex as one relation (`verticesOf`). The coordinator hands it the page's
  * predicate, minus the clause the graph published itself, with every clause published on another
  * relation already crossed into `vertices` by the page's resolver; it answers with the keys that
  * survive, and the canvas greys out the rest on the GPU.
@@ -17,22 +17,27 @@ const UNFILTERED = Query.select({ id: cast(literal(null), "DOUBLE") });
 const NOTHING = Query.select({ id: cast(literal(null), "DOUBLE") }).where(literal(false));
 
 export class GraphClient extends MosaicClient implements RelationClient {
-  /** What the page's resolver crosses every other relation's clauses into. */
-  readonly relation = VERTICES;
-  #structure: () => JoinGraph | null;
+  /** What the page's resolver crosses every other relation's clauses into: the graph's vertices, once there is a graph. */
+  get relation(): Relation | null {
+    return this.#vertices();
+  }
+  #structure: () => Graph | null;
+  #vertices: () => Relation | null;
   #kept: (ids: Float64Array | null) => void;
   #fail: (error: unknown) => void;
   #cleared: () => void;
 
   constructor(
     filterBy: Selection | undefined,
-    structure: () => JoinGraph | null,
+    structure: () => Graph | null,
+    vertices: () => Relation | null,
     kept: (ids: Float64Array | null) => void,
     fail: (error: unknown) => void,
     cleared: () => void,
   ) {
     super(filterBy);
     this.#structure = structure;
+    this.#vertices = vertices;
     this.#kept = kept;
     this.#fail = fail;
     this.#cleared = cleared;
@@ -67,12 +72,12 @@ export class GraphClient extends MosaicClient implements RelationClient {
     // has every column the clause names, and a clause a table cannot answer keeps none of it — so a
     // table is asked only when it answers every clause, and asked under all of them. When none does,
     // nothing is kept: an answer with no rows, which is not the unfiltered one.
-    const asked = vertexTypes(structure).filter((t) => clauses.every((clause) => answers(t, clause)));
+    const asked = placed(structure).filter((t) => clauses.every((clause) => answers(t, clause)));
     if (asked.length === 0) return NOTHING;
     return Query.unionAll(
       asked.map((t) =>
         Query.select({ id: float64(KEY) })
-          .from(t.table)
+          .from(rowsOf(t))
           .where(clauses),
       ),
     );
@@ -102,6 +107,7 @@ export class GraphClient extends MosaicClient implements RelationClient {
  */
 export function publish(
   selection: Selection,
+  relation: Relation,
   source: ClauseSource,
   key: string,
   ids: readonly number[] | null,
@@ -109,5 +115,5 @@ export function publish(
   excludes = false,
 ): void {
   const clause = excludes ? clauseAntiJoin(key, ids, { source, label }) : clauseSemiJoin(key, ids, { source, label });
-  selection.update(onRelation(clause, VERTICES));
+  selection.update(onRelation(clause, relation));
 }

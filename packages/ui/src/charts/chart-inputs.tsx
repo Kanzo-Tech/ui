@@ -1,7 +1,6 @@
 "use client";
 
-import { type TableExpr, clauseInterval, clauseMatch, clausePoint, clausePoints, MosaicClient, type Selection, type SelectionClause, count as sqlCount, desc as sqlDesc, max as sqlMax, min as sqlMin, Query, type FilterExpr } from "@kanzo-tech/mosaic";
-import { onRelation, type RelationExpr, type RelationRef } from "@kanzo-tech/relations";
+import { type Relation, onRelation, type TableExpr, clauseInterval, clauseMatch, clausePoint, clausePoints, MosaicClient, type Selection, type SelectionClause, count as sqlCount, desc as sqlDesc, max as sqlMax, min as sqlMin, Query, type FilterExpr } from "@kanzo-tech/mosaic";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
@@ -22,7 +21,7 @@ import { Skeleton } from "../simples/skeleton.js";
 import { Slider, SliderLabel, SliderValue } from "../simples/slider.js";
 import { chartTableKey } from "./chart-spec.js";
 import { claimPlace, heldClause, releasePlace, type ClausePlace } from "./clause-place.js";
-import { useMosaic, useRelation } from "./mosaic-provider.js";
+import { useMosaic, useRelation, type RelationExpr } from "./mosaic-provider.js";
 import { useQueryClient, type ChartQueryRow as QueryRow } from "./use-chart-query.js";
 
 /**
@@ -59,7 +58,7 @@ export interface MosaicInputOptions<T> {
    * The relation the widget reads, as the page knows it: what its clause is published on, and what a
    * clause published on another relation reaches its lookup crossed into. `null` names none.
    */
-  relation?: RelationRef | null;
+  relation?: Relation | null;
 }
 
 export interface MosaicInputState<T> {

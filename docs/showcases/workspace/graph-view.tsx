@@ -59,7 +59,7 @@ import { scriptedModel } from "@kanzo-tech/llm/testing";
 import { promptOf } from "@kanzo-tech/testing";
 import { Query, Selection as MosaicSelection, count, numbers, sql, verbatim, type ExprNode } from "@kanzo-tech/mosaic";
 import { type Engine } from "@kanzo-tech/mosaic/engine";
-import { type JoinGraph } from "@kanzo-tech/relations";
+import type { Graph, Pattern } from "@kanzo-tech/graphar-duckdb";
 import { MosaicProvider, useChartQuery, useMosaic } from "@kanzo-tech/ui/analytics";
 import {
   SparklesIcon,
@@ -68,8 +68,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { cn } from "@kanzo-tech/ui";
-import { readJoinGraph } from "@kanzo-tech/relations";
-import { GraphCounts, GraphInspector, GraphRoot, GraphSearch, GraphStatus, useGraphPrefs, usePick, type VertexDetail } from "@kanzo-tech/graph";
+import { GraphCounts, GraphInspector, GraphRoot, GraphSearch, GraphStatus, useGraphPrefs, usePick, verticesOf, type VertexDetail } from "@kanzo-tech/graph";
 import {
   compileOrders,
   DEFAULT_ORDERS,
@@ -116,32 +115,33 @@ const CORPUS = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/corpus/archive`;
 /** The archive's one vertex type, which the orders and the ask box query. */
 const TYPE = "Node";
 
-/** The address column a panel's `SELECT` names, so a picked row becomes a vertex. */
-const ID = "dense_id";
+/** Every node, as Ask's answers read the archive: a field is `node.kind`, `node.hall`, … */
+const NODES: Pattern = [{ as: "node", type: TYPE }];
 
-/** The catalog the archive is attached under — every relation below is spelled with it. */
-const FROM = "archive";
+/** The catalog the archive is attached under. */
+const CATALOG = "archive";
 
 /**
- * An attached archive: the engine every panel and the canvas query through, and
- * the node relation as the orders and the ask box name it — a node rather than a string, because
- * `Query.from("x")` quotes a string again and `"catalog"."Node"` is no table.
+ * An attached archive: the engine every panel and the canvas query through, the `Graph` that
+ * answers for it, and the node relation as the orders name it — the relation and the index the
+ * `Graph` names for `Node`, whose index is a node's id on the canvas, since it is the only type.
  */
 export interface Archive {
   /** The page's engine: the provider, the root and the Ask panel's agent are all handed it. */
   engine: Engine;
+  graph: Graph;
   nodes: ExprNode;
+  id: ExprNode;
 }
 
 function openArchive(): Promise<Archive> {
   return ensure(CORPUS, async (engine) => {
     // Origin-qualified: DuckDB-WASM resolves a root-relative path in its own filesystem. The page
-    // holds the catalog for its life, so the attachment `attachWritten` answers is not kept.
-    await attachWritten(engine, FROM, `${window.location.origin}${CORPUS}`);
-    return {
-      engine,
-      nodes: verbatim(`"${FROM}"."${TYPE}"`),
-    };
+    // holds the catalog for its life, so the graph is never detached.
+    const graph = await attachWritten(engine, CATALOG, `${window.location.origin}${CORPUS}`);
+    const node = graph.vertexTypes.find((t) => t.type === TYPE);
+    if (!node) throw new Error(`the archive has no ${TYPE}`);
+    return { engine, graph, nodes: verbatim(node.table), id: verbatim(`"${node.index.replace(/"/g, '""')}"`) };
   });
 }
 
@@ -174,16 +174,16 @@ function announce(error: unknown): void {
 
 /**
  * **The graph, whole.** The provider arrives with the archive's engine and owns the page's one
- * selection; the root names the attached catalog and reads it through that engine, one Mosaic
+ * selection; the root draws the attached graph and reads it through that engine, one Mosaic
  * client of that selection beside the charts, and the panels under it query the node relation the
- * orders and the ask box are written against.
+ * orders are written against.
  */
 export function ArchiveGraph({ children }: { children: ReactNode }) {
   const archive = useArchive();
   return (
     <Show fallback={<ArchiveRoot archive={null}>{children}</ArchiveRoot>} when={archive !== null}>
       {archive && (
-        <MosaicProvider engine={archive.engine}>
+        <MosaicProvider engine={archive.engine} graph={archive.graph}>
           <OnPage archive={archive}>{children}</OnPage>
         </MosaicProvider>
       )}
@@ -209,7 +209,7 @@ function ArchiveRoot({ archive, filterBy, children }: { archive: Archive | null;
         engine={archive?.engine ?? null}
         fill="kind"
         filterBy={filterBy}
-        from={archive ? FROM : null}
+        graph={archive?.graph ?? null}
         look={look}
         onFailure={announce}
         r="degree"
@@ -672,7 +672,7 @@ function OrdersBody({ archive }: { archive: Archive }) {
    */
   const failingIds = async (order: Order) => {
     const data = await engine.query(
-      String(Query.from(archive.nodes).select({ id: ID }).where(order.failing)),
+      String(Query.from(archive.nodes).select({ id: archive.id }).where(order.failing)),
       { signal: AbortSignal.timeout(10_000) }
     );
     return numbers(data, "id");
@@ -977,7 +977,7 @@ export function GraphSettings() {
  * pretends to have understood anything it did not.
  *
  * Everything around the model is the real path, and it is the whole of what a host writes:
- * `readJoinGraph` for what may be asked — every type's facts are the graph's — `useAskChat`,
+ * the attached `Graph` for what may be asked — every type's facts are its own — `useAskChat`,
  * `askOffers` for the pills, `ChatSkeleton` while the graph loads, and `AnswerCard`. Swapping the
  * recording for `localModel(…)` changes one line.
  */
@@ -998,10 +998,10 @@ const INTENTS: Intent[] = [
     match: ["old", "oldest", "long ago", "years", "before", "closed before"],
     question: "How many contracts closed more than five years ago?",
     spec: {
-      of: TYPE,
+      match: NODES,
       where: [
-        { field: "kind", in: ["contract"] },
-        { field: "closed", between: ["1000-01-01", FIVE_YEARS_BACK] },
+        { field: "node.kind", in: ["contract"] },
+        { field: "node.closed", between: ["1000-01-01", FIVE_YEARS_BACK] },
       ],
       show: { kind: "stat", measure: { op: "count" }, title: `Contracts closed before ${FIVE_YEARS_BACK}` },
     },
@@ -1010,9 +1010,9 @@ const INTENTS: Intent[] = [
     match: ["amber", "hall", "tenant", "whose"],
     question: "What does the Amber Hall hold, by kind?",
     spec: {
-      of: TYPE,
-      where: [{ field: "hall", in: ["amber"] }],
-      show: { kind: "chart", type: "bar", x: "kind", y: { op: "count" } },
+      match: NODES,
+      where: [{ field: "node.hall", in: ["amber"] }],
+      show: { kind: "chart", type: "bar", x: "node.kind", y: { op: "count" } },
       top: 20,
     },
   },
@@ -1020,9 +1020,9 @@ const INTENTS: Intent[] = [
     match: ["hub", "connected", "busiest", "central", "biggest", "most work"],
     question: "What holds the archive together?",
     spec: {
-      of: TYPE,
-      where: [{ field: "degree", between: [60, 1_000_000] }],
-      show: { kind: "chart", type: "bar", x: "label", y: { op: "max", field: "degree" }, title: "The busiest nodes" },
+      match: NODES,
+      where: [{ field: "node.degree", between: [60, 1_000_000] }],
+      show: { kind: "chart", type: "bar", x: "node.label", y: { op: "max", field: "node.degree" }, title: "The busiest nodes" },
       top: 10,
     },
   },
@@ -1030,9 +1030,9 @@ const INTENTS: Intent[] = [
     match: ["contracts", "halls", "spread", "split"],
     question: "How do contracts spread across the halls?",
     spec: {
-      of: TYPE,
-      where: [{ field: "kind", in: ["contract"] }],
-      show: { kind: "chart", type: "bar", x: "hall", y: { op: "count" }, title: "Contracts by hall" },
+      match: NODES,
+      where: [{ field: "node.kind", in: ["contract"] }],
+      show: { kind: "chart", type: "bar", x: "node.hall", y: { op: "count" }, title: "Contracts by hall" },
       top: 10,
     },
   },
@@ -1067,25 +1067,14 @@ const recording = scriptedModel({
   },
 });
 
-/** What may be asked: the archive's graph, which carries what each type and field is and holds. */
+/** What may be asked: the archive's graph, which carries what each type and property is and holds. */
 interface Askable {
-  graph: JoinGraph;
+  graph: Graph;
 }
 
 export function GraphAsk() {
   const archive = useArchive();
-  const [askable, setAskable] = useState<Askable | null>(null);
-  useEffect(() => {
-    if (!archive) return;
-    // The graph is the one read — every type's facts are on it — and a page left mid-read keeps none of it.
-    const controller = new AbortController();
-    const { signal } = controller;
-    readJoinGraph(archive.engine, FROM, { signal }).then(
-      (graph) => !signal.aborted && setAskable({ graph }),
-      (error: unknown) => !signal.aborted && announce(error),
-    );
-    return () => controller.abort();
-  }, [archive]);
+  const askable = useMemo(() => (archive ? { graph: archive.graph } : null), [archive]);
   if (!archive || askable === null) return <ChatSkeleton className="p-2" empty={<AskEmpty />} />;
   return <AskBody archive={archive} askable={askable} />;
 }
@@ -1133,7 +1122,8 @@ function useOffers({ graph }: Askable, selection: MosaicSelection) {
  */
 function SubsetPill({ archive }: { archive: Archive }) {
   const { selection } = useMosaic();
-  const { row } = useChartQuery({ deps: [archive], query: (filter) => Query.from(archive.nodes).select({ n: count() }).where(filter) });
+  const vertices = verticesOf(archive.graph);
+  const { row } = useChartQuery({ deps: [archive], relation: vertices, query: (filter) => Query.from(vertices.table).select({ n: count() }).where(filter) });
   if (!row || selection.clauses.length === 0) return null;
   return (
     <Badge pill variant="outline">

@@ -1,5 +1,5 @@
 import type { Binding } from "./channels";
-import type { JoinType } from "@kanzo-tech/relations";
+import type { VertexType } from "@kanzo-tech/graphar-duckdb";
 
 /**
  * **The categorical domain, fixed before the graph loads.** Colour by vertex type ranks the drawn
@@ -7,11 +7,11 @@ import type { JoinType } from "@kanzo-tech/relations";
  * neither names is ranked as it is seen, after them.
  */
 export function domainOf(
-  tables: readonly JoinType[],
+  tables: readonly VertexType[],
   binding: Binding,
   categories: Readonly<Record<string, string>> | undefined,
 ): readonly unknown[] {
-  if (binding.byTable) return tables.map((table) => table.name);
+  if (binding.byTable) return tables.map((table) => table.type);
   if (binding.category === undefined) return [];
   return categories ? Object.keys(categories) : [];
 }

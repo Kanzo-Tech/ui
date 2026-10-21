@@ -1,7 +1,14 @@
 import { AsyncDuckDB, DuckDBDataProtocol, VoidLogger, selectBundle } from "@duckdb/duckdb-wasm";
-import { Problem, isProblem, type Table } from "@kanzo-tech/kernel";
+import { Problem, isProblem } from "@kanzo-tech/problems";
 import { Coordinator, decodeIPC, type Connector } from "@uwdata/mosaic-core";
 import { isSecret, redact } from "./redact.js";
+
+/**
+ * An answer: the Arrow table mosaic-core decodes, flechette's, which `@kanzo-tech/graphar-duckdb`'s
+ * `Table` is a part of. Not exported, since `Table` is `@kanzo-tech/ui`'s component, and never
+ * written out: the class is mosaic-core's.
+ */
+type Table = ReturnType<typeof decodeIPC>;
 
 /**
  * The page's one database: a DuckDB-WASM instance, the Mosaic `Coordinator` over it — private, see
@@ -38,12 +45,13 @@ import { isSecret, redact } from "./redact.js";
  * extensions.duckdb.org, which a page under that policy refuses. Off, the statement fails with
  * DuckDB's own error naming the extension, and the fix is a line in `scripts/extensions.mjs`.
  *
- * It satisfies fossil's `Engine` structurally; this package does not depend on fossil. Its answer is
- * the kernel's `Table`, the one every reader reads.
+ * It satisfies fossil's `Engine` and `@kanzo-tech/graphar-duckdb`'s `Engine` structurally; this
+ * package depends on neither. Its answer is {@link Table}.
  *
  * **It is `@kanzo-tech/mosaic/engine`, not the root**, so a page that only draws from a host-supplied
- * `Queryable` imports no DuckDB (`/docs/design/engine`, *Three packages, one direction*).
+ * engine imports no DuckDB (`/docs/design/engine`, *Two entries, one direction*).
  */
+
 export interface Engine {
   /**
    * One statement, answered in columns as DuckDB-WASM produced them — nothing turns them into
@@ -341,7 +349,7 @@ async function start(forget: () => void, made: (duckdb: Duck) => void): Promise<
 
   // `decodeIPC`'s defaults are the coordinator's own: this engine sets no `ipc` options on it.
   const query = (sql: string, { signal }: { readonly signal: AbortSignal }) =>
-    execute(sql, signal).then((bytes) => decodeIPC(bytes) as unknown as Table);
+    execute(sql, signal).then((bytes) => decodeIPC(bytes));
 
   duckdb.lost = (failure) => {
     lost = failure;

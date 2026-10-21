@@ -1,53 +1,64 @@
-import { Query, and, asTableRef, cast, count, eq, float64, isIn, length, literal, not, sql, sum, clauseColumns, type ExprNode, type FilterExpr } from "@kanzo-tech/mosaic";
+import type { EdgeType, Graph, Property, VertexType } from "@kanzo-tech/graphar-duckdb";
+import { Query, and, cast, clauseColumns, float64, isIn, literal, sql, verbatim, type ExprNode, type FilterExpr, type Relation } from "@kanzo-tech/mosaic";
 import { type Engine } from "@kanzo-tech/mosaic/engine";
-import type { JoinColumn, JoinGraph, JoinType } from "@kanzo-tech/relations";
 
 /**
- * **What the graph reads, through the page's engine.** A GraphAr graph `attachGraph` attached
- * under a name is a catalog: a view per vertex and edge type, and the information files as relations
- * beside them. The graph reads its `JoinGraph` from those once — `@kanzo-tech/relations`'s
- * `readJoinGraph`, the one reader of the catalog, which the store calls — and the rows here, through each type's `table` — its view under the global id — on the engine's own door,
- * `engine.query`, not the coordinator's queue: a read here is the library's own statement, so it
- * carries its signal to the connection, and an abort stops it (`/docs/design/engine`, *One door*).
- * Only the graph's Mosaic client (`client.ts`) reads through the coordinator, as every chart does.
- * Nothing here parses a YAML file and nothing here owns a connection.
+ * **What the graph reads.** The host attaches the graph and hands its `Graph` over; every read of a
+ * vertex, of the links and of a search is the `Graph`'s own — `vertex`, `links`, `search` — and
+ * every column a statement here names is one the `Graph` named: a type's `table` and `index`, a
+ * property's `name`. Nothing here knows the format.
  *
- * Every statement is built from mosaic-sql's nodes, which quote their own identifiers and literals:
- * a search is text a reader typed, and no string here is spliced into SQL.
+ * What is the graph's own is the one number per vertex a GPU buffer and a semi-join across types
+ * need: the global id, `dense_id`, a type's first id plus the vertex's index within its type, the
+ * types in the graph's order. GraphAr defines no id across types; this is kanzo-ui's arithmetic, kept
+ * here and nowhere else, and the union of every vertex under it (`verticesOf`).
  */
 
-/**
- * **The global id**, the key every vertex type of the graph is read under: GraphAr numbers vertices
- * within a type (`_graphArVertexIndex`), and a GPU buffer and a semi-join across types need one number
- * per vertex. A type's ids run `first … first + rows − 1` (`JoinType.first`).
- */
+/** The global id, the key the canvas and its clauses read every vertex by. */
 export const KEY = "dense_id";
 
-/** GraphAr's reserved column (C++ `GeneralParams`) a vertex type's view numbers its rows by. */
-export const VERTEX_INDEX = "_graphArVertexIndex";
+/** The name the union of every vertex goes by: the relation the canvas reads and publishes on. */
+export const VERTICES = "vertices";
 
-/** The vertex types the canvas draws: every type of the graph but a union of others (`of`), in its order. */
-export const vertexTypes = (graph: JoinGraph): readonly JoinType[] => graph.types.filter((type) => type.of === undefined);
-
-/** Every vertex, every type: global ids run `0 … size − 1`. */
-export const sizeOf = (graph: JoinGraph): number => vertexTypes(graph).reduce((size, type) => size + (type.rows ?? 0), 0);
-
-/** A vertex type's first global id. */
-export const firstOf = (type: JoinType): number => type.first ?? 0;
-
-/** The vertex type a global id falls in. */
-export function tableOf(graph: JoinGraph, vertex: number): JoinType | undefined {
-  return vertexTypes(graph).find((type) => vertex >= firstOf(type) && vertex < firstOf(type) + (type.rows ?? 0));
+/** A vertex type and the first global id of its vertices: they run `first … first + count − 1`. */
+export interface Placed {
+  readonly type: VertexType;
+  readonly first: number;
 }
 
-/** A type's column by name. */
-export const columnNamed = (type: JoinType, name: string): JoinColumn | undefined => type.columns.find((c) => c.name === name);
+const placings = new WeakMap<Graph, readonly Placed[]>();
 
-/** The column a vertex is told apart by: GraphAr's primary key (`role: "identity"`), or the global id where the type has none. */
-export const identityOf = (type: JoinType): string => type.columns.find((c) => c.role === "identity")?.name ?? type.key;
+/** Every vertex type with its first global id, in the graph's order. */
+export function placed(graph: Graph): readonly Placed[] {
+  let found = placings.get(graph);
+  if (!found) {
+    let first = 0;
+    found = graph.vertexTypes.map((type) => {
+      const at = { type, first };
+      first += type.count;
+      return at;
+    });
+    placings.set(graph, found);
+  }
+  return found;
+}
 
-/** A GraphAr `list` or `set` property, which DuckDB reads as `T[]`: a value of the type, not a key to group, place or time by. */
-export const isList = (column: JoinColumn): boolean => column.type.endsWith("[]");
+/** Every vertex, every type: global ids run `0 … size − 1`. */
+export const sizeOf = (graph: Graph): number => graph.vertexTypes.reduce((size, type) => size + type.count, 0);
+
+/** The vertex type a global id falls in, with its first id. */
+export function tableOf(graph: Graph, vertex: number): Placed | undefined {
+  return placed(graph).find(({ type, first }) => vertex >= first && vertex < first + type.count);
+}
+
+/** A type's first global id. */
+export const firstOf = (graph: Graph, type: string): number => placed(graph).find((p) => p.type.type === type)?.first ?? 0;
+
+/** A type's property by name. */
+export const propertyOf = (type: VertexType | EdgeType, name: string): Property | undefined => type.properties.find((p) => p.name === name);
+
+/** The property a vertex is told apart by — its type's primary key — or `undefined` where it has none. */
+export const identityOf = (type: VertexType): string | undefined => type.properties.find((p) => p.primary)?.name;
 
 /**
  * An identity's local name — what follows its last `#` or `/`: RDF's syntactic split of an IRI, not
@@ -55,8 +66,49 @@ export const isList = (column: JoinColumn): boolean => column.type.endsWith("[]"
  */
 export const localName = (identity: string) => /[^#/]+(?=[#/]*$)/.exec(identity)?.[0] ?? identity;
 
-/** A relation of the attached graph: `"<from>"."<table>"`. `asTableRef` answers `undefined` only for no input. */
-export const relation = (from: string, table: string): ExprNode => asTableRef([from, table])!;
+/** A type's rows under the global id: `dense_id`, then every property by its own name. */
+export function rowsOf({ type, first }: Placed): Query {
+  return Query.select({ [KEY]: cast(sql`${first} + ${asColumn(type.index)}`, "UINTEGER") }, type.properties.map((p) => p.name)).from(verbatim(type.table));
+}
+
+/** A column the `Graph` named, quoted. */
+const asColumn = (name: string) => `"${name.replace(/"/g, '""')}"`;
+
+/**
+ * **Every vertex as one relation of the page** — each type's rows under the global id, with every
+ * property some type has (`NULL` in a type without it; one two types type differently is left out),
+ * carrying each type's vertex as its index where the row is of it. A clause on any relation crosses
+ * into it by type, and one on it into any relation that carries a vertex. One graph's is one object,
+ * so a part handed it — `<ChartTimeline relation={verticesOf(graph)} />` — reads the canvas's relation.
+ */
+export function verticesOf(graph: Graph): Relation {
+  let found = unions.get(graph);
+  if (!found) unions.set(graph, (found = unionOf(graph)));
+  return found;
+}
+
+const unions = new WeakMap<Graph, Relation>();
+
+function unionOf(graph: Graph): Relation {
+  const types = new Map<string, string | null>();
+  for (const { properties } of graph.vertexTypes) {
+    for (const { name, type } of properties) {
+      const seen = types.get(name);
+      types.set(name, seen === undefined || seen === type ? type : null);
+    }
+  }
+  const names = [...types].flatMap(([name, type]) => (type === null || name === KEY ? [] : [name]));
+  const table = Query.unionAll(
+    placed(graph).map((at) =>
+      Query.select({ [KEY]: KEY, ...Object.fromEntries(names.map((c) => [c, propertyOf(at.type, c) ? c : literal(null)])) }).from(rowsOf(at)),
+    ),
+  );
+  const vertices = placed(graph).map(({ type, first }) => ({
+    type: type.type,
+    index: sql`CASE WHEN ${asColumn(KEY)} BETWEEN ${first} AND ${first + type.count - 1} THEN ${asColumn(KEY)} - ${first} END`,
+  }));
+  return { key: VERTICES, table, vertices, roots: vertices };
+}
 
 /** One column of an answer, by name, as its own array. */
 export interface Answer {
@@ -75,106 +127,72 @@ export function ask(engine: Engine, query: Query, signal: AbortSignal = UNSTOPPE
   return engine.query(String(query), { signal });
 }
 
-const values = (answer: Answer, name: string): ArrayLike<unknown> => answer.getChild(name)?.toArray() ?? [];
-
 /**
- * Each table's rows of `select`, in the key's order — the table's slice of every buffer. A table
- * that lacks a selected column answers `null` for it, so one statement shape serves every table.
+ * Each type's rows of `select`, in the global id's order — the type's slice of every buffer. A type
+ * that lacks a selected property answers `null` for it, so one statement shape serves every type.
  */
 export async function readColumns(
   engine: Engine,
-  graph: JoinGraph,
+  graph: Graph,
   select: readonly string[],
   signal?: AbortSignal,
-): Promise<{ table: JoinType; answer: Answer }[]> {
+): Promise<{ table: Placed; answer: Answer }[]> {
   return Promise.all(
-    vertexTypes(graph).map(async (table) => {
-      const projection = Object.fromEntries(select.map((c) => [c, columnNamed(table, c) ? c : literal(null)]));
-      const answer = await ask(engine, Query.select(projection).from(table.table).orderby(KEY), signal);
+    placed(graph).map(async (table) => {
+      const projection = Object.fromEntries(select.map((c) => [c, propertyOf(table.type, c) ? c : literal(null)]));
+      const answer = await ask(engine, Query.select(projection).from(rowsOf(table)).orderby(KEY), signal);
       return { table, answer };
     }),
   );
 }
 
-/** `[src, dst, …]` over every relation, as cosmos.gl takes links. */
-export async function readLinks(engine: Engine, graph: JoinGraph, signal?: AbortSignal): Promise<Float32Array> {
-  const answers = await Promise.all(
-    graph.edges.map((edge) =>
-      ask(
-        engine,
-        Query.select({ src: float64(edge.src), dst: float64(edge.dst) }).from(edge.table),
-        signal,
-      ),
-    ),
-  );
-  const links = new Float32Array(2 * answers.reduce((sum, a) => sum + a.numRows, 0));
+/** `[src, dst, …]` in global ids over every edge type, as cosmos.gl takes links: `Graph.links`, placed. */
+export async function readLinks(graph: Graph, signal?: AbortSignal): Promise<Float32Array> {
+  const read = await Promise.all(graph.edgeTypes.map((edge) => graph.links(edge.name, { signal })));
+  const links = new Float32Array(2 * read.reduce((sum, l) => sum + l.src.length, 0));
   let at = 0;
-  for (const answer of answers) {
-    const [src, dst] = [values(answer, "src"), values(answer, "dst")];
-    for (let e = 0; e < answer.numRows; e++) {
-      links[at++] = src[e] as number;
-      links[at++] = dst[e] as number;
+  graph.edgeTypes.forEach((edge, e) => {
+    const { src, dst } = read[e]!;
+    const [from, to] = [firstOf(graph, edge.srcType), firstOf(graph, edge.dstType)];
+    for (let i = 0; i < src.length; i++) {
+      links[at++] = from + src[i]!;
+      links[at++] = to + dst[i]!;
     }
-  }
+  });
   return links;
 }
 
-/** The column a vertex's text is read from: `title` where its table has it, else its `identity`. */
-export const titleColumn = (table: JoinType, title: string | undefined): string =>
-  title !== undefined && columnNamed(table, title) ? title : identityOf(table);
+/** The property a vertex's text is read from: `title` where its type has it, else its identity. */
+export const titleColumn = (type: VertexType, title: string | undefined): string | undefined =>
+  title !== undefined && propertyOf(type, title) ? title : identityOf(type);
 
-/** One vertex's row, as its table orders it — every column but the address. */
+/** One vertex's properties, in its type's order. */
 export interface VertexDetail {
   readonly vertex: number;
-  /** The vertex table it belongs to. */
+  /** The vertex type it belongs to. */
   readonly table: string;
   readonly fields: readonly { readonly name: string; readonly value: unknown }[];
 }
 
-/**
- * One vertex's row: every column but the global id. A lookup by id reads the type's view in the
- * catalog `from` by GraphAr's own index, `id − first`, which the chunk's statistics can skip on, and
- * not by the sum.
- */
-export async function readVertex(engine: Engine, from: string, graph: JoinGraph, vertex: number, signal?: AbortSignal): Promise<VertexDetail | null> {
-  const table = tableOf(graph, vertex);
-  if (!table) return null;
-  const names = table.columns.map((c) => c.name).filter((name) => name !== table.key);
-  const answer = await ask(
-    engine,
-    Query.select(names).from(relation(from, table.name)).where(eq(VERTEX_INDEX, literal(vertex - firstOf(table)))),
-    signal,
-  );
-  if (answer.numRows === 0) return null;
-  return { vertex, table: table.name, fields: names.map((name) => ({ name, value: answer.getChild(name)?.get(0) ?? null })) };
+/** One vertex's properties: `Graph.vertex`, by its type and its index within it. */
+export async function readVertex(graph: Graph, vertex: number, signal?: AbortSignal): Promise<VertexDetail | null> {
+  const at = tableOf(graph, vertex);
+  if (!at) return null;
+  const record = await graph.vertex(at.type.type, vertex - at.first, { signal });
+  if (!record) return null;
+  return { vertex, table: at.type.type, fields: at.type.properties.map(({ name }) => ({ name, value: record[name] ?? null })) };
 }
 
-/** The text of a few vertices, by id — a label's, a hover card's. One statement per table they fall in. */
-export async function readTitles(
-  engine: Engine,
-  from: string,
-  graph: JoinGraph,
-  vertices: readonly number[],
-  title: string | undefined,
-  signal?: AbortSignal,
-): Promise<Map<number, string>> {
-  const byTable = new Map<JoinType, number[]>();
-  for (const vertex of vertices) {
-    const table = tableOf(graph, vertex);
-    if (table) byTable.set(table, [...(byTable.get(table) ?? []), vertex]);
-  }
+/** The text of a few vertices, by id — a label's, a hover card's: each `Graph.vertex`, its title read. */
+export async function readTitles(graph: Graph, vertices: readonly number[], title: string | undefined, signal?: AbortSignal): Promise<Map<number, string>> {
   const found = new Map<number, string>();
   await Promise.all(
-    [...byTable].map(async ([table, ids]) => {
-      const answer = await ask(
-        engine,
-        Query.select({ id: float64(VERTEX_INDEX), text: cast(titleColumn(table, title), "VARCHAR") })
-          .from(relation(from, table.name))
-          .where(isIn(VERTEX_INDEX, ids.map((id) => literal(id - firstOf(table))))),
-        signal,
-      );
-      const [id, texts] = [values(answer, "id"), values(answer, "text")];
-      for (let i = 0; i < answer.numRows; i++) found.set(firstOf(table) + (id[i] as number), String(texts[i] ?? ""));
+    vertices.map(async (vertex) => {
+      const at = tableOf(graph, vertex);
+      const column = at && titleColumn(at.type, title);
+      if (!at || column === undefined) return;
+      const record = await graph.vertex(at.type.type, vertex - at.first, { signal });
+      if (record) found.set(vertex, String(record[column] ?? ""));
     }),
   );
   return found;
@@ -182,23 +200,22 @@ export async function readTitles(
 
 /**
  * **A search, as typed** — Neo4j Bloom's prefixes over Cosmograph's search. `type:<Type>` keeps a
- * vertex table by name; `<column>:<value>` keeps the vertices whose column contains the value; every
- * other word is text the vertex's `title` must contain. A word is a prefix only when what precedes
- * its colon is `type` or a column some vertex table has, so an IRI typed whole stays text.
+ * vertex type by name; `<property>:<value>` keeps the vertices whose property contains the value;
+ * every other word is text some text property must contain. A word is a prefix only when what
+ * precedes its colon is `type` or a property some vertex type has, so an IRI typed whole stays text.
  */
 export interface VertexQuery {
   readonly text: string;
-  /** Vertex tables, by name; none is every table. */
+  /** Vertex types, by name; none is every type. */
   readonly types: readonly string[];
-  /** Columns and what each must contain, every one of them. */
+  /** Properties and what each must contain, every one of them. */
   readonly fields: readonly { readonly column: string; readonly value: string }[];
 }
 
 const same = (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: "accent" }) === 0;
-const columnOf = (table: JoinType, name: string) => table.columns.find((c) => same(c.name, name))?.name;
 
 /** `input` read as a {@link VertexQuery}. A prefix with nothing after its colon yet asks for nothing. */
-export function parseQuery(input: string, graph: JoinGraph): VertexQuery {
+export function parseQuery(input: string, graph: Graph): VertexQuery {
   const text: string[] = [];
   const types: string[] = [];
   const fields: { column: string; value: string }[] = [];
@@ -206,7 +223,7 @@ export function parseQuery(input: string, graph: JoinGraph): VertexQuery {
     const [, key = "", value = ""] = /^([^:]+):(.*)$/.exec(word) ?? [];
     if (same(key, "type")) {
       if (value !== "") types.push(value);
-    } else if (key !== "" && vertexTypes(graph).some((table) => columnOf(table, key) !== undefined)) {
+    } else if (key !== "" && graph.vertexTypes.some((type) => type.properties.some((p) => same(p.name, key)))) {
       if (value !== "") fields.push({ column: key, value });
     } else if (word !== "") {
       text.push(word);
@@ -215,16 +232,12 @@ export function parseQuery(input: string, graph: JoinGraph): VertexQuery {
   return { text: text.join(" "), types, fields };
 }
 
-/** `expr` contains `value`, case-insensitively, with a `%` or `_` in it meaning itself. */
-const ilike = (expr: ExprNode | string, value: string): ExprNode =>
-  sql`${cast(expr, "VARCHAR")} ILIKE ${literal(`%${value.replace(/[\\%_]/g, (c) => `\\${c}`)}%`)} ESCAPE ${literal("\\")}`;
-
 /**
- * **The clause rule**: a table answers a clause when it has every column the clause names on it — a
- * semi-join on the key names that alone, so every table answers it.
+ * **The clause rule**: a type answers a clause when its rows have every column the clause names — a
+ * semi-join on the key names that alone, so every type answers it.
  */
-export function answers(table: JoinType, clause: ExprNode): boolean {
-  return clauseColumns(clause).every((c) => columnNamed(table, c) !== undefined);
+export function answers({ type }: Placed, clause: ExprNode): boolean {
+  return clauseColumns(clause).every((c) => c === KEY || propertyOf(type, c) !== undefined);
 }
 
 /** The clauses of a predicate, as a list: a selection's `predicate` answers one, many or none. */
@@ -234,36 +247,8 @@ export function clausesOf(filter: FilterExpr | null | undefined): ExprNode[] {
 }
 
 /**
- * Every vertex `query` keeps — `id`, `text` and `type`, its table — as one `UNION ALL` over the tables
- * that can answer it, with `inside` saying whether the subset keeps it: every clause, by the clause
- * rule, so a table that cannot answer one of them is wholly outside. A table outside `types`,
- * or without a column a field names, is not asked, and `null` is no table left to ask.
- */
-function matching(graph: JoinGraph, query: VertexQuery, title: string | undefined, subset: readonly ExprNode[]): Query | null {
-  const selects = vertexTypes(graph).flatMap((table) => {
-    if (query.types.length > 0 && !query.types.some((type) => same(type, table.name))) return [];
-    const fields = query.fields.map((field) => ({ name: columnOf(table, field.column), value: field.value }));
-    if (fields.some((field) => field.name === undefined)) return [];
-    const text = cast(titleColumn(table, title), "VARCHAR");
-    const where = [
-      ...(query.text === "" ? [] : [ilike(text, query.text)]),
-      ...fields.map((field) => ilike(field.name as string, field.value)),
-    ];
-    // A clause the table cannot answer keeps none of it (`/docs/design/crossfilter#formal-semantics`).
-    const inside = subset.length === 0 ? literal(true) : subset.every((clause) => answers(table, clause)) ? and(...subset) : literal(false);
-    return [
-      Query.select({ id: float64(KEY), text, key: cast(identityOf(table), "VARCHAR"), type: literal(table.name), inside })
-        .from(table.table)
-        .where(where),
-    ];
-  });
-  return selects.length === 0 ? null : Query.unionAll(selects);
-}
-
-/**
- * What a search answered: the first matches, and how many the limit hid, in all and per table. A
- * match carries its identity as `key` beside its `text`, because a title is not unique and fifty rows
- * reading "scout" are one row fifty times until something tells them apart.
+ * What a search answered: the first matches, and how many it found, in all and per type. A match
+ * carries the property that matched beside its text.
  */
 export interface Found {
   readonly matches: readonly { readonly id: number; readonly text: string; readonly key: string; readonly type: string }[];
@@ -273,60 +258,58 @@ export interface Found {
   readonly outside: number;
 }
 
+/** The most matches one search reads from the graph before the prefixes and the subset narrow them. */
+const READ = 1000;
+
+/** Every vertex `query` finds — `Graph.search` of its text, narrowed by its prefixes — each once, as its first match. */
+async function found(graph: Graph, query: VertexQuery, signal?: AbortSignal) {
+  const text = query.text || query.fields[0]?.value || "";
+  if (text === "") return [];
+  const matches = await graph.search(text, { limit: READ, signal });
+  const seen = new Set<number>();
+  return matches.flatMap((m) => {
+    const id = firstOf(graph, m.type) + m.index;
+    const kept =
+      (query.types.length === 0 || query.types.some((type) => same(type, m.type))) &&
+      query.fields.every((f) => same(f.column, m.property) && m.value.toLowerCase().includes(f.value.toLowerCase())) &&
+      !seen.has(id);
+    if (!kept) return [];
+    seen.add(id);
+    return [{ id, text: m.value, key: m.property, type: m.type }];
+  });
+}
+
+/** Which of `ids` the subset keeps: one statement over the types that answer every clause of it. */
+async function inside(engine: Engine, graph: Graph, ids: readonly number[], subset: readonly ExprNode[], signal?: AbortSignal): Promise<Set<number>> {
+  if (subset.length === 0 || ids.length === 0) return new Set(ids);
+  const asked = placed(graph).filter((at) => subset.every((clause) => answers(at, clause)));
+  if (asked.length === 0) return new Set();
+  const union = Query.unionAll(asked.map((at) => Query.select({ id: float64(KEY) }).from(rowsOf(at)).where(and(isIn(KEY, ids.map((id) => literal(id))), ...subset))));
+  const answer = await ask(engine, union, signal);
+  return new Set(Array.from(answer.getChild("id")?.toArray() ?? [], Number));
+}
+
 /**
- * **The first `limit` vertices `query` keeps inside `subset`**, shortest text first — one statement,
- * whose counts are windows, taken before the `LIMIT` applies: the matches inside, per type and in
- * all, and how many the subset leaves out. The inside rows sort first, so a search with none inside
- * still answers a row to count the outside from. Nothing is read until the reader types.
+ * **The first `limit` vertices `query` finds inside `subset`**, shortest text first, with how many
+ * there are of each type and how many the subset leaves out. Nothing is read until the reader types.
  */
 export async function searchVertices(
   engine: Engine,
-  graph: JoinGraph,
-  { query, title, limit, subset }: { query: VertexQuery; title?: string; limit: number; subset: readonly ExprNode[] },
+  graph: Graph,
+  { query, limit, subset }: { query: VertexQuery; limit: number; subset: readonly ExprNode[] },
   signal?: AbortSignal,
 ): Promise<Found> {
-  const union = matching(graph, query, title, subset);
-  if (union === null) return { matches: [], total: 0, byType: new Map(), outside: 0 };
-  // As a number: Arrow hands a boolean column back bit-packed.
-  const one = float64(sql`CASE WHEN inside THEN 1 ELSE 0 END`);
-  const answer = await ask(
-    engine,
-    Query.select("id", "text", "key", "type", {
-      inside: one,
-      per: float64(count().partitionby("type", "inside")),
-      total: float64(sum(one).window()),
-      all: float64(count().window()),
-    })
-      .from(union)
-      .orderby(not("inside"), length("text"), "text", "id")
-      .limit(limit),
-    signal,
-  );
-  const [id, text, key, type, inside] = ["id", "text", "key", "type", "inside"].map((name) => values(answer, name));
-  const [per, total, all] = ["per", "total", "all"].map((name) => values(answer, name));
+  const all = await found(graph, query, signal);
+  const kept = await inside(engine, graph, all.map((m) => m.id), subset, signal);
+  const matches = all.filter((m) => kept.has(m.id)).sort((a, b) => a.text.length - b.text.length || a.text.localeCompare(b.text) || a.id - b.id);
   const byType = new Map<string, number>();
-  const matches = Array.from({ length: answer.numRows }, (_, i) => i)
-    .filter((i) => inside?.[i])
-    .map((i) => {
-      byType.set(String(type?.[i]), Number(per?.[i]));
-      return { id: id?.[i] as number, text: String(text?.[i] ?? ""), key: String(key?.[i] ?? ""), type: String(type?.[i]) };
-    });
-  if (answer.numRows === 0) return { matches, total: 0, byType, outside: 0 };
-  return { matches, total: Number(total?.[0]), byType, outside: Number(all?.[0]) - Number(total?.[0]) };
+  for (const m of matches) byType.set(m.type, (byType.get(m.type) ?? 0) + 1);
+  return { matches: matches.slice(0, limit), total: matches.length, byType, outside: all.length - matches.length };
 }
 
-/** Every vertex `query` keeps inside `subset`, by id — what a search adds to the subset. */
-export async function matchingIds(
-  engine: Engine,
-  graph: JoinGraph,
-  query: VertexQuery,
-  { title, subset }: { title?: string; subset: readonly ExprNode[] },
-  signal?: AbortSignal,
-): Promise<number[]> {
-  const union = matching(graph, query, title, subset);
-  if (union === null) return [];
-  return Array.from(values(await ask(engine, Query.select("id").from(union).where("inside"), signal), "id") as ArrayLike<number>);
+/** Every vertex `query` finds inside `subset`, by id — what a search adds to the subset. */
+export async function matchingIds(engine: Engine, graph: Graph, query: VertexQuery, subset: readonly ExprNode[], signal?: AbortSignal): Promise<number[]> {
+  const all = await found(graph, query, signal);
+  const kept = await inside(engine, graph, all.map((m) => m.id), subset, signal);
+  return all.filter((m) => kept.has(m.id)).map((m) => m.id);
 }
-
-/** The name every vertex as one relation goes by: the union type of the graph's `JoinGraph`, and what the canvas reads. */
-export const VERTICES = "vertices";

@@ -2,7 +2,9 @@ import { engineOver } from "../../test/engine";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { clausePoint, Selection, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
 import { Query } from "@uwdata/mosaic-sql";
-import type { JoinGraph, JoinResolver } from "@kanzo-tech/relations";
+import type { Graph } from "@kanzo-tech/graphar-duckdb";
+import type { GraphResolver } from "@kanzo-tech/mosaic";
+import { graphOf } from "../../test/graph";
 import { describe, expect, it } from "vitest";
 import { MosaicClients, MosaicProvider, useMosaic } from "./mosaic-provider.js";
 import { useChartQuery } from "./use-chart-query.js";
@@ -73,13 +75,13 @@ describe("MosaicClients", () => {
 });
 
 describe("MosaicProvider", () => {
-  it("keeps the page's selection and its clauses when `joins` is a new graph, and hands the resolver the new one", () => {
+  it("keeps the page's selection and its clauses when `graph` is a new graph, and hands the resolver the new one", () => {
     const { coordinator } = stubCoordinator();
     let crossfilter!: Selection;
-    const graph = (): JoinGraph => ({ types: [], edges: [] });
+    const graph = () => graphOf([]);
     const first = graph();
-    const page = (joins: JoinGraph) => (
-      <MosaicProvider engine={engineOver(coordinator)} joins={joins}>
+    const page = (g: Graph) => (
+      <MosaicProvider engine={engineOver(coordinator)} graph={g}>
         <Page into={(s) => (crossfilter = s)} />
       </MosaicProvider>
     );
@@ -92,6 +94,6 @@ describe("MosaicProvider", () => {
     rerender(page(second));
     expect(crossfilter).toBe(before);
     expect(crossfilter.clauses).toHaveLength(1);
-    expect((crossfilter.resolver as JoinResolver).joins).toBe(second);
+    expect((crossfilter.resolver as GraphResolver).graph).toBe(second);
   });
 });

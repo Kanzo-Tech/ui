@@ -1,7 +1,6 @@
 "use client";
 
-import { clauseParts, type SelectionClause } from "@kanzo-tech/mosaic";
-import { relationOf, sameRelation, type RelationExpr } from "@kanzo-tech/relations";
+import { clauseParts, relationOf, sameRelation, type SelectionClause } from "@kanzo-tech/mosaic";
 import { useId } from "react";
 import {
   CalendarRangeIcon,
@@ -22,7 +21,7 @@ import { ChartTimeline } from "./chart-timeline.js";
 import { filterControl, type DashboardFilterControl, type DashboardFilterSpec } from "./dashboard-spec.js";
 import type { FieldStat } from "./field-stats.js";
 import { clauseField, useClauses } from "./filter-bar.js";
-import { InFilterBar, InFilterBarActions, useMosaic, useRelation } from "./mosaic-provider.js";
+import { InFilterBar, InFilterBarActions, useMosaic, useRelation, type RelationExpr } from "./mosaic-provider.js";
 
 export interface DashboardFiltersProps {
   /** The relation the filters read, as `ChartRoot` takes it. */
@@ -68,7 +67,7 @@ export function DashboardFilters(props: DashboardFiltersProps) {
 
   return (
     <>
-      <InFilterBar held={{ relation: reading, fields: placed.map(({ field }) => field.name) }}>
+      <InFilterBar held={{ relation: reading?.key ?? null, fields: placed.map(({ field }) => field.name) }}>
         {placed.map(({ field, control }) => (
           <div className="inline-flex items-center" data-slot="dashboard-filter" key={field.name}>
             <FilterChip clauses={clauses} control={control} field={field} relation={relation} />

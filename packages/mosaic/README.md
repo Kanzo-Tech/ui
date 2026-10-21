@@ -64,9 +64,13 @@ import { engine } from "@kanzo-tech/mosaic/engine";
   relation whose rows carry the key, whatever the subquery reads. `clauseColumns(filter)` is the
   columns a clause names on the relation it filters — a subquery's are another relation's — which is
   how a client knows whether its relation answers it.
-- **The join graph, the relations over it and the crossfilter across them** (`JoinGraph`,
-  `crossfilterOver`, `JoinResolver`, `readJoinGraph`, the relation words) are
-  `@kanzo-tech/relations`'s, which reaches Mosaic through this package.
+- **`crossfilterOver(graph)` / `relationOver(graph, pattern)` / `onRelation`** — the page's one
+  crossfilter across relations. `relationOver` reads a pattern of `@kanzo-tech/graphar-duckdb`'s
+  `Graph` as a relation, a column per named vertex and one per property (`u.name`); a clause
+  published on one relation reaches a client of another on the vertex of the same type, or along
+  the graph's one shortest path (`Graph.reach`), and keeps none where there is no way across.
+  `preaggregateOwnRelation(coordinator)` keeps Mosaic's pre-aggregator to a client of the clause's
+  own relation.
 - **`holdFirstDraw(page)` / `firstDrawsPending` / `onFirstDraws`** — what a page has yet to draw for
   the first time, counted on its selection: a chart holds it until its first answer is drawn, and the
   graph's first load waits for it.
@@ -77,8 +81,8 @@ import { engine } from "@kanzo-tech/mosaic/engine";
   of rows. Reading it is mosaic-core's `toDataColumns`; `numbers` adds the coercion, since Arrow
   hands back `BigInt` for some integer widths. A field the query did not select throws.
 - **`TableExpr`** — what a `table` takes, here and in the charts: a string is one identifier in the
-  default catalog, a mosaic-sql node is a relation named in SQL — `verbatim(relation.sql)` for
-  an attached graph's catalog-qualified relation.
+  default catalog, a mosaic-sql node is a relation named in SQL — `relationOver(graph, pattern).table`
+  for a pattern of an attached graph.
 
 All of it is on Mosaic's public API: `packages/ui/src/mosaic-public-api.test.ts` fails on any `_`
 member of a Mosaic object reached from any shipped package.

@@ -1,4 +1,4 @@
-import { Problem } from "@kanzo-tech/kernel";
+import { Problem } from "@kanzo-tech/problems";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 /**

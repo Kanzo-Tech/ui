@@ -21,7 +21,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { tv } from "tailwind-variants";
 import { nameOf } from "../core/categories";
 import { bindingOf } from "../core/channels";
-import { columnNamed, identityOf, localName, readVertex, tableOf, type VertexDetail } from "../core/source";
+import { identityOf, localName, propertyOf, readVertex, tableOf, type VertexDetail } from "../core/source";
 import type { VertexId } from "../core/types";
 import { useGraphContext } from "../react/graph-root";
 import { useGraphState } from "../react/use-graph-state";
@@ -185,15 +185,12 @@ export function GraphInspector({ children, className, slot, translations, ...res
   const domain = useGraphState((s) => s.drawn?.domain ?? s.domain);
   const capacity = useChartCapacity();
   const scale = useMemo(() => scaleOf(options, capacity), [options, capacity]);
-  const { engine, from, categories } = options;
-  const row = useMemo(
-    () => (structure && engine && from !== null ? (vertex: VertexId, signal: AbortSignal) => readVertex(engine, from, structure, vertex, signal) : null),
-    [engine, from, structure],
-  );
+  const { categories } = options;
+  const row = useMemo(() => (structure ? (vertex: VertexId, signal: AbortSignal) => readVertex(structure, vertex, signal) : null), [structure]);
   const answered = useRead(focus, row);
 
   const current = answered || null;
-  const table = structure && current ? tableOf(structure, current.vertex) : undefined;
+  const table = structure && current ? tableOf(structure, current.vertex)?.type : undefined;
   const field = (name: string | undefined) => current?.fields.find((f) => f.name === name)?.value;
   // The badge is the vertex's type, and wears the canvas's glyph only when the type is what the canvas colours by.
   const byType = bindingOf(options).byTable;
@@ -203,7 +200,7 @@ export function GraphInspector({ children, className, slot, translations, ...res
   const titled = field(options.title);
   const named = titled ?? (typeof iri === "string" && iri !== "" ? localName(iri) : iri);
   const heading = current ? (named === undefined || named === null ? `#${current.vertex}` : text(named, false)) : "";
-  const dated = (name: string) => /date|time/i.test((table && columnNamed(table, name)?.type) ?? "");
+  const dated = (name: string) => /date|time/i.test((table && propertyOf(table, name)?.type) ?? "");
   const groups = current
     ? [
         { key: "values", title: t.values, fields: current.fields.filter((f) => f.name !== identity && !dated(f.name)) },

@@ -1,4 +1,4 @@
-import { Problem, isProblem, within } from "@kanzo-tech/kernel";
+import { Problem, isProblem, within } from "@kanzo-tech/problems";
 import type { Forwarded } from "./forwarded";
 import { tenantRequest, under, type Bound } from "./next-bound";
 import { problem } from "./problem";

@@ -3,8 +3,7 @@
 import { cn, SectionProvider, useKanzoTheme, type PrefSpecimen } from "@kanzo-tech/ui";
 import { type ReactNode, useId, useMemo } from "react";
 import type { Channels } from "../core/channels";
-import { TEMPORAL_DATATYPES, type JoinColumn, type JoinGraph } from "@kanzo-tech/relations";
-import { KEY, isList, vertexTypes } from "../core/source";
+import type { Graph } from "@kanzo-tech/graphar-duckdb";
 import { lookFrom, type Look } from "../render/graph-looks";
 import { scaleOf } from "../render/graph-model";
 import { useGraphState } from "../react/use-graph-state";
@@ -32,31 +31,25 @@ export function GraphSection({ children }: { children?: ReactNode }) {
   );
 }
 
-/** GraphAr's numeric types — `int32`, `int64`, `float`, `double` — as DuckDB reads a view of them. */
+/** The DuckDB types a property of GraphAr's numeric types — `int32`, `int64`, `float`, `double` — is read as. */
 const NUMERIC = new Set(["INTEGER", "BIGINT", "FLOAT", "DOUBLE"]);
 
-/**
- * A time by its type: GraphAr's `date` and `timestamp`. A datatype GraphAr does not have — a year,
- * `xsd:gYear` over an `int32` — is the host's mapping's (`GraphOptions.mapping`): a number or a time
- * whose datatype is a time (`TEMPORAL_DATATYPES`, the dashboard's own) is one too.
- */
-const TEMPORAL_TYPES = new Set(["DATE", "TIMESTAMP"]);
-const temporal = (column: JoinColumn) =>
-  TEMPORAL_TYPES.has(column.type) || (NUMERIC.has(column.type) && column.datatype !== undefined && TEMPORAL_DATATYPES.has(column.datatype));
+/** A time by its DuckDB type: GraphAr's `date` and `timestamp`. */
+const TEMPORAL = new Set(["DATE", "TIMESTAMP"]);
 
-/** Every vertex table's fields, once each by name, sorted: all of them, the numeric and the temporal ones. */
-function fieldsOf(structure: JoinGraph | null): Record<"columns" | "numeric-columns" | "temporal-columns", PrefOption[]> {
+/** Every vertex type's properties, once each by name, sorted: all of them, the numeric and the temporal ones. */
+function fieldsOf(structure: Graph | null): Record<"columns" | "numeric-columns" | "temporal-columns", PrefOption[]> {
   const any = new Set<string>();
   const numeric = new Set<string>();
   const times = new Set<string>();
-  for (const table of structure ? vertexTypes(structure) : []) {
-    for (const column of table.columns) {
-      const { name } = column;
-      // The keys are the graph's and the type's, and a list is a value, not an axis or a group.
-      if (name === KEY || column.role === "identity" || isList(column)) continue;
+  for (const type of structure?.vertexTypes ?? []) {
+    for (const property of type.properties) {
+      const { name } = property;
+      // The key is the type's, and a list is a value, not an axis or a group.
+      if (property.primary || property.list) continue;
       any.add(name);
-      if (NUMERIC.has(column.type)) numeric.add(name);
-      if (temporal(column)) times.add(name);
+      if (NUMERIC.has(property.type)) numeric.add(name);
+      if (TEMPORAL.has(property.type)) times.add(name);
     }
   }
   const options = (names: Set<string>) => [...names].sort().map((name) => ({ value: name, label: name }));

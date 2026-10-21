@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import { Graph } from "@cosmos.gl/graph";
 import { GraphCanvas, GraphRoot, useGraphContext, type GraphApi } from "@kanzo-tech/graph";
 import { engine, type Engine } from "@kanzo-tech/mosaic/engine";
-import type { GraphAttachment } from "@kanzo-tech/graphar-duckdb";
+import type { Graph as Attached } from "@kanzo-tech/graphar-duckdb";
 import { attachWritten } from "@/lib/attach-graph";
 import { host, nextFrame, visible } from "./measure";
 
@@ -130,14 +130,6 @@ interface Payload {
   space: number;
 }
 
-/** What `engine.query` answers, as far as this file reads it. */
-interface Answer {
-  numRows: number;
-  getChild(name: string): { toArray(): ArrayLike<unknown> } | null;
-}
-
-const ident = (name: string) => `"${name.replace(/"/g, '""')}"`;
-
 /**
  * **The graph's own start, copied** — a seeded Gaussian in the layout's square, seed `size`, the
  * square 4,096 up to 200,000 vertices and 8,192 above (`/docs/graph/layout`). The control has to
@@ -167,36 +159,30 @@ function seeded(size: number): { positions: Float32Array; extent: Box; space: nu
   return { positions, extent: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, space };
 }
 
-/** Every vertex and every link of the attached catalog, as SQL answers them. */
-async function payloadOf(e: Engine, from: string): Promise<Payload> {
+/** Every vertex and every link of the attached graph, as the `Graph` answers them. */
+async function payloadOf(graph: Attached): Promise<Payload> {
   const signal = new AbortController().signal;
-  const ask = (sql: string): Promise<Answer> => e.query(sql, { signal });
   // A vertex's global id is the sum of the counts of the types before it plus its index in its own.
-  const types = await ask(`SELECT "type", count::DOUBLE AS count FROM ${ident(from)}.graphar_vertex_types ORDER BY ordinal`);
-  const [typeName, typeCount] = ["type", "count"].map((c) => types.getChild(c)?.toArray() ?? []);
   const first = new Map<string, number>();
   let total = 0;
-  for (let i = 0; i < types.numRows; i++) {
-    first.set(String(typeName[i]), total);
-    total += Number(typeCount[i]);
+  for (const { type, count } of graph.vertexTypes) {
+    first.set(type, total);
+    total += count;
   }
   if (total === 0) throw new Error("the graph has no vertex to draw");
-  const edgeTypes = await ask(`SELECT name, src_type, dst_type FROM ${ident(from)}.graphar_edge_types ORDER BY ordinal`);
-  const [name, srcType, dstType] = ["name", "src_type", "dst_type"].map((c) => edgeTypes.getChild(c)?.toArray() ?? []);
   const answers = await Promise.all(
-    Array.from({ length: edgeTypes.numRows }, (_, i) =>
-      ask(`SELECT _graphArSrcIndex::DOUBLE AS src, _graphArDstIndex::DOUBLE AS dst FROM ${ident(from)}.${ident(String(name[i]))}`).then(
-        (answer) => ({ answer, src: first.get(String(srcType[i])) ?? 0, dst: first.get(String(dstType[i])) ?? 0 }),
-      ),
-    ),
+    graph.edgeTypes.map(async (edge) => ({
+      ...(await graph.links(edge.name, { signal })),
+      srcFirst: first.get(edge.srcType) ?? 0,
+      dstFirst: first.get(edge.dstType) ?? 0,
+    })),
   );
-  const links = new Float32Array(2 * answers.reduce((sum, { answer }) => sum + answer.numRows, 0));
+  const links = new Float32Array(2 * answers.reduce((sum, { src }) => sum + src.length, 0));
   let at = 0;
-  for (const { answer, src: srcFirst, dst: dstFirst } of answers) {
-    const [src, dst] = [answer.getChild("src")?.toArray() ?? [], answer.getChild("dst")?.toArray() ?? []];
-    for (let e = 0; e < answer.numRows; e++) {
-      links[at++] = srcFirst + (src[e] as number);
-      links[at++] = dstFirst + (dst[e] as number);
+  for (const { src, dst, srcFirst, dstFirst } of answers) {
+    for (let e = 0; e < src.length; e++) {
+      links[at++] = srcFirst + src[e]!;
+      links[at++] = dstFirst + dst[e]!;
     }
   }
   return { ...seeded(total), links, total };
@@ -241,7 +227,7 @@ function Hold({ into }: { into: (api: GraphApi) => void }) {
   return null;
 }
 
-async function viewerRun(e: Engine, from: string, grid = true): Promise<Run> {
+async function viewerRun(e: Engine, graph: Attached, grid = true): Promise<Run> {
   const element = host();
   const root = createRoot(element);
   let api: GraphApi | null = null;
@@ -251,7 +237,7 @@ async function viewerRun(e: Engine, from: string, grid = true): Promise<Run> {
     root.render(
       createElement(
         GraphRoot,
-        { from, engine: e, simulate: false, look: { grid }, onFailure: (error: unknown) => void (failure ??= { error }) },
+        { graph, engine: e, simulate: false, look: { grid }, onFailure: (error: unknown) => void (failure ??= { error }) },
         createElement(GraphCanvas),
         createElement(Hold, { into: (held: GraphApi) => void (api = held) }),
       ),
@@ -280,16 +266,16 @@ export async function measureViewer(pointCount: number, { repeats = 3 } = {}): P
   const sample: ViewerSample = { path, pointCount, linkCount: 0, raw: [], viewer: [], rawP95: 0, viewerP95: 0, ratio: 0 };
   if (!visible()) return { ...sample, failure: "the tab is hidden, and a hidden tab draws no frames" };
   const from = `bench_${pointCount}`;
-  let corpus: GraphAttachment | null = null;
+  let corpus: Attached | null = null;
   try {
     const e = await engine();
     corpus = await attachWritten(e, from, `${window.location.origin}${path}`);
-    const payload = await payloadOf(e, from);
+    const payload = await payloadOf(corpus);
     sample.pointCount = payload.total;
     sample.linkCount = payload.links.length / 2;
     for (let i = 0; i < repeats; i++) {
       sample.raw.push(await rawRun(payload));
-      sample.viewer.push(await viewerRun(e, from));
+      sample.viewer.push(await viewerRun(e, corpus));
     }
     sample.rawP95 = median(sample.raw.map((run) => run.p95));
     sample.viewerP95 = median(sample.viewer.map((run) => run.p95));
@@ -323,13 +309,13 @@ export async function measureGrid(pointCount: number, { repeats = 5 } = {}): Pro
   const sample: GridSample = { path, pointCount, without: [], with: [] };
   if (!visible()) return { ...sample, failure: "the tab is hidden, and a hidden tab draws no frames" };
   const from = `bench_${pointCount}`;
-  let corpus: GraphAttachment | null = null;
+  let corpus: Attached | null = null;
   try {
     const e = await engine();
     corpus = await attachWritten(e, from, `${window.location.origin}${path}`);
     for (let i = 0; i < repeats; i++) {
       for (const grid of i % 2 === 0 ? [false, true] : [true, false]) {
-        (grid ? sample.with : sample.without).push(await viewerRun(e, from, grid));
+        (grid ? sample.with : sample.without).push(await viewerRun(e, corpus, grid));
       }
     }
     return sample;

@@ -1,8 +1,8 @@
 "use client";
 
-import { type TableExpr, type Selection } from "@kanzo-tech/mosaic";
+import type { Graph, Pattern } from "@kanzo-tech/graphar-duckdb";
+import { crossfilterOver, preaggregateOwnRelation, relationOver, type GraphResolver, type Relation, type Selection, type TableExpr } from "@kanzo-tech/mosaic";
 import { internalCoordinatorOf, type Engine } from "@kanzo-tech/mosaic/engine";
-import { crossfilterOver, type JoinResolver, preaggregateOwnRelation, readOf, type JoinGraph, type RelationExpr, type RelationRef } from "@kanzo-tech/relations";
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ark } from "@ark-ui/react/factory";
@@ -10,7 +10,7 @@ import { cn } from "../lib/cn.js";
 import { coordinator as setActiveCoordinator } from "@uwdata/vgplot";
 
 /**
- * MosaicProvider — the page's engine, its joins, and the one selection every part on this subpath
+ * MosaicProvider — the page's engine, its graph, and the one selection every part on this subpath
  * filters by and publishes into.
  *
  * **Bring-your-own engine**, the way CodeEditor is bring-your-own-language. The provider never
@@ -22,9 +22,9 @@ import { coordinator as setActiveCoordinator } from "@uwdata/vgplot";
  *
  * The provider registers the engine's coordinator as vgplot's active one, so `vg.plot(...)` marks
  * resolve their queries through it, and **owns the page's selection**: one Mosaic crossfilter, built
- * over `joins` (`@kanzo-tech/mosaic`'s `crossfilterOver`), so a clause published on one relation
- * reaches a part reading another — crossed by key along the joins, or keeping none of it where there
- * is no way across. Nobody passes a selection; every part publishes into this one, and a clause is
+ * over `graph` (`@kanzo-tech/mosaic`'s `crossfilterOver`), so a clause published on one relation
+ * reaches a part reading another — carried along the graph to a vertex the other relation holds, or
+ * keeping none of it where there is no way across. Nobody passes a selection; every part publishes into this one, and a clause is
  * retracted where it is held — `selection.reset([clause])`, which calls its source back.
  */
 
@@ -36,8 +36,8 @@ export interface MosaicContextValue {
    * `selection.reset([clause])`, *Clear* is `selection.reset()`.
    */
   selection: Selection;
-  /** The join graph the page's relations are read over, or `null` for a page of plain tables. */
-  joins: JoinGraph | null;
+  /** The graph the page's patterns are read over, or `null` for a page of plain tables. */
+  graph: Graph | null;
   /** Reports a failed query to the provider's `onFailure`. Every chart part on this subpath calls it. */
   onFailure: (error: unknown) => void;
 }
@@ -48,13 +48,12 @@ export interface MosaicProviderProps {
   /** The page's engine, `engine()`'s — the package never boots one; see the module note. */
   engine: Engine;
   /**
-   * The types and the edges between them that the page's relations are read over —
-   * `@kanzo-tech/graph`'s `readJoinGraph` for an attached GraphAr graph. A part's `relation` names a type or a
-   * path over them, and a clause on one relation reaches a part on another through them. Without it
-   * every relation is a table of its own, and a clause crosses to no other. A new graph is read by the page's
-   * selection from then on; the selection itself stays.
+   * The graph the page's patterns are read over — `@kanzo-tech/graphar-duckdb`'s `attachGraph` on
+   * `engine`. A part's `relation` may be a `Pattern` of it, and a clause on one relation reaches a part
+   * on another through it. Without it every relation is a table of its own, and a clause crosses to no
+   * other. A new graph is read by the page's selection from then on; the selection itself stays.
    */
-  joins?: JoinGraph | null;
+  graph?: Graph | null;
   /**
    * Called with the thrown value whenever a chart, a stat or an input under this provider fails to
    * read — the one path a failed query takes to the host. The part also shows the failure in its
@@ -64,15 +63,15 @@ export interface MosaicProviderProps {
   children: ReactNode;
 }
 
-export function MosaicProvider({ engine, joins = null, onFailure, children }: MosaicProviderProps) {
+export function MosaicProvider({ engine, graph = null, onFailure, children }: MosaicProviderProps) {
   // Read through a ref, so a host's inline `onFailure` is never a change of context.
   const latest = useRef(onFailure);
   latest.current = onFailure;
 
-  // One selection per engine: a new `joins` graph is read by the selection's resolver, not a new
-  // selection, which would orphan every clause and every client attached to the old one.
+  // One selection per engine: a new graph is read by the selection's resolver, not a new selection,
+  // which would orphan every clause and every client attached to the old one.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const selection = useMemo(() => crossfilterOver(joins), [engine]);
+  const selection = useMemo(() => crossfilterOver(graph), [engine]);
   // Before any child's own effect asks a query, and outside render: the two process-wide things this
   // provider sets are vgplot's active coordinator (`coordinator(instance)` is mosaic-core's global
   // setter, the same call a host's boot makes) and that a clause crossed in from another relation is
@@ -83,11 +82,11 @@ export function MosaicProvider({ engine, joins = null, onFailure, children }: Mo
     preaggregateOwnRelation(coordinator);
   }, [engine]);
   useLayoutEffect(() => {
-    (selection.resolver as JoinResolver).joins = joins;
-  }, [selection, joins]);
+    (selection.resolver as GraphResolver).graph = graph;
+  }, [selection, graph]);
   const value = useMemo<MosaicContextValue>(
-    () => ({ engine, selection, joins, onFailure: (error) => latest.current?.(error) }),
-    [engine, selection, joins],
+    () => ({ engine, selection, graph, onFailure: (error) => latest.current?.(error) }),
+    [engine, selection, graph],
   );
 
   // The page's slots are the outermost provider's: a provider nested for another relation draws in
@@ -105,7 +104,8 @@ export function MosaicProvider({ engine, joins = null, onFailure, children }: Mo
 
 /** Clauses a part draws in the bar itself — those on `relation` over one of `fields` — so `FilterBar` does not. */
 export interface BarHeld {
-  readonly relation: RelationRef | null;
+  /** The relation's `key`. */
+  readonly relation: string | null;
   readonly fields: readonly string[];
 }
 
@@ -201,19 +201,19 @@ export function useEditorAside() {
 
 const Enabled = createContext(true);
 /** The relation the clients under a `MosaicClients` read, as the page knows it. */
-const Reading = createContext<RelationRef | null>(null);
+const Reading = createContext<Relation | null>(null);
 
 export interface MosaicClientsProps {
   /** Whether the clients under it query. A nested `false` wins over an enclosing `true`. Default `true`. */
   enabled?: boolean;
   /**
-   * The relation the clients under it read, as the page knows it — a type's name or a path over the
-   * provider's joins — when what they are handed to query is SQL over it: a relation projected for
-   * the plots, an answer's rows narrowed from it. A clause they publish is on it, and a clause
-   * published elsewhere reaches them crossed into it. A part given a `relation` of its own by name or
-   * path reads that one instead.
+   * The relation the clients under it read, as the page knows it — a pattern of the provider's graph,
+   * read (`relationOver`) — when what they are handed to query is SQL over it: a relation projected
+   * for the plots, an answer's rows narrowed from it. A clause they publish is on it, and a clause
+   * published elsewhere reaches them crossed into it. A part given a pattern of its own reads that
+   * one instead.
    */
-  relation?: RelationRef;
+  relation?: Relation;
   children: ReactNode;
 }
 
@@ -241,29 +241,58 @@ export function useClientsEnabled(): boolean {
 }
 
 /**
- * What a part pointed at `expr` reads, and the relation the page knows it by: `expr` compiled over the
- * provider's joins when it names a type or a path, or read as written when it is SQL — which is then
- * the relation an enclosing `MosaicClients` names. With no `expr`, the enclosing one's, read by name.
+ * What a chart or a control is pointed at: a table by name or SQL, read as written; a `Pattern` of the
+ * provider's graph, read as its relation (`relationOver`); or a `Relation` built elsewhere — the graph
+ * view's union of every vertex — read as it is.
  */
-export function useRelation(expr: RelationExpr | undefined): { table: TableExpr | undefined; relation: RelationRef | null } {
-  const { joins } = useMosaic();
+export type RelationExpr = TableExpr | Pattern | Relation;
+
+/** Whether `expr` is a pattern rather than SQL. */
+export const isPattern = (expr: RelationExpr): expr is Pattern => Array.isArray(expr);
+
+/** Whether `expr` is a relation already built. */
+const isRelation = (expr: RelationExpr): expr is Relation => typeof expr === "object" && "roots" in expr && "vertices" in expr;
+
+/**
+ * What to read for `expr`, and the relation it is — `null` for SQL, which names none. A pattern needs
+ * a graph to be read over.
+ */
+export function readOf(graph: Graph | null, expr: RelationExpr): { table: TableExpr; relation: Relation | null } {
+  if (isRelation(expr)) return { table: expr.table, relation: expr };
+  if (!isPattern(expr)) return { table: expr, relation: null };
+  if (!graph) throw new Error("a pattern is read over a graph, and the page has none");
+  const relation = relationOver(graph, expr);
+  return { table: relation.table, relation };
+}
+
+/** One spelling of a relation expression, for a memo's key: a pattern's elements, a relation's key, SQL as printed. */
+export const exprKey = (expr: RelationExpr | undefined): string | undefined =>
+  expr === undefined ? undefined : typeof expr === "string" ? expr : isRelation(expr) ? `relation:${expr.key}` : JSON.stringify(isPattern(expr) ? expr : String(expr));
+
+/**
+ * What a part pointed at `expr` reads, and the relation the page knows it by: `expr` read over the
+ * provider's graph when it is a pattern, or as written when it is SQL — which is then the relation an
+ * enclosing `MosaicClients` names. With no `expr`, the enclosing one's.
+ */
+export function useRelation(expr: RelationExpr | undefined): { table: TableExpr | undefined; relation: Relation | null } {
+  const { graph } = useMosaic();
   const reading = useContext(Reading);
-  const key = expr === undefined ? undefined : typeof expr === "string" ? expr : JSON.stringify("root" in expr ? expr : String(expr));
+  const key = exprKey(expr);
   return useMemo(() => {
-    if (expr === undefined) return reading === null ? { table: undefined, relation: null } : readOf(joins, reading);
-    const read = readOf(joins, expr);
+    if (expr === undefined) return { table: reading?.table, relation: reading };
+    const read = readOf(graph, expr);
     return { table: read.table, relation: read.relation ?? reading };
     // `key` stands in for the identity of `expr`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [joins, key, reading]);
+  }, [graph, key, reading]);
 }
 
 /** The relation the clients here read, by the nearest `MosaicClients`; `null` outside one. */
-export function useReading(): RelationRef | null {
+export function useReading(): Relation | null {
   return useContext(Reading);
 }
 
-/** The page's Mosaic context — its engine, its one selection and its joins. */
+/** The page's Mosaic context — its engine, its one selection and its graph. */
 export function useMosaic(): MosaicContextValue {
   const ctx = useContext(MosaicContext);
   if (!ctx) throw new Error("useMosaic must be used within a <MosaicProvider>.");

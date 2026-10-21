@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Problem } from "@kanzo-tech/kernel";
+import { Problem } from "@kanzo-tech/problems";
 import { sessionReader } from "./server";
 import { CLIENT_ID, ISSUER, JWKS, localRealm, type Realm } from "./test/realm";
 
