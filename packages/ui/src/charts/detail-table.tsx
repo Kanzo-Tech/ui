@@ -1,7 +1,7 @@
 "use client";
 
 import { asc, count, desc, Query } from "@kanzo-tech/mosaic";
-import type { RelationExpr } from "@kanzo-tech/relations";
+import type { RelationExpr } from "./mosaic-provider.js";
 import { useEffect, useState } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";

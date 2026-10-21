@@ -1,4 +1,4 @@
-import { Problem } from "@kanzo-tech/kernel";
+import { Problem } from "@kanzo-tech/problems";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { tableFromArrays, tableToIPC } from "@uwdata/flechette";
 

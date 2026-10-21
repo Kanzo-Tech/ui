@@ -26,7 +26,7 @@ import { scriptedModel } from "@kanzo-tech/llm/testing";
   and ends it as if it had finished.
 - **`generate({ …, providerOptions })`** — the same, read whole: `generateText`, asked once.
   Every model call the library makes goes through one of the two.
-- **Failures** — a kernel `Problem`: `llm/unavailable`, `data.reason` `"webgpu"` (the page cannot run a model) or
+- **Failures** — a `Problem` (`@kanzo-tech/problems`): `llm/unavailable`, `data.reason` `"webgpu"` (the page cannot run a model) or
   `"unserved"` (nothing serves it).
 - **`localModel(id?)`**, from **`@kanzo-tech/llm/local`** — the model, in the page, resolved by id
   through one provider registry: a host sets its provider once,

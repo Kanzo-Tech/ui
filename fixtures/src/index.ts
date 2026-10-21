@@ -2,8 +2,7 @@ import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ConsoleLogger, LogLevel, NODE_RUNTIME, createDuckDB, type DuckDBBindings } from "@duckdb/duckdb-wasm/blocking";
-import { attachGraph, type GraphAttachment } from "@kanzo-tech/graphar-duckdb";
-import type { Queryable, Table } from "@kanzo-tech/kernel";
+import { attachGraph, type Engine, type Graph, type Table } from "@kanzo-tech/graphar-duckdb";
 
 /**
  * **The fixture graphs, and the one door a test reaches them through.** Each is a sample of a dataset
@@ -72,10 +71,10 @@ export function graphOf(name: FixtureGraph): string {
 }
 
 /**
- * A `Queryable` over {@link connection}, recording every statement it is sent. The blocking
+ * An `Engine` over {@link connection}, recording every statement it is sent. The blocking
  * connection answers before an abort could land, so it reads the signal either side of the statement.
  */
-export function queryable(): Queryable & { readonly sent: string[] } {
+export function queryable(): Engine & { readonly sent: string[] } {
   const sent: string[] = [];
   return {
     sent,
@@ -94,9 +93,9 @@ let attached = 0;
 /**
  * Attaches the fixture graph `name` through `engine` under a catalog of its own — a fresh name each
  * call, so a test that alters one leaves the next untouched — resolving each of the graph's files to
- * its path on disk.
+ * its path on disk, and answers the `Graph` a page reads.
  */
-export function attachFixture(name: FixtureGraph, engine: Queryable): Promise<GraphAttachment> {
+export function attachFixture(name: FixtureGraph, engine: Engine): Promise<Graph> {
   const root = graphOf(name);
   return attachGraph(engine, `${name}${++attached}`, (paths) => paths.map((path) => join(root, path)), { entry: "fossil.graph.yml" });
 }

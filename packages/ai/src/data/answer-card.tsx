@@ -1,8 +1,8 @@
 "use client";
 
 import { ark } from "@ark-ui/react/factory";
-import { clauseLabel, clausePoints, clauseSemiJoin, Query, type SelectionClause, type TableExpr } from "@kanzo-tech/mosaic";
-import { JoinResolver, relationKey, relationQuery, type JoinGraph, type Relation } from "@kanzo-tech/relations";
+import type { Graph, Pattern } from "@kanzo-tech/graphar-duckdb";
+import { clauseLabel, clausePoints, clauseSemiJoin, onRelation, patternKey, Query, relationOver, type Relation, type SelectionClause, type TableExpr } from "@kanzo-tech/mosaic";
 import { CheckIcon, LayoutDashboardIcon, ListFilterIcon, SquareArrowOutUpRightIcon } from "lucide-react";
 import * as React from "react";
 import {
@@ -79,8 +79,8 @@ export type AnswerCardProps = Omit<React.ComponentProps<typeof ark.div>, "childr
   answer: AnswerOutput;
   /** The read will never land: the reader pressed Stop, or a kept transcript was cut mid-read. */
   stopped?: boolean;
-  /** The join graph the agent was given: the answer's relation is compiled over it. */
-  graph: JoinGraph;
+  /** The graph the agent was given: the answer's pattern is read over it. */
+  graph: Graph;
   /** The host's words for a coded failure, as `Problem` takes them. */
   describe?: ProblemProps["describe"];
   translations?: Partial<AnswerCardTranslations>;
@@ -88,28 +88,28 @@ export type AnswerCardProps = Omit<React.ComponentProps<typeof ark.div>, "childr
 
 /**
  * *Add to the dashboard*: both or neither, and *Open on the dashboard* only with them. The next
- * document is built from `dashboards`, so a write without it would replace every other relation's
+ * document is built from `dashboards`, so a write without it would replace every other pattern's
  * spec with nothing.
  */
 type AnswerCardAdding =
   | { dashboards?: never; onAdd?: never; onOpen?: never }
   | {
       /**
-       * The host's saved dashboards, a spec per relation, as it draws them: the tile is on the
-       * dashboard while its relation's spec holds it, so a remount still says so, and a removal saved
+       * The host's saved dashboards, a spec per pattern, as it draws them: the tile is on the
+       * dashboard while its pattern's spec holds it, so a remount still says so, and a removal saved
        * offers it again.
        */
       dashboards: Dashboards;
       /**
        * Makes *Add to the dashboard* an action. Called with the whole next document — `dashboards`
-       * with the tile appended to the answer's relation's spec, or to its automatic dashboard when it
+       * with the tile appended to the answer's pattern's spec, or to its automatic dashboard when it
        * has none, as `Dashboard` would draw it — and where it landed. A promise holds the button
        * pending until it settles, and a rejection is drawn as a `Problem`.
        */
       onAdd: (next: Dashboards, added: AnswerAdded) => void | Promise<unknown>;
       /**
        * Makes *Open on the dashboard* the action once the tile is there: the host switches to its
-       * dashboard view of `added.relation` and brings `added.id` into view. Without it, the button
+       * dashboard view of `added.pattern` and brings `added.id` into view. Without it, the button
        * says *On the dashboard*, disabled.
        */
       onOpen?: (added: AnswerAdded) => void;
@@ -117,29 +117,30 @@ type AnswerCardAdding =
 
 /** Where *Add to the dashboard* put the tile. */
 export interface AnswerAdded {
-  /** The answer's relation, as the model named it: what a host's dashboard view is driven by. */
-  relation: Relation;
-  /** `relationKey(graph, relation)`: what a host keeps its dashboards by. */
+  /** The answer's pattern, as the model wrote it: what a host's dashboard view is driven by. */
+  pattern: Pattern;
+  /** `patternKey(pattern)`: what a host keeps its dashboards by. */
   key: string;
-  /** The tile's id in that relation's spec — the answer's: what a host brings into view. */
+  /** The tile's id in that pattern's spec — the answer's: what a host brings into view. */
   id: string;
 }
 
 /**
  * **An Ask answer, drawn as the dashboard tile it is**: `ChartCard`, `DashboardStat` or a
- * `DetailTable`, over the answer's relation narrowed by its conditions, under the page's crossfilter
+ * `DetailTable`, over the answer's pattern narrowed by its conditions, under the page's crossfilter
  * like every tile — what the reader filters afterwards, the card follows. Nothing in it is SQL a
  * transcript carried: a kept answer is names, compiled again over the host's graph.
  *
  * Two verbs fall out of the shape, icon buttons in the tile's header. **Filter the page to these
  * rows** narrows the page to the answer — its conditions, and the categories its bars answered — as
- * one semi-join on the relation's root key, so the graph and every relation keyed the same way
- * follow; it is disabled when that would keep everything the page keeps. **Add to the dashboard**
- * hands the host its dashboards with the tile in the relation's spec, reads whether it is there off
+ * one semi-join on the pattern's first vertex, published on its relation, so the graph and every
+ * relation the page can cross it to follow; it is disabled when that would keep everything the page
+ * keeps. **Add to the dashboard** hands the host its dashboards with the tile in the pattern's spec,
+ * reads whether it is there off
  * what the host hands back, and once it is, opens it there when the host says how.
  *
  * The card is `aria-busy` while the engine reads the answer, over a skeleton the chart's height, and
- * draws nothing of the tile when the read stopped before it landed. A failure to draw it — a relation
+ * draws nothing of the tile when the read stopped before it landed. A failure to draw it — a pattern
  * the host's graph no longer has — is a `Problem`.
  */
 export function AnswerCard(props: AnswerCardProps) {
@@ -180,23 +181,19 @@ function Failure(props: { error: unknown; t: AnswerCardTranslations }) {
   );
 }
 
-/** The answer's relation, compiled over the host's graph — which may no longer have it. */
-function Answered(props: { graph: JoinGraph; output: Required<AnswerOutput>; adding?: Adding; t: AnswerCardTranslations }) {
+/** The answer's pattern, read over the host's graph — which may no longer have it. */
+function Answered(props: { graph: Graph; output: Required<AnswerOutput>; adding?: Adding; t: AnswerCardTranslations }) {
   const { graph, output, t } = props;
-  const relation = output.answer.relation;
-  // The page's resolver, as every tile reads through it; the graph's own where there is no page over it.
-  const { selection } = useMosaic();
-  const page = selection.resolver instanceof JoinResolver && selection.resolver.joins === graph ? selection.resolver : null;
+  const pattern = output.answer.pattern;
   const compiled = React.useMemo(() => {
-    const resolver = page ?? new JoinResolver(graph);
     try {
-      return { table: relationQuery(graph, relation), dashboardKey: relationKey(graph, relation), resolver, keys: resolver.steps(relation).map((s) => s.key) };
+      return { relation: relationOver(graph, pattern) };
     } catch (error) {
       return { error };
     }
-  }, [graph, relation, page]);
+  }, [graph, pattern]);
   if ("error" in compiled) return <Failure error={compiled.error} t={t} />;
-  return <Drawn {...props} {...compiled} />;
+  return <Drawn {...props} relation={compiled.relation} />;
 }
 
 /** What *Add to the dashboard* reads and writes: the host's document, its write, where it opens, and its words for a failure. */
@@ -208,39 +205,35 @@ interface Adding {
 }
 
 function Drawn(props: {
-  table: TableExpr;
-  graph: JoinGraph;
-  /** The relation's key: what a host keeps its dashboards by. Not `key`, which React keeps for itself. */
-  dashboardKey: string;
-  /** The relation's steps' keys, the root's first: what a dashboard over it leaves out of its fields, and what *Filter the page to these rows* selects. */
-  keys: string[];
-  resolver: JoinResolver;
+  graph: Graph;
+  /** The pattern as the page reads it: its rows, and the vertices they carry. */
+  relation: Relation;
   output: Required<AnswerOutput>;
   adding?: Adding;
   t: AnswerCardTranslations;
 }) {
-  const { table, graph, keys, resolver, output, adding, t } = props;
+  const { graph, relation, output, adding, t } = props;
   // The fields the answer was asked over, as the graph describes them — what the model was told, and
-  // what a dashboard over the relation reads, so the tile it is added to is drawn the same. Nothing
+  // what a dashboard over the pattern reads, so the tile it is added to is drawn the same. Nothing
   // is read for them.
   const readable = React.useMemo(() => {
-    const about = answerRelation(output.answer.relation, graph);
-    return plotRelation(table, { fields: about.fields, columns: about.columns });
-  }, [table, graph, output.answer.relation]);
-  const write = useAdd(adding, props.dashboardKey, output);
+    const about = answerRelation(output.answer.pattern, graph);
+    return plotRelation(relation.table, { fields: about.fields, columns: about.columns });
+  }, [relation, graph, output.answer.pattern]);
+  const write = useAdd(adding, output);
 
   const tile = output.answer.tile;
   // The tile's own header holds them, beside its title, as a dashboard tile's pencil is held.
   const actions = (
     <>
-      <FilterToRows fields={readable.fields} identity={keys[0]!} output={output} resolver={resolver} t={t} table={readable.table} />
+      <FilterToRows fields={readable.fields} output={output} relation={relation} t={t} table={readable.table} />
       {write && <AddToDashboard fields={readable.fields} t={t} write={write} />}
     </>
   );
   return (
     <>
-      {/* The tile reads the answer's relation, narrowed by its own question, and is a client of it: what the page crosses into. */}
-      <MosaicClients relation={output.answer.relation}>
+      {/* The tile reads the answer's pattern, narrowed by its own question, and is a client of it: what the page crosses into. */}
+      <MosaicClients relation={relation}>
         <TileView actions={actions} fields={readable.fields} relation={readable.table} tile={tile} />
       </MosaicClients>
       {write?.status.state === "failed" && (
@@ -354,16 +347,16 @@ function domainClause(output: Required<AnswerOutput>, fields: readonly FieldStat
 
 /**
  * **Whether the answer's clause keeps every row of its relation** — what makes *Filter the page to
- * these rows* a no-op. True when the answer has no conditions, its relation is a type alone (a hop
- * keeps only the roots that have one), and its bars answered every category of their column: none
+ * these rows* a no-op. True when the answer has no conditions, its pattern is a vertex alone (an edge
+ * keeps only the vertices that have one), and its bars answered every category of their column: none
  * missing against the field's `distinct`, and none of them null, which the clause would drop. It
- * reads what the card already holds, so it costs no query. `distinct` is DuckDB's `approx_unique`,
- * exact at the few dozen values a bar chart answers; and it counts the whole relation, so an answer
- * read under a page that already narrowed the column is not caught, and stays enabled.
+ * reads what the card already holds, so it costs no query. `distinct` is the graph's count from the
+ * chunks' statistics, the least they allow where they only bound it; and it counts the whole type, so
+ * an answer read under a page that already narrowed the column is not caught, and stays enabled.
  */
 function keepsEverything(output: Required<AnswerOutput>, fields: readonly FieldStat[]): boolean {
-  const { tile: show, relation } = output.answer;
-  if ((show.where ?? []).length > 0 || ("top" in show && show.top !== undefined) || relation.path.length > 0) return false;
+  const { tile: show, pattern } = output.answer;
+  if ((show.where ?? []).length > 0 || ("top" in show && show.top !== undefined) || pattern.length > 1) return false;
   if (show.kind !== "chart" || !domainClause(output, fields, {})) return false;
   const values = new Set(output.rows.map((row) => row[show.x]));
   const field = fields.find((f) => f.name === show.x)!;
@@ -372,25 +365,25 @@ function keepsEverything(output: Required<AnswerOutput>, fields: readonly FieldS
 
 /**
  * The answer's conditions and its bars' categories, published to the page as one semi-join on the
- * relation's root key: a column clause would filter only what has the relation's columns, and the
- * key is what the page shares. Its chip names what it filters — *Ask: gender female* — each
- * clause read as the filter bar reads one. Pressed again, it takes the clause back. Disabled when it
- * would keep everything in view.
+ * pattern's first vertex, on the answer's relation: a column clause would filter only what has the
+ * pattern's columns, and the vertex is what the page crosses into every other relation. Its chip names
+ * what it filters — *Ask: p.gender female* — each clause read as the filter bar reads one. Pressed
+ * again, it takes the clause back. Disabled when it would keep everything in view.
  */
 function FilterToRows(props: {
   table: TableExpr;
-  identity: string;
-  resolver: JoinResolver;
+  relation: Relation;
   output: Required<AnswerOutput>;
   fields: readonly FieldStat[];
   t: AnswerCardTranslations;
 }) {
-  const { table, identity, resolver, output, fields, t } = props;
+  const { table, relation, output, fields, t } = props;
+  const identity = relation.roots[0]!.variable!;
   const { selection } = useMosaic();
   // Its own source, so its chip retracts it and nothing else.
   const [source] = React.useState(() => ({ reset() {} }));
   const held = useClauses(selection).some((clause) => clause.source === source);
-  const { tile, relation } = output.answer;
+  const { tile } = output.answer;
   const domain = domainClause(output, fields, source);
   const where = tile.where ?? [];
   const ranked = "top" in tile && tile.top !== undefined;
@@ -400,10 +393,10 @@ function FilterToRows(props: {
   const idle = !held && keepsEverything(output, fields);
   const publish = () => {
     // The rows the tile reads — its own question, compiled once, as the chart and the rows are.
-    const compiled = tileQuery(table, tile, { fields, relation, resolver });
+    const compiled = tileQuery(table, tile, { fields, relation });
     if ("missing" in compiled) return;
     const members = Query.select(identity).from(compiled.table).where(domain ? [domain.predicate!] : []);
-    selection.update(clauseSemiJoin(identity, members, { source, label }));
+    selection.update(onRelation(clauseSemiJoin(identity, members, { source, label }), relation));
   };
   return (
     <TileAction
@@ -411,36 +404,37 @@ function FilterToRows(props: {
       disabled={idle}
       hint={idle ? t.keeps : undefined}
       label={t.filter}
-      onClick={() => (held ? selection.update(clauseSemiJoin(identity, null, { source })) : publish())}
+      onClick={() => (held ? selection.update(onRelation(clauseSemiJoin(identity, null, { source }), relation)) : publish())}
     >
       <ListFilterIcon />
     </TileAction>
   );
 }
 
-/** A tile's condition, as a chip reads one: its path, then what it keeps. */
+/** A tile's condition, as a chip reads one: its field, then what it keeps. */
 const conditionWords = (c: Condition) =>
   "in" in c ? `${c.field} ${c.in.join(", ")}` : "between" in c ? `${c.field} ${c.between.join("–")}` : `${c.field} ~ ${c.contains}`;
 
 type WriteStatus = { state: "idle" } | { state: "pending" } | { state: "failed"; error: unknown };
 
 /**
- * The tile goes on under the answer's own id — the call's — so whether the relation's spec holds it
+ * The tile goes on under the answer's own id — the call's — so whether the pattern's spec holds it
  * is a lookup in what the host hands back, not a flag this card keeps and a remount loses. The host's
  * write is what confirms it: while a promise it returned is pending the button says so, whatever the
  * spec already shows, and a rejection is drawn under the tile with the button back. Here rather than
  * in the button, since the button is in the tile's header and the failure is not.
  */
-function useAdd(adding: Adding | undefined, key: string, output: Required<AnswerOutput>) {
+function useAdd(adding: Adding | undefined, output: Required<AnswerOutput>) {
   const [status, setStatus] = React.useState<WriteStatus>({ state: "idle" });
   if (!adding) return null;
   const { dashboards, onAdd, onOpen } = adding;
-  const tile = output.answer.tile;
-  const where: AnswerAdded = { relation: output.answer.relation, key, id: tile.id };
-  const added = dashboards.byRelation[key]?.tiles.some((each) => each.id === tile.id) ?? false;
+  const { pattern, tile } = output.answer;
+  const key = patternKey(pattern);
+  const where: AnswerAdded = { pattern, key, id: tile.id };
+  const added = dashboards.byPattern[key]?.tiles.some((each) => each.id === tile.id) ?? false;
   const add = (fields: readonly FieldStat[]) => {
-    const current = dashboards.byRelation[key] ?? autoDashboard(fields);
-    const next = { ...dashboards, byRelation: { ...dashboards.byRelation, [key]: { ...current, tiles: [...current.tiles, tile] } } };
+    const current = dashboards.byPattern[key] ?? autoDashboard(fields);
+    const next = { ...dashboards, byPattern: { ...dashboards.byPattern, [key]: { ...current, tiles: [...current.tiles, tile] } } };
     let written: void | Promise<unknown>;
     try {
       written = onAdd(next, where);

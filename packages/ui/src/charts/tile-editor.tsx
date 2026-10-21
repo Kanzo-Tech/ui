@@ -134,7 +134,7 @@ export function TileEditor({ fields, tile: draft, onChange: setDraft, anchor, ti
           <FieldLabel className="text-xs">Title</FieldLabel>
           <Input
             onChange={(event) => setDraft({ ...draft, title: event.target.value || undefined })}
-            placeholder={tileTitle({ ...draft, title: undefined }, fields)}
+            placeholder={tileTitle({ ...draft, title: undefined })}
             size="sm"
             value={draft.title ?? ""}
           />

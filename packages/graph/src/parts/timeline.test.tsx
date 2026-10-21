@@ -4,12 +4,23 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { KanzoThemeProvider } from "@kanzo-tech/ui";
 import { ChartTimeline, FilterBar, MosaicProvider, useMosaic } from "@kanzo-tech/ui/analytics";
 import { useEffect, useState, type ReactNode } from "react";
-import { MosaicClient, Query, clauseInterval, count, float64, type FilterExpr, type Selection, type TableExpr } from "@kanzo-tech/mosaic";
-import { crossfilterOver, onRelation, readOf, type JoinGraph, type RelationClient, type RelationRef } from "@kanzo-tech/relations";
+import {
+  MosaicClient,
+  Query,
+  clauseInterval,
+  count,
+  crossfilterOver,
+  float64,
+  onRelation,
+  relationOver,
+  type FilterExpr,
+  type Relation,
+  type RelationClient,
+  type Selection,
+} from "@kanzo-tech/mosaic";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { attach, settle, type Attached } from "../../test/corpus";
-import { readJoinGraph } from "@kanzo-tech/relations";
-import { VERTICES, relation } from "../core/source";
+import { verticesOf } from "../core/source";
 import { createGraph } from "../core/store";
 import { GraphRoot, useGraphContext } from "../react/graph-root";
 import { internalsOf } from "../react/use-graph";
@@ -18,10 +29,10 @@ import { useGraphState } from "../react/use-graph-state";
 import { GRAPH_SECTION } from "../section";
 
 /**
- * **A timeline over the graph** — `ChartTimeline` reading `vertices`, every vertex as one relation,
- * over the column the graph's settings chose (`time-by`), on the page's one selection: what a host
- * writes under its canvas. Nothing here is the graph's but the relation and the setting; the window
- * is a clause on `vertices` that the page crosses into every other relation, and the graph's first
+ * **A timeline over the graph** — `ChartTimeline` reading `verticesOf(graph)`, every vertex as one
+ * relation, over the column the graph's settings chose (`time-by`), on the page's one selection: what a
+ * host writes under its canvas. Nothing here is the graph's but the relation and the setting; the
+ * window is a clause on every vertex that the page crosses into every other relation, and the graph's first
  * load waits for the bars as it waits for any chart on its page.
  */
 
@@ -36,9 +47,10 @@ function Drawn() {
 /** What a host writes under the canvas: the band, and in it the timeline over the chosen column. */
 function Timeline({ height = 44 }: { height?: number }) {
   const { timeline } = useGraphPrefs();
+  const { graph } = useMosaic();
   return (
     <div data-slot="graph-timeline" style={{ minHeight: height }}>
-      {timeline ? <ChartTimeline field={timeline} height={height} relation="vertices" title={`Timeline: ${timeline}`} /> : null}
+      {timeline ? <ChartTimeline field={timeline} height={height} relation={graph ? verticesOf(graph) : undefined} title={`Timeline: ${timeline}`} /> : null}
     </div>
   );
 }
@@ -47,23 +59,20 @@ function Timeline({ height = 44 }: { height?: number }) {
 function OnPage({ corpus, children }: { corpus: Attached; children: ReactNode }) {
   const { selection } = useMosaic();
   return (
-    <GraphRoot engine={corpus.engine} filterBy={selection} from={corpus.from} onFailure={() => {}}>
+    <GraphRoot engine={corpus.engine} filterBy={selection} graph={corpus.graph} onFailure={() => {}}>
       {children}
     </GraphRoot>
   );
 }
 
-const joinsOf = (corpus: Attached): Promise<JoinGraph> => readJoinGraph(corpus.engine, corpus.from, { signal: new AbortController().signal });
-
 async function mount(corpus: Attached, timeline: string) {
-  const joins = await joinsOf(corpus);
   return render(
     <KanzoThemeProvider
       policy={timeline ? { graph: { "time-by": { pinned: timeline } } } : undefined}
       sections={[GRAPH_SECTION]}
       storage={null}
     >
-      <MosaicProvider engine={corpus.engine} joins={joins}>
+      <MosaicProvider engine={corpus.engine} graph={corpus.graph}>
         <OnPage corpus={corpus}>
           <Timeline />
         </OnPage>
@@ -83,20 +92,17 @@ describe("a timeline over the graph's vertices", () => {
   });
 });
 
-/** A client of the page over one table: the keys of its rows that survive the page's clauses. */
+/** A client of the page over one relation: the index of its first vertex on the rows that survive the page's clauses. */
 class Rows extends MosaicClient implements RelationClient {
   rows: number[] | null = null;
-  readonly #table: TableExpr;
   constructor(
     filterBy: Selection,
-    table: TableExpr,
-    readonly relation: RelationRef | null = null,
+    readonly relation: Relation,
   ) {
     super(filterBy);
-    this.#table = table;
   }
   override query(filter?: FilterExpr | null): Query {
-    return Query.select({ id: float64("dense_id") }).from(this.#table).where(filter ?? []);
+    return Query.select({ id: float64(this.relation.roots[0]!.index) }).from(this.relation.table).where(filter ?? []);
   }
   override queryResult(data: unknown): this {
     const ids = (data as { getChild(name: string): { toArray(): ArrayLike<number> } }).getChild("id").toArray();
@@ -107,45 +113,41 @@ class Rows extends MosaicClient implements RelationClient {
 
 const ids = (mask: Uint8Array | null | undefined) => [...(mask ?? [])].flatMap((on, id) => (on ? [id] : []));
 
-describe("the vertices relation", () => {
-  it("reads every vertex table under the key, NULL where a table has no such column", async () => {
+describe("every vertex as one relation", () => {
+  it("reads every vertex type's relation, NULL where a type has no such property", async () => {
     const corpus = await attach();
-    const graph = await readJoinGraph(corpus.engine, corpus.from, { signal: new AbortController().signal });
-    const vertices = graph.types.find((t) => t.name === VERTICES)!;
-    const { table } = vertices;
-    const columns = vertices.columns.map((c) => c.name);
-    for (const type of ["Person", "Place", "Tag"]) expect(String(table)).toContain(`"${corpus.from}"."${type}"`);
-    expect(columns).toEqual(expect.arrayContaining(["born", "name", "lon", "subject"]));
+    const { table } = verticesOf(corpus.graph);
+    for (const type of corpus.graph.vertexTypes) expect(String(table)).toContain(type.table);
     const answer = await corpus.coordinator.query(Query.select({ all: count(), born: count("born") }).from(table), { type: "json" });
     expect(Array.from(answer as unknown as Iterable<{ all: number; born: number }>).map((r) => [Number(r.all), Number(r.born)])).toEqual([[20, 10]]);
   });
 
   it("crosses a window on it into every other relation, keeping none of a type without the column", async () => {
     const corpus = await attach();
-    const { coordinator, from } = corpus;
-    const joins = await joinsOf(corpus);
-    const page = crossfilterOver(joins);
+    const { coordinator } = corpus;
+    const page = crossfilterOver(corpus.graph);
     const onFailure = vi.fn();
-    const graph = createGraph({ from, engine: corpus.engine, onFailure, filterBy: page });
+    const graph = createGraph({ graph: corpus.graph, engine: corpus.engine, onFailure, filterBy: page });
     graph.subscribe(() => {});
-    // A dashboard's relation over a table with no `born`.
-    const places = new Rows(page, readOf(joins, "Place").table, "Place");
+    const vertices = verticesOf(corpus.graph);
+    // A dashboard's relation over a type with no `born`: its rows are Place indexes.
+    const places = new Rows(page, relationOver(corpus.graph, [{ as: "place", type: "Place" }]));
     coordinator.connect(places);
     await settle(corpus);
-    expect(places.rows).toEqual([10, 11, 12, 13, 14, 15]);
+    expect(places.rows).toEqual([0, 1, 2, 3, 4, 5]);
 
     // born = 1900 + i, so the window 1902–1905 keeps People 2–5, and nothing without a `born`.
     const brush = { reset() {} };
-    page.update(onRelation(clauseInterval("born", [1902, 1905], { source: brush }), "vertices"));
+    page.update(onRelation(clauseInterval("born", [1902, 1905], { source: brush }), vertices));
     await settle(corpus);
     expect(onFailure).not.toHaveBeenCalled();
     expect(places.rows).toEqual([]);
     expect(ids(graph.getSnapshot().kept)).toEqual([2, 3, 4, 5]);
 
     // Let go, and everything is back.
-    page.update(onRelation(clauseInterval("born", null, { source: brush }), "vertices"));
+    page.update(onRelation(clauseInterval("born", null, { source: brush }), vertices));
     await settle(corpus);
-    expect(places.rows).toEqual([10, 11, 12, 13, 14, 15]);
+    expect(places.rows).toEqual([0, 1, 2, 3, 4, 5]);
   });
 });
 
@@ -238,7 +240,7 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
     const { selection } = useMosaic();
     page = selection;
     return (
-      <GraphRoot engine={corpus.engine} filterBy={selection} from={corpus.from} onFailure={() => {}}>
+      <GraphRoot engine={corpus.engine} filterBy={selection} graph={corpus.graph} onFailure={() => {}}>
         <FilterBar />
         {hidden ? null : children(height)}
       </GraphRoot>
@@ -246,10 +248,9 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
   }
 
   async function drawn(corpus: Attached) {
-    const joins = await joinsOf(corpus);
     const { container } = render(
       <KanzoThemeProvider policy={{ graph: { "time-by": { pinned: "born" } } }} sections={[GRAPH_SECTION]} storage={null}>
-        <MosaicProvider engine={corpus.engine} joins={joins}>
+        <MosaicProvider engine={corpus.engine} graph={corpus.graph}>
           <Page corpus={corpus}>{(height) => <Timeline height={height} />}</Page>
         </MosaicProvider>
       </KanzoThemeProvider>,
@@ -491,7 +492,6 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
 
   it("holds the graph's loading until its bars are drawn, as any chart on its page, and mounts its band once", async () => {
     const corpus = await attach();
-    const joins = await joinsOf(corpus);
     let status: string | undefined;
     function Status() {
       status = useGraphState((s) => s.status);
@@ -499,7 +499,7 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
     }
     const { container } = render(
       <KanzoThemeProvider policy={{ graph: { "time-by": { pinned: "born" } } }} sections={[GRAPH_SECTION]} storage={null}>
-        <MosaicProvider engine={corpus.engine} joins={joins}>
+        <MosaicProvider engine={corpus.engine} graph={corpus.graph}>
           <OnPage corpus={corpus}>
             <Status />
             <Drawn />
@@ -528,7 +528,6 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
 
   it("waits in the band alone when the column changes after load, and mounts neither band nor figure again", async () => {
     const corpus = await attach();
-    const joins = await joinsOf(corpus);
     const seen: string[] = [];
     function Status() {
       seen.push(useGraphState((s) => s.status));
@@ -536,7 +535,7 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
     }
     const view = (column: string) => (
       <KanzoThemeProvider policy={{ graph: { "time-by": { pinned: column } } }} sections={[GRAPH_SECTION]} storage={null}>
-        <MosaicProvider engine={corpus.engine} joins={joins}>
+        <MosaicProvider engine={corpus.engine} graph={corpus.graph}>
           <OnPage corpus={corpus}>
             <Status />
             <Drawn />
@@ -639,7 +638,7 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
     const gate = new Promise<void>((resolve) => (release = resolve));
     page!.addEventListener("value", () => gate);
     const other = { reset() {} };
-    act(() => page!.update(onRelation(clauseInterval("born", [1800, 2000], { source: other }), "vertices")));
+    act(() => page!.update(onRelation(clauseInterval("born", [1800, 2000], { source: other }), verticesOf(corpus.graph))));
     await brush(1902, 1905);
     expect(page!.clauses.map((clause) => clause.source)).toEqual([other]);
     // Playable, read, and drawn in colour from the snapped ends.
@@ -654,7 +653,7 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
     expect(Number(rect.getAttribute("x")) + Number(rect.getAttribute("width"))).toBeCloseTo(scale.apply(1905));
     // Delivered, and the other window let go, the page holds the snapped window once.
     await act(async () => release());
-    act(() => page!.update(onRelation(clauseInterval("born", null, { source: other }), "vertices")));
+    act(() => page!.update(onRelation(clauseInterval("born", null, { source: other }), verticesOf(corpus.graph))));
     await vi.waitFor(() => expect(chips().map((chip) => chip.getAttribute("aria-label"))).toEqual(["Remove born 1902 – 1905"]), WAIT);
     expect(held()).toEqual([1902, 1905]);
   });
@@ -696,12 +695,12 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
     const gate = new Promise<void>((resolve) => (release = resolve));
     page!.addEventListener("value", () => gate);
     const other = { reset() {} };
-    act(() => page!.update(onRelation(clauseInterval("born", [1800, 2000], { source: other }), "vertices")));
+    act(() => page!.update(onRelation(clauseInterval("born", [1800, 2000], { source: other }), verticesOf(corpus.graph))));
     await brush(1902, 1905);
     expect(page!.clauses.map((clause) => clause.source)).toEqual([other]);
     act(() => hide());
     await act(async () => release());
-    act(() => page!.update(onRelation(clauseInterval("born", null, { source: other }), "vertices")));
+    act(() => page!.update(onRelation(clauseInterval("born", null, { source: other }), verticesOf(corpus.graph))));
     // The window is the page's, not the timeline's: it stays, as a chip that removes it.
     await vi.waitFor(() => expect(chips().map((chip) => chip.getAttribute("aria-label"))).toEqual(["Remove born 1902 – 1905"]), WAIT);
     const [kept] = page!.clauses;
@@ -780,7 +779,7 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
         return new Promise((resolve) => setTimeout(resolve, 300));
       }
     }
-    corpus.coordinator.connect(new Slow(page!, relation(corpus.from, "Person")));
+    corpus.coordinator.connect(new Slow(page!, relationOver(corpus.graph, [{ as: "person", type: "Person" }])));
     await act(() => settle(corpus));
     const window = screen.getByRole("group", { name: "Window" });
     const moves: unknown[] = [];

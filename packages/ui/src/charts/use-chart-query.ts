@@ -1,8 +1,7 @@
 "use client";
 
-import { queryFailure, makeClient, type MosaicClient, type Selection, Query, type FilterExpr } from "@kanzo-tech/mosaic";
+import { queryFailure, makeClient, type MosaicClient, type Relation, type RelationClient, type Selection, Query, type FilterExpr } from "@kanzo-tech/mosaic";
 import { internalCoordinatorOf } from "@kanzo-tech/mosaic/engine";
-import { type RelationClient, type RelationRef } from "@kanzo-tech/relations";
 import { useEffect, useRef, useState } from "react";
 import { useClientsEnabled, useMosaic, useReading } from "./mosaic-provider.js";
 
@@ -27,7 +26,7 @@ export interface ChartQueryOptions {
    * relation is crossed into. Defaults to the enclosing `MosaicClients`'s; with none, every clause
    * reaches the query as it was published.
    */
-  relation?: RelationRef | null;
+  relation?: Relation | null;
   /** Rebuilds the client — and re-runs the query — when an entry changes. */
   deps?: readonly unknown[];
 }
@@ -59,7 +58,7 @@ export function useQueryClient(
   filterBy: Selection | null,
   query: (filter: FilterExpr) => Query | null,
   deps: readonly unknown[],
-  relation: RelationRef | null = null,
+  relation: Relation | null = null,
 ): { client: MosaicClient | null; rows: readonly ChartQueryRow[] | null; error: unknown } {
   const { engine, onFailure } = useMosaic();
   const enabled = useClientsEnabled();
@@ -100,11 +99,13 @@ export function useQueryClient(
   }, [engine, filterBy, onFailure, ...deps]);
 
   // The relation is read when the client asks, so a new one needs no new client — only a new answer.
-  const relationKey = JSON.stringify(relation);
+  const latestRelation = useRef(relation);
+  latestRelation.current = relation;
+  const relationKey = relation?.key ?? null;
   useEffect(() => {
     const at = client as (MosaicClient & RelationClient) | null;
-    if (!at || JSON.stringify(at.relation ?? null) === relationKey) return;
-    at.relation = JSON.parse(relationKey) as RelationRef | null;
+    if (!at || (at.relation?.key ?? null) === relationKey) return;
+    at.relation = latestRelation.current;
     at.requestQuery();
   }, [client, relationKey]);
 

@@ -1,7 +1,6 @@
 import {
   cardFor,
   detailColumns,
-  fieldWords,
   isMeasure,
   measureLabel,
   normalizeCard,
@@ -82,11 +81,11 @@ export function newTile(k: TileKind, fields: readonly FieldStat[], tiles: readon
 }
 
 /**
- * The title a tile is drawn under: its own, or one derived from what it reads — each field by its
- * label in `fields` where the data gives one, by its path otherwise.
+ * The title a tile is drawn under: its own, or one derived from what it reads, each field by its
+ * name, `variable.property`.
  */
-export function tileTitle(tile: Tile, fields?: readonly FieldStat[]): string {
-  return tile.title ?? kind(tile.kind).title(tile, fieldWords(fields));
+export function tileTitle(tile: Tile): string {
+  return tile.title ?? kind(tile.kind).title(tile, (path) => path);
 }
 
 /**

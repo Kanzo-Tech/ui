@@ -1,7 +1,8 @@
 "use client";
 
 import { type ExprValue, type TableExpr, Query } from "@kanzo-tech/mosaic";
-import type { RelationExpr, RelationRef } from "@kanzo-tech/relations";
+import type { Relation } from "@kanzo-tech/mosaic";
+import type { RelationExpr } from "./mosaic-provider.js";
 import type React from "react";
 import { StatDelta, StatLabel, StatRoot, StatTrend } from "../simples/stat.js";
 import { ChartStat } from "./chart-stat.js";
@@ -45,7 +46,7 @@ export function DashboardStat(props: DashboardStatProps) {
 
   return (
     <StatRoot {...rest}>
-      <StatLabel className={header ? "col-end-3" : undefined}>{tileTitle(stat, fields)}</StatLabel>
+      <StatLabel className={header ? "col-end-3" : undefined}>{tileTitle(stat)}</StatLabel>
       {header ? (
         <div className="col-start-3 -my-1 flex items-center justify-end gap-1">
           {actions}
@@ -83,7 +84,7 @@ function Trend({
   goodWhenUp,
 }: {
   table: TableExpr;
-  reading: RelationRef | null;
+  reading: Relation | null;
   field: FieldStat;
   measure: ExprValue;
   unit?: string;

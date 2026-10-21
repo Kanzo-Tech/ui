@@ -31,7 +31,7 @@ function Hold({ into }: { into: { api: GraphApi | null } }) {
 }
 
 /** The root's two source props, for an attached corpus. */
-const over = (corpus: Attached) => ({ from: corpus.from, engine: corpus.engine });
+const over = (corpus: Attached) => ({ graph: corpus.graph, engine: corpus.engine });
 const ready = (corpus: Attached) => act(() => settle(corpus));
 const noResize = () =>
   vi.stubGlobal(
@@ -112,9 +112,12 @@ describe("GraphLegend", () => {
 
   it("says so when no edge has both ends on the map", async () => {
     const corpus = await attach();
+    // The relation the graph names for Person, replaced by one with no `lat`.
+    const person = corpus.graph.vertexTypes.find((t) => t.type === "Person")!.table;
+    const written = person.replace(/"[^"]*"$/, '"written"');
     await corpus.coordinator.exec(
-      `ALTER VIEW ${corpus.from}."Person" RENAME TO written;
-       CREATE VIEW ${corpus.from}."Person" AS SELECT * REPLACE (NULL::DOUBLE AS lat) FROM ${corpus.from}.written;`,
+      `ALTER VIEW ${person} RENAME TO written;
+       CREATE VIEW ${person} AS SELECT * REPLACE (NULL::DOUBLE AS lat) FROM ${written};`,
     );
     render(
       <GraphRoot {...over(corpus)} onFailure={() => {}} x="lon" y="lat">
@@ -331,8 +334,11 @@ describe("GraphToolbar", () => {
 });
 
 describe("GraphInspector", () => {
-  async function inspecting(children?: (detail: { fields: readonly { name: string; value: unknown }[] }) => React.ReactNode) {
+  async function inspecting(children?: (detail: { fields: readonly { name: string; value: unknown }[] }) => React.ReactNode, refused?: unknown) {
     const corpus = await attach();
+    // The graph's one read of a vertex, watched: what the inspector asks is the graph's to answer.
+    const vertex = vi.spyOn(corpus.graph, "vertex");
+    if (refused !== undefined) vertex.mockRejectedValueOnce(refused);
     const held: { api: GraphApi | null } = { api: null };
     const onFailure = vi.fn();
     render(
@@ -342,15 +348,15 @@ describe("GraphInspector", () => {
       </GraphRoot>,
     );
     await ready(corpus);
-    return { corpus, held, onFailure };
+    return { corpus, held, onFailure, vertex };
   }
   const section = (name: string) => screen.getByRole("region", { name });
 
-  it("reads the focused vertex's row with one statement, grouped, and draws a host's extra fields after its values", async () => {
+  it("reads the focused vertex's row with one read of the graph, grouped, and draws a host's extra fields after its values", async () => {
     const extra = vi.fn((detail: { fields: readonly { name: string; value: unknown }[] }) => (
       <p data-testid="extra">score plus one: {Number(detail.fields.find((f) => f.name === "score")?.value) + 1}</p>
     ));
-    const { corpus, held } = await inspecting(extra);
+    const { held, vertex } = await inspecting(extra);
     expect(screen.getByText("Click a vertex on the canvas to inspect it.")).toBeTruthy();
     act(() => held.api?.setFocus(6));
     await waitFor(() => expect(screen.getByTestId("extra").textContent).toBe("score plus one: 8"));
@@ -359,7 +365,7 @@ describe("GraphInspector", () => {
     // A `list` property reads as its values, not as an object.
     expect([...section("Values").querySelectorAll("dd")].map((dd) => dd.textContent)).toContain("nick 6");
     expect(screen.queryByRole("region", { name: "Dates" })).toBeNull();
-    expect(corpus.sent.filter((sql) => /"Person" WHERE \("_graphArVertexIndex" = 6\)$/.test(sql))).toHaveLength(1);
+    expect(vertex.mock.calls.filter(([type, index]) => type === "Person" && index === 6)).toHaveLength(1);
     expect(screen.queryByRole("region", { name: "Identity" })).toBeNull();
     expect(document.querySelector('[data-slot="graph-inspector-iri"] a')?.getAttribute("href")).toBe("https://example.org/person/6");
     expect(document.querySelector('[data-slot="graph-inspector-title"]')?.textContent).toBe("Person 6");
@@ -402,9 +408,8 @@ describe("GraphInspector", () => {
   });
 
   it("says a vertex could not be read, and hands onFailure the thrown value", async () => {
-    const { corpus, held, onFailure } = await inspecting();
     const refused = refusal();
-    corpus.refuse(/WHERE \("_graphArVertexIndex" = 6\)$/, refused);
+    const { held, onFailure } = await inspecting(undefined, refused);
     act(() => held.api?.setFocus(6));
     await waitFor(() => expect(screen.getByText("This vertex could not be read.")).toBeTruthy());
     expect(screen.queryByText("This vertex is not in the graph.")).toBeNull();
@@ -579,7 +584,7 @@ describe("GraphCanvas", () => {
   it("hands onFailure the thrown value when a label's read rejects", async () => {
     const corpus = await attach();
     const refused = refusal();
-    corpus.refuse(/"_graphArVertexIndex" IN/, refused);
+    vi.spyOn(corpus.graph, "vertex").mockRejectedValue(refused);
     const onFailure = vi.fn();
     render(
       <GraphRoot {...over(corpus)} onFailure={onFailure}>

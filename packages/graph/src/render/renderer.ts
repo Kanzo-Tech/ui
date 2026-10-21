@@ -1,5 +1,5 @@
 import { Graph } from "@cosmos.gl/graph";
-import { Problem } from "@kanzo-tech/kernel";
+import { Problem } from "@kanzo-tech/problems";
 import { greyedOf } from "../core/kept";
 import type { Geometry } from "../core/load";
 import type { Arrangement, GraphStore } from "../core/store";

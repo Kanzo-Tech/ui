@@ -3,10 +3,11 @@ import { internalCoordinatorOf } from "@kanzo-tech/mosaic/engine";
 import { domainOf } from "./categories";
 import { bindingOf } from "./channels";
 import { GraphClient, publish } from "./client";
-import { Problem } from "@kanzo-tech/kernel";
+import { Problem } from "@kanzo-tech/problems";
 import { loadEncoding, loadGeometry, type Encoding, type Geometry } from "./load";
-import { readJoinGraph, withMapping, type JoinGraph } from "@kanzo-tech/relations";
-import { KEY, VERTICES, sizeOf, vertexTypes } from "./source";
+import type { Graph } from "@kanzo-tech/graphar-duckdb";
+import type { Relation } from "@kanzo-tech/mosaic";
+import { KEY, sizeOf, verticesOf } from "./source";
 import { drawnOf, idsOf, keptOf, maskOf } from "./kept";
 import { memo } from "./memo";
 import { createReads, type Kind } from "./reads";
@@ -33,9 +34,9 @@ export function createGraph(initial: GraphOptions): GraphStore {
   // Until shown once, the load also waits for every chart on the page yet to draw (`holdFirstDraw`).
   let shownOnce = false, unwatch: (() => void) | null = null;
   let binding = bindingOf(initial);
-  let structure: JoinGraph | null = null;
-  /** The graph as read, before the host's mapping describes it: a mapping that arrives later re-describes this, and reads nothing. */
-  let catalog: JoinGraph | null = null;
+  let structure: Graph | null = null;
+  /** Every vertex as one relation of the page: what the canvas reads and publishes on. */
+  let union: Relation | null = null;
   let geometry: Geometry | null = null;
   let encoding: Encoding | null = null;
   let kept: Float64Array | null = null;
@@ -70,7 +71,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
   // Each view of the graph is derived once per change of what it reads: the same array until then.
   const domainNow = memo(
     () => [structure, binding.byTable, binding.category, options.categories],
-    () => domainOf(structure ? vertexTypes(structure) : [], binding, options.categories),
+    () => domainOf(structure ? structure.vertexTypes : [], binding, options.categories),
   );
   /** What is kept, `keptOf`: the one reading every view of the graph draws. */
   const keptNow = memo(
@@ -88,7 +89,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
 
   function statusOf(): DataStatus {
     if (failed || unrenderable) return "failed";
-    if (options.from === null || options.engine === null) return "none";
+    if (options.graph === null || options.engine === null) return "none";
     const current = [geometry, encoding, mask];
     const shown = geometry !== null && current.every((part, i) => part === uploaded[i]);
     if (reads.busy() || !shown) return "loading";
@@ -153,28 +154,25 @@ export function createGraph(initial: GraphOptions): GraphStore {
     else if (encoding === null) loadChannels();
   }
 
+  /** The host's `Graph`, held to what the canvas can draw: nothing is read, the types and their counts are the `Graph`'s. */
   function loadStructure(): void {
-    const { engine, from } = options;
-    if (engine === null || from === null) return;
-    read("structure", (signal) => readJoinGraph(engine, from, { signal }), (graph) => {
-      const { mapping } = options; // a column's `datatype` is the mapping's; GraphAr's catalog states none
-      const next = mapping ? withMapping(graph, mapping) : graph;
-      const size = sizeOf(next);
-      if (size === 0) {
-        failed = true;
-        fail(new Problem("graph/nothing-to-draw", `the graph attached as ${from} has no vertex`));
-        return;
-      }
-      if (size > LIMIT) {
-        failed = true;
-        fail(new Problem("graph/too-large", `the graph attached as ${from} has ${size} vertices; the graph draws at most ${LIMIT}`, { count: size, limit: LIMIT }));
-        return;
-      }
-      structure = next;
-      catalog = graph;
-      loadPositions();
-      client?.requestQuery();
-    });
+    const { engine, graph } = options;
+    if (engine === null || graph === null) return;
+    const size = sizeOf(graph);
+    if (size === 0) {
+      failed = true;
+      fail(new Problem("graph/nothing-to-draw", "the graph has no vertex"));
+      return;
+    }
+    if (size > LIMIT) {
+      failed = true;
+      fail(new Problem("graph/too-large", `the graph has ${size} vertices; the graph draws at most ${LIMIT}`, { count: size, limit: LIMIT }));
+      return;
+    }
+    structure = graph;
+    union = verticesOf(graph);
+    loadPositions();
+    client?.requestQuery();
   }
 
   function loadPositions(): void {
@@ -204,9 +202,10 @@ export function createGraph(initial: GraphOptions): GraphStore {
     failed = false;
     shownOnce = false;
     // A new graph: the old one's pick goes from the page with its vertices.
-    if (client && published && structure) publish(published, client, KEY, null, "");
+    if (client && published && union) publish(published, union, client, KEY, null, "");
     published = null;
-    catalog = structure = geometry = encoding = null;
+    structure = geometry = encoding = null;
+    union = null;
     kept = mask = null;
     arrangement = null;
     uploaded = [];
@@ -228,6 +227,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     client = new GraphClient(
       scope(),
       () => structure,
+      () => union,
       (ids) => {
         kept = ids;
         mask = ids && geometry ? maskOf(geometry.size, ids) : null;
@@ -249,16 +249,16 @@ export function createGraph(initial: GraphOptions): GraphStore {
     connected = coordinator;
     unwatch = onFirstDraws(scope(), () => notify());
     const { selection } = snapshot;
-    if (selection && structure) {
+    if (selection && union) {
       published = scope();
-      publish(published, client, KEY, selection.vertices, selection.label, selection.excludes);
+      publish(published, union, client, KEY, selection.vertices, selection.label, selection.excludes);
     }
   }
 
   function disconnect(): void {
     unwatch?.();
     unwatch = null;
-    if (client && published && structure) publish(published, client, KEY, null, "");
+    if (client && published && union) publish(published, union, client, KEY, null, "");
     published = null;
     if (client && connected) connected.disconnect(client);
     client = null;
@@ -298,12 +298,11 @@ export function createGraph(initial: GraphOptions): GraphStore {
       options = next;
       const before = binding;
       binding = bindingOf(next);
-      if (next.from !== previous.from || next.engine !== previous.engine) {
+      if (next.graph !== previous.graph || next.engine !== previous.engine) {
         if (active && next.engine !== previous.engine) connect();
         return reset();
       }
       if (active && scope() !== (previous.filterBy ?? own)) connect();
-      if (next.mapping !== previous.mapping && catalog) structure = next.mapping ? withMapping(catalog, next.mapping) : catalog;
       if (binding.x !== before.x || binding.y !== before.y) loadPositions();
       else if (
         binding.category !== before.category ||
@@ -336,14 +335,14 @@ export function createGraph(initial: GraphOptions): GraphStore {
       const selection = vertices && vertices.length > 0 ? { vertices: [...vertices], source, label, excludes } : null;
       notify({ selection });
       options.onSelect?.(selection);
-      if (!client || !structure) return;
+      if (!client || !union) return;
       published = scope();
-      publish(published, client, KEY, selection ? selection.vertices : null, label, excludes);
+      publish(published, union, client, KEY, selection ? selection.vertices : null, label, excludes);
     },
     scope,
     source(id) {
       let found = sources.get(id);
-      if (!found) sources.set(id, (found = Object.assign(new MosaicClient(), { reset() {}, relation: VERTICES })));
+      if (!found) sources.set(id, (found = Object.defineProperties(new MosaicClient(), { reset: { value() {} }, relation: { get: () => union } }) as PickSource));
       return found;
     },
     focus(vertex) {

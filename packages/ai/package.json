@@ -1,7 +1,7 @@
 {
   "name": "@kanzo-tech/ai",
   "version": "0.1.0",
-  "description": "Kanzo AI surfaces \u2014 a field the model helps fill (Assist) and a conversation with one (Chat), over the AI SDK through @kanzo-tech/llm. Sibling of @kanzo-tech/ui, not part of it.",
+  "description": "Kanzo AI surfaces — a field the model helps fill (Assist) and a conversation with one (Chat), over the AI SDK through @kanzo-tech/llm. Sibling of @kanzo-tech/ui, not part of it.",
   "type": "module",
   "license": "MIT",
   "sideEffects": [
@@ -38,13 +38,12 @@
     "eval": "vitest run --config vitest.eval.config.ts",
     "eval:corpus": "node eval/corpus.mjs"
   },
-  "//eval": "`eval/` is Ask's evaluation set, outside `files`, so npm never sees it: `eval:corpus` writes its corpora into the docs' `public/corpus/` with fossil's writer, and `eval` asks every case of the model in the page on the docs' `/fixtures/ask-eval` \u2014 by hand, on a machine with a GPU, never in `test` or `verify` (`/docs/design/testing`, *Ask's evaluation set lives beside Ask*). `EVAL_DOUBLE=1 pnpm eval` is the smoke run, on the model double.",
-  "//peers": "@kanzo-tech/ui and Ark are required peers rather than dependencies \u2014 two copies of Ark would mean two portals and two focus traps. `ai` and `@ai-sdk/react` are REQUIRED peers for the reason @kanzo-tech/llm gives: the host's agent and these components must share one UIMessage, one transport and one useChat. streamdown is a dependency now: Chat renders markdown, and a conversation that draws plain text is not one this package offers. `@kanzo-tech/mosaic` and `@kanzo-tech/relations` are OPTIONAL: only `./data` imports them, beside `@kanzo-tech/ui`'s `/analytics` and `/table`, whose own optional peers a host of `./data` installs too. `@tanstack/react-query` is OPTIONAL for the same reason: `./data`'s reads are queries on the host's client (`/docs/design/reads`), and the root -- `Chat`, `Assist` -- reads nothing through it.",
+  "//eval": "`eval/` is Ask's evaluation set, outside `files`, so npm never sees it: `eval:corpus` writes its corpora into the docs' `public/corpus/` with fossil's writer, and `eval` asks every case of the model in the page on the docs' `/fixtures/ask-eval` — by hand, on a machine with a GPU, never in `test` or `verify` (`/docs/design/testing`, *Ask's evaluation set lives beside Ask*). `EVAL_DOUBLE=1 pnpm eval` is the smoke run, on the model double.",
+  "//peers": "@kanzo-tech/ui and Ark are required peers rather than dependencies — two copies of Ark would mean two portals and two focus traps. `ai` and `@ai-sdk/react` are REQUIRED peers for the reason @kanzo-tech/llm gives: the host's agent and these components must share one UIMessage, one transport and one useChat. streamdown is a dependency now: Chat renders markdown, and a conversation that draws plain text is not one this package offers. `@kanzo-tech/mosaic` is OPTIONAL: only `./data` imports it, beside `@kanzo-tech/ui`'s `/analytics` and `/table`, whose own optional peers a host of `./data` installs too. `@tanstack/react-query` is OPTIONAL for the same reason: `./data`'s reads are queries on the host's client (`/docs/design/reads`), and the root -- `Chat`, `Assist` -- reads nothing through it.",
   "peerDependencies": {
     "@ai-sdk/react": "^4.0.0",
     "@ark-ui/react": "^5.37.2",
     "@kanzo-tech/mosaic": "workspace:*",
-    "@kanzo-tech/relations": "workspace:*",
     "@kanzo-tech/ui": "workspace:*",
     "@tanstack/react-query": "^5.0.0",
     "ai": "^7.0.0",
@@ -56,14 +55,12 @@
     "@kanzo-tech/mosaic": {
       "optional": true
     },
-    "@kanzo-tech/relations": {
-      "optional": true
-    },
     "@tanstack/react-query": {
       "optional": true
     }
   },
   "dependencies": {
+    "@kanzo-tech/graphar-duckdb": "^0.1.0-alpha.2",
     "@kanzo-tech/llm": "workspace:*",
     "streamdown": "^2.5.0",
     "tailwind-variants": "^3.2.2"
@@ -72,9 +69,8 @@
     "@ai-sdk/react": "^4.0.129",
     "@ark-ui/react": "^5.37.2",
     "@kanzo-tech/fixtures": "workspace:*",
-    "@kanzo-tech/kernel": "workspace:^",
+    "@kanzo-tech/problems": "workspace:^",
     "@kanzo-tech/mosaic": "workspace:*",
-    "@kanzo-tech/relations": "workspace:*",
     "@kanzo-tech/testing": "workspace:*",
     "@kanzo-tech/theme": "workspace:*",
     "@kanzo-tech/ui": "workspace:*",
@@ -103,7 +99,7 @@
   "bugs": {
     "url": "https://github.com/Kanzo-Tech/ui/issues"
   },
-  "//gauges": "One gauge per published entry, and one per tree-shaken import a consumer meets; `scripts/gauges.mjs` (through `.size-limit.mjs`) is what each measures, and every limit's reason \u2014 each raise, dated, with its before and after \u2014 is a row on /docs/design, *A gauge per entry, and its raises written here*.",
+  "//gauges": "One gauge per published entry, and one per tree-shaken import a consumer meets; `scripts/gauges.mjs` (through `.size-limit.mjs`) is what each measures, and every limit's reason — each raise, dated, with its before and after — is a row on /docs/design, *A gauge per entry, and its raises written here*.",
   "gauges": {
     ".": "20 kB",
     "./data": "9.5 kB",

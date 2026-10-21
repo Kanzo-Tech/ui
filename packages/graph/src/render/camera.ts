@@ -1,5 +1,5 @@
 import type { Graph } from "@cosmos.gl/graph";
-import { Problem } from "@kanzo-tech/kernel";
+import { Problem } from "@kanzo-tech/problems";
 import type { View } from "../core/state";
 
 export const FIT_DURATION = 420;

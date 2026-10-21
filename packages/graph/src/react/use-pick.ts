@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
-import type { ExprNode } from "@kanzo-tech/mosaic";
+import type { ExprNode, RelationClient } from "@kanzo-tech/mosaic";
 import { publish } from "../core/client";
 import { clausesOf } from "../core/source";
 import { KEY } from "../core/source";
@@ -73,8 +73,8 @@ export function usePick(id: string): VertexPick {
 
   const pick = useCallback(
     (ids: readonly VertexId[] | null, label: string) => {
-      const { structure } = store.getSnapshot();
-      if (structure) publish(store.scope(), source, KEY, ids, label);
+      const { relation } = source as RelationClient;
+      if (relation) publish(store.scope(), relation, source, KEY, ids, label);
     },
     [store, source],
   );

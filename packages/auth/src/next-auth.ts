@@ -2,7 +2,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { NextResponse, type NextRequest } from "next/server";
 import { cache } from "react";
-import { isProblem } from "@kanzo-tech/kernel";
+import { isProblem } from "@kanzo-tech/problems";
 import { edgeUrl } from "./edge-url";
 import {
   addressedUrl,

@@ -1,8 +1,8 @@
 "use client";
 
-import { clauseLabel, literal, rowsOf, type Selection, type SelectionClause } from "@kanzo-tech/mosaic";
+import type { Graph } from "@kanzo-tech/graphar-duckdb";
+import { clauseLabel, GraphResolver, literal, relationOver, rowsOf, type Selection, type SelectionClause } from "@kanzo-tech/mosaic";
 import type { Engine } from "@kanzo-tech/mosaic/engine";
-import { JoinResolver, relationQuery, type JoinGraph } from "@kanzo-tech/relations";
 import { plotRelation, TILE_ROWS, tileQuery } from "@kanzo-tech/ui/analytics";
 import type { QueryClient } from "@tanstack/react-query";
 import { pageClauses, type Answer, type AnswerRelation, type UnansweredClause } from "./answer.js";
@@ -36,7 +36,7 @@ const wordsOf = (clause: SelectionClause) => clauseLabel(clause);
 /** What an answer reads on the page: its statement, and the page's clauses it was and was not read under. */
 interface AnswerPage {
   readonly engine: Pick<Engine, "query">;
-  readonly graph: JoinGraph;
+  readonly graph: Graph;
   readonly selection?: Selection;
   readonly signal?: AbortSignal;
 }
@@ -47,19 +47,19 @@ interface AnswerPage {
  */
 function statementOf(answer: Answer, about: AnswerRelation, page: AnswerPage) {
   const { graph, selection } = page;
-  const resolver = selection?.resolver instanceof JoinResolver ? selection.resolver : new JoinResolver(graph);
-  const plotted = plotRelation(relationQuery(graph, answer.relation), { fields: about.fields, columns: about.columns });
-  const clauses = pageClauses(selection?.clauses ?? [], about.columns, { relation: answer.relation, resolver });
+  const resolver = selection?.resolver instanceof GraphResolver ? selection.resolver : new GraphResolver(graph);
+  const relation = relationOver(graph, answer.pattern);
+  const plotted = plotRelation(relation.table, { fields: about.fields, columns: about.columns });
+  const clauses = pageClauses(selection?.clauses ?? [], about.columns, { relation, resolver });
   const none = clauses.unanswered.length > 0 ? [literal(false)] : [];
   // One more row than the cap, so a cut answer is told from one that fits exactly.
   const compiled = tileQuery(plotted.table, answer.tile, {
     fields: plotted.fields,
-    relation: answer.relation,
-    resolver,
+    relation,
     filter: [...clauses.predicates, ...none],
     limit: TILE_ROWS + 1,
   });
-  if ("missing" in compiled) throw new Error(`The answer's relation has no ${compiled.missing.join(", ")}.`);
+  if ("missing" in compiled) throw new Error(`The answer's pattern has no ${compiled.missing.join(", ")}.`);
   return { sql: String(compiled.rows), clauses };
 }
 
@@ -88,12 +88,12 @@ export async function readAnswer(answer: Answer, about: AnswerRelation, page: An
   return outputOf(answer, await readRows(page.engine, sql, page.signal ?? new AbortController().signal), clauses);
 }
 
-/** Which engine a read was made on, as a key can say it: a key is hashed as JSON, and an engine is not. */
-const engines = new WeakMap<object, number>();
-let engineCount = 0;
-const engineKey = (engine: object) => {
-  let id = engines.get(engine);
-  if (id === undefined) engines.set(engine, (id = ++engineCount));
+/** Which engine or graph a read was made on, as a key can say it: a key is hashed as JSON, and neither is. */
+const ids = new WeakMap<object, number>();
+let idCount = 0;
+export const keyOf = (of: object) => {
+  let id = ids.get(of);
+  if (id === undefined) ids.set(of, (id = ++idCount));
   return id;
 };
 
@@ -107,7 +107,7 @@ export async function readAnswerQuery(client: QueryClient, answer: Answer, about
   const { engine, signal } = page;
   signal?.throwIfAborted();
   const { sql, clauses } = statementOf(answer, about, page);
-  const queryKey = ["@kanzo-tech/ai", "answer", engineKey(engine), sql];
+  const queryKey = ["@kanzo-tech/ai", "answer", keyOf(engine), sql];
   const cancel = () => void client.cancelQueries({ queryKey, exact: true });
   signal?.addEventListener("abort", cancel, { once: true });
   try {

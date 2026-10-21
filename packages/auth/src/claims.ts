@@ -1,4 +1,4 @@
-import { Problem } from "@kanzo-tech/kernel";
+import { Problem } from "@kanzo-tech/problems";
 import type { Organization, Session } from "./types";
 
 /**

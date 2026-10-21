@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AnswerHarness } from "@kanzo-tech/testing";
 import { dom } from "@kanzo-tech/testing/dom";
-import type { Selection } from "@kanzo-tech/mosaic";
+import { patternKey, type Selection } from "@kanzo-tech/mosaic";
 import { MosaicProvider, useMosaic, type Dashboards } from "@kanzo-tech/ui/analytics";
 import { render, screen } from "@testing-library/react";
 import { useState } from "react";
@@ -28,8 +28,8 @@ let output: AnswerOutput;
 beforeAll(async () => {
   db = await testDatabase();
   output = await readFor(db.engine, SNB, {
-    of: "Person",
-    where: [{ field: "gender", in: ["female"] }],
+    match: PERSON,
+    where: [{ field: "person.gender", in: ["female"] }],
     show: { kind: "stat", title: "Women", measure: { op: "count" } },
   });
 });
@@ -45,7 +45,7 @@ function Page({ into }: { into: (selection: Selection) => void }) {
 
 function page(answer: AnswerOutput, adding: Adding = {}, into: (selection: Selection) => void = () => {}) {
   return (
-    <QueryClientProvider client={queries}><MosaicProvider engine={db.engine}>
+    <QueryClientProvider client={queries}><MosaicProvider engine={db.engine} graph={SNB}>
       <Page into={into} />
       <PromptInput>
         <PromptInputTextarea placeholder="Ask about your data…" />
@@ -64,7 +64,7 @@ describe("AnswerHarness", () => {
     const { rerender } = draw({ answer: output.answer }, {}, (s) => (crossfilter = s));
     const answers = await env.getHarness(AnswerHarness);
     rerender(
-      <QueryClientProvider client={queries}><MosaicProvider engine={db.engine}>
+      <QueryClientProvider client={queries}><MosaicProvider engine={db.engine} graph={SNB}>
         <Page into={(s) => (crossfilter = s)} />
         <PromptInput>
           <PromptInputTextarea placeholder="Ask about your data…" />
@@ -94,7 +94,7 @@ describe("AnswerHarness", () => {
     const onAdd = vi.fn(() => new Promise<void>((resolve) => (settle = resolve)));
     // The host: draws the document it is handed at once, and confirms the write when the test says so.
     function Host() {
-      const [dashboards, setDashboards] = useState<Dashboards>({ byRelation: {} });
+      const [dashboards, setDashboards] = useState<Dashboards>({ byPattern: {} });
       const adding: Adding = {
         dashboards,
         onAdd: (next) => {
@@ -116,23 +116,23 @@ describe("AnswerHarness", () => {
   it("opens the answer on the dashboard once it is there, through the host's onOpen", async () => {
     const env = dom();
     const onOpen = vi.fn();
-    const holding: Dashboards = { byRelation: { Person: { filters: [], tiles: [output.answer.tile] } } };
+    const holding: Dashboards = { byPattern: { [patternKey(PERSON)]: { filters: [], tiles: [output.answer.tile] } } };
     draw(output, { dashboards: holding, onAdd: vi.fn(), onOpen });
     await (await env.getHarness(AnswerHarness)).openOnDashboard();
-    expect(onOpen).toHaveBeenCalledWith({ relation: PERSON, key: "Person", id: output.answer.tile.id });
+    expect(onOpen).toHaveBeenCalledWith({ pattern: PERSON, key: patternKey(PERSON), id: output.answer.tile.id });
   });
 
   it("rejects an add the host refused with the words of the card's Problem", async () => {
     const env = dom();
     const onAdd = () => Promise.reject(new Error("The dashboard could not be saved."));
-    draw(output, { dashboards: { byRelation: {} }, onAdd });
+    draw(output, { dashboards: { byPattern: {} }, onAdd });
     await expect((await env.getHarness(AnswerHarness)).addToDashboard()).rejects.toThrow(/not added to the dashboard.*could not be saved/);
   });
 
   it("rejects an answer that failed with the words of its Problem", async () => {
     const env = dom();
-    // A kept answer over a relation the host's graph no longer has.
-    draw({ ...output, answer: { ...output.answer, relation: { root: "Movie", path: [] } } });
-    await expect((await env.getHarness(AnswerHarness)).answer()).rejects.toThrow(/The answer failed.*the join graph has no type Movie/);
+    // A kept answer over a pattern the host's graph no longer has.
+    draw({ ...output, answer: { ...output.answer, pattern: [{ as: "movie", type: "Movie" }] } });
+    await expect((await env.getHarness(AnswerHarness)).answer()).rejects.toThrow(/The answer failed.*Movie/);
   });
 });

@@ -1,7 +1,7 @@
 {
-  "name": "@kanzo-tech/kernel",
+  "name": "@kanzo-tech/problems",
   "version": "0.1.0",
-  "description": "Layer 0 of Kanzo's packages — what four of them each wrote: the one failure (`Problem`, RFC 9457), the one bounded wait (`within`), the read side of an engine (`Queryable`), the dispose symbols and a Performance span (`mark`). Depends on nobody.",
+  "description": "Layer 0 of Kanzo's packages — the one failure (`Problem`, RFC 9457) that auth, graph, llm and mosaic throw, its registry of codes, and the one bounded wait (`within`). Depends on nobody.",
   "type": "module",
   "license": "MIT",
   "sideEffects": false,
@@ -27,7 +27,7 @@
     "test": "vitest run",
     "size": "size-limit"
   },
-  "//peers": "None, and no dependency: the kernel is layer 0, it imports nothing, and `src/kernel.test.ts` asserts both. `problems.bnf` is published beside the code because a server in another language generates its own table from it.",
+  "//peers": "None, and no dependency: the package is layer 0, it imports nothing, and `src/problems.test.ts` asserts both. `problems.bnf` is published beside the code because a server in another language generates its own table from it.",
   "kanzo": {
     "layers": {
       ".": 0
@@ -36,7 +36,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Kanzo-Tech/ui.git",
-    "directory": "packages/kernel"
+    "directory": "packages/problems"
   },
   "homepage": "https://kanzo-tech.github.io/ui",
   "bugs": {

@@ -1,7 +1,7 @@
 "use client";
 
 import { type SelectionClause, Query, count, isNotNull } from "@kanzo-tech/mosaic";
-import type { RelationExpr } from "@kanzo-tech/relations";
+import type { RelationExpr } from "./mosaic-provider.js";
 import { Interval1D } from "@uwdata/mosaic-plot";
 import { bin } from "./chart-bin.js";
 import { PauseIcon, PlayIcon } from "lucide-react";
@@ -17,9 +17,9 @@ import { MosaicClients, useRelation } from "./mosaic-provider.js";
 
 export interface ChartTimelineProps {
   /**
-   * The relation the bars count, as `ChartRoot` takes it: a table by name, a path over the joins, or
-   * SQL. Over a graph, `"vertices"` — every vertex type as one relation — counts every vertex with
-   * the column, and its window keeps only those.
+   * The relation the bars count, as `ChartRoot` takes it: a table, a pattern, or a relation. Over the
+   * graph view, `verticesOf(graph)` — every vertex type as one relation — counts every vertex with the
+   * column, and its window keeps only those.
    */
   relation?: RelationExpr;
   /** The temporal column: a date, a timestamp, or a year stored as its integer. */

@@ -1,5 +1,6 @@
-import { answerOf, engineOver } from "../../test/engine";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { Pattern } from "@kanzo-tech/graphar-duckdb";
+import { engineOver } from "../../test/engine";
+import { graphOf } from "../../test/graph";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
@@ -11,7 +12,6 @@ import { MosaicClients, MosaicProvider, TileEditorAside, useTileEditorOpen } fro
 import { ShellAside } from "../layouts/shell.js";
 
 /** The host's one client: every read the parts make is a query on it. */
-const queries = new QueryClient();
 
 /** Counts the times the editor's module is fetched: a read-only dashboard must never fetch it. */
 const editorLoads = vi.hoisted(() => ({ count: 0 }));
@@ -20,19 +20,23 @@ vi.mock("./tile-editor.js", async (original) => {
   return original();
 });
 
-/**
- * A coordinator over nothing: `SUMMARIZE` answers two fields, and every client's query answers no
- * rows. What is under test is the dashboard's editing, not its data.
- */
+/** A graph of one type with two fields: what is under test is the dashboard's editing, not its data. */
+const GRAPH = graphOf([
+  {
+    type: "Sighting",
+    count: 10,
+    properties: [
+      { name: "region", type: "VARCHAR", stats: { distinct: { exact: 4 } } },
+      { name: "bounty", type: "DOUBLE", stats: { distinct: { exact: 9 }, min: "1", max: "9" } },
+    ],
+  },
+]);
+const SIGHTINGS: Pattern = [{ as: "s", type: "Sighting" }];
+
+/** A coordinator over nothing: every client's query answers no rows. */
 function stubCoordinator(): Coordinator {
   const coordinator = {
-    query: async (sql: string) =>
-      sql.startsWith("SUMMARIZE")
-        ? answerOf([
-            { column_name: "region", column_type: "VARCHAR", approx_unique: 4, min: "a", max: "d", count: 10 },
-            { column_name: "bounty", column_type: "DOUBLE", approx_unique: 9, min: 1, max: 9, count: 10 },
-          ])
-        : [],
+    query: async () => [],
     connect(client: MosaicClient) {
       client.coordinator = coordinator as unknown as Coordinator;
       client.initialize();
@@ -50,7 +54,7 @@ const SPEC: DashboardSpec = {
   filters: [],
   tiles: [
     { id: "n", kind: "stat", title: "Sightings", measure: { op: "count" } },
-    { id: "t", kind: "table", span: 3, columns: ["region"] },
+    { id: "t", kind: "table", span: 3, columns: ["s.region"] },
   ],
 };
 
@@ -65,10 +69,10 @@ function Aside() {
 
 function draw(props: { value?: DashboardSpec; onChange?: (spec: DashboardSpec | undefined) => void }) {
   return render(
-    <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
-      <Dashboard relation="sightings" {...props} />
+    <MosaicProvider engine={engineOver(stubCoordinator())} graph={GRAPH}>
+      <Dashboard relation={SIGHTINGS} {...props} />
       <Aside />
-    </MosaicProvider></QueryClientProvider>,
+    </MosaicProvider>,
   );
 }
 
@@ -195,9 +199,9 @@ describe("the tile editor in the page's aside", () => {
 
   it("offers no editing on a page without a TileEditorAside", async () => {
     render(
-      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
-        <Dashboard onChange={vi.fn()} relation="sightings" value={SPEC} />
-      </MosaicProvider></QueryClientProvider>,
+      <MosaicProvider engine={engineOver(stubCoordinator())} graph={GRAPH}>
+        <Dashboard onChange={vi.fn()} relation={SIGHTINGS} value={SPEC} />
+      </MosaicProvider>,
     );
     expect(await screen.findByText("Sightings")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Edit|Add tile|Dashboard options/ })).toBeNull();
@@ -214,10 +218,10 @@ describe("Reset to automatic", () => {
     expect(onChange).toHaveBeenCalledWith(undefined);
 
     rerender(
-      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
-        <Dashboard onChange={onChange} relation="sightings" />
+      <MosaicProvider engine={engineOver(stubCoordinator())} graph={GRAPH}>
+        <Dashboard onChange={onChange} relation={SIGHTINGS} />
         <Aside />
-      </MosaicProvider></QueryClientProvider>,
+      </MosaicProvider>,
     );
     await user.click(await screen.findByRole("button", { name: "Dashboard options" }));
     expect((await screen.findByRole("menuitem", { name: "Reset to automatic" })).getAttribute("data-disabled")).not.toBeNull();
@@ -228,41 +232,41 @@ describe("Dashboard's filters", () => {
   it("are drawn in the page's FilterBar", async () => {
     const user = userEvent.setup();
     render(
-      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
+      <MosaicProvider engine={engineOver(stubCoordinator())} graph={GRAPH}>
         <FilterBar />
-        <Dashboard onChange={() => {}} relation="sightings" value={{ ...SPEC, filters: [{ field: "region" }] }} />
+        <Dashboard onChange={() => {}} relation={SIGHTINGS} value={{ ...SPEC, filters: [{ field: "s.region" }] }} />
         <Aside />
-      </MosaicProvider></QueryClientProvider>,
+      </MosaicProvider>,
     );
     const bar = await screen.findByRole("region", { name: "Filters" });
-    await waitFor(() => expect(within(bar).getByText("region:")).toBeTruthy());
-    expect(within(bar).getByRole("button", { name: "Remove the region filter" })).toBeTruthy();
+    await waitFor(() => expect(within(bar).getByText("s.region:")).toBeTruthy());
+    expect(within(bar).getByRole("button", { name: "Remove the s.region filter" })).toBeTruthy();
     await user.click(within(bar).getByRole("button", { name: "Add a filter" }));
-    expect(await screen.findByRole("menuitem", { name: "bounty" })).toBeTruthy();
+    expect(await screen.findByRole("menuitem", { name: "s.bounty" })).toBeTruthy();
   });
 
   it("are drawn from a dashboard under MosaicClients that is off as when it is shown: control, remove, Add a filter", async () => {
     const user = userEvent.setup();
     render(
-      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
+      <MosaicProvider engine={engineOver(stubCoordinator())} graph={GRAPH}>
         <FilterBar />
         <MosaicClients enabled={false}>
-          <Dashboard onChange={() => {}} relation="sightings" value={{ ...SPEC, filters: [{ field: "region" }] }} />
+          <Dashboard onChange={() => {}} relation={SIGHTINGS} value={{ ...SPEC, filters: [{ field: "s.region" }] }} />
         </MosaicClients>
         <Aside />
-      </MosaicProvider></QueryClientProvider>,
+      </MosaicProvider>,
     );
     const bar = await screen.findByRole("region", { name: "Filters" });
-    await waitFor(() => expect(within(bar).getByRole("button", { name: "Remove the region filter" })).toBeTruthy());
-    expect(within(bar).getByText("region:")).toBeTruthy();
+    await waitFor(() => expect(within(bar).getByRole("button", { name: "Remove the s.region filter" })).toBeTruthy());
+    expect(within(bar).getByText("s.region:")).toBeTruthy();
     await user.click(within(bar).getByRole("button", { name: "Add a filter" }));
-    expect(await screen.findByRole("menuitem", { name: "bounty" })).toBeTruthy();
+    expect(await screen.findByRole("menuitem", { name: "s.bounty" })).toBeTruthy();
   });
 
   it("are not drawn on a page without a FilterBar", async () => {
-    draw({ value: { ...SPEC, filters: [{ field: "region" }] } });
+    draw({ value: { ...SPEC, filters: [{ field: "s.region" }] } });
     expect(await screen.findByText("Sightings")).toBeTruthy();
-    expect(screen.queryByText("region:")).toBeNull();
+    expect(screen.queryByText("s.region:")).toBeNull();
   });
 });
 

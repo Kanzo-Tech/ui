@@ -47,10 +47,7 @@ export {
 /**
  * The expression builders the graph, the charts and Ask write their statements with — the ones they
  * use, and no more. A statement built from nodes quotes its own identifiers and literals, which a
- * search a reader types must never leave to a template string. The nodes after them — `column` with
- * its table alias, `join`, a `FROM` clause, `IN` over a scalar subquery — are what
- * `@kanzo-tech/relations` compiles a relation and crosses a clause with; a chart has no use for them,
- * since a bare string is already a column wherever the builders take one.
+ * search a reader types must never leave to a template string.
  */
 export {
   and,
@@ -73,7 +70,6 @@ export {
   verbatim,
   type ExprNode,
 } from "@uwdata/mosaic-sql";
-export { FromClauseNode, InOpNode, ScalarSubqueryNode, column, join, type JoinNode } from "@uwdata/mosaic-sql";
 
 /**
  * The aggregates, complete on purpose: what a chart's `x` / `y` / `r` and a `Query`'s `select` take.
@@ -98,6 +94,25 @@ export {
   type SemiJoinMetadata,
   type SemiJoinOptions,
 } from "./clause.js";
+
+/**
+ * Ours: the page's one crossfilter across relations — a pattern of the graph read as a relation
+ * (`relationOver`), the resolver that crosses a clause on one into a client of another along
+ * `Graph.reach`, and the pre-aggregator kept to a client's own relation. `crossfilter.ts`.
+ */
+export {
+  GraphResolver,
+  crossfilterOver,
+  onRelation,
+  patternKey,
+  preaggregateOwnRelation,
+  relationOf,
+  relationOver,
+  sameRelation,
+  type Relation,
+  type RelationClient,
+  type RelationVertex,
+} from "./crossfilter.js";
 
 /** Ours: what a page has yet to draw for the first time, counted on its selection — `drawing.ts`. */
 export { firstDrawsPending, holdFirstDraw, onFirstDraws } from "./drawing.js";

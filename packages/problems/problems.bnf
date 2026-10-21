@@ -1,7 +1,7 @@
 (* ==========================================================================
    problems.bnf - THE CODES A FAILURE MAY CARRY.
 
-   The one source of the registry. `pnpm --filter @kanzo-tech/kernel gen` writes
+   The one source of the registry. `pnpm --filter @kanzo-tech/problems gen` writes
    `src/problems.gen.ts` from this file; a server in another language reads the same
    file and generates its own table, so no code is stated twice. It is published
    beside the code. `/docs/design/failure`, *The registry is generated*.
@@ -35,7 +35,7 @@
                possible and not asked for ("consumers SHOULD NOT automatically
                dereference"). A resolvable URL would be encouraged by the RFC, and
                switching to one later is a new identity for every type, a breaking
-               change; `/docs/design/kernel` says what would reverse the choice.
+               change; `/docs/design/problems` says what would reverse the choice.
      code      `area/kind`. Stable once released: never reworded, never reused. One
                row a code.
      status    the HTTP status where the code crosses a wire (400 to 599), `-` if it
@@ -69,10 +69,6 @@ row graph/too-large         = -   ; "The graph is too large to draw"         ; c
 row llm/unavailable         = -   ; "The model cannot run here"              ; reason: string .
 row llm/truncated           = -   ; "The answer was cut off"                 ; reason?: string .
 row llm/silent              = -   ; "The model made no progress"             ; after: number, stage?: string .
-
-row relations/invalid       = -   ; "The relations contradict themselves"    ; type?: string, edge?: string .
-row relations/unmatched     = -   ; "A term names nothing in the catalog"    ; term?: string .
-row relations/no-step       = -   ; "A path step resolves to nothing"        ; step?: string .
 
 row session/absent          = 401 ; "Nobody is signed in"                    ; - .
 

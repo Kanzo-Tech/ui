@@ -1,4 +1,4 @@
-import type { Relation } from "@kanzo-tech/relations";
+import type { EdgePattern, Pattern, VertexPattern } from "@kanzo-tech/graphar-duckdb";
 import { parseTile } from "@kanzo-tech/ui/analytics";
 import type { Decision } from "../task/index.js";
 import type { AnswerOutput, QueryRow } from "./read.js";
@@ -25,25 +25,31 @@ function refuse(at: string, expected: string): never {
 const strings = (value: unknown, at: string): string[] =>
   Array.isArray(value) && value.every(isString) ? [...value] : refuse(at, "a list of strings");
 
-function relation(value: unknown, at: string): Relation {
-  if (!isObject(value) || !isString(value.root) || !Array.isArray(value.path)) return refuse(at, "a relation, { root, path }");
-  const path = value.path.map((hop: unknown, i): Relation["path"][number] =>
-    isObject(hop) && isString(hop.edge) && (hop.direction === "out" || hop.direction === "in")
-      ? { edge: hop.edge, direction: hop.direction }
-      : refuse(`${at}.path.${i}`, "a hop, { edge, direction }"),
-  );
-  return { root: value.root, path };
+/** A pattern, rebuilt from its elements' own fields: a vertex `{ as?, type }`, an edge `{ edge, direction? }`, alternately — no `where`, which is SQL. */
+function pattern(value: unknown, at: string): Pattern {
+  if (!Array.isArray(value) || value.length % 2 === 0) return refuse(at, "a pattern: vertex, edge, vertex, …");
+  return value.map((element: unknown, i): VertexPattern | EdgePattern => {
+    if (!isObject(element)) return refuse(`${at}.${i}`, i % 2 === 0 ? "a vertex, { as, type }" : "an edge, { edge, direction }");
+    if (i % 2 === 0) {
+      if (!isString(element.type) || (element.as !== undefined && !isString(element.as))) return refuse(`${at}.${i}`, "a vertex, { as, type }");
+      return { ...(element.as === undefined ? {} : { as: element.as }), type: element.type };
+    }
+    const direction = element.direction;
+    if (!isString(element.edge) || (direction !== undefined && direction !== "out" && direction !== "in")) return refuse(`${at}.${i}`, "an edge, { edge, direction }");
+    return { edge: element.edge, ...(direction === undefined ? {} : { direction }) };
+  });
 }
 
 function spec(value: unknown, at: string): AskSpec {
-  if (!isObject(value) || !isString(value.of)) return refuse(at, "a spec, { of, show }");
-  const read = { of: value.of, show: value.show, where: value.where, top: value.top } as AskSpec;
+  if (!isObject(value)) return refuse(at, "a spec, { match, show }");
+  const match = pattern(value.match, `${at}.match`);
+  const read = { match, show: value.show, where: value.where, top: value.top } as AskSpec;
   // The spec is a tile less its id; the dashboard's reading of a tile is its check.
   const tile = parseTile(askTile(read, "answer"));
   const show: Json = { ...tile };
   for (const key of ["id", "span", "origin", "where", "top"]) delete show[key];
   return {
-    of: value.of,
+    match,
     show: show as unknown as AskSpec["show"],
     ...(tile.where === undefined ? {} : { where: tile.where }),
     ...("top" in tile && tile.top !== undefined ? { top: tile.top } : {}),
@@ -81,7 +87,7 @@ function answerPart(value: unknown): AskOutput {
   if (rows !== undefined && !(Array.isArray(rows) && rows.every(isObject))) refuse("rows", "a list of rows");
   if (truncated !== undefined && typeof truncated !== "boolean") refuse("truncated", "a boolean");
   const output: AnswerOutput = {
-    answer: { relation: relation(value.answer.relation, "answer.relation"), tile: parseTile(value.answer.tile) },
+    answer: { pattern: pattern(value.answer.pattern, "answer.pattern"), tile: parseTile(value.answer.tile) },
     ...(rows === undefined ? {} : { rows: (rows as QueryRow[]).map((row) => ({ ...row })) }),
     ...(truncated === undefined ? {} : { truncated }),
     ...(under === undefined ? {} : { under: strings(under, "under") }),

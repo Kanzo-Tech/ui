@@ -4,16 +4,16 @@ import type { LookPatch } from "../render/graph-looks";
 import type { Sim } from "../render/graph-sim";
 import type { Binding, Channels } from "./channels";
 import type { Encoding, Geometry } from "./load";
-import type { JoinGraph, MappingModel } from "@kanzo-tech/relations";
+import type { Graph } from "@kanzo-tech/graphar-duckdb";
 import type { Motion, VertexSelection, VertexSelectionSource, Tool, VertexId } from "./types";
 
 export interface GraphOptions extends Channels {
   /**
-   * The catalog `attachGraph` attached the graph under — a view per type, and `graphar_vertex_types`,
-   * `graphar_edge_types` and `graphar_properties` — or `null` for none yet. The graph reads it
-   * through `engine`.
+   * The graph the host attached — `@kanzo-tech/graphar-duckdb`'s `attachGraph`, on `engine` — or
+   * `null` for none yet. Its types are what the canvas draws, and every read of a vertex, of the
+   * links and of a search is its own.
    */
-  from: string | null;
+  graph: Graph | null;
   /**
    * The page's engine, `engine()`'s: the graph's own reads go to it with the load's signal, so a
    * stop interrupts the statement, and its Mosaic client reads through the coordinator inside it,
@@ -45,13 +45,6 @@ export interface GraphOptions extends Channels {
    * layout whatever this says.
    */
   simulate?: boolean;
-  /**
-   * What the graph's RML mapping states that its catalog does not — rudof's `Mapping.model()` of the
-   * `mapping.ttl` written beside it, as `withMapping` reads it. A column's datatype is read from it,
-   * so a year stored as an `int32` is a time the timeline offers. It may arrive after the first paint:
-   * a new mapping re-describes the graph already read and reads nothing.
-   */
-  mapping?: MappingModel;
   /**
    * Every failure, as it was thrown: fossil's own errors arrive whole, with their `code`, and the
    * graph's are `Problem`s coded `graph/*`. Required: unhandled, a browser with no WebGL context shows an empty box.
@@ -122,8 +115,8 @@ export interface GraphState {
   /** How far through settling a live layout is, `0`–`1`. */
   readonly progress: number;
   readonly options: GraphOptions;
-  /** The graph's `JoinGraph`, once read: `@kanzo-tech/relations`'s `readJoinGraph` of the catalog `from`. */
-  readonly structure: JoinGraph | null;
+  /** The host's `Graph`, once it holds something to draw. */
+  readonly structure: Graph | null;
 }
 
 /** Where the camera looks: the point of the layout's square at the canvas's centre, and cosmos.gl's zoom. */

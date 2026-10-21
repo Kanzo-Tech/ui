@@ -3,8 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
-import { clauseLabel, type TableExpr, count, Query, type Selection, type SelectionClause } from "@kanzo-tech/mosaic";
-import { relationOf, sameRelation, type RelationExpr, type RelationRef } from "@kanzo-tech/relations";
+import { clauseLabel, type TableExpr, count, Query, relationOf, type Relation, type Selection, type SelectionClause } from "@kanzo-tech/mosaic";
 import { FunnelXIcon, XIcon } from "lucide-react";
 import { cn } from "../lib/cn.js";
 import { Badge } from "../simples/badge.js";
@@ -13,7 +12,7 @@ import { ScrollArea } from "../simples/scroll-area.js";
 import { Separator } from "../simples/separator.js";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../simples/tooltip.js";
 import { chartTableKey } from "./chart-spec.js";
-import { useBarSlot, useMosaic, useRelation, type BarHeld } from "./mosaic-provider.js";
+import { useBarSlot, useMosaic, useRelation, type BarHeld, type RelationExpr } from "./mosaic-provider.js";
 import { useChartQuery } from "./use-chart-query.js";
 
 /** The live clause list of a selection, re-read on every published value. */
@@ -36,7 +35,7 @@ export function clauseField(clause: SelectionClause): string | null {
 
 const isHeld = (held: readonly BarHeld[], clause: SelectionClause) => {
   const field = clauseField(clause);
-  return field !== null && held.some((h) => h.fields.includes(field) && (h.relation === null || sameRelation(relationOf(clause), h.relation)));
+  return field !== null && held.some((h) => h.fields.includes(field) && (h.relation === null || relationOf(clause)?.key === h.relation));
 };
 
 export interface FilterBarProps extends React.ComponentProps<typeof ark.section> {
@@ -183,7 +182,7 @@ function useRevealAdded() {
   return ref;
 }
 
-function Readout({ table, relation, rowNoun }: { table: TableExpr; relation: RelationRef | null; rowNoun: string }) {
+function Readout({ table, relation, rowNoun }: { table: TableExpr; relation: Relation | null; rowNoun: string }) {
   const key = chartTableKey(table);
   const shown = useChartQuery({ deps: [key], relation, query: (filter) => Query.from(table).select({ n: count() }).where(filter) });
   const all = useChartQuery({ deps: [key], filterBy: null, query: () => Query.from(table).select({ n: count() }) });

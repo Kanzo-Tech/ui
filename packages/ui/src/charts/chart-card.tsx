@@ -1,7 +1,7 @@
 "use client";
 
 import { type TableExpr, count, desc, Query, type ExprValue } from "@kanzo-tech/mosaic";
-import type { RelationExpr } from "@kanzo-tech/relations";
+import type { RelationExpr } from "./mosaic-provider.js";
 import type React from "react";
 import { bin } from "./chart-bin.js";
 import {
@@ -80,7 +80,7 @@ export function ChartCard(props: ChartCardProps) {
       slot={slot ?? "chart-card"}
     >
       <CardHeader className="gap-0.5">
-        <CardTitle className="truncate font-medium text-sm">{tileTitle(card, fields)}</CardTitle>
+        <CardTitle className="truncate font-medium text-sm">{tileTitle(card)}</CardTitle>
         <CardDescription className="text-xs">
           {rationale ? `${rationale} · ${CHART_TYPE[card.type].hint}` : CHART_TYPE[card.type].hint}
         </CardDescription>
@@ -193,7 +193,7 @@ function CardChart({
   const fill = card.color ?? ACCENT;
   const faceted = fx ? { facetMargin: { left: 8, right: 8 }, margin: { top: 26, right: 8, bottom: 24, left: 44 } } : {};
   const frame = {
-    "aria-label": tileTitle(card, fields),
+    "aria-label": tileTitle(card),
     config: card.color ? seriesConfig : undefined,
     height: HEIGHT,
     margin: { top: 8, right: 12, bottom: 24, left: 44 },

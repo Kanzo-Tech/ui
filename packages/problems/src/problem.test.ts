@@ -3,7 +3,7 @@ import { Problem, isCode, isProblem } from "./index.js";
 import type { ProblemBody } from "./index.js";
 import { PROBLEMS, TYPE_BASE } from "./problems.gen.js";
 
-/** What fossil's `FossilError` is to the kernel: a different class with the same discriminant. */
+/** What fossil's `FossilError` is to this package: a different class with the same discriminant. */
 class FossilError extends Error {
   constructor(readonly code: string, message: string, readonly stack2 = "at secret.rs:1") {
     super(message);
@@ -156,8 +156,8 @@ describe("Problem", () => {
   });
 
   it("serialises related problems", () => {
-    const p = new Problem("relations/invalid", "x", {}, { related: [new Problem("relations/no-step", "y")] });
-    expect(p.toJSON().related?.[0]?.code).toBe("relations/no-step");
+    const p = new Problem("engine/failed", "x", {}, { related: [new Problem("graph/no-positions", "y")] });
+    expect(p.toJSON().related?.[0]?.code).toBe("graph/no-positions");
   });
 
   it("owns a host's code as free JSON data and an explicit status and title", () => {
@@ -184,7 +184,7 @@ describe("Problem", () => {
   });
 
   it("seeds the codes failure.mdx names", () => {
-    for (const code of ["engine/lost", "graph/too-large", "llm/silent", "session/absent", "token/refused", "idp/silent", "organization/denied", "api/silent", "relations/no-step"]) {
+    for (const code of ["engine/lost", "graph/too-large", "llm/silent", "session/absent", "token/refused", "idp/silent", "organization/denied", "api/silent", "graph/no-positions"]) {
       expect(code in PROBLEMS).toBe(true);
     }
   });

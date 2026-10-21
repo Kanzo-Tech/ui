@@ -4,12 +4,11 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { attachWritten } from "@/lib/attach-graph";
 import { Show, Skeleton } from "@kanzo-tech/ui";
 import { engine, type Engine } from "@kanzo-tech/mosaic/engine";
-import { relationHops, type JoinGraph, type Relation } from "@kanzo-tech/relations";
+import type { Graph, Pattern } from "@kanzo-tech/graphar-duckdb";
 import { Dashboard, FilterBar, MosaicProvider, useMosaic, type DashboardSpec } from "@kanzo-tech/ui/analytics";
 import { Chat, ModelBadge } from "@kanzo-tech/ai";
 import { AnswerCard, useAskChat, type AskOutput } from "@kanzo-tech/ai/data";
 import { loadLocalModel, localModel, localModelLoad, localProvider, setLocalProvider, watchLocalModel } from "@kanzo-tech/llm/local";
-import { readJoinGraph } from "@kanzo-tech/relations";
 
 /**
  * **The page Ask's evaluation set asks on** — `packages/ai/eval/ask.eval.ts`. Everything it is, it
@@ -17,8 +16,8 @@ import { readJoinGraph } from "@kanzo-tech/relations";
  *
  * - `corpus` — the corpus's name: `public/corpus/<name>`, written by `packages/ai/eval/corpus.mjs`,
  *   attached under that name as its catalog.
- * - `relation` — the dashboard's relation, by its key: `LaureateAward>category>Category`.
- * - `filter` — a field of it, or nothing: one bar tile counting it, which the runner picks a bar on,
+ * - `pattern` — the dashboard's pattern, as JSON: `[{"as":"award","type":"LaureateAward"}]`.
+ * - `filter` — a field of it, `variable.property`, or nothing: one bar tile counting it, which the runner picks a bar on,
  *   so the question is asked under the page's filter as a reader's would be.
  * - `model` — the model in the page, a WebLLM id from its prebuilt list; Qwen3 4B by default,
  *   keasy's. A test that registered a script for that id has registered its provider, which
@@ -38,46 +37,23 @@ const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 interface Setup {
   corpus: string;
-  relation: string;
+  pattern: Pattern;
   filter: string | null;
   model: string;
 }
 
-/** What the page has once its corpus is attached and read: the graph — every type's facts with it — and the relation on screen. */
+/** What the page has once its corpus is attached: the graph — every type's facts with it. */
 interface Attached {
   engine: Engine;
-  graph: JoinGraph;
-  relation: Relation;
-}
-
-/**
- * A relation's key read back against the graph: `Root`, then each hop as `>label>Type` out of a type
- * or `<label<Type` into it — `relationKey`'s spelling.
- */
-function relationFrom(graph: JoinGraph, key: string): Relation {
-  const [root, ...rest] = key.split(/(?=[<>][^<>]+[<>])/);
-  const path: Relation["path"][number][] = [];
-  let at = root!;
-  for (const step of rest) {
-    const [, arrow, label, to] = /^([<>])([^<>]+)[<>](.+)$/.exec(step) ?? [];
-    const hop = relationHops(graph, at).find(
-      (h) => h.label === label && h.to === to && h.hop.direction === (arrow === ">" ? "out" : "in"),
-    );
-    if (!hop) throw new Error(`No hop ${step} from ${at} in the corpus`);
-    path.push(hop.hop);
-    at = hop.to;
-  }
-  if (!graph.types.some((t) => t.name === root)) throw new Error(`No type ${root} in the corpus`);
-  return { root: root!, path };
+  graph: Graph;
 }
 
 async function open(setup: Setup, signal: AbortSignal): Promise<Attached> {
   const page = await engine({ signal });
   // Origin-qualified: DuckDB-WASM resolves a root-relative path in its own filesystem.
-  await attachWritten(page, setup.corpus, `${window.location.origin}${BASE}/corpus/${setup.corpus}`, signal);
-  const graph = await readJoinGraph(page, setup.corpus, { signal });
+  const graph = await attachWritten(page, setup.corpus, `${window.location.origin}${BASE}/corpus/${setup.corpus}`, signal);
   signal.throwIfAborted();
-  return { engine: page, graph, relation: relationFrom(graph, setup.relation) };
+  return { engine: page, graph };
 }
 
 export function AskEval() {
@@ -89,7 +65,7 @@ export function AskEval() {
     const read = new URLSearchParams(window.location.search);
     setSetup({
       corpus: read.get("corpus") ?? "nobel",
-      relation: read.get("relation") ?? "LaureateAward",
+      pattern: JSON.parse(read.get("pattern") ?? '[{"as":"award","type":"LaureateAward"}]') as Pattern,
       filter: read.get("filter"),
       model: read.get("model") ?? MODEL,
     });
@@ -116,8 +92,8 @@ export function AskEval() {
         <Skeleton className="m-4 h-96" />
       </Show>
       {setup && attached && (
-        <MosaicProvider engine={attached.engine} joins={attached.graph}>
-          <Board attached={attached} filter={setup.filter} />
+        <MosaicProvider engine={attached.engine} graph={attached.graph}>
+          <Board filter={setup.filter} pattern={setup.pattern} />
           <Ask attached={attached} model={setup.model} />
         </MosaicProvider>
       )}
@@ -125,8 +101,8 @@ export function AskEval() {
   );
 }
 
-/** The relation's dashboard: the filter bar, whose readout is what the page keeps, and the filter's tile. */
-function Board({ attached, filter }: { attached: Attached; filter: string | null }) {
+/** The pattern's dashboard: the filter bar, whose readout is what the page keeps, and the filter's tile. */
+function Board({ pattern, filter }: { pattern: Pattern; filter: string | null }) {
   const initial = useMemo<DashboardSpec>(
     () => ({
       filters: [],
@@ -137,8 +113,8 @@ function Board({ attached, filter }: { attached: Attached; filter: string | null
   const [spec, setSpec] = useState<DashboardSpec | undefined>(initial);
   return (
     <section aria-label="Dashboard" className="flex min-h-0 flex-col gap-4 overflow-auto p-4">
-      <FilterBar relation={attached.relation} />
-      <Dashboard onChange={setSpec} relation={attached.relation} value={spec} />
+      <FilterBar relation={pattern} />
+      <Dashboard onChange={setSpec} relation={pattern} value={spec} />
     </section>
   );
 }
@@ -158,7 +134,7 @@ function Ask({ attached, model }: { attached: Attached; model: string }) {
   useEffect(() => {
     loadLocalModel(model).catch(() => {}); // Not lost: the badge says it failed, and why.
   }, [model]);
-  // Under the page's one selection: an answer is read under its filter, and must reach its relation.
+  // Under the page's one selection: an answer is read under its filter, and must reach its pattern.
   const { selection } = useMosaic();
   const chat = useAskChat({ model: asked, engine: attached.engine, graph: attached.graph, selection });
 

@@ -16,9 +16,6 @@ export interface ProblemDataMap {
   "llm/unavailable": { readonly reason: string };
   "llm/truncated": { readonly reason?: string };
   "llm/silent": { readonly after: number; readonly stage?: string };
-  "relations/invalid": { readonly type?: string; readonly edge?: string };
-  "relations/unmatched": { readonly term?: string };
-  "relations/no-step": { readonly step?: string };
   "session/absent": Record<string, never>;
   "idp/unreachable": { readonly status?: number };
   "idp/silent": { readonly after: number };
@@ -43,9 +40,6 @@ export const PROBLEMS: Readonly<Record<keyof ProblemDataMap, { readonly status?:
   "llm/unavailable": { title: "The model cannot run here", data: { reason: "string" } },
   "llm/truncated": { title: "The answer was cut off", data: { reason: "string" } },
   "llm/silent": { title: "The model made no progress", data: { after: "number", stage: "string" } },
-  "relations/invalid": { title: "The relations contradict themselves", data: { type: "string", edge: "string" } },
-  "relations/unmatched": { title: "A term names nothing in the catalog", data: { term: "string" } },
-  "relations/no-step": { title: "A path step resolves to nothing", data: { step: "string" } },
   "session/absent": { status: 401, title: "Nobody is signed in", data: {  } },
   "idp/unreachable": { status: 502, title: "The identity provider is unreachable", data: { status: "number" } },
   "idp/silent": { status: 504, title: "The identity provider did not answer", data: { after: "number" } },

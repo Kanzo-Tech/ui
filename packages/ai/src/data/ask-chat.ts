@@ -1,8 +1,8 @@
 "use client";
 
-import type { Selection } from "@kanzo-tech/mosaic";
+import type { Graph, VertexPattern } from "@kanzo-tech/graphar-duckdb";
+import { relationOf, type Selection } from "@kanzo-tech/mosaic";
 import type { Engine } from "@kanzo-tech/mosaic/engine";
-import { relationOf, type JoinGraph } from "@kanzo-tech/relations";
 import { createUIMessageStream, type ChatTransport, type InferUIMessageChunk, type LanguageModel, type UIMessage } from "ai";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import * as React from "react";
@@ -16,7 +16,7 @@ import type { Answer } from "./answer.js";
 
 /**
  * **Ask, in a chat** — the Ask Task behind `useChat`. Each question is one run of the Task: the model
- * fills a spec, its paths are resolved, the oracles check it, and the answer is written into the
+ * fills a spec, the graph matches its pattern, the oracles check it, and the answer is written into the
  * transcript as a `data-answer` part — once as it was asked, again once it is read on the page's
  * engine under its chips — which `Chat`'s `data` renderers hand to `AnswerCard`. A decision the Task
  * needs from the person is a `data-ask` part, drawn as a question; the pick comes back as the option's
@@ -50,8 +50,8 @@ const ENGLISH: AskChatTranslations = {
 export interface AskChatOptions {
   readonly model: LanguageModel;
   readonly engine: Pick<Engine, "query">;
-  /** The data: what its types and fields are and hold is the graph's — `@kanzo-tech/relations`'s `readJoinGraph` for an attached graph. */
-  readonly graph: JoinGraph;
+  /** The data: what its types and properties are and hold is the graph's — `@kanzo-tech/graphar-duckdb`'s `attachGraph` answers it. */
+  readonly graph: Graph;
   /** The page's crossfilter: an answer is read under it, and must reach the relations its chips are on. */
   readonly selection?: Selection;
   /** The words of its replies. */
@@ -86,9 +86,16 @@ export function askEdit(spec: AskSpec, decided?: Readonly<Record<string, string>
   return { parts: [{ type: "text", text: questionOf(spec) }, { type: "data-ask", data: decided ? { spec, decided } : { spec } }] };
 }
 
-/** The root type of each relation the page's chips are on: what an answer must reach. */
-const underOf = (selection?: Selection) =>
-  [...new Set((selection?.clauses ?? []).map(relationOf).filter((r) => r != null).map((r) => (typeof r === "string" ? r : r.root)))];
+/** The vertex types of each relation the page's chips are on: an answer must reach one of each. */
+const underOf = (selection?: Selection) => {
+  const relations = new Map(
+    (selection?.clauses ?? []).flatMap((clause) => {
+      const r = relationOf(clause);
+      return r ? [[r.key, r] as const] : [];
+    }),
+  );
+  return [...relations.values()].map((r) => [...new Set(r.roots.map((v) => v.type))]);
+};
 
 const textOf = (message: AskMessage | undefined) =>
   (message?.parts ?? []).map((p) => (p.type === "text" ? p.text : "")).join(" ").trim();
@@ -100,9 +107,10 @@ const turnOf = (message: AskMessage | undefined): AskTurn | undefined =>
 export function questionOf(spec: AskSpec): string {
   const show = spec.show;
   const measure = show.kind === "stat" ? show.measure : show.kind === "chart" ? show.y : undefined;
+  const of = (spec.match[0] as VertexPattern | undefined)?.type ?? "";
   const what = measure
-    ? `${measure.op === "count" ? `How many ${measure.path ?? spec.of}` : `${measure.op} ${measure.field} of ${spec.of}`}`
-    : spec.of;
+    ? `${measure.op === "count" ? `How many ${measure.variable ?? of}` : `${measure.op} ${measure.field} of ${of}`}`
+    : of;
   const by = show.kind === "chart" ? ` by ${show.x}` : show.kind === "table" ? ` with ${show.columns.join(", ")}` : "";
   const where = (spec.where ?? []).map((c) => ("in" in c ? `${c.field} ${c.in.join(" or ")}` : "between" in c ? `${c.field} ${c.between.join("–")}` : `${c.field} ~ ${c.contains}`));
   return `${what}${by}${where.length ? `, where ${where.join(" and ")}` : ""}?`;
@@ -202,7 +210,7 @@ export function askTransport(
           const id = `ask-${Math.random().toString(36).slice(2, 10)}`;
           const answer = askAnswer(spec, input, id)!;
           writer.write({ type: "data-answer", id, data: { answer, spec } });
-          const output = await readAnswerQuery(client, answer, answerRelation(answer.relation, graph), { engine, graph, selection, signal: abortSignal });
+          const output = await readAnswerQuery(client, answer, answerRelation(answer.pattern, graph), { engine, graph, selection, signal: abortSignal });
           writer.write({ type: "data-answer", id, data: { ...output, spec } });
           writer.write({ type: "data-ask", data: { spec } });
           write(writer, answerSentence(output, t));
@@ -242,7 +250,7 @@ export async function readKept(stored: unknown, options: AskChatOptions, client:
     const checked = await ASK_PARTS.answer["~standard"].validate(part.data);
     if (checked.issues || checked.value.rows !== undefined) return part;
     const { answer, spec } = checked.value;
-    const output = await readAnswerQuery(client, answer as Answer, answerRelation(answer.relation, graph), { engine, graph, selection, signal });
+    const output = await readAnswerQuery(client, answer as Answer, answerRelation(answer.pattern, graph), { engine, graph, selection, signal });
     return { ...part, data: { ...output, spec } };
   };
   return Promise.all(

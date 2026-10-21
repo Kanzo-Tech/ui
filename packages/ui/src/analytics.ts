@@ -132,16 +132,16 @@ export type {
 export { parseDashboards, parseTile } from "./charts/dashboard-spec.js";
 export type { Dashboards } from "./charts/dashboard-spec.js";
 
-// The picker that walks a relation over a join graph. The relation and its algebra — `Relation`,
-// `JoinGraph`, `relationKey` and the rest — are `@kanzo-tech/relations`'s, imported from there; the
-// graph is whatever a reader built from its catalog (`@kanzo-tech/relations`'s `readJoinGraph`, for an
-// attached GraphAr graph), handed to `MosaicProvider` as its `joins`. What every part's `relation`
-// takes is `@kanzo-tech/relations`'s `RelationExpr`: a table by name, a path, or SQL.
+// The picker that walks a pattern over the page's graph. The graph is `@kanzo-tech/graphar-duckdb`'s
+// `Graph`, handed to `MosaicProvider` as its `graph`; a pattern is its `Pattern`. What every part's
+// `relation` takes is `RelationExpr`: a table — by name, or any SQL Mosaic can read from — or a
+// `Pattern` over the graph, whose fields are `variable.property`.
+export type { RelationExpr } from "./charts/mosaic-provider.js";
 export { RelationPicker } from "./charts/relation-picker.js";
 export type { RelationPickerProps, RelationPickerTranslations } from "./charts/relation-picker.js";
-export { useFieldStats, fieldStats } from "./charts/field-stats.js";
+export { useFieldStats, fieldStats, patternColumns } from "./charts/field-stats.js";
 export type {
-  FieldColumn, FieldStat, FieldStats, FieldKind, FieldRole, FieldStatsOptions, FieldStatsState,
+  FieldColumn, FieldStat, FieldStats, FieldKind, FieldRole, FieldStatsOptions,
 } from "./charts/field-stats.js";
 
 // For a descriptor of your own: `chartDescriptor` mints one, and the types below are the contract
@@ -165,7 +165,7 @@ export type {
 // engine, the loaders, the relation algebra, `Query`, the aggregates, `sql`, `asc` and `desc` are
 // `@kanzo-tech/mosaic`'s, and a host imports them from there: one door per idea, and the reason that
 // package exists — one copy of Mosaic, so one coordinator. This barrel re-exported about forty-five
-// of them, so the same name had two doors and keasy imported `JoinGraph` from both
+// of them, so the same name had two doors and keasy imported one name from both
 // (`/docs/design/analytics`). What would reverse it: nothing on this side — a Mosaic name a host
 // needs and cannot reach is added to `@kanzo-tech/mosaic`, and still not here.
 //

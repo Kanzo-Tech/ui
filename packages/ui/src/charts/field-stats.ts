@@ -1,20 +1,18 @@
 "use client";
 
-import { type TableExpr, Query, jsType, rowsOf, sql } from "@kanzo-tech/mosaic";
-import type { Engine } from "@kanzo-tech/mosaic/engine";
-import { type JoinAnnotation, type JoinColumn, type JoinGraph, type Relation, type RelationExpr, relationColumns, TEMPORAL_DATATYPES } from "@kanzo-tech/relations";
-import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo } from "react";
-import { chartTableKey } from "./chart-spec.js";
-import { useMosaic, useRelation } from "./mosaic-provider.js";
+import type { Graph, Pattern, Stats } from "@kanzo-tech/graphar-duckdb";
+import { jsType } from "@kanzo-tech/mosaic";
+import { useMemo } from "react";
+import { useMosaic } from "./mosaic-provider.js";
 
 /**
- * **What a relation's columns can do in a dashboard**, from what the data says of them — never from a
+ * **What a pattern's columns can do in a dashboard**, from what the graph says of them — never from a
  * column's name or a threshold (`/docs/design/fields`).
  *
- * What a column is comes from its description: over a graph, the join graph's (`relationColumns`),
- * which is the manifest's; anywhere else, the engine's type alone. What it holds comes from the
- * graph's profile, the counts its writer took; a relation with none is read with one `SUMMARIZE`.
+ * What a column is comes from its property, as the `Graph` describes it: its DuckDB type and whether it
+ * is its type's primary key. What it holds comes from the property's `stats`, which the chunks'
+ * Parquet `Statistics` state — the nulls, the extent and the distinct count. Nothing is read: a
+ * property the statistics say nothing of is a field with no count and no extent.
  *
  * The type words are Mosaic's own `jsType`, so a column is numeric here exactly when it is numeric
  * to every mark and input on this subpath. A type `jsType` does not know (an interval, a bit
@@ -30,28 +28,26 @@ export type FieldKind = "numeric" | "temporal" | "categorical";
 
 /**
  * The part a field plays by default. A `dimension` is something to group or filter by, a `measure`
- * something to aggregate, and an `identifier` names a row: the data says so — a writer's key, an
- * IRI, a column found never null and never repeated. Identifiers are searched, never grouped.
+ * something to aggregate, and an `identifier` names a row: its type's primary key. Identifiers are
+ * searched, never grouped.
  */
 export type FieldRole = "dimension" | "measure" | "identifier";
 
 export interface FieldStat {
+  /** `variable.property`: `u.name`. */
   name: string;
   /** DuckDB's type for the column. */
   type: string;
   kind: FieldKind;
   role: FieldRole;
-  /** Its distinct values: the profile's exact count, or `SUMMARIZE`'s `approx_unique` where there is none. */
+  /**
+   * Its distinct values, as the statistics bound them: the exact count, or the least the chunks allow
+   * where they only bound it; 0 where they say nothing.
+   */
   distinct: number;
   /** The extent of a numeric or temporal field — a temporal one in epoch milliseconds. */
   min?: number;
   max?: number;
-  /** Its commonest values, the commonest first, where the graph's writer counted them. */
-  values?: readonly string[];
-  /** What the graph annotates the column with — its `rdfs:label` among them — where it says. */
-  annotations?: readonly JoinAnnotation[];
-  /** What the field is called, where the data labels it (`relationColumns`): what a title and a chip read it as. */
-  label?: string;
 }
 
 export interface FieldStatsOptions {
@@ -59,13 +55,33 @@ export interface FieldStatsOptions {
   exclude?: readonly string[];
 }
 
-/** A column as `fieldStats` reads it: as described, whether its type's writer found it a key, and what the data calls it. */
-export type FieldColumn = JoinColumn & { readonly candidateKey?: boolean; readonly label?: string };
+/** A column as `fieldStats` reads it: its name in the relation, its DuckDB type, whether it is a key, and its statistics. */
+export interface FieldColumn {
+  readonly name: string;
+  readonly type: string;
+  readonly primary?: boolean;
+  readonly stats?: Stats;
+}
 
-/** The writer's roles that name a row rather than say anything of it. */
-const IDENTIFYING_ROLES: ReadonlySet<string> = new Set(["address", "identity", "endpoint"]);
-/** The term types whose values are names, not values: RML-Core's, which a mapping states, and R2RML's, which a fossil corpus did. */
-const NAMING_TERMS: ReadonlySet<string> = new Set(["IRI", "UnsafeIRI", "BlankNode", "rr:IRI", "rr:BlankNode", "http://www.w3.org/ns/r2rml#IRI", "http://www.w3.org/ns/r2rml#BlankNode"]);
+/**
+ * **A pattern's columns, described** — what `relationOver` reads: a column per named vertex holding
+ * its index, which is no field, then one per property of every named element, `variable.property`,
+ * as the `Graph` describes the property.
+ */
+export function patternColumns(graph: Graph, pattern: Pattern): { columns: string[]; described: FieldColumn[] } {
+  const named = pattern.filter((element) => element.as !== undefined);
+  const vertices = named.flatMap((element) => ("type" in element ? [element.as!] : []));
+  const described = named.flatMap((element) => {
+    const of = "type" in element ? graph.vertexTypes.find((t) => t.type === element.type) : undefined;
+    return (of?.properties ?? []).map((p) => ({
+      name: `${element.as}.${p.name}`,
+      type: p.type,
+      primary: p.primary,
+      ...(p.stats === undefined ? {} : { stats: p.stats }),
+    }));
+  });
+  return { columns: [...vertices, ...described.map((c) => c.name)], described };
+}
 
 function kindOf(column: FieldColumn): FieldKind | null {
   let js: string;
@@ -74,92 +90,43 @@ function kindOf(column: FieldColumn): FieldKind | null {
   } catch {
     return null;
   }
-  const kind = js === "number" ? "numeric" : js === "date" ? "temporal" : js === "string" || js === "boolean" ? "categorical" : null;
-  // A date or a time by its datatype, stored as a number or a time: `xsd:gYear` over an integer.
-  if (kind !== "categorical" && kind !== null && column.datatype && TEMPORAL_DATATYPES.has(column.datatype)) return "temporal";
-  return kind;
+  return js === "number" ? "numeric" : js === "date" ? "temporal" : js === "string" || js === "boolean" ? "categorical" : null;
 }
 
 function roleOf(column: FieldColumn, kind: FieldKind): FieldRole {
-  if (column.role && IDENTIFYING_ROLES.has(column.role)) return "identifier";
-  if (column.termType && NAMING_TERMS.has(column.termType)) return "identifier";
-  if (column.candidateKey) return "identifier";
+  if (column.primary) return "identifier";
   return kind === "numeric" ? "measure" : "dimension";
 }
 
-/** An extent, from a bound's lexical text: a number's, a time's in epoch milliseconds, a year's as its first day. */
-function extent(kind: FieldKind, column: FieldColumn, value: string | undefined): number | undefined {
+/** An extent, from a bound's text: a number's, a time's in epoch milliseconds. */
+function extent(kind: FieldKind, value: string | undefined): number | undefined {
   if (value === undefined || kind === "categorical") return undefined;
   if (kind === "numeric") return finite(Number(value));
-  if (jsType(column.type) === "number") return finite(Date.UTC(Number(value), 0, 1));
   // DuckDB prints a whole-hour offset as `+02`, which `Date.parse` rejects without its minutes.
   return finite(Date.parse(value.replace(" ", "T").replace(/(:\d{2}(?:\.\d+)?[+-]\d{2})$/, "$1:00")));
 }
 
 const finite = (n: number) => (Number.isFinite(n) ? n : undefined);
 
+/** The distinct count the statistics state, or the least they allow. */
+const distinctOf = (stats: Stats | undefined) => (stats?.distinct === undefined ? 0 : "exact" in stats.distinct ? stats.distinct.exact : stats.distinct.atLeast);
+
 /**
- * **A relation's fields and columns from its columns' descriptions** — what `useFieldStats` reads,
- * or descriptions a host has: `relationColumns` over its join graph. Nothing is queried and nothing
- * is guessed: a field's kind is its type's, unless its datatype makes it a time; it is an identifier
- * when the data says so, and otherwise a number is a measure and the rest a dimension.
+ * **Fields from columns' descriptions**: a field's kind is its type's; it is an identifier when it is
+ * its type's primary key, and otherwise a number is a measure and the rest a dimension. Nothing is
+ * queried and nothing is guessed.
  */
-export function fieldStats(columns: readonly FieldColumn[], options: FieldStatsOptions = {}): FieldStats {
+export function fieldStats(described: readonly FieldColumn[], options: FieldStatsOptions = {}): FieldStat[] {
   const hidden = new Set(options.exclude);
-  const fields = columns.flatMap((column) => {
+  return described.flatMap((column) => {
     const kind = kindOf(column);
     if (!kind || hidden.has(column.name)) return [];
-    const { stats } = column;
-    const field: FieldStat = { name: column.name, type: column.type, kind, role: roleOf(column, kind), distinct: stats?.distinctCount ?? 0 };
-    const [min, max] = [extent(kind, column, stats?.minValue), extent(kind, column, stats?.maxValue)];
+    const field: FieldStat = { name: column.name, type: column.type, kind, role: roleOf(column, kind), distinct: distinctOf(column.stats) };
+    const [min, max] = [extent(kind, column.stats?.min), extent(kind, column.stats?.max)];
     if (min !== undefined && max !== undefined) Object.assign(field, { min, max });
-    if (stats && stats.mostCommonVals.length > 0) field.values = stats.mostCommonVals;
-    if (column.annotations?.length) field.annotations = column.annotations;
-    if (column.label !== undefined) field.label = column.label;
     return [field];
   });
-  return { fields, columns: columns.map((column) => column.name) };
 }
-
-/** One `SUMMARIZE` row, under the column names DuckDB gives it. */
-interface SummarizeRow {
-  column_name: unknown;
-  column_type: unknown;
-  approx_unique: unknown;
-  null_percentage: unknown;
-  min: unknown;
-  max: unknown;
-  count: unknown;
-}
-
-/** What a `SUMMARIZE` says a column is and holds: its type, and counts of its own, approximate. */
-const summarized = (row: SummarizeRow): FieldColumn => ({
-  name: String(row.column_name),
-  type: String(row.column_type),
-  stats: {
-    nullCount: Math.round((parseFloat(String(row.null_percentage ?? 0)) / 100) * Number(row.count ?? 0)) || 0,
-    distinctCount: Number(row.approx_unique ?? 0),
-    ...(row.min == null ? {} : { minValue: String(row.min) }),
-    ...(row.max == null ? {} : { maxValue: String(row.max) }),
-    mostCommonVals: [],
-    mostCommonFreqs: [],
-  },
-});
-
-/** DuckDB's `SUMMARIZE` takes a query, so a relation of any shape — a table, a join — is summarized alike. */
-const summarizeQuery = (table: TableExpr) => sql`SUMMARIZE ${Query.select("*").from(table)}`;
-
-/**
- * Which engine a read was made on, as a key can say it. A key is hashed as JSON, and an engine is
- * neither serialisable nor the same across two providers on one client.
- */
-const engines = new WeakMap<Engine, number>();
-let engineCount = 0;
-const engineKey = (engine: Engine) => {
-  let id = engines.get(engine);
-  if (id === undefined) engines.set(engine, (id = ++engineCount));
-  return id;
-};
 
 export interface FieldStats {
   fields: FieldStat[];
@@ -167,76 +134,19 @@ export interface FieldStats {
   columns: string[];
 }
 
-export interface FieldStatsState {
-  /** The fields, or `null` until the summary lands. */
-  fields: FieldStat[] | null;
-  /** Every column of the relation, or `null` until the summary lands. */
-  columns: string[] | null;
-  /** The thrown value, kept whole — and handed to the provider's `onFailure` as well. */
-  error: unknown;
-}
-
 /**
- * **A relation's fields** — from the page's join graph where the relation is over it and the graph
- * counted every column, with nothing read; otherwise with one `SUMMARIZE` on the provider's engine,
- * the graph's descriptions kept over its counts, and stopped when every part that asked has
- * unmounted. The read is a TanStack Query query on the host's `QueryClient`, so every part of the page that asks for the same relation shares one
- * (`/docs/design/reads`), and `exclude` is applied to it afterwards, so two parts that hide different
- * columns still read once.
- *
- * It never retries, and it is kept for the page's life: a new relation is a new key, and a failure
- * is not kept, so the next part to ask reads again. Without a `QueryClientProvider` above it, it
- * throws TanStack's own *No QueryClient set*.
+ * **A pattern's fields**, over the page's graph — what `Dashboard` reads. Nothing is read: the
+ * descriptions and the counts are the `Graph`'s. Throws where the page has no graph.
  */
-export function useFieldStats(relation: RelationExpr, options?: FieldStatsOptions): FieldStatsState {
-  const { engine, joins, onFailure } = useMosaic();
-  const { table } = useRelation(relation);
+export function useFieldStats(pattern: Pattern, options?: FieldStatsOptions): FieldStats {
+  const { graph } = useMosaic();
   const exclude = (options?.exclude ?? []).join("\u0000");
-  const hidden = useMemo(() => (exclude ? exclude.split("\u0000") : []), [exclude]);
-  const key = chartTableKey(table!);
-  const described = useMemo(() => describe(joins, relation), [joins, key]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Counted: every column that can be a field states its counts. A list or a blob is no field, and says nothing.
-  const counted = described !== null && described.length > 0 && described.every((c) => c.stats !== undefined || kindOf(c) === null);
-  const select = useCallback(
-    (rows: readonly SummarizeRow[]) => {
-      // The summary's columns, each as the graph describes it where it does, counted where it is not.
-      const byName = new Map(described?.map((c) => [c.name, c]));
-      const columns = rows.map((row) => {
-        const read = summarized(row);
-        const given = byName.get(read.name);
-        return given ? { ...given, type: given.type || read.type, stats: given.stats ?? read.stats } : read;
-      });
-      return fieldStats(columns, { exclude: hidden });
-    },
-    [described, hidden],
-  );
-  const read = useQuery({
-    // The keys are the library's, not an API: what was read, and on which engine.
-    queryKey: ["@kanzo-tech/ui", "summarize", engineKey(engine), key],
-    // On the engine's own door with TanStack's signal, which aborts when every part that asked has
-    // unmounted while it runs: the engine interrupts the statement, not only the wait.
-    queryFn: async ({ signal }) => rowsOf(await engine.query(String(summarizeQuery(table!)), { signal })) as unknown as SummarizeRow[],
-    select,
-    enabled: !counted,
-    retry: false,
-    staleTime: Infinity,
-    gcTime: Infinity,
-  });
-  const known = useMemo(() => (counted ? fieldStats(described!, { exclude: hidden }) : null), [counted, described, hidden]);
-
-  const error: unknown = counted ? null : read.error;
-  useEffect(() => {
-    if (error) onFailure(error);
-  }, [error, onFailure]);
-
-  const data = known ?? read.data;
-  if (data) return { ...data, error: null };
-  return { fields: null, columns: null, error: error ?? null };
-}
-
-/** The relation's columns as the page's join graph describes them, or `null` for a relation it does not hold. */
-function describe(joins: JoinGraph | null, relation: RelationExpr): FieldColumn[] | null {
-  if (!joins) return null;
-  if (typeof relation === "string") return joins.types.some((t) => t.name === relation) ? relationColumns(joins, relation) : null;
-  return "root" in relation && "path" in relation ? relationColumns(joins, relation as Relation) : null;
+  const key = JSON.stringify(pattern);
+  return useMemo(() => {
+    if (!graph) throw new Error("a pattern's fields are its graph's, and the page has none");
+    const { columns, described } = patternColumns(graph, pattern);
+    return { fields: fieldStats(described, { exclude: exclude ? exclude.split("\u0000") : [] }), columns };
+    // `key` stands in for the identity of `pattern`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graph, key, exclude]);
 }

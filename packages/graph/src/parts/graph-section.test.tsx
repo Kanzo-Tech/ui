@@ -6,7 +6,6 @@ import { attach, settle, type Attached } from "../../test/corpus";
 import { GraphRoot } from "../react/graph-root";
 import { useGraphPrefs } from "../react/use-graph-prefs";
 import { GRAPH_SECTION } from "../section";
-import type { MappingModel } from "@kanzo-tech/relations";
 
 /**
  * The graph's settings as its section, drawn by `@kanzo-tech/ui`'s generic renderer, with the root
@@ -26,48 +25,29 @@ function Workspace({
   corpus,
   into = {},
   column = "graph.x-by",
-  mapping,
 }: {
   corpus: Attached | null;
   into?: { options?: unknown };
   column?: "graph.x-by" | "graph.time-by";
-  mapping?: MappingModel;
 }) {
   const { look, sim, placement } = useGraphPrefs();
   return (
-    <GraphRoot engine={corpus?.engine ?? null} from={corpus?.from ?? null} look={look} mapping={mapping} onFailure={() => {}} sim={sim} {...placement}>
+    <GraphRoot engine={corpus?.engine ?? null} graph={corpus?.graph ?? null} look={look} onFailure={() => {}} sim={sim} {...placement}>
       <PreferencesSections namespace="graph" />
       <Columns into={into} name={column} />
     </GraphRoot>
   );
 }
 
-function page(corpus: Attached | null, into?: { options?: unknown }, column?: "graph.x-by" | "graph.time-by", mapping?: MappingModel) {
+function page(corpus: Attached | null, into?: { options?: unknown }, column?: "graph.x-by" | "graph.time-by") {
   return (
     <KanzoThemeProvider sections={SECTIONS} storage={null}>
-      <Workspace column={column} corpus={corpus} into={into} mapping={mapping} />
+      <Workspace column={column} corpus={corpus} into={into} />
     </KanzoThemeProvider>
   );
 }
 
 const mount = (...args: Parameters<typeof page>) => render(page(...args));
-
-/** The fixture's mapping, as rudof's `Mapping.model()` answers it, cut to `born`: a year, `xsd:gYear` over an `int32`. */
-const YEARS: MappingModel = {
-  tables: [
-    {
-      id: "#Person",
-      source: { kind: "table", name: "Person" },
-      subject: { kind: "column" },
-      classes: [],
-      annotations: [],
-      columns: [
-        { predicate: "https://example.org/born", value: { kind: "column", name: "born" }, termType: "Literal", datatype: "http://www.w3.org/2001/XMLSchema#gYear", annotations: [] },
-      ],
-      relations: [],
-    },
-  ],
-};
 
 beforeEach(() => {
   // Ark's Select measures its trigger; jsdom has no ResizeObserver.
@@ -140,20 +120,6 @@ describe("the graph's settings, as its section", () => {
     mount(corpus, into, "graph.time-by");
     await act(() => settle(corpus));
     expect(into.options).toEqual([{ value: "opened", label: "opened" }]);
-  });
-
-  it("offers the timeline a year the mapping says is one, even when the mapping arrives after the graph", async () => {
-    const corpus = await attach();
-    const into: { options?: unknown } = {};
-    const { rerender } = mount(corpus, into, "graph.time-by");
-    await act(() => settle(corpus));
-    expect(into.options).toEqual([{ value: "opened", label: "opened" }]);
-    const asked = corpus.sent.length;
-    rerender(page(corpus, into, "graph.time-by", YEARS));
-    await act(() => settle(corpus));
-    expect(into.options).toEqual(["born", "opened"].map((value) => ({ value, label: value })));
-    // Re-described, not read again.
-    expect(corpus.sent.slice(asked).filter((sql) => sql.includes("graphar_vertex_types"))).toEqual([]);
   });
 
   it("pulls clusters only under Clustered, and offers Additive links only while edges are drawn", async () => {
