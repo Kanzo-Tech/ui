@@ -1,4 +1,5 @@
 import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
+import { KanzoLogo } from "@/components/kanzo-logo";
 import { ThemeMenu } from "@/components/theme-menu";
 
 /**
@@ -16,7 +17,14 @@ import { ThemeMenu } from "@/components/theme-menu";
  * computed from the page tree.
  */
 export const baseOptions: BaseLayoutProps = {
-  nav: { title: "Kanzo UI" },
+  nav: {
+    title: (
+      <span className="flex items-center gap-2">
+        <KanzoLogo className="h-5 w-auto text-primary" />
+        <span className="font-medium text-muted-foreground">UI</span>
+      </span>
+    ),
+  },
   slots: { themeSwitch: ThemeMenu },
 };
 

@@ -68,7 +68,7 @@ EmptyIndicator.displayName = "EmptyIndicator";
 export function EmptyTitle({ className, slot, ...rest }: ComponentProps<typeof ark.div>) {
   return (
     <ark.div
-      className={cn("font-medium text-lg tracking-tight", className)}
+      className={cn("font-heading font-medium text-lg tracking-tight", className)}
       {...rest}
       data-slot={slot ?? "empty-title"}
     />

@@ -8,3 +8,7 @@
 # that is what a product reads, and a corpus is written once by the real writer rather than built in
 # the tab.
 /public/corpus/
+
+# Neue Haas Grotesk Display is licensed to Kanzo for kanzo.tech. This repository is public, so the
+# files stay out of it: put them here to see the brand's headings locally; without them, Geist.
+/public/fonts/

@@ -21,6 +21,27 @@
 @import "@kanzo-tech/ai/tailwind.css";
 @import "@kanzo-tech/graph/tailwind.css";
 
+/* The docs' own headings — fumadocs' page titles and the prose — read the theme's heading face, as
+   the library's title parts do. */
+:where(h1, h2, h3, h4) {
+  font-family: var(--font-heading);
+}
+
+/* The face the Kanzo themes name for headings. The files are not in the repository (see
+   `.gitignore`); where they are absent the rule loads nothing and the stack falls back to Geist. */
+@font-face {
+  font-family: "Neue Haas Grotesk Display Pro";
+  src: url("/fonts/neue-haas-display-medium.woff2") format("woff2");
+  font-weight: 500 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Neue Haas Grotesk Display Pro";
+  src: url("/fonts/neue-haas-display-bold.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
 /*
  * The landing nav's collapsed menu, hidden once it has nothing to open.
  *
