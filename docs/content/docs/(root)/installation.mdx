@@ -81,10 +81,17 @@ only that subpath reaches them. Everything `ai` draws with is `@kanzo-tech/ui` a
 appearance is one more line in the stylesheet below — its own `@source`s, streamdown's included, and
 nothing else.
 
+[Asking questions of data](/docs/ai/data) — `useAskChat`, `AnswerCard`, `AskChips` — is a subpath,
+`@kanzo-tech/ai/data`, because it draws with `@kanzo-tech/ui/analytics` and `/table`. Its own optional
+peers are `@kanzo-tech/mosaic`, `@kanzo-tech/relations` and `@tanstack/react-query`, and a host that
+opens it installs those two subpaths' peers from the table above as well. `Chat` and `Assist`, on the
+root, need none of them.
+
 ### Authentication is a package that draws nothing
 
 [`@kanzo-tech/auth`](/docs/auth) is the third sibling, and it is the one that needs none of the
-above: it does not import `@kanzo-tech/ui`, it ships no component and it has no stylesheet. The
+above: it does not import `@kanzo-tech/ui` and it has no stylesheet. Its one component, `Gate`,
+shows its children or a fallback by role and draws nothing of its own. The
 first admission rule excludes auth by name, for the reason the log-out affordance is missing from
 [the sidebar](/docs/navigation/sidebar) — a library whose vocabulary every product shares should not
 know what a session is.
@@ -107,6 +114,28 @@ open.
 The two server doors are Node's, and nothing on them reaches React —
 `packages/auth/src/server.test.ts` imports them without React to say so, rather than trusting this
 sentence.
+
+### The navigation guard and the harnesses
+
+Two more siblings, neither of which imports `@kanzo-tech/ui` or draws anything.
+
+[`@kanzo-tech/navigation`](/docs/navigation-guard) is `useBlocker`, which asks before somebody leaves
+a page with unsaved changes. Its root needs only React; [`/next`](/docs/navigation-guard/next) adds the
+two App Router navigations the browser cannot see in time, and takes `next` 15.3 or later as its
+optional peer.
+
+```bash
+pnpm add @kanzo-tech/navigation
+```
+
+[`@kanzo-tech/testing`](/docs/testing) is the component harnesses a host's tests drive a page with. It
+is a dev dependency, and each of its doors has one optional peer: the root's is `playwright-core`
+(for its types; a suite on `@playwright/test` already has it), and `/dom`'s is
+`@testing-library/dom`.
+
+```bash
+pnpm add -D @kanzo-tech/testing
+```
 
 </Step>
 

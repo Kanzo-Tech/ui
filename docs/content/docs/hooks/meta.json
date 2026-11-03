@@ -20,7 +20,6 @@
     "use-theme-tick",
     "use-mosaic",
     "use-data-table",
-    "use-data-table-context",
-    "---AI---"
+    "use-data-table-context"
   ]
 }
