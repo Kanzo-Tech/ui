@@ -79,6 +79,9 @@ the position, and hands both back as `defaultAnswers` and `defaultStep`.
 <Questionnaire defaultAnswers={saved.answers} defaultStep={saved.step} onAnswersChange={save}>
 ```
 
+A parent that moves the questionnaire itself — a progress list beside it, a route per question —
+controls the position instead, with `step` and `onStepChange`, as on Ark's Steps.
+
 <Callout type="info">
 There is no navigation state machine here. Ark's Steps machine already owns the step index,
 `hasNextStep` / `hasPrevStep`, the percentage and — the part that is easy to miss — the guards
@@ -171,7 +174,7 @@ Extends `ark.form` (minus `onSubmit`, which is redefined).
 | Prop | Type | Default |
 | --- | --- | --- |
 | `defaultAnswers` | `QuestionnaireAnswers` | `{}` |
-| `defaultStep` | `number` | `0` |
+| `step` / `defaultStep` | `number` — Ark's Steps value, controlled or not | `0` |
 | `onAnswersChange` | `(answers) => void` | — |
 | `onStepChange` | `(details) => void` | — |
 | `onSubmit` | `(answers) => void` | — |

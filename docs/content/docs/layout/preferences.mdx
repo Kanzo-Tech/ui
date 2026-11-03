@@ -61,6 +61,7 @@ applies on selection, not on close, and the hotkey reopens it where you left off
 There is no default hotkey. `hotkey` is a bare key (`"t"`) or a chord (`"mod+,"` for ⌘, / Ctrl+,) —
 the grammar `CommandDialog`'s `hotkey` takes — registered on `window` and ignored while you are typing
 in a field, and a design system must not claim one in its host's keymap without being asked.
+Controlled or not, the key goes through the dialog's own machine, so `onOpenChange` hears it.
 
 ## The sections
 
@@ -264,8 +265,10 @@ decorative (`aria-hidden`): whatever offers the theme names it.
 | --- | --- | --- |
 | `children` | `ReactNode` | — |
 | `hotkey` | `string` | — |
-| `defaultOpen` | `boolean` | `false` |
+| `open` / `defaultOpen` / `onOpenChange` | Ark's `Dialog` root — the panel controlled or not | uncontrolled, closed |
 | `translations` | `Partial<PreferencesTranslations>` — read by every part inside | English, below |
+
+Every other prop of Ark's `Dialog` root is forwarded; `modal` is `false` unless you pass it.
 
 ### PreferencesTrigger
 
