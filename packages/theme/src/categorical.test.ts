@@ -1,6 +1,5 @@
-import { readFileSync, readdirSync } from "node:fs";
-import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { catalogue } from "../scripts/catalogue.mjs";
 import { oklch } from "./ink";
 
 /**
@@ -44,26 +43,12 @@ import { oklch } from "./ink";
  *   a `--success` that lands on one of these, and nothing here will know.
  */
 
-const PKG = resolve(__dirname, "..");
-const THEME_DIR = join(PKG, "themes");
-
 /**
  * Declarations only, no chain resolution — which is why this guard does not reach for
  * `themes.test.ts`'s resolver. Everything it asks about is either written in the file or
  * deliberately absent, and "absent" is half of what is being checked.
  */
-const THEMES = readdirSync(THEME_DIR)
-  .filter((f) => f.endsWith(".css"))
-  .sort()
-  .map((file) => {
-    const source = readFileSync(join(THEME_DIR, file), "utf8");
-    const declared = new Map<string, string>();
-    for (const match of source.matchAll(/^\s*(--[a-z0-9-]+):\s*([^;]+);/gm)) {
-      const [, token, value] = match;
-      if (token && value) declared.set(token, value.trim());
-    }
-    return { name: file.replace(/\.css$/, ""), declared };
-  });
+const THEMES = catalogue.themes.map((t) => ({ name: t.value, declared: t.declarations }));
 
 /**
  * The eight, read out of `tokens.css` rather than restated — a copy would agree until it did not.
@@ -75,27 +60,19 @@ const THEMES = readdirSync(THEME_DIR)
  * `var(--chart-N)` and resolves it itself. The eight are values, not aliases, so they inherit
  * correctly from `:root` and a `[data-theme]` block overrides them slot by slot.
  */
-const DEFAULTS = (() => {
-  const bridge = readFileSync(join(PKG, "tokens.css"), "utf8");
-  const slots: string[] = [];
-  for (let i = 1; i <= 8; i++) {
-    const found = new RegExp(`^\\s*--chart-${i}:\\s*(#[0-9a-f]{6});`, "m").exec(bridge);
-    if (found?.[1]) slots.push(found[1]);
-  }
-  return slots;
-})();
+const DEFAULTS = [...Array(8)].flatMap((_, i) => {
+  const value = catalogue.root.get(`--chart-${i + 1}`);
+  return value && /^#[0-9a-f]{6}$/.test(value) ? [value] : [];
+});
 
 /**
  * And the shape itself, because the inert version is invisible from every other assertion here.
  * A chart reads `var(--chart-N)` off the live element; a fallback that only exists inside a
  * compiled utility cannot answer that.
  */
-const BRIDGE_IS_PLAIN = (() => {
-  const bridge = readFileSync(join(PKG, "tokens.css"), "utf8");
-  return [...Array(8)].every((_, i) =>
-    new RegExp(`--color-chart-${i + 1}: var\\(--chart-${i + 1}\\);`).test(bridge),
-  );
-})();
+const BRIDGE_IS_PLAIN = [...Array(8)].every(
+  (_, i) => catalogue.bridge.get(`--color-chart-${i + 1}`) === `var(--chart-${i + 1})`,
+);
 
 // ── The measurement, spelled out once ────────────────────────────────────────────────────────────
 // Machado, Oliveira & Fernandes (2009), severity 1.0, in linear RGB. The simulation model is part

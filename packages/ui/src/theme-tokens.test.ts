@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { catalogue } from "../../theme/scripts/catalogue.mjs";
 import { label, READERS, REPO, sourceFiles } from "./guard-corpus";
 
 /**
@@ -86,48 +87,25 @@ import { label, READERS, REPO, sourceFiles } from "./guard-corpus";
  *   step-shaped spelling the deleted tier used, and nothing catches a new misspelling.
  */
 
-const THEME = join(REPO, "packages", "theme");
-
-/** Every stylesheet `@kanzo-tech/theme` ships — the hand-written half and the generated one. */
-function themeStylesheets(): { path: string; css: string }[] {
-  const files = [join(THEME, "tokens.css"), join(THEME, "themes.css")];
-  const themes = join(THEME, "themes");
-  for (const entry of readdirSync(themes)) if (entry.endsWith(".css")) files.push(join(themes, entry));
-  return files.map((path) => ({ path, css: readFileSync(path, "utf8") }));
-}
-
 /** A name is DECLARED where it appears on the left of a colon at the start of a line. */
 function declared(css: string): Set<string> {
   return new Set([...css.matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm)].map((m) => m[1] as string));
 }
 
-const TOKENS = readFileSync(join(THEME, "tokens.css"), "utf8");
+/** Every declaration `@kanzo-tech/theme` writes by hand, by the file it is written in. */
+const DECLARED: { where: string; names: Set<string> }[] = [
+  { where: "tokens.css", names: new Set([...catalogue.root.keys(), ...catalogue.bridge.keys()]) },
+  ...catalogue.themes.map((t) => ({ where: `themes/${t.file}`, names: new Set(t.declarations.keys()) })),
+];
 
-/** `{ … }` starting at the first `{` after `at`, braces balanced. */
-function block(css: string, at: number): string {
-  const open = css.indexOf("{", at);
-  let depth = 0;
-  for (let i = open; i < css.length; i++) {
-    if (css[i] === "{") depth++;
-    else if (css[i] === "}" && --depth === 0) return css.slice(open + 1, i);
-  }
-  throw new Error("unbalanced block in tokens.css");
-}
-
-const THEMES = readdirSync(join(THEME, "themes"))
-  .filter((f) => f.endsWith(".css"))
-  .map((f) => ({ name: f, names: declared(readFileSync(join(THEME, "themes", f), "utf8")) }));
+const THEMES = catalogue.themes.map((t) => ({ name: t.file, names: new Set(t.declarations.keys()) }));
 
 /** What `tokens.css` declares outside the bridge — the categorical default, the shape knobs, the
  *  type sizes, and the font stacks its `@theme static` block emits into `:root`. */
-const ROOT = new Set(
-  [...TOKENS.matchAll(/^(?::root|@theme static)\s*\{/gm)].flatMap((m) => [...declared(block(TOKENS, m.index ?? 0))]),
-);
-
-const BRIDGE_BODY = block(TOKENS, TOKENS.search(/^@theme inline\s*\{/m));
+const ROOT = catalogue.root;
 
 /** Every name the bridge declares — Tailwind emits these into `:root` when source reads them. */
-const BRIDGE = declared(BRIDGE_BODY);
+const BRIDGE = catalogue.bridge;
 
 /** Whitespace and Tailwind's `_`-for-space are spelling, not meaning. */
 const normal = (value: string) => value.replace(/[\s_]+/g, "");
@@ -154,8 +132,7 @@ function argument(text: string, start: number): { name: string; fallback: string
  */
 const USES = (() => {
   const out = new Map<string, string>();
-  for (const [, value] of BRIDGE_BODY.matchAll(/^\s*--[a-z0-9-]+:\s*(.+);/gm)) {
-    const text = (value as string).trim();
+  for (const text of BRIDGE.values()) {
     if (!text.startsWith("var(")) continue;
     const read = argument(text, 4);
     if (read?.fallback && !out.has(read.name)) out.set(read.name, read.fallback);
@@ -322,7 +299,7 @@ describe("every custom property that is read exists", () => {
     // `bg-warning-a3` compiles to nothing and Tailwind says nothing. The step-shaped spelling is the
     // one the deleted reference tier used — `-aN` or a bare `-N` on a colour family — and the house
     // replacement is the percentage: `bg-warning/7`.
-    const families = new Set([...BRIDGE].filter((n) => n.startsWith("--color-")).map((n) => n.slice(8)));
+    const families = new Set([...BRIDGE.keys()].filter((n) => n.startsWith("--color-")).map((n) => n.slice(8)));
     const stepped = /(?<![\w-])(?:bg|text|border|ring|fill|stroke|outline|divide|decoration|from|via|to|shadow|caret|accent)-([a-z]+(?:-[a-z]+)*)-a?\d{1,2}(?![\w-])/g;
     const hits: string[] = [];
     for (const file of FILES) {
@@ -381,10 +358,10 @@ describe("the theme's own extras", () => {
     // The same commit that dropped the type sizes had already deleted `--kanzo-focus-ring` for
     // failing this half, by hand and after noticing. This is that check, run every time.
     const read = new Set(reads().map((r) => r.name));
-    const unread = themeStylesheets().flatMap(({ path, css }) =>
-      [...declared(css)]
+    const unread = DECLARED.flatMap(({ where, names }) =>
+      [...names]
         .filter((name) => name.startsWith("--kanzo-") && !read.has(name))
-        .map((name) => `${name} — declared in ${path.slice(REPO.length + 1)}, read by nothing`),
+        .map((name) => `${name} — declared in packages/theme/${where}, read by nothing`),
     );
     expect(unread).toEqual([]);
   });

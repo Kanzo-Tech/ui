@@ -63,7 +63,8 @@ defaultThemePair(themeIndex); // { light: "kanzo", dark: "kanzo-dark" }
 
 That is the whole mechanism: a block somebody writes, an `@import` in `themes.css`, and an attribute
 on `<html>`. The header names the family the theme belongs to and the label a picker shows;
-`scripts/gen-theme.mjs` refuses a family without exactly one light and one dark theme, and
+`scripts/catalogue.mjs` — the one reader of the theme CSS — refuses a family without exactly one
+light and one dark theme, and
 `themes.test.ts` holds every theme to the floors `CONTRAST_PAIRS` lists — text at 4.5:1, borders,
 the focus ring, the brand fill and chart marks at 3:1, and the eight `--syntax-*` inks on the page and
 on the editor's active line. `auditContrast(resolve)` runs the same list over a theme of your own.
