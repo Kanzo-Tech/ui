@@ -54,15 +54,15 @@ than written down. Authoring cost is not that evidence: a theme is the thing you
 *Held by* `packages/ui/src/simples/status.test.ts`, "has a corpus, and it is every shipped theme";
 `packages/ui/src/theme-tokens.test.ts`, "resolves every `var()` in the corpus" and "names no deleted
 alpha step in a utility"; `packages/ui/src/lib/token-color.test.ts`, "declares a full set of slots, or
-none at all, in every theme"; `packages/theme/scripts/gen-theme.mjs`.
+none at all, in every theme"; `packages/theme/scripts/catalogue.mjs`.
 
 ## Themes ship as families, and a user picks a day one and a night one
 
 A theme is one mode, so what a user chooses is a pair: the theme worn by day and the theme worn by
 night, plus which side is worn — GitHub's Appearance model, and the theme cards in `Preferences` are
 its layout. The library ships four families (`kanzo`, `nord`, `catppuccin`, `lofi`), each exactly one
-light and one dark theme, named in the file header; `gen-theme.mjs` refuses a family that is not a
-pair. Twenty-nine single themes, half of them without a partner, made the night choice a guess.
+light and one dark theme, named in the file header; `scripts/catalogue.mjs` refuses a family that is
+not a pair. Twenty-nine single themes, half of them without a partner, made the night choice a guess.
 
 The provider always writes the **resolved** theme to `data-theme`, including the tenant's default:
 the CSS default binding (`:root:not([data-theme])`) can name one family, and a tenant whose default

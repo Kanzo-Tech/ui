@@ -1,7 +1,5 @@
-import { readFileSync, readdirSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
+import { catalogue } from "../../../theme/scripts/catalogue.mjs";
 import {
   CHART_CAPACITY_PROPERTY,
   CHART_SLOTS,
@@ -68,21 +66,14 @@ describe("the categorical scheme", () => {
    * publishes a set or DECLINES the channel. Declining is legal, and a monochrome document has to
    * be able to say it — so a theme with no slots is skipped, and a theme with SOME slots is the bug this catches.
    */
-  const THEME_DIR = join(
-    dirname(createRequire(import.meta.url).resolve("@kanzo-tech/theme/themes.css")),
-    "themes",
-  );
-  const themes = readdirSync(THEME_DIR)
-    .filter((f) => f.endsWith(".css"))
-    .map((f) => ({
-      name: f.slice(0, -4),
-      // Any VALUE, not just a hex. A theme publishes all eight slots and says how many name a real
-      // category with `--chart-capacity`; past capacity `compile()` wrote `var(--muted-foreground)`,
-      // and the first version of this read hexes only, so `bank-private-dark` (capacity 7) looked
-      // like a theme with a partial set. Slot COUNT and capacity are different questions.
-      slots: [...readFileSync(join(THEME_DIR, f), "utf8").matchAll(/--chart-(\d+):\s*([^;]+);/g)]
-        .map(([, , value]) => (value as string).trim()),
-    }));
+  const themes = catalogue.themes.map((t) => ({
+    name: t.value,
+    // Any VALUE, not just a hex. A theme publishes all eight slots and says how many name a real
+    // category with `--chart-capacity`; past capacity `compile()` wrote `var(--muted-foreground)`,
+    // and the first version of this read hexes only, so `bank-private-dark` (capacity 7) looked
+    // like a theme with a partial set. Slot COUNT and capacity are different questions.
+    slots: [...t.declarations.keys()].filter((name) => /^--chart-\d+$/.test(name)),
+  }));
 
   it("declares a full set of slots, or none at all, in every theme", () => {
     // The literal-vs-token drift this file was written to catch is now structurally impossible: the

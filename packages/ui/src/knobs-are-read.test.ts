@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
-import { dirname, join, resolve } from "node:path";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { catalogue } from "../../theme/scripts/catalogue.mjs";
 import { sourceFiles } from "./guard-corpus";
 
 /**
@@ -32,8 +32,6 @@ import { sourceFiles } from "./guard-corpus";
  *   `themes.test.ts` is what measures whether those resolve.
  */
 
-const themeDir = dirname(createRequire(import.meta.url).resolve("@kanzo-tech/theme/tokens.css"));
-const tokens = readFileSync(join(themeDir, "tokens.css"), "utf8");
 const sheet = readFileSync(resolve(__dirname, "tailwind.css"), "utf8");
 
 /**
@@ -46,7 +44,7 @@ const sheet = readFileSync(resolve(__dirname, "tailwind.css"), "utf8");
  * would mean the one knob that was actually dead is the one knob this cannot see.
  */
 function knobs(): string[] {
-  const reference = readFileSync(join(themeDir, "themes", "kanzo.css"), "utf8");
+  const reference = catalogue.themes.find((t) => t.value === "kanzo")?.source ?? "";
   const shape = reference.split("/* Shape */")[1]?.split("/*")[0] ?? "";
   const found = [...shape.matchAll(/^\s*(--[a-z0-9-]+):/gm)].map((m) => m[1] as string);
   return [...new Set([...found, "--noise"])];
@@ -56,8 +54,7 @@ function knobs(): string[] {
 function utilityFor(knob: string): string | null {
   // `--radius-box: var(--radius-box, …)` inside the bridge is the binding; the Tailwind namespace
   // is the first segment, and the utility is what the rest spells.
-  const bound = new RegExp(`^\\s*${knob}:\\s*var\\(${knob}`, "m").test(tokens);
-  if (!bound) return null;
+  if (!catalogue.bridge.get(knob)?.startsWith(`var(${knob}`)) return null;
   const [, namespace, rest] = /^--([a-z]+)-(.+)$/.exec(knob) ?? [];
   if (!namespace || !rest) return null;
   return namespace === "radius" ? `rounded-${rest}` : `${namespace}-${rest}`;
