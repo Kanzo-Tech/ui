@@ -7,12 +7,7 @@
 //
 // Requires `next start` (or the dev server) to be up.
 
-import { chromium } from "playwright";
-
-const args = process.argv.slice(2);
-const flag = (n, d) => (args.indexOf(`--${n}`) >= 0 ? args[args.indexOf(`--${n}`) + 1] : d);
-const origin = flag("url", "http://localhost:3100");
-const base = flag("base", "");
+import { launch, site } from "./browser.mjs";
 
 /** Each box the reader would see move, relative to its panel. */
 async function boxes(page, testid) {
@@ -36,9 +31,9 @@ async function boxes(page, testid) {
   });
 }
 
-const browser = await chromium.launch();
+const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
-await page.goto(`${origin}${base}/fixtures/chat-frame`);
+await page.goto(`${site}/fixtures/chat-frame`);
 await page.getByTestId("block-chat").locator("[data-slot=prompt-input]").waitFor();
 
 let failed = false;
