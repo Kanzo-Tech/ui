@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { lookFrom, SHAPE_INDEX, SHAPE_ORDER, SHAPE_OTHER } from "./graph-looks";
-import { check, gradeComposition, OBLIGATIONS } from "./obligations";
+import { check, gradeComposition, FORM_OBLIGATIONS } from "./obligations";
 
 /**
  * The graph section grades itself, the way the colour section does.
@@ -27,7 +27,7 @@ describe("the graph section's obligations", () => {
   it("says how many questions it has not answered, rather than reporting them green", () => {
     // A bar nobody established cannot be cleared. `link-fade` is the one, and it is named in the
     // table with what would close it — the count is pinned so a second one cannot arrive quietly.
-    const ungradeable = OBLIGATIONS.filter((o) => o.measured === null);
+    const ungradeable = FORM_OBLIGATIONS.filter((o) => o.measured === null);
     expect(ungradeable.map((o) => o.id)).toEqual(["link-fade"]);
   });
 

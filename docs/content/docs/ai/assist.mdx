@@ -78,10 +78,14 @@ character left.
 
 **It survives typing that agrees with it.** While what the reader types is a prefix of the offer, the
 ghost is what is left and nothing new is asked — LSP's `filterText` rule, and the only way to a
-continuation that feels instant: not asking. Typing anything else lets it go.
+continuation that feels instant: not asking. Typing anything else lets it go. *Held by*
+`packages/ai/src/offers.test.ts`, "asks nothing new while it survives, and reports the one it lost as
+ignored" and "survives typing ahead of a stream still arriving, and not once it has ended".
 
 **Alternatives are the invoked case.** `Alt` + `]` asks for an offer different from the ones already
-made at that point, and keeps them, so `Alt` + `[` goes back without asking again.
+made at that point, and keeps them, so `Alt` + `[` goes back without asking again. *Held by*
+`packages/ai/src/offers.test.ts`, "keeps the offers made at the same point, and asks for one that
+differs from them".
 
 **An offer that does not fit makes the field taller**, and is not cut. The field takes the height the
 offer needs while it is on the table and gives it back when it goes, so `rows` is a floor — which is

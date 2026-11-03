@@ -190,7 +190,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
         }
         case "state":
           graph.setConfigPartial({
-            ...highlighted(geometry, snapshot.kept),
+            ...highlighted(snapshot),
             focusedPointIndex: snapshot.focus === null || snapshot.focus >= geometry.size ? undefined : snapshot.focus,
           });
           break;

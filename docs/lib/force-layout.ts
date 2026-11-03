@@ -1,5 +1,5 @@
-// A small seeded force layout. The Discovery showcase runs it once, at build time, to bake `x`/`y`
-// into the node relation — the GPU simulation starts from those rather than from noise.
+// A small seeded force layout. Its one caller is `showcases/workspace/graph-data.ts`, which runs it
+// once, when the archive's rows are generated, to bake `x`/`y` into the node rows.
 //
 // d3-force is in the store as a transitive of `d3`, but not a declared dependency of anything we
 // own, so it is not resolvable under pnpm's strict layout. This is the stand-in: grid-bucketed
@@ -25,9 +25,9 @@ const DECAY = 0.972;
 /**
  * Positions for `count` vertices joined by `edges`.
  *
- * What this buys is **link coherence**: on the Discovery corpus the mean edge comes out at 0.17 of
- * the layout's width against 0.54 for an unseeded start, so the picture opens with adjacent things
- * adjacent instead of resolving into one over the first seconds of simulation. Determinism is the
+ * What this buys is **link coherence**: on the Discovery corpus it was measured on, the mean edge
+ * came out at 0.17 of the layout's width against 0.54 for an unseeded start, so the picture opens
+ * with adjacent things adjacent instead of resolving into one over the first seconds of simulation. Determinism is the
  * other half — `rand` is `mulberry32`, so the same corpus opens the same way in every browser.
  *
  * What it does **not** buy is community separation, whatever `group` looks like it promises. The

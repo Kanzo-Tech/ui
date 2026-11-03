@@ -24,5 +24,8 @@ provider per model id in `@kanzo-tech/llm/local`'s provider registry before the 
 `localModel(id)` resolves the script in place of the model as it resolves any provider, and
 `env.prompts(id)` reads what it was asked.
 
+`@kanzo-tech/testing/jsdom` is the vitest setup file for such a suite: it fills what jsdom lacks and
+the components call, and unmounts after each test.
+
 The reference is <https://kanzo-tech.github.io/ui/docs/testing>, and why it is shaped this way is
 <https://kanzo-tech.github.io/ui/docs/design/testing>.

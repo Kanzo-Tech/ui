@@ -12,11 +12,8 @@ interface ComponentPreviewTabsProps {
   fullBleed?: boolean;
   /** Both panes, in px. Absent, each takes what its content needs. */
   height?: number;
-  /**
-   * `componentName/fileName`, written to `data-example` on the preview pane — but ONLY for the
-   * examples whose height is up for measurement. `scripts/measure-previews.mjs` selects on it, so
-   * an example that declares its own `height` deliberately carries no key and is never overwritten.
-   */
+  /** `componentName/fileName`, written to `data-example` on a framed preview pane, which
+   *  `scripts/measure-previews.mjs` selects on. */
   measureKey?: string;
   showBorders?: boolean;
 }
@@ -29,7 +26,7 @@ interface ComponentPreviewTabsProps {
  *
  * **`height` is per example, not a constant**, and both panes share it — so switching still never
  * shifts the page, which is what Shark's constant was for, without spending 73 % of a five-line
- * example on emptiness. `component-preview.tsx` derives it and states the measurement.
+ * example on emptiness. `lib/preview-height.mjs` is how it is chosen.
  *
  * The backdrop is four dashed 1px guides marking the padding box. `inset-s-*` / `inset-e-*` are
  * logical, so it mirrors correctly in RTL. **They sit at the padding, and upstream's do not** —

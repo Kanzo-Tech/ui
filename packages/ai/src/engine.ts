@@ -1,24 +1,16 @@
 "use client";
 
 // The machinery behind `Assist`, and none of it is public. A field offers a **proposal** — text the
-// reader may take — and this file is everything about getting proposals out of a stream and keeping
-// them honest while the reader types: one engine, the inline continuation, and the candidate list.
+// reader may take — and this file gets proposals out of a stream and keeps them honest while the
+// reader types: one engine, the inline continuation (whose rules are `./offers.ts`), and the
+// candidate list.
 //
 // A field's proposal is the Task's `Proposal` of a string: a continuation's `target` inserts at the
 // caret, a candidate's replaces the value, and a list's adds an item. There is no second type.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type OfferEvent, type Offers, askable, offers as createOffers } from "./offers.js";
 import type { Proposal } from "./task/index.js";
-
-/** A continuation offered at `at`, as the Task's proposal of the text it inserts there. */
-export const continuationAt = (value: string, at: number): Proposal<string> => ({
-  id: `continuation-${at}`,
-  task: "continuation",
-  value,
-  target: { insert: at },
-  verdict: { ok: true },
-  attempts: 1,
-});
 
 /**
  * What happened to a proposal, for a host that learns from it (HAX G13). The lifecycle VS Code's
@@ -136,24 +128,7 @@ function coalesce(paint: () => void) {
   return Object.assign(run, { flush, cancel });
 }
 
-/**
- * The continuation is appended verbatim, with one safety net: a model that restated the value
- * before continuing gets that prefix dropped, and an echo still arriving renders as nothing until it
- * diverges — painting the value twice is worse than a few frames of nothing.
- */
-export function cleanGhost(base: string, cont: string): string {
-  const b = base.trimEnd();
-  if (!b || !cont) return cont;
-  const lower = { base: b.toLowerCase(), cont: cont.toLowerCase() };
-  if (lower.cont.startsWith(lower.base)) return cont.slice(b.length);
-  if (lower.base.startsWith(lower.cont)) return "";
-  return cont;
-}
-
 // ── The continuation: one offer at the caret, with alternatives ──────────────
-
-/** Below this there is not enough text to continue, so nothing is asked. */
-export const MIN_CONTINUE_LENGTH = 4;
 
 export type Trigger = "invoked" | "automatic";
 
@@ -166,21 +141,10 @@ export interface ContinuationRequest {
   signal: AbortSignal;
 }
 
-interface Offer {
-  from: number;
-  text: string;
-  done: boolean;
-}
-
 /**
- * Ghost text that does not own the value: the field owns it and performs the insertion.
- *
- * **The offer survives typing that agrees with it.** An offer made at `from` stays on the table
- * while what was typed since is a prefix of it, and the ghost is what is left — no request at all.
- * That is LSP's `filterText` rule and the only way to Smart Compose's 60 ms budget: not asking.
- *
- * **Alternatives** are LSP's `Invoked` case: asking again at the same point appends a different
- * offer rather than replacing the one on the table, and `cycle` moves between them (Alt+] / Alt+[).
+ * Ghost text that does not own the value: the field owns it and performs the insertion. The rules —
+ * an offer survives typing that agrees with it, alternatives at one point — are `./offers.ts`; this
+ * runs them against a stream, a debounce and the frame.
  */
 export function useContinuation(options: {
   source: (request: ContinuationRequest) => AsyncIterable<string>;
@@ -191,160 +155,99 @@ export function useContinuation(options: {
   const [ghost, setGhost] = useState("");
   const opts = useRef(options);
   opts.current = options;
-
-  const offers = useRef<Offer[]>([]);
-  const index = useRef(0);
-  const field = useRef({ value: "", position: 0 });
+  const offers = useRef<Offers>(undefined);
+  offers.current ??= createOffers();
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const shown = useRef<Offer | null>(null);
 
-  const current = () => offers.current[index.current] ?? null;
-
-  const rendered = useCallback((): string => {
-    const o = current();
-    if (!o) return "";
-    const { value, position } = field.current;
-    if (position < o.from) return "";
-    const typed = value.slice(o.from, position);
-    return o.text.startsWith(typed) ? o.text.slice(typed.length) : "";
+  const tell = useCallback((events: OfferEvent[] | null) => {
+    for (const e of events ?? []) opts.current.onEvent(e.kind, e.proposal);
   }, []);
-
-  const alive = useCallback((): boolean => {
-    const o = current();
-    if (!o) return false;
-    const { value, position } = field.current;
-    if (position < o.from) return false;
-    const typed = value.slice(o.from, position);
-    // Typing ahead of a stream still arriving is not a mismatch yet: the next chunk may agree.
-    return o.text.startsWith(typed) || (!o.done && typed.startsWith(o.text));
-  }, []);
-
-  const proposal = (o: Offer) => continuationAt(o.text, o.from);
 
   const painter = useRef<ReturnType<typeof coalesce>>(undefined);
   painter.current ??= coalesce(() => {
-    const next = rendered();
-    setGhost(next);
-    const o = current();
-    if (next && o && shown.current !== o) {
-      shown.current = o;
-      opts.current.onEvent("shown", proposal(o));
-    }
+    setGhost(offers.current!.ghost());
+    tell(offers.current!.show());
   });
 
-  /** Forget every offer. `why` is reported once, for the offer on screen. */
-  const drop = useCallback(
-    (why?: "rejected" | "ignored") => {
+  /** Stop asking and painting, and clear the ghost. */
+  const halt = useCallback(
+    (events: OfferEvent[] | null) => {
       clearTimeout(timer.current);
       painter.current?.cancel();
-      const o = current();
-      if (why && o && shown.current === o) opts.current.onEvent(why, proposal(o));
-      offers.current = [];
-      index.current = 0;
-      shown.current = null;
+      tell(events);
       cancel();
       setGhost("");
     },
-    [cancel],
+    [cancel, tell],
   );
 
   const start = useCallback(
-    (value: string, position: number, trigger: Trigger) => {
-      const avoid = offers.current.filter((o) => o.from === position).map((o) => o.text);
-      const mine: Offer = { from: position, text: "", done: false };
-      offers.current = [...offers.current.filter((o) => o.from === position), mine];
-      index.current = offers.current.length - 1;
-      const base = value.slice(0, position);
-      let raw = "";
+    (trigger: Trigger) => {
+      const o = offers.current!;
+      const { offer, avoid } = o.open();
+      const { value, caret: position } = o;
       void run(
         (signal) => opts.current.source({ value, position, trigger, avoid, signal }),
         (chunk) => {
-          if (current() !== mine) return false;
-          raw += chunk;
-          mine.text = cleanGhost(base, raw);
+          if (!o.arrive(offer, chunk)) return false;
           painter.current?.();
         },
       ).then((outcome) => {
-        mine.done = true;
-        if (current() !== mine) return;
+        if (!o.end(offer, outcome === "error")) return;
         if (outcome === "ready") return painter.current?.flush();
         painter.current?.cancel();
-        // A failed stream's half a continuation is not an offer; the failure is `error`.
-        if (outcome === "error") {
-          mine.text = "";
-          setGhost("");
-        }
+        if (outcome === "error") setGhost("");
       });
     },
     [run],
   );
 
-  const short = (value: string) => value.trim().length < MIN_CONTINUE_LENGTH;
-
   /** The field changed. Ask after a debounce — unless the offer on the table survives it. */
   const setValue = useCallback(
     (value: string, position = value.length) => {
-      field.current = { value, position };
-      if (alive()) {
-        setGhost(rendered());
-        return;
-      }
-      drop("ignored");
-      if (short(value)) return;
-      timer.current = setTimeout(
-        () => start(value, position, "automatic"),
-        opts.current.debounceMs ?? 350,
-      );
+      const o = offers.current!;
+      const lost = o.type(value, position);
+      if (!lost) return setGhost(o.ghost());
+      halt(lost);
+      if (askable(value)) timer.current = setTimeout(() => start("automatic"), opts.current.debounceMs ?? 350);
     },
-    [alive, drop, rendered, start],
+    [halt, start],
   );
 
   /** Ask now — the ✨, and Alt+] past the last alternative. */
   const ask = useCallback(
     (value: string, position = value.length) => {
-      const same = field.current.value === value && field.current.position === position;
-      field.current = { value, position };
-      if (!same) drop("ignored");
+      const lost = offers.current!.invoke(value, position);
+      if (lost) halt(lost);
       clearTimeout(timer.current);
-      if (short(value)) return;
-      start(value, position, "invoked");
+      if (askable(value)) start("invoked");
     },
-    [drop, start],
+    [halt, start],
   );
 
   /** Move between alternatives; past the last one, ask for another. */
   const cycle = useCallback(
     (step: 1 | -1) => {
-      const next = index.current + step;
-      if (next < 0) return;
-      if (next >= offers.current.length) {
-        const { value, position } = field.current;
-        ask(value, position);
-        return;
-      }
-      index.current = next;
-      setGhost(rendered());
+      const o = offers.current!;
+      const moved = o.turn(step);
+      if (moved === "more") return ask(o.value, o.caret);
+      if (!moved) return;
+      setGhost(o.ghost());
       painter.current?.();
     },
-    [ask, rendered],
+    [ask],
   );
 
   const settle = useCallback(
     (kind: "accepted" | "partial", text: string) => {
-      const o = current();
-      if (o) opts.current.onEvent(kind, continuationAt(text, field.current.position));
-      if (kind === "accepted") {
-        offers.current = [];
-        index.current = 0;
-        shown.current = null;
-        clearTimeout(timer.current);
-        painter.current?.cancel();
-        cancel();
-        setGhost("");
-      }
+      const events = offers.current!.take(kind, text);
+      if (kind === "accepted") halt(events);
+      else tell(events);
     },
-    [cancel],
+    [halt, tell],
   );
+
+  const dismiss = useCallback((why?: "rejected" | "ignored") => halt(offers.current!.drop(why)), [halt]);
 
   useEffect(
     () => () => {
@@ -354,7 +257,7 @@ export function useContinuation(options: {
     [],
   );
 
-  return { ghost, status, error, setValue, ask, cycle, settle, dismiss: drop };
+  return { ghost, status, error, setValue, ask, cycle, settle, dismiss };
 }
 
 // ── The candidates: N whole values, deduped ──────────────────────────────────

@@ -1,7 +1,5 @@
-import { readFileSync, readdirSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
+import { catalogue, type CatalogueTheme } from "../../../theme/scripts/catalogue.mjs";
 import { statusVariants } from "./status.js";
 
 /**
@@ -35,31 +33,17 @@ import { statusVariants } from "./status.js";
  * — a contrast function and the files we ship. It is the difference between "the author answers for
  * AA" and "the author answers for AA and finds out when they are wrong".
  */
-const THEME_DIR = join(
-  dirname(createRequire(import.meta.url).resolve("@kanzo-tech/theme/themes.css")),
-  "themes",
-);
-
-const THEMES = readdirSync(THEME_DIR)
-  .filter((f) => f.endsWith(".css"))
-  .map((f) => {
-    const css = readFileSync(join(THEME_DIR, f), "utf8");
-    return { name: f.slice(0, -4), css, dark: /color-scheme:\s*dark\b/.test(css) };
-  })
-  .sort((a, b) => a.name.localeCompare(b.name));
+const THEMES = catalogue.themes;
 
 /**
  * `--token: #hex` in one theme.
  *
- * Anchored at the start of the declaration: an unanchored `--foreground` also matches
- * `--card-foreground` and `--muted-foreground`, and would silently measure the wrong colour.
- *
  * A theme may leave a token to its derived default, in which case there is nothing here to measure
  * and the caller skips — an absence is not a failure, it is the theme saying "use the one above".
  */
-function value(theme: { name: string; css: string }, token: string): string | null {
-  const hit = new RegExp(`^\\s*${token}:\\s*(#[0-9a-f]{6})`, "im").exec(theme.css);
-  return hit ? (hit[1] as string).toLowerCase() : null;
+function value(theme: CatalogueTheme, token: string): string | null {
+  const hit = theme.declarations.get(token)?.toLowerCase();
+  return hit && /^#[0-9a-f]{6}$/.test(hit) ? hit : null;
 }
 
 function luminance(hex: string): number {
@@ -77,7 +61,7 @@ function contrast(a: string, b: string): number {
 /** The fill and ink a variant resolves to, read out of the emitted class list, in one theme. */
 function pair(
   variant: "default" | "success" | "info" | "warning" | "destructive",
-  theme: { name: string; css: string; dark: boolean },
+  theme: CatalogueTheme,
 ) {
   const classes = statusVariants({ variant }).split(/\s+/);
   const pick = (prefix: string) => {
@@ -113,10 +97,10 @@ describe("a status dot's ink is measured against its own fill", () => {
       const { fill, ink, fillToken, inkToken } = pair(variant, theme);
       if (!fill || !ink) continue; // the theme defers this token; nothing of its own to measure
       const ratio = contrast(ink, fill);
-      measured.push(theme.name);
+      measured.push(theme.value);
       expect(
         ratio,
-        `${theme.name} / ${variant}: ${inkToken} ${ink} on ${fillToken} ${fill} = ${ratio.toFixed(2)}`,
+        `${theme.value} / ${variant}: ${inkToken} ${ink} on ${fillToken} ${fill} = ${ratio.toFixed(2)}`,
       ).toBeGreaterThanOrEqual(4.5);
     }
     expect(measured.length, `${variant} was measured against no theme at all`).toBeGreaterThan(0);

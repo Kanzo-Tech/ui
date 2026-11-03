@@ -1,8 +1,7 @@
-import { readFileSync, readdirSync } from "node:fs";
-import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { catalogue, orderThemes, parseTheme } from "../scripts/catalogue.mjs";
 import { auditContrast, CONTRAST_PAIRS } from "./contrast";
-import { themeFamilies, themeIndex } from "./index";
+import { themeData, themeFamilies, themeIndex } from "./index";
 import { oklch } from "./ink";
 
 /**
@@ -38,36 +37,18 @@ import { oklch } from "./ink";
  *   says anything about whether the theme is any good.
  */
 
-const PKG = resolve(__dirname, "..");
-const THEME_DIR = join(PKG, "themes");
+const THEMES = catalogue.themes.map((t) => ({
+  name: t.value,
+  dark: t.dark,
+  declared: new Map([...t.declarations].map(([k, v]) => [k, v.toLowerCase()])),
+}));
 
-const THEMES = readdirSync(THEME_DIR)
-  .filter((f) => f.endsWith(".css"))
-  .sort()
-  .map((f) => {
-    const css = readFileSync(join(THEME_DIR, f), "utf8");
-    const declared = new Map<string, string>();
-    for (const [, token, value] of css.matchAll(/^\s*(--[a-z0-9-]+):\s*([^;]+);/gm)) {
-      declared.set(token as string, (value as string).trim().toLowerCase());
-    }
-    return { name: f.slice(0, -4), declared, dark: /color-scheme:\s*dark\b/.test(css) };
-  });
+/** `--x` → the tokens it defers to — the table `theme-data.json` ships, read off the bridge. */
+const FALLBACKS = new Map(Object.entries(themeData.fallbacks));
 
-/**
- * `--x` → the tokens it defers to, in order, from `--color-x: var(--x, var(--y, var(--z)))`.
- *
- * The bridge is the only place this is written, so it is the only place it is read.
- */
-const FALLBACKS = (() => {
-  const bridge = readFileSync(join(PKG, "tokens.css"), "utf8");
-  const chains = new Map<string, string[]>();
-  for (const [, body] of bridge.matchAll(/^\s*--color-[a-z0-9-]+:\s*(var\([^;]+);/gm)) {
-    const tokens = [...(body as string).matchAll(/--[a-z0-9-]+/g)].map((m) => m[0]);
-    const [head, ...rest] = tokens;
-    if (head && rest.length) chains.set(head, rest);
-  }
-  return chains;
-})();
+/** A one-block theme file, for pinning what `parseTheme` refuses. */
+const theme = (name: string, selector: string, scheme: "light" | "dark") =>
+  parseTheme(`${name}.css`, `/* @family ${name.replace(/-dark$/, "")}\n   @label ${name} */\n${selector} {\n  color-scheme: ${scheme};\n}\n`);
 
 /** The hex a token lands on in one theme, following the bridge when the theme stays quiet. */
 function resolved(theme: (typeof THEMES)[number], token: string, seen = new Set<string>()): string | null {
@@ -88,8 +69,7 @@ const PAIRED = [...new Set(CONTRAST_PAIRS.flatMap((p) => [p.ground, p.ink]))];
 
 describe("a theme resolves through the bridge", () => {
   it("resets every optional token on a themed element, so a scope never inherits the page's", () => {
-    const bridge = readFileSync(join(PKG, "tokens.css"), "utf8");
-    const reset = bridge.match(/:where\(\[data-theme\]\)\s*\{([^}]*)\}/)?.[1] ?? "";
+    const reset = catalogue.tokens.match(/:where\(\[data-theme\]\)\s*\{([^}]*)\}/)?.[1] ?? "";
     const resetTokens = new Set([...reset.matchAll(/(--[a-z0-9-]+):\s*initial;/g)].map((m) => m[1]));
     // Every token the bridge reads with a fallback — a theme may leave it unsaid.
     const optional = [...FALLBACKS.keys()].filter((t) => THEMES.some((th) => !th.declared.has(t)));
@@ -124,22 +104,17 @@ describe("a theme resolves through the bridge", () => {
     // var(--accent-foreground)` broke it in all twenty-nine: none of them authors
     // `--accent-foreground`, so the sidebar's active and hovered items lost their ink and inherited
     // `--sidebar-foreground` instead. `:root` counts — it is where the categorical default lives.
-    const tokens = readFileSync(join(PKG, "tokens.css"), "utf8");
-    const root = new Set(
-      [...tokens.slice(tokens.search(/^:root\s*\{/m)).matchAll(/^\s*(--[a-z0-9-]+):/gm)].map((m) => m[1]),
-    );
     // Each binding is judged by ITS OWN chain, not by the name it reads: `--color-accent-foreground`
     // carries a fallback for `--accent-foreground`, and resolving by name would lend it to the
     // sidebar binding that does not — which is how the defect above passed `FALLBACKS`.
-    const bindings = [...tokens.matchAll(/^\s*(--color-[a-z0-9-]+):\s*(var\([^;]+);/gm)].map((m) => ({
-      name: m[1] as string,
-      chain: [...(m[2] as string).matchAll(/--[a-z0-9-]+/g)].map((t) => t[0]),
-    }));
+    const bindings = [...catalogue.bridge]
+      .filter(([name, value]) => name.startsWith("--color-") && value.startsWith("var("))
+      .map(([name, value]) => ({ name, chain: value.match(/--[a-z0-9-]+/g) ?? [] }));
     expect(bindings.length).toBeGreaterThan(20);
     const dangling: string[] = [];
     for (const theme of THEMES) {
       for (const { name, chain } of bindings) {
-        if (!chain.some((t) => theme.declared.has(t) || root.has(t))) dangling.push(`${theme.name}: ${name} → ${chain.join(" → ")}`);
+        if (!chain.some((t) => theme.declared.has(t) || catalogue.root.has(t))) dangling.push(`${theme.name}: ${name} → ${chain.join(" → ")}`);
       }
     }
     expect(dangling).toEqual([]);
@@ -191,22 +166,12 @@ describe("a theme resolves through the bridge", () => {
     // "kanzo.css": eleven of sixteen, `bank-dark`, `dracula-dark` and `kanzo-dark` among them.
     // They rendered as kanzo, `color-scheme: light` and all, and every other guard here passed the
     // whole time because each reads one file and none asks which of two wins.
-    const bare: string[] = [];
-    for (const f of readdirSync(THEME_DIR).filter((n) => n.endsWith(".css"))) {
-      // Comments out first, or the guard reads the paragraph explaining it as a violation of it —
-      // which is what happened, and is worth the line: a rule about selectors must look at
-      // selectors.
-      const css = readFileSync(join(THEME_DIR, f), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-      // `:root` not narrowed by `:not([data-theme])` is the whole failure. `.dark` may sit between
-      // the two — that is the dark side's own default binding, and it is MORE specific than the
-      // light one rather than tied with it, so the alphabet never gets a vote.
-      for (const [, next] of css.matchAll(/:root(\S*)/g)) {
-        const tail = next as string;
-        const ok = tail.startsWith(":not([data-theme])") || tail.startsWith(".dark:not([data-theme])");
-        if (!ok) bare.push(`${f}: ":root${tail}"`);
-      }
-    }
-    expect(bare).toEqual([]);
+    // The rule lives in `parseTheme`, so the generator refuses it; this pins that it does. `.dark`
+    // may sit between the two on the dark side — MORE specific than the light binding rather than
+    // tied with it, so the alphabet never gets a vote.
+    expect(() => theme("x", ':root, [data-theme="x"]', "light")).toThrow('":root,"');
+    expect(() => theme("x", ':root:not([data-theme]), [data-theme="x"]', "light")).not.toThrow();
+    expect(() => theme("x", ':root.dark:not([data-theme]), [data-theme="x"]', "dark")).not.toThrow();
   });
 
   it("gives exactly one theme the default binding per side", () => {
@@ -214,12 +179,14 @@ describe("a theme resolves through the bridge", () => {
     // that chose nothing, they tie on specificity, and the alphabet decides which one a product
     // actually gets. One per side is a different thing and is what a document needs, because
     // `.dark` is decided by the OS before any theme is chosen.
-    const defaults = readdirSync(THEME_DIR)
-      .filter((n) => n.endsWith(".css"))
-      .filter((n) =>
-        readFileSync(join(THEME_DIR, n), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").includes(":root"),
-      );
-    expect(defaults).toEqual(["kanzo-dark.css", "kanzo.css"]);
+    expect(catalogue.themes.filter((t) => t.bare).map((t) => t.file)).toEqual(["kanzo.css", "kanzo-dark.css"]);
+    const pair = (family: string, bare: boolean) => [
+      theme(family, `${bare ? ":root:not([data-theme]), " : ""}[data-theme="${family}"]`, "light"),
+      theme(`${family}-dark`, `${bare ? ":root.dark:not([data-theme]), " : ""}[data-theme="${family}-dark"]`, "dark"),
+    ];
+    expect(() => orderThemes([...pair("a", true), ...pair("b", false)])).not.toThrow();
+    expect(() => orderThemes([...pair("a", true), ...pair("b", true)])).toThrow("one family binds the default");
+    expect(() => orderThemes([...pair("a", false), ...pair("b", false)])).toThrow("one family binds the default");
   });
 
   it("leaves no dark document painted by a light theme", () => {
@@ -228,21 +195,11 @@ describe("a theme resolves through the bridge", () => {
     // `data-theme` is written — while the blocking theme script has already put `.dark` on `<html>`.
     // Only `kanzo.css` claimed the unattributed document, so the page carried `.dark`, resolved
     // `color-scheme: light` and painted `#fafafa`. Measured on a clean load of a docs page.
-    const strip = (f: string) =>
-      readFileSync(join(THEME_DIR, f), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-    const dark = strip("kanzo-dark.css");
-    expect(dark, "the dark side claims no unattributed document").toContain(
-      ":root.dark:not([data-theme])",
-    );
-    // The binding is worth nothing if the block it opens is not the dark one.
-    const block = dark.slice(dark.indexOf(":root.dark:not([data-theme])"));
-    expect(block.slice(0, block.indexOf("}")), "the dark default is not dark").toContain(
-      "color-scheme: dark",
-    );
-    // And the light default must not reach that document. It is narrower than a bare `:root` and
-    // wider than the dark binding, which is exactly the middle rank it needs.
-    expect(strip("kanzo.css")).toContain(":root:not([data-theme])");
-    expect(strip("kanzo.css")).not.toContain(":root.dark");
+    expect(catalogue.themes.filter((t) => t.bare).map((t) => t.dark)).toEqual([false, true]);
+    // Each side's default must bind only its own side: the light one is narrower than a bare `:root`
+    // and wider than the dark binding, which is exactly the middle rank it needs.
+    expect(() => theme("x", ':root.dark:not([data-theme]), [data-theme="x"]', "light")).toThrow();
+    expect(() => theme("x", ':root:not([data-theme]), [data-theme="x"]', "dark")).toThrow();
   });
 
   it("keeps a deleted declaration honest — the fallback lands where the token used to", () => {

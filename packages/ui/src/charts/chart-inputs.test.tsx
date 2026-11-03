@@ -22,7 +22,7 @@ function Page({ into }: { into: (selection: Selection) => void }) {
  */
 type Row = Record<string, unknown>;
 
-// One more jsdom gap on top of vitest.setup.ts: zag's select scrolls its content on open.
+// One more jsdom gap on top of `@kanzo-tech/testing/jsdom`: zag's select scrolls its content on open.
 if (typeof Element.prototype.scrollTo !== "function") {
   Element.prototype.scrollTo = () => {};
 }

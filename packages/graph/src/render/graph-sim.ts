@@ -1,3 +1,5 @@
+import { GRAPH_SECTION } from "../section";
+
 /**
  * The force coefficients, and the one function that builds them from the axes a person chose.
  *
@@ -32,21 +34,20 @@ export interface Sim {
  *
  * The values are strings for the reason `lookFrom`'s are: a contributed preference is a string in
  * all three kinds, so an unrecognised namespace rides through a write untouched. A key that is
- * missing, or that carries a value the section never offered, takes the default below — which is
- * what a graph simulated before any of this existed.
+ * missing, or that carries a value the section never offered, takes the section's default.
  */
 export function simFrom(values: Readonly<Record<string, string | undefined>> = {}): Sim {
-  const num = (key: string, fallback: number) => {
+  const num = (key: "gravity" | "repulsion" | "link-spring" | "link-distance" | "friction" | "cluster") => {
     const value = Number.parseFloat(values[key] ?? "");
-    return Number.isFinite(value) ? value : fallback;
+    return Number.isFinite(value) ? value : Number.parseFloat(GRAPH_SECTION.prefs[key].default);
   };
   return {
-    gravity: num("gravity", 0.14),
-    repulsion: num("repulsion", 1.1),
-    linkSpring: num("link-spring", 0.6),
-    linkDistance: num("link-distance", 18),
-    friction: num("friction", 0.86),
-    cluster: num("cluster", 0.1),
+    gravity: num("gravity"),
+    repulsion: num("repulsion"),
+    linkSpring: num("link-spring"),
+    linkDistance: num("link-distance"),
+    friction: num("friction"),
+    cluster: num("cluster"),
   };
 }
 

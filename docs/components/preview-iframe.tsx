@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { cn } from "@kanzo-tech/ui";
 import type { CodeBlockProps } from "fumadocs-ui/components/codeblock";
@@ -29,15 +29,10 @@ export const PreviewIframe = ({
   /** Source path under `showcases/`, without extension. Defaults to `<name>/default`. */
   source?: string;
 }) => {
-  let code: string | null = null;
-  try {
-    code = readFileSync(
-      join(process.cwd(), "showcases", `${source ?? `${name}/default`}.tsx`),
-      "utf-8",
-    ).replace(/\n+$/, "");
-  } catch {
-    code = null;
-  }
+  const path = `showcases/${source ?? `${name}/default`}.tsx`;
+  const file = join(process.cwd(), path);
+  if (!existsSync(file)) throw new Error(`PreviewIframe "${name}": no source at ${path}`);
+  const code = readFileSync(file, "utf-8").replace(/\n+$/, "");
 
   // **Prefixed by hand, and the trailing slash is not decoration.** An `iframe`'s `src` and an
   // `<a href>` built as a string are not URLs Next rewrites — only `Link` and `next/image` get the
@@ -60,9 +55,7 @@ export const PreviewIframe = ({
     <PreviewIframeTabs
       fullUrl={href}
       iframe={iframe}
-      source={
-        code ? <ServerCodeBlock code={code} codeblock={CODE_PANE} lang="tsx" /> : undefined
-      }
+      source={<ServerCodeBlock code={code} codeblock={CODE_PANE} lang="tsx" />}
     />
   );
 };

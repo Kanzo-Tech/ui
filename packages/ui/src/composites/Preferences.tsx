@@ -20,7 +20,8 @@ import { createListCollection } from "@ark-ui/react/collection";
 import { useKanzoTheme } from "../theme/KanzoThemeProvider.js";
 import { useSectionContribution, type PrefSpecimen } from "../theme/section-context.js";
 import { cn } from "../lib/cn.js";
-import { useHotkey } from "../lib/use-hotkey.js";
+import { DialogHotkey } from "../lib/dialog-hotkey.js";
+import type { Hotkey } from "../lib/use-hotkey.js";
 import { Button } from "../simples/button.js";
 import { Eyebrow } from "../simples/eyebrow.js";
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "../simples/field.js";
@@ -107,8 +108,11 @@ function useWords(own: Partial<PreferencesTranslations> | undefined): Resolved {
 }
 
 // ── Root: Ark Dialog (non-modal, live-preview) + hotkey ──────────────────────
-export interface PreferencesRootProps {
-  children: React.ReactNode;
+/**
+ * Ark's `Dialog` root: `open`, `defaultOpen` and `onOpenChange` are the machine's, so a host that
+ * opens the panel from elsewhere controls it like any dialog. It is non-modal by default.
+ */
+export interface PreferencesRootProps extends React.ComponentProps<typeof Dialog> {
   /**
    * Key that toggles the panel — `"t"`, or `"mod+,"` for ⌘, / Ctrl+,. **Opt-in — there is no default.**
    *
@@ -116,36 +120,24 @@ export interface PreferencesRootProps {
    * field is the field's. A design system must not claim a key in its host's global keymap
    * without being asked, so omit this unless the host has decided that key is free.
    */
-  hotkey?: string;
-  defaultOpen?: boolean;
+  hotkey?: Hotkey;
   /** The words of every part inside it; a part's own `translations` win for that part. */
   translations?: Partial<PreferencesTranslations>;
 }
 
-function PreferencesRoot({ children, hotkey, defaultOpen = false, translations }: PreferencesRootProps) {
-  const [open, setOpen] = React.useState(defaultOpen);
-
-  useHotkey(hotkey, () => setOpen((o) => !o));
+function PreferencesRoot(props: PreferencesRootProps) {
+  const { children, hotkey, translations, ...rest } = props;
 
   // Non-modal so the app stays interactive and re-skins live behind the panel — no backdrop, no
-  // scroll lock, no focus trap. But it still closes on an outside click, because that is what a
-  // panel is expected to do and the alternative surprises people far more often than it helps.
-  //
-  // It used to pin `closeOnInteractOutside={false}` so you could click around the app and watch it
-  // re-skin. That case survives: the hotkey reopens it where you left off, and the live preview was
-  // never the reason to keep it open — every change applies on selection, not on close.
+  // scroll lock, no focus trap. It still closes on an outside click, because that is what a panel is
+  // expected to do; the hotkey reopens it, and every change applies on selection, not on close.
   //
   // `closeOnInteractOutside` is passed explicitly, and has to be. Zag derives its default from
   // `modal` (`closeOnInteractOutside: modal && !alertDialog` in dialog.machine.js), so a non-modal
-  // dialog is non-dismissable *by default* — dropping the old explicit `false` changed nothing at
-  // all. The two props look independent and are not.
+  // dialog is non-dismissable *by default*. The two props look independent and are not.
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(e) => setOpen(e.open)}
-      modal={false}
-      closeOnInteractOutside={true}
-    >
+    <Dialog modal={false} closeOnInteractOutside={true} {...rest}>
+      {hotkey ? <DialogHotkey hotkey={hotkey} /> : null}
       <Words.Provider value={translations}>{children}</Words.Provider>
     </Dialog>
   );

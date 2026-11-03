@@ -29,6 +29,7 @@ jobs:
   # showcase in Chromium, through the same harnesses a host's suite uses. It needs what `verify` does
   # not run — a corpus written by fossil's executor, a `next start` to talk to, and a browser — so it
   # is a job of its own. WebGL is SwiftShader's, Chromium's software renderer: a runner has no GPU.
+  # The docs' end-to-end checks (`docs/scripts/*.e2e.mjs`) need the same server, so they run here too.
   harnesses:
     name: harnesses
     runs-on: ubuntu-latest
@@ -37,8 +38,11 @@ jobs:
       - uses: ./.github/actions/setup
       - run: pnpm build
       - run: pnpm --filter @kanzo-tech/docs corpus
-      - name: Chromium
-        run: pnpm --filter @kanzo-tech/testing exec playwright-core install --with-deps chromium-headless-shell
+      # Firefox is the navigation guard's. WebKit is not run here: Linux WebKit is not Safari, the
+      # coverage table's Safari rows are measured in Safari, and on this runner its dialog dismissal
+      # failed on a different trigger in each of two runs (#259) while passing on macOS.
+      - name: Browsers
+        run: pnpm --filter @kanzo-tech/testing exec playwright-core install --with-deps chromium-headless-shell firefox
       - name: Serve the docs
         run: |
           pnpm --filter @kanzo-tech/docs start > "$RUNNER_TEMP/next.log" 2>&1 &
@@ -47,6 +51,10 @@ jobs:
       - run: pnpm --filter @kanzo-tech/testing test:e2e
         env:
           KANZO_DOCS_URL: http://localhost:3100
+      - name: Chat frame
+        run: node docs/scripts/chat-frame.e2e.mjs
+      - name: Navigation guard
+        run: node docs/scripts/navigation-guard.e2e.mjs --engines chromium,firefox
 
   # The server halves. A realm that applies but puts the roles somewhere else is worth
   # nothing, so the auth job proves the claim contract on a live token — the same

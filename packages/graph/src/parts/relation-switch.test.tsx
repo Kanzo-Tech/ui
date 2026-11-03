@@ -74,17 +74,6 @@ describe("a pick when the dashboard switches relation", { timeout: 60_000 }, () 
         disconnect() {}
       },
     );
-    vi.stubGlobal(
-      "IntersectionObserver",
-      class {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-        takeRecords() {
-          return [];
-        }
-      },
-    );
     const computed = window.getComputedStyle.bind(window);
     vi.spyOn(window, "getComputedStyle").mockImplementation((element, pseudo) => {
       const style = computed(element, pseudo);
