@@ -1,6 +1,6 @@
 "use client";
 
-import { blockers, bypass, evaluate, locationOf, type Blocker } from "./registry";
+import { blockers, bypass, guard, locationOf, type Blocker } from "./registry";
 import type { HistoryAction } from "./types";
 
 /**
@@ -80,17 +80,10 @@ function onNavigate(raw: Event) {
   // Browser UI, and a traversal with no history-action activation left: the platform decides.
   if (!event.cancelable) return;
 
-  const verdict = evaluate({
-    current: locationOf(location.href),
-    next: locationOf(event.destination.url),
-    action: actionOf(event, navigation),
-  });
-  if (verdict === false) return;
-  event.preventDefault();
-  if (verdict === true) return;
-  void verdict.then((block) => {
-    if (!block) replay(event, navigation);
-  });
+  guard(
+    { current: locationOf(location.href), next: locationOf(event.destination.url), action: actionOf(event, navigation) },
+    { cancel: () => event.preventDefault(), replay: () => replay(event, navigation) },
+  );
 }
 
 function onBeforeUnload(event: BeforeUnloadEvent) {

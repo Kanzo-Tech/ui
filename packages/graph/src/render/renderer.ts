@@ -195,7 +195,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     if (dirty.state && geometry) {
       dirty.state = false;
       graph.setConfigPartial({
-        ...highlighted(geometry, snapshot.kept),
+        ...highlighted(snapshot),
         focusedPointIndex: snapshot.focus === null || snapshot.focus >= geometry.size ? undefined : snapshot.focus,
       });
     }

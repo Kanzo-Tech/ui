@@ -135,7 +135,7 @@ describe("the page's crossfilter, as properties of kept", () => {
           // The toolbar's count and what `frame()` fits.
           expect(store.visible()).toEqual(keptPlaced);
           // The canvas colours exactly kept: of what it draws, that is kept and placed.
-          const coloured = highlighted(snapshot.geometry!, snapshot.kept).highlightedPointIndices ?? [];
+          const coloured = highlighted(snapshot).highlightedPointIndices ?? [];
           expect(coloured.filter((id) => Number.isFinite(snapshot.geometry!.positions[id * 2]))).toEqual(keptPlaced);
         }
         expect(snapshot.drawn?.placed.reduce((a, n) => a + n, 0)).toBe((await oracle(corpus, [], true)).length);

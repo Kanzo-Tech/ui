@@ -50,13 +50,8 @@ describe("the look axes", () => {
   });
 
   it("draws what a graph drew before any of this existed, when nothing is stored", () => {
-    // The defaults live in the manifest, in the reader, and in `useGraph`'s fallback. Three places,
-    // so this is the one thing that would catch them disagreeing.
     expect(lookFrom()).toEqual(ATLAS);
     expect(DEFAULT_LOOK).toEqual(ATLAS);
-    for (const [key, decl] of Object.entries(GRAPH_SECTION.prefs ?? {})) {
-      expect(lookFrom({ [key]: decl.default }), key).toEqual(ATLAS);
-    }
   });
 
   it("declines a value it did not offer, rather than reading it", () => {
@@ -68,14 +63,11 @@ describe("the look axes", () => {
     expect(lookFrom({ "additive-links": "yes" }).link.blend, "only `true` is on").toBe(false);
   });
 
-  it("simulates what a graph simulated before any of this existed", () => {
-    // `simFrom`'s half of the claim above. Its defaults are tuned for a few hundred nodes and a
-    // corpus two orders of magnitude larger wants other numbers, which reach a user as the tenant's
-    // starting point rather than as a different default.
-    expect(DEFAULT_SIM).toEqual(simFrom());
-    for (const [key, decl] of Object.entries(GRAPH_SECTION.prefs ?? {})) {
-      expect(simFrom({ [key]: decl.default }), key).toEqual(DEFAULT_SIM);
-    }
+  it("simulates what a graph simulated before any of this existed, when nothing is stored", () => {
+    const sim = { gravity: 0.14, repulsion: 1.1, linkSpring: 0.6, linkDistance: 18, friction: 0.86, cluster: 0.1 };
+    expect(simFrom()).toEqual(sim);
+    expect(DEFAULT_SIM).toEqual(sim);
+    expect(simFrom({ gravity: "not a number" })).toEqual(sim);
   });
 
   it("declares every axis a reader reads, and exactly one reader reads each", () => {

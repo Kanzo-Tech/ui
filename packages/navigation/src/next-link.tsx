@@ -3,7 +3,7 @@
 import NextLink from "next/link";
 import { useRouter as useNextRouter } from "next/navigation";
 import { useRef, type ComponentProps } from "react";
-import { evaluate, locationOf } from "./registry";
+import { guard, locationOf } from "./registry";
 
 type LinkProps = ComponentProps<typeof NextLink>;
 type Href = LinkProps["href"];
@@ -66,19 +66,17 @@ export function Link(props: LinkProps) {
         if (prevented) return;
 
         const target = hrefOf(as ?? href);
-        const verdict = evaluate({
-          current: locationOf(location.href),
-          next: locationOf(clicked.current ?? target, location.href),
-          action: replace ? "REPLACE" : "PUSH",
-        });
-        if (verdict === false) return;
-        event.preventDefault();
-        if (verdict === true) return;
-        void verdict.then((block) => {
-          if (block) return;
-          if (replace) router.replace(target, { scroll });
-          else router.push(target, { scroll });
-        });
+        guard(
+          {
+            current: locationOf(location.href),
+            next: locationOf(clicked.current ?? target, location.href),
+            action: replace ? "REPLACE" : "PUSH",
+          },
+          {
+            cancel: () => event.preventDefault(),
+            replay: () => (replace ? router.replace(target, { scroll }) : router.push(target, { scroll })),
+          },
+        );
       }}
     />
   );

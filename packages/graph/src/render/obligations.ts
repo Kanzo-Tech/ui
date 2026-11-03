@@ -14,7 +14,7 @@ import { lookFrom, SHAPE_ORDER, SHAPE_OTHER, type Look } from "./graph-looks";
  * asymmetry made "are these two the same kind of thing?" an argument. With both sections reporting,
  * it is an observation.
  *
- * **What `OBLIGATIONS` does not do.** It grades constants of ours — the shape scale and the three
+ * **What `FORM_OBLIGATIONS` does not do.** It grades constants of ours — the shape scale and the three
  * shipped forms — so it cannot fail at runtime for a consumer; it is the section's own claim about
  * itself, checked in CI. `gradeComposition` is the half that *can* fail for a consumer, because
  * what it grades is what the caller composed.
@@ -96,7 +96,7 @@ export function gradeComposition(look: Look, channels: Channels): Check | null {
   return { ...SHAPE_FLOOR, measured, threshold, ok: measured >= threshold };
 }
 
-export const OBLIGATIONS: readonly Obligation[] = [
+export const FORM_OBLIGATIONS: readonly Obligation[] = [
   {
     id: "shape-capacity",
     subject: "distinguishable glyphs the scale can name, including the past-capacity one",
@@ -175,10 +175,10 @@ export interface Check extends Obligation {
  *
  * Ungradeable rows are skipped rather than defaulted to passing: a bar nobody has established
  * cannot be cleared, and reporting one as green is how a guard comes to test a corpus of zero.
- * `OBLIGATIONS.length - check().length` is the number of open questions this section has.
+ * `FORM_OBLIGATIONS.length - check().length` is the number of open questions this section has.
  */
 export function check(): Check[] {
-  return OBLIGATIONS.filter(
+  return FORM_OBLIGATIONS.filter(
     (o): o is Obligation & { measured: number; threshold: number } =>
       o.measured !== null && o.threshold !== null,
   ).map((o) => ({

@@ -7,7 +7,7 @@ import { Problem } from "@kanzo-tech/kernel";
 import { loadEncoding, loadGeometry, type Encoding, type Geometry } from "./load";
 import { readJoinGraph, withMapping, type JoinGraph } from "@kanzo-tech/relations";
 import { KEY, VERTICES, sizeOf, vertexTypes } from "./source";
-import { drawnOf, idsOf, keptOf, maskOf } from "./kept";
+import { drawnOf, idsOf, keptLinksOf, keptOf, maskOf } from "./kept";
 import { memo } from "./memo";
 import { createReads, type Kind } from "./reads";
 import { blank, type Arrangement, type GraphOptions, type GraphSnapshot, type DataStatus, type GraphStore, type PickSource } from "./state";
@@ -77,14 +77,12 @@ export function createGraph(initial: GraphOptions): GraphStore {
     () => [geometry, mask, snapshot.selection],
     () => keptOf(geometry?.size ?? 0, mask, snapshot.selection?.vertices ?? null, snapshot.selection?.excludes),
   );
+  const keptLinksNow = memo(() => [geometry, keptNow()], () => (geometry ? keptLinksOf(geometry.links, keptNow()) : null));
   const drawnNow = memo(
-    () => [geometry, encoding, keptNow()],
-    () => (geometry && encoding ? drawnOf(geometry, encoding, keptNow()) : null),
+    () => [geometry, encoding, keptLinksNow()],
+    () => (geometry && encoding ? drawnOf(geometry, encoding, keptNow(), keptLinksNow()) : null),
   );
-  const visibleNow = memo(
-    () => [keptNow(), geometry],
-    () => idsOf(keptNow(), geometry?.positions ?? null),
-  );
+  const visibleNow = memo(() => [keptNow(), geometry], () => idsOf(keptNow(), geometry?.positions ?? null));
 
   function statusOf(): DataStatus {
     if (failed || unrenderable) return "failed";
@@ -113,6 +111,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
       geometry,
       encoding,
       kept: keptNow(),
+      keptLinks: keptLinksNow(),
       arrangement,
       ...fields,
     };

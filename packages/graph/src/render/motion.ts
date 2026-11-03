@@ -1,7 +1,7 @@
 import { bindingOf } from "../core/channels";
 import { idsOf } from "../core/kept";
 import { carries, type Geometry } from "../core/load";
-import type { GraphOptions } from "../core/state";
+import type { GraphOptions, GraphSnapshot } from "../core/state";
 import type { JoinGraph } from "@kanzo-tech/relations";
 
 /**
@@ -41,18 +41,8 @@ export function placedByData(options: GraphOptions, { structure, geometry }: { s
 export const simulating = (options: GraphOptions, geometry: Geometry | null): boolean =>
   geometry !== null && !geometry.bound && (options.simulate ?? true);
 
-/**
- * What is kept, said to cosmos.gl, which greys links apart from points, so the links are said out
- * loud: those whose two ends are both kept.
- */
-export function highlighted(
-  geometry: Geometry,
-  kept: Uint8Array | null,
-): { highlightedPointIndices: number[] | undefined; highlightedLinkIndices: number[] | undefined } {
-  const points = idsOf(kept);
-  if (points === null || kept === null) return { highlightedPointIndices: undefined, highlightedLinkIndices: undefined };
-  const linkIds: number[] = [];
-  const { links } = geometry;
-  for (let e = 0; e < links.length / 2; e++) if (kept[links[2 * e] as number] && kept[links[2 * e + 1] as number]) linkIds.push(e);
-  return { highlightedPointIndices: points, highlightedLinkIndices: linkIds };
-}
+/** What is kept, said to cosmos.gl, which greys links apart from points, so the kept links are said too. */
+export const highlighted = ({ kept, keptLinks }: Pick<GraphSnapshot, "kept" | "keptLinks">) => ({
+  highlightedPointIndices: idsOf(kept) ?? undefined,
+  highlightedLinkIndices: keptLinks ?? undefined,
+});

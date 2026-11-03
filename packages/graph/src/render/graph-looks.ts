@@ -18,6 +18,8 @@
 // presets, and "customised" was the state most readers ended in. Cosmograph's configuration and Gephi
 // Lite's appearance panel offer the axes alone, with good defaults, and so does this package.
 
+import { GRAPH_SECTION } from "../section";
+
 /**
  * The glyphs this canvas draws — **by name**, because a name is what the concept is.
  *
@@ -70,7 +72,7 @@ export const SHAPE_INDEX: Record<Shape, number> = {
  * doi:10.1145/3290605.3300899) measured 16 shapes across 6 mark sizes from 6 to 50 px and found
  * shape discrimination *robust* to size: the only significant variation is at 6 px, and it is 4.5
  * accuracy points against 50 px. The conclusion survived the argument that was given for it, which
- * is the most dangerous shape a comment can have — see `OBLIGATIONS` in `./obligations.ts` for what
+ * is the most dangerous shape a comment can have — see `FORM_OBLIGATIONS` in `./obligations.ts` for what
  * the floor actually protects.
  */
 export const SHAPE_ORDER: Shape[] = ["circle", "square", "triangle", "diamond"];
@@ -86,8 +88,6 @@ export const SHAPE_OTHER: Shape = "cross";
 
 /** How much text the canvas carries, least to most — Cosmograph's label model as one scale. */
 export type LabelLevel = "none" | "hovered" | "top" | "visible" | "all";
-
-const LEVELS: readonly LabelLevel[] = ["none", "hovered", "top", "visible", "all"];
 
 /**
  * The geometry a canvas draws — and nothing else.
@@ -206,13 +206,15 @@ export interface Look {
  * default. Those defaults are what a graph drew before any of this existed.
  */
 export function lookFrom(values: Readonly<Record<string, string | undefined>> = {}): Look {
-  const on = (key: string, fallback: boolean) => {
-    const value = values[key];
-    return value === undefined ? fallback : value === "true";
+  const { prefs } = GRAPH_SECTION;
+  const on = (key: "additive-links" | "vignette" | "grid") => (values[key] ?? prefs[key].default) === "true";
+  const chosen = (key: "marks" | "edges" | "labels"): string => {
+    const options: readonly { value: string }[] = prefs[key].options;
+    return options.some((o) => o.value === values[key]) ? (values[key] as string) : prefs[key].default;
   };
-  const legible = values.marks === "legible";
-  const edges = values.edges === "hidden" || values.edges === "straight" ? values.edges : "curved";
-  const labels = LEVELS.find((level) => level === values.labels) ?? "top";
+  const legible = chosen("marks") === "legible";
+  const edges = chosen("edges");
+  const labels = chosen("labels") as LabelLevel;
   return {
     size: legible ? [4, 13] : [2, 8],
     link: {
@@ -223,14 +225,14 @@ export function lookFrom(values: Readonly<Record<string, string | undefined>> = 
       // of 0.5 reads as one pinwheel. A choice rather than a range because a reader wants two
       // pictures — straight, and told apart — not a number to tune.
       curve: edges === "curved" ? 0.12 : 0,
-      blend: on("additive-links", false),
+      blend: on("additive-links"),
       // Shared by every form. It was three ranges within ±10% of each other, which is the
       // definition of a field nobody chose.
       fade: [200, 1400],
     },
     labels,
-    vignette: on("vignette", false),
-    grid: on("grid", true),
+    vignette: on("vignette"),
+    grid: on("grid"),
   };
 }
 
