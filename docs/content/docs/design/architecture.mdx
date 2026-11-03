@@ -368,8 +368,6 @@ list, and the list should be a rule of its own.
   `@kanzo-tech/ui/data-table`, `@kanzo-tech/ui/editor` is `@kanzo-tech/ui/code-editor`, and
   `@kanzo-tech/graph/section` is `@kanzo-tech/graph/prefs`, exporting `GRAPH_PREFS`.
 - `SectionManifest` and `SectionProvider` are `PrefsManifest` and `PrefsProvider`.
-- `ui/analytics` no longer re-exports Mosaic's names: import `Selection`, `Query` and the loaders
-  from `@kanzo-tech/mosaic`, and the engine from `@kanzo-tech/mosaic/engine`.
 - Tuning constants are no longer exported; read the pref that replaces each one.
 - `@kanzo-tech/ai` no longer requires `@kanzo-tech/ui` or `@ai-sdk/react` to import `ai/task`.
 - `registerChartForTesting` and its graph twin are gone; `@kanzo-tech/testing` observes the library's
