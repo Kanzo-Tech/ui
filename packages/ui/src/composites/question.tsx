@@ -5,6 +5,7 @@ import { useFieldsetContext, type UseFieldsetContext } from "@ark-ui/react/field
 import * as React from "react";
 import { tv } from "tailwind-variants";
 import { cn } from "../lib/cn.js";
+import { useHotkey } from "../lib/use-hotkey.js";
 import { Checkbox, CheckboxGroup } from "../simples/checkbox.js";
 import {
   FieldLegend,
@@ -202,40 +203,18 @@ export function Question(props: QuestionProps) {
     onValueChange?.({ value: next });
   };
 
-  // No dependency array on purpose: the handler reads the answer and the choice list of THIS
-  // render, and a listener held across an answer would toggle against a stale array. One
-  // add/remove per render is cheaper than the ref dance that would avoid it.
-  React.useEffect(() => {
-    if (!current || !shortcuts || values.length === 0) return;
-
-    const onKey = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      const active = document.activeElement;
-      // A radio and a checkbox are `<input>` too, and Ark keeps focus on the hidden one — so
-      // "focus is in an input" would switch the shortcuts off as soon as a choice was clicked.
-      const typing =
-        active instanceof HTMLElement &&
-        (active.isContentEditable ||
-          active.tagName === "TEXTAREA" ||
-          (active instanceof HTMLInputElement &&
-            active.type !== "checkbox" &&
-            active.type !== "radio"));
-      if (typing) return;
-
-      const hit = values[Number(event.key) - 1];
-      if (hit === undefined) return;
-      event.preventDefault();
-
-      if (!question.multiple) {
-        setAnswer(hit);
-        return;
-      }
-      const list = Array.isArray(answer) ? answer : [];
-      setAnswer(list.includes(hit) ? list.filter((chosen) => chosen !== hit) : [...list, hit]);
-    };
-
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+  // Only the first nine: `10` is two keystrokes and there is no chord worth inventing for a tenth
+  // option — a question with that many is a `Select`, not a questionnaire.
+  const keys = current && shortcuts ? values.slice(0, 9).map((_, i) => String(i + 1)) : undefined;
+  useHotkey(keys, (key) => {
+    const hit = values[Number(key) - 1];
+    if (hit === undefined) return;
+    if (!question.multiple) {
+      setAnswer(hit);
+      return;
+    }
+    const list = Array.isArray(answer) ? answer : [];
+    setAnswer(list.includes(hit) ? list.filter((chosen) => chosen !== hit) : [...list, hit]);
   });
 
   const context: QuestionContextValue = {
@@ -245,8 +224,6 @@ export function Question(props: QuestionProps) {
     setAnswer,
     shortcutOf: (choice) => {
       const position = values.indexOf(choice);
-      // Only the first nine: `10` is two keystrokes and there is no chord worth inventing for a
-      // tenth option — a question with that many is a `Select`, not a questionnaire.
       return shortcuts && position >= 0 && position < 9 ? String(position + 1) : undefined;
     },
     translations: { ...ENGLISH, ...sequence?.translations, ...translations },

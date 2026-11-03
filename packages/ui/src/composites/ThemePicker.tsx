@@ -5,6 +5,7 @@ import { RadioGroup as ArkRadioGroup } from "@ark-ui/react/radio-group";
 import type { Appearance, ThemeOption } from "@kanzo-tech/theme";
 import { InfoIcon, MoonIcon, SunIcon } from "lucide-react";
 import { cn } from "../lib/cn.js";
+import { useHotkey } from "../lib/use-hotkey.js";
 import { Alert, AlertDescription, AlertTitle } from "../simples/alert.js";
 import { Badge } from "../simples/badge.js";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../simples/tooltip.js";
@@ -240,14 +241,12 @@ function ThemeSwatches({ side, themes, value, labelledBy, onCommit, onPreview }:
   const tabbable = focused ?? Math.max(0, themes.findIndex((theme) => theme.value === value));
 
   // Escape is caught on `window`, ahead of the tooltip: an open tooltip closes on a capturing
-  // `document` listener that stops the key there, so a handler on the row would never hear it.
-  const focusedInside = focused !== null;
-  React.useEffect(() => {
-    if (!focusedInside) return;
-    const onEscape = (e: KeyboardEvent) => e.key === "Escape" && onPreview(null);
-    window.addEventListener("keydown", onEscape, true);
-    return () => window.removeEventListener("keydown", onEscape, true);
-  }, [focusedInside, onPreview]);
+  // `document` listener that stops the key there, so a handler on the row would never hear it. It
+  // only observes: the dialog around the picker still closes on the same key.
+  useHotkey(focused === null ? undefined : "Escape", () => onPreview(null), {
+    capture: true,
+    preventDefault: false,
+  });
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     const step = STEP[e.key];

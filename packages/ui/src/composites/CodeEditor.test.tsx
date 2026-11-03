@@ -1,5 +1,5 @@
 import { EditorView } from "@codemirror/view";
-import { render, waitFor } from "@testing-library/react";
+import { act, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { KanzoThemeProvider } from "../theme/KanzoThemeProvider.js";
 import { type Tag, tags as t } from "@lezer/highlight";
@@ -142,5 +142,62 @@ describe("kanzoHighlightStyle", () => {
   it("weights a binding's declaration above its uses", () => {
     expect(rule(t.definition(t.variableName))).toContain("font-weight: 500");
     expect(rule(t.variableName)).not.toContain("font-weight");
+  });
+});
+
+describe("a value the parent hands the editor", () => {
+  beforeEach(() => stubMatchMedia(false));
+
+  // CodeMirror reports focus 10 ms after the event, and that report is what the editor reconciles on.
+  const focused = () =>
+    document.querySelector("[data-slot=code-editor-surface]")?.hasAttribute("data-focused") ?? false;
+
+  async function mount(value: string) {
+    let view: EditorView | null = null;
+    const onChange = vi.fn();
+    const tree = (next: string) => (
+      <CodeEditor value={next} onChange={onChange} onView={(v) => (view = v)} />
+    );
+    const result = render(tree(value));
+    await waitFor(() => expect(view).not.toBeNull());
+    const editor = view as unknown as EditorView;
+    return {
+      editor,
+      onChange,
+      rerender: (next: string) => result.rerender(tree(next)),
+      doc: () => editor.state.doc.toString(),
+    };
+  }
+
+  it("is applied at once while the editor is unfocused, and is not reported back as a change", async () => {
+    const { doc, onChange, rerender } = await mount("a wyrm");
+    rerender("a mimic");
+    await waitFor(() => expect(doc()).toBe("a mimic"));
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("waits while the editor has focus, and is applied on blur", async () => {
+    const { doc, editor, onChange, rerender } = await mount("a wyrm");
+    act(() => editor.focus());
+    await waitFor(() => expect(focused()).toBe(true));
+
+    rerender("a mimic");
+    expect(doc()).toBe("a wyrm");
+
+    act(() => editor.contentDOM.blur());
+    await waitFor(() => expect(doc()).toBe("a mimic"));
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("does not put back, on blur, a value the parent never changed over what was typed", async () => {
+    const { doc, editor, onChange } = await mount("a wyrm");
+    act(() => editor.focus());
+    await waitFor(() => expect(focused()).toBe(true));
+    act(() => editor.dispatch({ changes: { from: 0, insert: "not " } }));
+    expect(onChange).toHaveBeenCalledWith("not a wyrm");
+
+    act(() => editor.contentDOM.blur());
+    await waitFor(() => expect(focused()).toBe(false));
+    expect(doc()).toBe("not a wyrm");
   });
 });

@@ -5,7 +5,7 @@ import {
   type SectionManifest,
   type ThemePrefs,
 } from "@kanzo-tech/theme";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -228,6 +228,50 @@ describe("Preferences", () => {
       expect(screen.getByRole("heading", { name: "Preferencias" })).toBeTruthy();
       expect(screen.getByRole("button", { name: "Hecho" })).toBeTruthy();
       expect(screen.getByRole("button", { name: "Abrir preferencias" })).toBeTruthy();
+    });
+  });
+
+  describe("the root is Ark's Dialog root", () => {
+    // Ark's presence keeps a closing panel mounted until its exit animation ends, which jsdom never runs.
+    const shown = () => screen.queryByRole("dialog")?.getAttribute("data-state") === "open";
+
+    it("toggles on its hotkey uncontrolled, and still does once a card has focus", async () => {
+      const user = userEvent.setup();
+      render(
+        <KanzoThemeProvider>
+          <PreferencesRoot hotkey="t">
+            <PreferencesPanel />
+          </PreferencesRoot>
+        </KanzoThemeProvider>,
+      );
+      expect(shown()).toBe(false);
+      await user.keyboard("t");
+      expect(shown()).toBe(true);
+
+      const density = screen.getByRole("radiogroup", { name: /density/i });
+      await user.click(within(density).getAllByRole("radio")[0] as HTMLElement);
+      expect((document.activeElement as HTMLInputElement | null)?.type).toBe("radio");
+      await user.keyboard("t");
+      expect(shown()).toBe(false);
+    });
+
+    it("shows what a parent controls, and its hotkey asks the parent rather than opening itself", async () => {
+      const user = userEvent.setup();
+      const onOpenChange = vi.fn();
+      const tree = (open: boolean) => (
+        <KanzoThemeProvider>
+          <PreferencesRoot hotkey="t" onOpenChange={onOpenChange} open={open}>
+            <PreferencesPanel />
+          </PreferencesRoot>
+        </KanzoThemeProvider>
+      );
+      const { rerender } = render(tree(false));
+      await user.keyboard("t");
+      expect(onOpenChange).toHaveBeenCalledWith(expect.objectContaining({ open: true }));
+      expect(shown()).toBe(false);
+
+      rerender(tree(true));
+      await waitFor(() => expect(shown()).toBe(true));
     });
   });
 
