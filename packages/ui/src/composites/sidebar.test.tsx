@@ -9,7 +9,7 @@ import {
 } from "./sidebar.js";
 import { parseSidebarCookie, SIDEBAR_COOKIE_NAME } from "./sidebar-cookie.js";
 
-// jsdom ships no `matchMedia`; stub it per-file (do not edit vitest.setup.ts). Its `innerWidth`
+// jsdom ships no `matchMedia`; stub it per-file (do not edit `@kanzo-tech/testing/jsdom`). Its `innerWidth`
 // is 1024, so the provider takes the desktop branch.
 beforeEach(() => {
   Object.defineProperty(window, "matchMedia", {

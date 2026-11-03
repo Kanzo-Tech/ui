@@ -23,7 +23,7 @@ import { CodeEditor, kanzoHighlightStyle } from "./CodeEditor.js";
  *   oversight — but it is untested here because there is nothing to read it from.
  */
 
-// jsdom ships no `matchMedia`; stub it per-file (do not edit vitest.setup.ts).
+// jsdom ships no `matchMedia`; stub it per-file (do not edit `@kanzo-tech/testing/jsdom`).
 const stubMatchMedia = (matches = false) =>
   Object.defineProperty(window, "matchMedia", {
     configurable: true,

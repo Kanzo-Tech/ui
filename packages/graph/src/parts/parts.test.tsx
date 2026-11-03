@@ -1,6 +1,6 @@
 import { clauseInterval, Selection } from "@kanzo-tech/mosaic";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { attach, refusal, settle, type Attached } from "../../test/corpus";
 import { GraphRoot, useGraphContext } from "../react/graph-root";
 import { internalsOf, type GraphApi } from "../react/use-graph";
@@ -33,15 +33,6 @@ function Hold({ into }: { into: { api: GraphApi | null } }) {
 /** The root's two source props, for an attached corpus. */
 const over = (corpus: Attached) => ({ from: corpus.from, engine: corpus.engine });
 const ready = (corpus: Attached) => act(() => settle(corpus));
-const noResize = () =>
-  vi.stubGlobal(
-    "ResizeObserver",
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    },
-  );
 
 describe("GraphLegend", () => {
   it("draws the domain before the graph has loaded, named by the root", async () => {
@@ -413,13 +404,6 @@ describe("GraphInspector", () => {
 });
 
 describe("GraphSearch", () => {
-  beforeEach(() => {
-    noResize();
-    // zag finds an option by `CSS.escape`, which jsdom does not ship.
-    vi.stubGlobal("CSS", { escape: (value: string) => String(value).replace(/[^a-zA-Z0-9_-]/g, (c) => `\\${c}`) });
-  });
-  afterEach(() => vi.unstubAllGlobals());
-
   async function searching(onFailure = () => {}) {
     const corpus = await attach();
     const held: { api: GraphApi | null } = { api: null };
@@ -573,9 +557,6 @@ describe("GraphSearch", () => {
 });
 
 describe("GraphCanvas", () => {
-  beforeEach(noResize);
-  afterEach(() => vi.unstubAllGlobals());
-
   it("hands onFailure the thrown value when a label's read rejects", async () => {
     const corpus = await attach();
     const refused = refusal();

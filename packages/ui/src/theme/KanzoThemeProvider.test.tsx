@@ -23,7 +23,7 @@ function Probe({ onValue }: { onValue: (v: ReturnType<typeof useKanzoTheme>) => 
 
 /**
  * jsdom ships no `matchMedia`. This stub is live: `set()` flips `matches` AND fires the listeners,
- * which is the only way to exercise the OS-change path (do not edit vitest.setup.ts).
+ * which is the only way to exercise the OS-change path (do not edit `@kanzo-tech/testing/jsdom`).
  */
 function stubMatchMedia(dark = false) {
   const listeners = new Set<() => void>();

@@ -87,7 +87,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
-    setupFiles: ["./vitest.setup.ts"],
+    setupFiles: ["@kanzo-tech/testing/jsdom"],
     // Vitest's default is 5 s, which is not a budget anyone here chose. The slowest honest
     // test in this suite (Preferences pressing its Colour card) takes 2.83 s on a quiet
     // machine, and the whole run costs 39 s; under a loaded one — `pnpm test` alone

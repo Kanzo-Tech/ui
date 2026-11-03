@@ -50,19 +50,11 @@ vi.mock("../react/use-graph", async (actual) => {
 const mounted = () => document.querySelectorAll("[data-slot=graph-canvas-label]").length;
 
 beforeEach(() => {
-  vi.stubGlobal(
-    "ResizeObserver",
-    class {
-      observe() {}
-      disconnect() {}
-    },
-  );
   vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(WIDTH);
   vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(HEIGHT);
   vi.mocked(readTitles).mockClear();
 });
 afterEach(() => {
-  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
