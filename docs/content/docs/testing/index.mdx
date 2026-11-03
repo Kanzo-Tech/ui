@@ -60,6 +60,11 @@ nothing out and has no WebGL, so what a harness reads there is the ARIA: a chart
 to draw at and stays busy, and a graph canvas has no renderer. Brushes, picks and lassos are for a
 browser.
 
+**`@kanzo-tech/testing/jsdom`** is the setup file such a suite names in vitest's `setupFiles`. It
+defines what jsdom lacks and the components call — `CSS.escape`, `ResizeObserver`,
+`IntersectionObserver`, a `Range`'s rectangles — only where absent, and after each test unmounts what
+Testing Library rendered. A test that needs an observer to report replaces it with `vi.stubGlobal`.
+
 ## The environment
 
 `env.getHarness(query)` resolves with the first component that matches, **waiting for it** to be in the
