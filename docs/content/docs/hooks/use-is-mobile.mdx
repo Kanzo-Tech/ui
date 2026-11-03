@@ -39,7 +39,7 @@ is deliberate — it is what keeps the markup identical on both sides — but it
 branch always renders second:
 
 - Nothing that must not flash may be gated on it alone. Wrap in
-  [`ClientOnly`](/docs/layout/client-only) when the swap would be visible.
+  [`ClientOnly`](/docs/layout/rendering#clientonly) when the swap would be visible.
 - Layout that can be expressed in CSS should be. A Tailwind `md:` variant costs no render and
   never flashes; the hook is for when the two branches are *different components*, not different
   widths.

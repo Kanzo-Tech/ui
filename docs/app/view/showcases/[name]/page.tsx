@@ -66,5 +66,5 @@ export default async function Page(props: { params: Promise<{ name: string }> })
 
 export async function generateMetadata(props: { params: Promise<{ name: string }> }) {
   const { name } = await props.params;
-  return { title: `${name} — Kanzo UI showcase` };
+  return { title: `${name} showcase` };
 }
