@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ALT_ROWS, ChartAlternative, readAlternatives, type AlternativeMark } from "./chart-alternative.js";
 import { ChartBarY } from "./chart-marks.js";
 import { ChartRoot } from "./chart-root.js";
+import { LocaleProvider } from "../simples/locale.js";
 import { MosaicProvider } from "./mosaic-provider.js";
 
 const columns = (rows: Record<string, unknown>[]): AlternativeMark["data"] => ({
@@ -53,7 +54,7 @@ describe("ChartAlternative", () => {
     const grid = screen.getByRole("table", { name: "Sightings by region" });
     expect(within(grid).getAllByRole("columnheader").map((c) => c.textContent)).toEqual(["region", "n"]);
     expect(within(grid).getAllByRole("rowheader").map((c) => c.textContent)).toEqual(["North", "South"]);
-    expect(within(grid).getAllByRole("cell").map((c) => c.textContent)).toEqual(["4", new Intl.NumberFormat().format(1234)]);
+    expect(within(grid).getAllByRole("cell").map((c) => c.textContent)).toEqual(["4", "1,234"]);
   });
 
   it("is a summary past ALT_ROWS: how many marks, the largest and the smallest", () => {
@@ -61,6 +62,16 @@ describe("ChartAlternative", () => {
     render(<ChartAlternative title="Many" tables={[{ ...table, rows }]} />);
     expect(screen.queryByRole("table")).toBeNull();
     expect(screen.getByText(/^Many: 51 marks\. Largest: bar 50, 51\. Smallest: bar 0, 1\./)).toBeTruthy();
+  });
+
+  it("formats its figures in the page's locale, not the browser's", () => {
+    render(
+      <LocaleProvider locale="de-DE">
+        <ChartAlternative title="Sightings by region" tables={[table]} />
+      </LocaleProvider>,
+    );
+    const grid = screen.getByRole("table", { name: "Sightings by region" });
+    expect(within(grid).getAllByRole("cell").map((c) => c.textContent)).toEqual(["4", "1.234"]);
   });
 
   it("is nothing where nothing was drawn", () => {
