@@ -42,8 +42,7 @@ The repository rules are in `../CLAUDE.md`. What follows is true only here.
 
   Three things it costs, each answered where it lives rather than switched off:
   - **`basePath` reaches the client through one variable**, read by `next.config.ts` *and* by
-    every URL handed to DuckDB (`showcases/workspace/graph-view.tsx`, the benchmark's
-    `measure-viewer.ts`). `Link` and `next/image` prefix themselves; a string
+    every URL handed to DuckDB (`showcases/workspace/graph-view.tsx`). `Link` and `next/image` prefix themselves; a string
     handed to DuckDB does not, and a bare `/corpus/…` under `/ui` is a 404 with no error anywhere.
   - **Search is a file, not a server** — `staticGET` in `app/api/search/route.ts` and
     `search={{ options: { type: "static" } }}` on `RootProvider`. Both halves or neither: one alone
@@ -58,14 +57,10 @@ The repository rules are in `../CLAUDE.md`. What follows is true only here.
 - **The corpora are not in the repository; fossil's writer builds them.** Each is a GraphAr
   graph — `fossil.graph.yml` written last, `mapping.ttl`, and Parquet chunks per vertex and edge type, attached
   by `@kanzo-tech/graphar-duckdb`'s `attachGraph` — `.gitignore`d as
-  compiler output under `public/corpus/` (the workspace archive) and `public/bench/` (the
-  benchmark's). `@fossil-lang/executor`, a dev dependency, runs the `.fossil` programs in Node
+  compiler output under `public/corpus/` (the workspace archive). `@fossil-lang/executor`, a dev dependency, runs the `.fossil` programs in Node
   through `scripts/write-corpus.mjs`; there is no `fossil` CLI in the loop and no second writer.
   `pnpm --filter @kanzo-tech/docs corpus` writes the archive (1,543 vertices, 4,280 edges, about
-  37 kB) — `build:static` runs it first, so Pages serves the corpus it built. The benchmark's are
-  `node showcases/graph-bench/corpus/build-corpus.mjs [--sizes …]`, never built on CI; the million
-  fails inside the executor (a DataFusion memory-pool panic in the WASM), so 200,000 is the largest
-  there is until fossil fixes it.
+  37 kB) — `build:static` runs it first, so Pages serves the corpus it built.
   Ask's evaluation set has two more, `public/corpus/nobel` and `public/corpus/snb`, which
   `pnpm --filter @kanzo-tech/ai eval:corpus` writes from `fixtures/graphs` (the whole datasets
   the tests' checked-in samples come from) for

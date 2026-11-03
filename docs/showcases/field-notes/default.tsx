@@ -613,8 +613,8 @@ export function FieldNotesShowcase() {
    *
    * The table used to ring every invalid cell the moment it arrived, so a screen with six findings
    * spoke about them in two languages at once: six red boxes that nobody asked for, and a badge
-   * that marks the same six when pressed. One of them had to go, and it is the automatic one —
-   * `metadata-form` settled this on the form side and the rule is the same here: a finding shows
+   * that marks the same six when pressed. One of them had to go, and it is the automatic one:
+   * a finding shows
    * on a cell the reader has TOUCHED, because there it is feedback on what they just typed, and
    * everywhere else it waits for the badge. The `aria-invalid` attribute is on the control either
    * way; it is the ring that is gated, not the state.
@@ -796,7 +796,7 @@ export function FieldNotesShowcase() {
       {/*
         ONE row, and it was two.
 
-        The old arrangement was `metadata-form`'s: a `h-9` utility strip and then a page header
+        The old arrangement was a `h-9` utility strip and then a page header
         with a `scale="page"` title under it — 86 px of chrome over a screen whose every other
         surface is `text-xs`, and the word "Field notes" printed twice inside it. What a header
         owes here is the landmark, the verbs and the verdict; the size of the type was carrying
@@ -964,8 +964,7 @@ export function FieldNotesShowcase() {
         />
 
         <div className="flex min-w-0 flex-1">
-          {/* The same three-column workspace `metadata-form` builds, and the same mechanism the
-              workspace showcase's dock uses — there is no `Workspace` component in the library, only
+          {/* The same mechanism the workspace showcase's dock uses — there is no `Workspace` component in the library, only
               `Resizable` over Shell regions. Keyed on the open set so the panel model re-inits
               cleanly. Logical throughout: start/end, never left/right. */}
           {(() => {

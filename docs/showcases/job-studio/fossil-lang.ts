@@ -318,8 +318,7 @@ export function fossil(connections: Connection[]): Extension {
 //
 // The same regex reading as `analyse`, turned the other way round: instead of what is wrong with
 // the program, what it PRODUCES. This is what a review step is actually for — restating the
-// settings you just typed is not review, it is a receipt for a form. metadata-form's third column
-// shows generated Turtle and JSON-LD for the same reason.
+// settings you just typed is not review, it is a receipt for a form.
 
 export interface EmittedProperty {
   /** The predicate, as written: `ex:name`, `sosa:madeBySensor`. */

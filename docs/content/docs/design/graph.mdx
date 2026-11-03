@@ -576,8 +576,7 @@ while the data places the points, and offers it again when an axis is unbound".
 
 ## The viewer costs what cosmos.gl costs
 
-At 200,000 vertices, measured on 2026-09-30 with `graph-bench`'s `measureViewer` in a foreground
-window, the viewer's p95 frame interval was **9.0 ms against 9.3 ms for cosmos.gl alone** on the same
+At 200,000 vertices, measured on 2026-09-30 in a foreground window, the viewer's p95 frame interval was **9.0 ms against 9.3 ms for cosmos.gl alone** on the same
 positions and camera path; the gate is 15%. The difference had been ours, and each cause is now a
 rule:
 
@@ -620,7 +619,7 @@ every run's p50 and p95 frame interval is the no-grid run's to within 0.5 ms, an
 than the CSS layer it replaces on p95 interval and on renderer CPU. It is a frame-interval criterion,
 because that is what a reader feels; CPU is reported beside it and not hidden by it.
 
-Measured on 2026-10-14, a camera path of zoom in ×4 and a sweep (the one `measureViewer` drives), at
+Measured on 2026-10-14, a camera path of zoom in ×4 and a sweep, at
 1280×720, 200 frames a run, nine runs an arm, the arms rotated so none is always first. Chromium 151
 headless with **SwiftShader**, so no real GPU, on four vCPUs shared with a load average near 14: the
 figures are relative and the frame interval is capped at the 60 Hz vsync, 16.7 ms.
@@ -645,8 +644,7 @@ previous arm's teardown, 130 s on this machine, runs in the same process. **200,
 not be measured here**: the viewer never reached its first measured frame in eight minutes under
 SwiftShader, and 10,000 did not finish a 60-frame path in ten. 2,000 is the *strictest* scene
 available, since the grid is the largest share of a frame when the graph is the smallest, and a larger
-graph only dilutes it. `measureGrid` in `docs/showcases/graph-bench/measure-viewer.ts` is that
-comparison, grid off against on, to be run where there is a GPU; the isolated one behind the table
+graph only dilutes it. That comparison, grid off against on, is to be run where there is a GPU; the isolated one behind the table
 needed the CSS layer for its third arm, so it went with it.
 
 **It is not in the scene, and that was the proposal.** A fragment shader behind the points, in

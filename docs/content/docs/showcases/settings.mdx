@@ -1,6 +1,6 @@
 ---
 title: Settings
-description: The same preference sections as the floating drawer, rendered as a settings page with a sub-sidebar.
+description: The same preference sections on both surfaces — a settings page with a sub-sidebar, and the floating drawer its trigger opens.
 full: true
 ---
 
@@ -12,8 +12,8 @@ independent of the surface that hosts it.** Every control on that page is the id
 cards, density, and whatever the packages a host installed contribute. Not one is a settings-page variant of anything, and if one ever needs to be,
 the mechanism has failed.
 
-A product picks the surface, not the components. A light one wants the drawer — see
-[metadata form](/docs/showcases/metadata-form). A product with a real settings area wants this. Both
+A product picks the surface, not the components. A light one wants the
+[drawer](/docs/layout/preferences). A product with a real settings area wants this. Both
 are one registry and one resolution, and the library favours neither.
 
 ## The layout adapts itself, and the page does not tell it to
@@ -48,7 +48,7 @@ were already yours:
 
 | What | Which parts | Whose decision it is |
 | --- | --- | --- |
-| The preferences themselves, and what the installed packages add | `PreferencesSections` | The library's, and the host's at registration time. The identical export the [drawer](/docs/showcases/metadata-form) renders. Radius and the faces are the theme's, so nothing here offers them. |
+| The preferences themselves, and what the installed packages add | `PreferencesSections` | The library's, and the host's at registration time. The identical export the [drawer](/docs/layout/preferences) renders. Radius and the faces are the theme's, so nothing here offers them. |
 | The page | `SidebarProvider`, `Sidebar`, `SidebarInset`, `ShellMain`, `SectionRoot`, `SectionHeader` | Yours. A settings area is layout, and layout is where a product differs most. |
 | The settings menu | `ItemGroup`, `Item` with a `Button` inside each row | Yours. Shark ships no settings-nav component and this needs none — a compact list of rows with a media slot and a title is `Item`, and a **pressable row is a button inside the item**, never the item merged with one, or `role="listitem"` lands on the control and it stops being announced as one. |
 
@@ -56,8 +56,8 @@ Deliberately **not** the sidebar parts for that menu, though `SidebarMenuSub` ex
 rail's context and a rail's collapse behaviour, so a settings menu built from them would fold away
 with the product's rail beside it. The rail is a rail; this is a column of a page.
 
-A product with a couple of screens should take the drawer instead and be done —
-[metadata form](/docs/showcases/metadata-form) does, over the same theme, with the same components.
+A product with a couple of screens should take the [drawer](/docs/layout/preferences) instead and be
+done, over the same theme, with the same components.
 **Neither surface is the recommended one.** The reason the split is worth this much prose is that
 the moment a section knows which surface it is on, a product with both has two of everything.
 

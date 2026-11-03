@@ -803,13 +803,12 @@ export function JobStudioShowcase() {
 }
 
 /**
- * The tally and what it is made of — metadata-form's control, wearing the same chrome, fed by
- * this screen's analysis instead of a SHACL report. Deliberately not extracted into the library:
+ * The tally and what it is made of, fed by this screen's analysis. Deliberately not extracted into the library:
  * products produce errors and the library only displays them,
  * and these two issue models share almost nothing — one is keyed by form field with a label, the
  * other by document offset with a line number.
  *
- * One thing it does that metadata-form's cannot: every row jumps to its line. That is why the
+ * Every row jumps to its line. That is why the
  * editor no longer floats next/previous-problem buttons over itself.
  */
 function ValidationBadge({

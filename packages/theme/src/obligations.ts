@@ -65,8 +65,8 @@ export const OBLIGATIONS: readonly Obligation[] = [
     reason:
       "Every size in the library is `rem`, so the density axis multiplies every target. The " +
       "smallest control is `Button size=\"xs\"` at 1.5rem, which is exactly 24px at the default " +
-      "root and 21px at compact. Measured over the app-shell, workspace and metadata-form " +
-      "showcases at compact, **no `size=\"xs\"` button failed**: every undersized target was saved " +
+      "root and 21px at compact. Measured over three showcases (app-shell, workspace and a form) " +
+      "at compact, **no `size=\"xs\"` button failed**: every undersized target was saved " +
       "by 2.5.8's spacing exception. The eleven genuine failures were a hand-rolled 1.25rem list " +
       "row, and they fail at the default density too — see the docblock above on ownership.",
   },

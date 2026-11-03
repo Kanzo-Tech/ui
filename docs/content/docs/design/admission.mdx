@@ -404,9 +404,8 @@ compounds over `asChild` with two headless hooks, and this one.
 
 The other half was *no provider*, gated on "a real second consumer with shared AI state", and the
 gate opened. Every assisted field in a form asks the same model, is told the same thing about the form,
-reports to the same telemetry and speaks the same language. The metadata form has three such fields,
-and every form with a second assisted field is the same case; the two compounds made each field
-restate all four.
+reports to the same telemetry and speaks the same language. Every form with a second assisted field
+is that case, and the two compounds made each field restate all four.
 So the provider holds exactly those four and nothing per field; it renders no element. The engine is
 internal: the headless hooks had one caller each, both in this package.
 
@@ -501,17 +500,12 @@ Neither shape document we ship has recursive data, so a tree buys nothing over a
 boundary object exists and it is flat: `field-notes`' `Column` is what a real SHACL parse produces
 here — a key, an IRI, a label, an order, a type, a pattern, an option list and a required flag, one
 `sh:` characteristic each — and it survives the round trip to both other dialects intact, compiling
-into JSON Schema for a vision model and into one prose line per field. `discovery`'s `Relation` is the
-same thing without the constraints. Re-derive the nesting claim with
+into JSON Schema for a vision model and into one prose line per field. Re-derive the nesting claim with
 `grep -cE 'sh:(node|or|xone|and|not) ' docs/showcases/field-notes/shape.ts` — the trailing space
 matters, because a bare `sh:or` false-matches `sh:order`.
 
-**The case that does not fit:** `discovery`'s `Schema` *is* a hand-rolled schema display. That is one
-renderer where the rule above asks for two, and it is visibly below what a component could give —
-`discovery/data.ts` types its fields as strings with the name and the type crammed into one, so a
-component could not render them apart without that call site being rewritten first. Two showcases that
-look like they should count do not: `metadata-form` holds no shape at all, and `field-notes` shows its
-shape as **source**, in a `CodeEditor`, editable, so that the panel and the engine cannot drift apart.
+The one showcase that looks like it should count does not: `field-notes` shows its shape as
+**source**, in a `CodeEditor`, editable, so that the panel and the engine cannot drift apart.
 A display cannot be an editor, so replacing it would mean overturning a stated design reason to
 manufacture the missing call site.
 
@@ -519,8 +513,8 @@ manufacture the missing call site.
 for the flat case. fossil's outline gaining nesting and a type is the same condition reached from the
 other side.
 
-*Held by* `docs/showcases/field-notes/rudof.ts`, `Column`; `docs/showcases/discovery/data.ts`,
-`Relation`; `packages/ui/src/simples/tree-view.tsx`, `TreeViewItem`.
+*Held by* `docs/showcases/field-notes/rudof.ts`, `Column`; `packages/ui/src/simples/tree-view.tsx`,
+`TreeViewItem`.
 
 ## A question is one part, in `@kanzo-tech/ui`
 

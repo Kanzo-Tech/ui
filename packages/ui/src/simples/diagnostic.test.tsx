@@ -134,7 +134,7 @@ describe("Diagnostic", () => {
    * A list of six aligns because the **title** is `basis-0` and `truncate`, not because the header
    * refuses to wrap: with `basis-0` nothing forces a break, so a header that fits is one line
    * either way. What `flex-nowrap` actually did was make the title 0 px wide in a narrow column —
-   * measured at 143 px on the metadata-form panel, the title starting 72 px past the header's own
+   * measured at 143 px on a form's findings panel, the title starting 72 px past the header's own
    * right edge. The two assertions below are the alignment rule; the wrap is what happens when
    * alignment is no longer possible.
    */

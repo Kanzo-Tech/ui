@@ -21,7 +21,11 @@ import {
   ItemGroup,
   ItemMedia,
   ItemTitle,
+  PreferencesField,
+  PreferencesPanel,
+  PreferencesRoot,
   PreferencesSections,
+  PreferencesTrigger,
   SectionDescription,
   SectionHeader,
   SectionRoot,
@@ -45,23 +49,27 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarRail,
+  SegmentGroup,
+  Show,
 } from "@kanzo-tech/ui";
+import { useState } from "react";
 // The one running example the docs speak — a settings page belongs to somebody, and inventing a
 // second cast for it would be a second world for a reader to learn.
 import { initialsOf, VIEWER } from "@/example/people";
 import { HOME_HALL, hall } from "@/example/world";
 
 /**
- * The same preference sections, as a PAGE.
+ * The same preference sections on both surfaces: the page, and the drawer its trigger opens.
  *
- * This showcase exists to demonstrate one claim and it is the claim the whole section mechanism
- * rests on: **a section is independent of the surface that hosts it.** Every control below is the
- * identical export the floating drawer renders — `PreferencesSections`: the theme, density, and
- * whatever the packages a host installed contribute. Nothing
- * here is a settings-page variant of anything, and if it ever needs to be, the mechanism has failed.
+ * One claim, and it is the claim the whole section mechanism rests on: **a section is independent
+ * of the surface that hosts it.** The pane and the drawer both render `PreferencesSections`: the
+ * theme, density, and whatever the packages a host installed contribute. Nothing here is a
+ * settings-page variant of anything, and if it ever needs to be, the mechanism has failed.
  *
- * A product picks the surface rather than the components: `metadata-form` is light and wants the
- * drawer; a product with a real settings area wants this. Both are one registry and one resolution.
+ * A product picks the surface rather than the components: a light one wants the drawer; a product
+ * with a real settings area wants the page. Both are one registry and one resolution. The drawer
+ * leads with one preference of the product's own, the side its rail sits on, to show a panel
+ * composed from children rather than the default body.
  *
  * **Why the theme section lays itself out and this page does not tell it to.** The theme picker
  * lays its cards out on an auto-fill grid, so it fits as many as the drawer or this pane allows —
@@ -105,70 +113,78 @@ const SETTINGS = [
   },
 ] as const;
 
+type Placement = "left" | "right";
+
 export function SettingsShowcase() {
+  const [placement, setPlacement] = useState<Placement>("left");
+
+  // The product's own rail, and it is a real one — this page is a screen INSIDE an app, not a
+  // standalone settings site. GitHub's settings live under the global header with the account nav
+  // beside the pane, which is two navigations doing different jobs: the app's, and the page's.
+  // Collapsing this one is what gives the settings menu room without taking the product away.
+  const rail = (
+    <Sidebar collapsible="icon" placement={placement}>
+      {/* The workspace this rail belongs to. */}
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarIdentity>
+              <SidebarIdentityIcon>
+                <LibraryIcon className="size-4" />
+              </SidebarIdentityIcon>
+              <SidebarIdentityText>
+                <SidebarIdentityLabel>{hall(HOME_HALL).name}</SidebarIdentityLabel>
+                <SidebarIdentityDescription>Chartered</SidebarIdentityDescription>
+              </SidebarIdentityText>
+            </SidebarIdentity>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarMenu>
+            {PLACES.map((place) => (
+              <SidebarMenuItem key={place.label}>
+                {/* Nothing navigates: this arrangement is about where the sections live, and a
+                    router would be a second thing to read in a file that demonstrates one. */}
+                <SidebarMenuButton isActive={"active" in place && place.active}>
+                  <place.icon />
+                  <span>{place.label}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
+      </SidebarContent>
+
+      {/* And who is signed in. A rail without it is half a rail — every other shell in this
+          repository carries the person at the foot, and a settings screen is the one place a
+          reader most wants to know whose settings these are. */}
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarIdentity>
+              <SidebarIdentityAvatar>
+                <Avatar>
+                  <AvatarFallback>{initialsOf(VIEWER.name)}</AvatarFallback>
+                </Avatar>
+              </SidebarIdentityAvatar>
+              <SidebarIdentityText>
+                <SidebarIdentityLabel>{VIEWER.name}</SidebarIdentityLabel>
+                <SidebarIdentityDescription>{VIEWER.email}</SidebarIdentityDescription>
+              </SidebarIdentityText>
+            </SidebarIdentity>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
+  );
+
+  // The rail's gap is in flow, so a rail on the right comes after the inset in the tree.
   return (
     <SidebarProvider className="h-dvh min-h-0 overflow-hidden">
-      {/* The product's own rail, and it is a real one — this page is a screen INSIDE an app, not a
-          standalone settings site. GitHub's settings live under the global header with the account
-          nav beside the pane, which is two navigations doing different jobs: the app's, and the
-          page's. Collapsing this one is what gives the settings menu room without taking the
-          product away. */}
-      <Sidebar collapsible="icon">
-        {/* The workspace this rail belongs to. */}
-        <SidebarHeader>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarIdentity>
-                <SidebarIdentityIcon>
-                  <LibraryIcon className="size-4" />
-                </SidebarIdentityIcon>
-                <SidebarIdentityText>
-                  <SidebarIdentityLabel>{hall(HOME_HALL).name}</SidebarIdentityLabel>
-                  <SidebarIdentityDescription>Chartered</SidebarIdentityDescription>
-                </SidebarIdentityText>
-              </SidebarIdentity>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarHeader>
-        <SidebarContent>
-          <SidebarGroup>
-            <SidebarMenu>
-              {PLACES.map((place) => (
-                <SidebarMenuItem key={place.label}>
-                  {/* Nothing navigates: this arrangement is about where the sections live, and a
-                      router would be a second thing to read in a file that demonstrates one. */}
-                  <SidebarMenuButton isActive={"active" in place && place.active}>
-                    <place.icon />
-                    <span>{place.label}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroup>
-        </SidebarContent>
-
-        {/* And who is signed in. A rail without it is half a rail — every other shell in this
-            repository carries the person at the foot, and a settings screen is the one place a
-            reader most wants to know whose settings these are. */}
-        <SidebarFooter>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarIdentity>
-                <SidebarIdentityAvatar>
-                  <Avatar>
-                    <AvatarFallback>{initialsOf(VIEWER.name)}</AvatarFallback>
-                  </Avatar>
-                </SidebarIdentityAvatar>
-                <SidebarIdentityText>
-                  <SidebarIdentityLabel>{VIEWER.name}</SidebarIdentityLabel>
-                  <SidebarIdentityDescription>{VIEWER.email}</SidebarIdentityDescription>
-                </SidebarIdentityText>
-              </SidebarIdentity>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarFooter>
-        <SidebarRail />
-      </Sidebar>
+      <Show when={placement === "left"}>{rail}</Show>
 
       <SidebarInset>
         <ShellMain className="overflow-y-auto bg-background">
@@ -242,6 +258,30 @@ export function SettingsShowcase() {
           </SectionRoot>
         </ShellMain>
       </SidebarInset>
+      <Show when={placement === "right"}>{rail}</Show>
+
+      {/* Closed on arrival: the page is the screen, and the drawer opened over it hid half of it. Its
+          trigger opens the same sections, non-modal, beside the pane. */}
+      <PreferencesRoot hotkey="p">
+        <PreferencesTrigger />
+        <PreferencesPanel>
+          <PreferencesField label="Sidebar side">
+            <SegmentGroup
+              aria-label="Sidebar side"
+              className="w-full"
+              itemClassName="px-2 py-1"
+              onValueChange={(d) => d.value && setPlacement(d.value as Placement)}
+              options={[
+                { value: "left", label: "Left" },
+                { value: "right", label: "Right" },
+              ]}
+              value={placement}
+              variant="solid"
+            />
+          </PreferencesField>
+          <PreferencesSections />
+        </PreferencesPanel>
+      </PreferencesRoot>
     </SidebarProvider>
   );
 }

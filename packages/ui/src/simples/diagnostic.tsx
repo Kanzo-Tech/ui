@@ -133,8 +133,8 @@ export const Diagnostic = (props: DiagnosticProps) => {
  *
  * The argument for nowrap was real: a header that wraps turns a list of six into six different
  * shapes, and the message that overflows is the one `DiagnosticDescription` repeats in full once the
- * row is open. What it did not survive is a narrow column. Measured on the `metadata-form` showcase,
- * whose findings panel is 24 % of the workspace: **a 143 px header, with the title 0 px wide and
+ * row is open. What it did not survive is a narrow column. Measured on a form's findings panel
+ * at 24 % of the workspace: **a 143 px header, with the title 0 px wide and
  * starting at x=215** — 72 px past its own right edge. The severity, the source and the trigger are
  * all `shrink-0`, so they take the width and `DiagnosticTitle`'s `flex-1` shrinks to nothing. Not
  * truncated with an ellipsis: gone, and the row said only *This field is required.* three times over

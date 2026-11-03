@@ -183,8 +183,7 @@ function Setting({
  * The settings page.
  *
  * It was a `max-w-2xl` stack of `Card`s first — three controls in a narrow column with a great
- * deal of nothing either side of it. metadata-form's column earns its measure because it holds
- * thirty fields; three settings do not, and cards around single controls are chrome standing in
+ * deal of nothing either side of it. Three settings do not earn that measure, and cards around single controls are chrome standing in
  * for content. So it is the shape a settings page actually has — the explanation on the left, the
  * control on the right, a rule between sections — which fills the width with sentences rather
  * than padding.
@@ -335,8 +334,7 @@ const foundOf = (f: Finding): Found<Finding> => ({
  *
  * This page used to restate the form: name, run mode, destination, DCAT, sources — three of which
  * you had just typed on the page before, and one of which is in the title bar. A review step that
- * re-reads its own inputs is a receipt, not a review. metadata-form's third column shows the
- * generated Turtle and JSON-LD for exactly this reason: the value is in what came OUT.
+ * re-reads its own inputs is a receipt, not a review: the value is in what came OUT.
  *
  * So it reads the program's mappings and shows the shape of the graph — each class, the source it
  * is minted from, the subject template, and every predicate with where its value comes from. That

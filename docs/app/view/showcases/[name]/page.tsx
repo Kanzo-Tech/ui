@@ -1,13 +1,8 @@
 import { notFound } from "next/navigation";
 import { AppShellShowcase } from "@/showcases/app-shell/default";
-import { DiscoveryShowcase } from "@/showcases/discovery/default";
-import { GraphBenchShowcase } from "@/showcases/graph-bench/default";
 import { JobStudioShowcase } from "@/showcases/job-studio/default";
-import { MetadataFormShowcase } from "@/showcases/metadata-form/default";
-import { PreferencesShowcase } from "@/showcases/preferences/default";
 import { FieldNotesShowcase } from "@/showcases/field-notes/default";
 import { SettingsShowcase } from "@/showcases/settings/default";
-import { PreferencesExtendedShowcase } from "@/showcases/preferences/extended";
 import { WorkspaceShowcase } from "@/showcases/workspace/default";
 
 /**
@@ -19,23 +14,13 @@ import { WorkspaceShowcase } from "@/showcases/workspace/default";
  */
 const SHOWCASES = {
   "app-shell": AppShellShowcase,
-  "metadata-form": MetadataFormShowcase,
   workspace: WorkspaceShowcase,
-  // Not an arrangement to copy but an instrument: it builds graphs off-screen to time them, and
-  // shows one on screen because the legibility ceiling arrives before the performance one.
-  "graph-bench": GraphBenchShowcase,
   // A wizard whose editor never leaves the screen: `Steps` drives the aside, not the whole
   // page. It is also the library's first real consumer of `CodeEditor`'s `extensions` slot.
   "job-studio": JobStudioShowcase,
-  // Not a shell like the other two, but it needs the same treatment: the Preferences panel is
-  // Portal-ed and `position: fixed`, so it can only be shown honestly in its own viewport. The
-  // -extended variant is the doc's other example, a real panel with a custom `PreferencesPanel`
-  // child set rather than loose sections in a box.
-  preferences: PreferencesShowcase,
-  "preferences-extended": PreferencesExtendedShowcase,
-  // The same sections as `preferences`, rendered as a PAGE rather than a drawer — a sub-sidebar and
-  // one scrolling pane, GitHub's Appearance shape. It exists to demonstrate that a section is
-  // independent of its surface: not one component below is a settings-page variant of anything.
+  // The preference sections on both surfaces: a settings page, and the drawer its trigger opens.
+  // The drawer is Portal-ed and `position: fixed`, so it can only be shown honestly in its own
+  // viewport — which is also why `/docs/layout/preferences` embeds this rather than a preview box.
   settings: SettingsShowcase,
   // No theme-studio and no theme-gallery here any more. Both left `showcases/` entirely: the
   // studio is the route `/theme-generator` and the gallery is the page `/docs/themes`. Neither was
@@ -45,10 +30,6 @@ const SHOWCASES = {
   // here at all: rudof parses one SHACL document in wasm and the table, the validation and the CSV
   // are three readings of it.
   "field-notes": FieldNotesShowcase,
-  // A question over the archive, answered by a statement somebody can read: an agent with one
-  // `query` tool behind `Chat`, and the tool's result drawn by the host as a real `DataTableRoot`
-  // rather than JSON — the case `Chat`'s `tools` renderers exist for.
-  discovery: DiscoveryShowcase,
 } as const;
 
 type ShowcaseName = keyof typeof SHOWCASES;
