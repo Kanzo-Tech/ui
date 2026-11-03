@@ -291,7 +291,7 @@ that is not a model — a manifest, a token list, a set of kinds a consumer read
 not a constant of the package at all: it lives in `test/`.
 
 *What would reverse it:* a constant that two packages must agree on and neither owns — then it is
-the kernel's, which is the rule applied rather than broken; and a tuning value that a consumer
+declared by the lowest package both import, which is the rule applied rather than broken; and a tuning value that a consumer
 needs per instance — then it is a prop with a default, not a pref.
 
 ## What dies

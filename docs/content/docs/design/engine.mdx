@@ -106,9 +106,9 @@ declare the chart grammar as a peer, which [packaging follows the entry](/docs/d
 forbids.
 
 **The provider and the hook that reads it are the engine's React adapter, in an entry of their own,
-`@kanzo-tech/mosaic/react`, with React a peer of that entry alone. `MosaicProvider` takes `engine`
-once; `GraphRoot`, the charts and `ai/data` read the engine and the page's selection from it, and
-none takes either as a prop.** The page's slots — the filter bar and the editor's aside — are
+`@kanzo-tech/mosaic/react`, with React a peer of that entry alone. `MosaicProvider` takes what the
+page's views share — the engine, and any model read over it — once; `GraphRoot`, the charts and
+`ai/data` read those and the page's selection from it, and none takes any of them as a prop.** The page's slots — the filter bar and the editor's aside — are
 analytics' and stay in `ui/analytics`. A plane's adapter lives in the lowest entry every consumer of
 the plane already reaches, never inside one of the views that consume it; the theme's adapter
 already does, on `ui`'s root.
