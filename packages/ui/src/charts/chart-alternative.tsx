@@ -1,3 +1,5 @@
+"use client";
+
 import { isAggregateExpression } from "@kanzo-tech/mosaic";
 import { useLocale } from "../simples/locale.js";
 import type { ChartConfig } from "./chart-config.js";
