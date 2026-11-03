@@ -38,9 +38,11 @@ jobs:
       - uses: ./.github/actions/setup
       - run: pnpm build
       - run: pnpm --filter @kanzo-tech/docs corpus
-      # Firefox and WebKit are the navigation guard's; its coverage table is measured in all three.
+      # Firefox is the navigation guard's. WebKit is not run here: Linux WebKit is not Safari, the
+      # coverage table's Safari rows are measured in Safari, and on this runner its dialog dismissal
+      # failed on a different trigger in each of two runs (#259) while passing on macOS.
       - name: Browsers
-        run: pnpm --filter @kanzo-tech/testing exec playwright-core install --with-deps chromium-headless-shell firefox webkit
+        run: pnpm --filter @kanzo-tech/testing exec playwright-core install --with-deps chromium-headless-shell firefox
       - name: Serve the docs
         run: |
           pnpm --filter @kanzo-tech/docs start > "$RUNNER_TEMP/next.log" 2>&1 &
@@ -52,7 +54,7 @@ jobs:
       - name: Chat frame
         run: node docs/scripts/chat-frame.e2e.mjs
       - name: Navigation guard
-        run: node docs/scripts/navigation-guard.e2e.mjs
+        run: node docs/scripts/navigation-guard.e2e.mjs --engines chromium,firefox
 
   # The server halves. A realm that applies but puts the roles somewhere else is worth
   # nothing, so the auth job proves the claim contract on a live token — the same
