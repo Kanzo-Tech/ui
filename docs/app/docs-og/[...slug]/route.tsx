@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import { ImageResponse } from "next/og";
 import { KanzoLogo } from "@/components/kanzo-logo";
 import { source } from "@/lib/source";
-import { siteName } from "@/lib/metadata";
 
 /**
  * Satori's built-in font has no arrows, so a single `⇄` sends the build out to a font CDN — which
@@ -37,10 +36,7 @@ export async function GET(_request: Request, props: { params: Promise<{ slug: st
           width: "100%",
         }}
       >
-        <div style={{ alignItems: "center", display: "flex", gap: 20 }}>
-          <KanzoLogo height={40} width={238} />
-          <div style={{ color: "#46534a", fontSize: 32 }}>{siteName.replace(/^Kanzo /, "")}</div>
-        </div>
+        <KanzoLogo height={44} width={228} />
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           <div style={{ fontSize: 84, fontWeight: 600, letterSpacing: "-0.03em", lineHeight: 1 }}>
             {forCard(page.data.title)}

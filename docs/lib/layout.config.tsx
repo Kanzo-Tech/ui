@@ -18,12 +18,7 @@ import { ThemeMenu } from "@/components/theme-menu";
  */
 export const baseOptions: BaseLayoutProps = {
   nav: {
-    title: (
-      <span className="flex items-center gap-2">
-        <KanzoLogo className="h-5 w-auto text-primary" />
-        <span className="font-medium text-muted-foreground">UI</span>
-      </span>
-    ),
+    title: <KanzoLogo className="h-5 w-auto text-foreground" />,
   },
   slots: { themeSwitch: ThemeMenu },
 };
