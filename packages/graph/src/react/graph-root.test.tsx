@@ -13,14 +13,6 @@ import { useGraphState } from "./use-graph-state";
  * `onFailure`.
  */
 
-vi.stubGlobal(
-  "ResizeObserver",
-  class {
-    observe() {}
-    disconnect() {}
-  },
-);
-
 describe("GraphRoot and GraphCanvas", () => {
   it("declines in an environment with no WebGL, says so once as graph/no-webgl, and says it failed", async () => {
     const onFailure = vi.fn();

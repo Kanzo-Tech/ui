@@ -1,7 +1,7 @@
 import { GraphCanvasHarness } from "@kanzo-tech/testing";
 import { dom } from "@kanzo-tech/testing/dom";
 import { act, render } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { attach, settle } from "../../test/corpus";
 import { GraphRoot } from "../react/graph-root";
 import { GraphCanvas } from "./graph-canvas";
@@ -13,22 +13,6 @@ import { GraphCounts } from "./graph-counts";
  * rather than as ready.
  * The gestures and the camera need a GPU, and are held by the end-to-end suite in `packages/testing`.
  */
-
-// jsdom has no ResizeObserver, and the canvas's overlays measure it with one.
-beforeEach(() => {
-  vi.stubGlobal(
-    "ResizeObserver",
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    },
-  );
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
 
 describe("GraphCanvas, as a test reads it", () => {
   it("says where it draws on its element, in every page, and takes it off when it unmounts", async () => {

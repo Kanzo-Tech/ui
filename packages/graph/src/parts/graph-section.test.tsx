@@ -1,7 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { KanzoThemeProvider, PreferencesSections, usePref } from "@kanzo-tech/ui";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { attach, settle, type Attached } from "../../test/corpus";
 import { GraphRoot } from "../react/graph-root";
 import { useGraphPrefs } from "../react/use-graph-prefs";
@@ -68,20 +68,6 @@ const YEARS: MappingModel = {
     },
   ],
 };
-
-beforeEach(() => {
-  // Ark's Select measures its trigger; jsdom has no ResizeObserver.
-  vi.stubGlobal(
-    "ResizeObserver",
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    },
-  );
-  vi.stubGlobal("CSS", { escape: (value: string) => String(value).replace(/[^a-zA-Z0-9_-]/g, (ch) => `\\${ch}`) });
-});
-afterEach(() => vi.unstubAllGlobals());
 
 const FORCES = ["Gravity", "Repulsion", "Link spring", "Link distance", "Friction"];
 const sliders = () => [...document.querySelectorAll("[data-slot=slider-label]")].map((label) => label.textContent);

@@ -187,8 +187,9 @@ Keep a "used to be X" only when it names the mistake it prevents, and say which 
 
 ## Tests and guards
 
-`pnpm test` runs vitest across the packages; `packages/ui` sets `environment: "jsdom"` and the rest
-run under node. The minimum bar for a component is a test that renders it and asserts the behaviour
+`pnpm test` runs vitest across the packages. A package that renders components under jsdom — `ui`,
+`ai`, `graph` — names `@kanzo-tech/testing/jsdom` in its `setupFiles`: what jsdom lacks is defined
+there once, and a package's own setup holds only what is that package's. The minimum bar for a component is a test that renders it and asserts the behaviour
 its recipe depends on. Two conventions beyond that:
 
 - **A test is a specification.** `describe("a styled list keeps its semantics")`,

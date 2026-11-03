@@ -20,7 +20,7 @@ import {
   usePref,
 } from "./Preferences.js";
 
-// jsdom ships no `matchMedia`; stub it per-file (do not edit vitest.setup.ts).
+// jsdom ships no `matchMedia`; stub it per-file (do not edit `@kanzo-tech/testing/jsdom`).
 function stubMatchMedia(matches = false) {
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
