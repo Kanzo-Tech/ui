@@ -1,6 +1,6 @@
 ---
 title: The layers, and the one rule at each seam
-description: Five layers with imports pointing down, a dependency-free kernel at the bottom, one rule for each place two packages meet, and the guards that make the direction a test instead of a sentence.
+description: Five layers with imports pointing down, a dependency-free kernel at the bottom, one rule for each place two packages meet, what packages, entries and files are called, where every kind of file lives, when a constant may exist, and the guards that make each a test instead of a sentence.
 ---
 
 The family is nine packages that import each other in one direction and agree on that by
@@ -97,7 +97,7 @@ the rule is written.
 | a read of the database | `Queryable`, and an abort **interrupts the statement** in the engine; an adapter that cannot says so and fails loudly | kernel type; [engine](/docs/design/engine) |
 | a lifecycle | the dispose symbols | kernel |
 | a library reads data | a query on the host's client | [reads](/docs/design/reads) |
-| the engine reaches a chart or a graph | the component takes `engine`; the coordinator is the engine's internal cache and no component accepts one | engine; [analytics](/docs/design/analytics), [graph](/docs/design/graph) |
+| the engine reaches a chart or a graph | the page provides `engine` once, through `@kanzo-tech/mosaic/react`, and every view reads it and the page's selection from there; the coordinator is the engine's internal cache and no component accepts one | [engine](/docs/design/engine#the-page-provides-the-engine-once-and-every-view-reads-it-from-there); [analytics](/docs/design/analytics), [graph](/docs/design/graph) |
 | a catalog becomes a model | `JoinGraph` is the one read-model; a reader is a typed `CatalogReader` taking a `Queryable` | `relations` |
 | a model | the AI SDK's `LanguageModel`, with its middleware as the extension point; one registry | `llm`; [ai](/docs/design/ai) |
 | an identity | the `Auth` port with a `SessionStore`; a server door that reaches no React | `auth`; [auth](/docs/design/auth) |
@@ -153,6 +153,147 @@ own. Today the evaluation harness imports `ai/task` from a React app only.
 *Held by* `packages/ui/src/optional-peers.test.ts`, "are reached from no package's root entry",
 for the root entry. Every other entry is to be added with the entry-peers guard, below.
 
+## Names
+
+[Naming](/docs/design/naming) owns what an *export* is called. This section owns the names above
+it: packages, entries, directories, files and the words the tree uses for itself.
+
+**A package is named for the job it does for a host, or for the one reference it speaks.**
+`@kanzo-tech/mosaic` keeps its name: it is Mosaic's conversation with nothing hidden, and calling it
+`data` would turn a reference a reader can look up into a box they cannot open.
+`@kanzo-tech/navigation` becomes **`@kanzo-tech/navigation-guard`**: its documentation already says
+so, because `navigation` is also one of `ui`'s component categories, and the sidebar showed two
+groups with one word. *What would reverse it:* the package taking a second navigation job that is
+not a guard.
+
+**An entry, its directory and its docs group share one name.** An entry is `src/<entry>.ts` or
+`src/<entry>/`, and nothing else in the package is called that.
+
+| Was | Becomes | Why |
+| --- | --- | --- |
+| `ui/analytics` over `charts/` | `analytics/` | one thing had two names |
+| `ui/table` over `table/` | `ui/data-table`, `data-table/` | the root also ships `Table`, the simple one |
+| `ui/editor` over `CodeEditor.tsx` | `ui/code-editor`, `code-editor/` | the entry holds one editor and should say which |
+| `graph/section` | `graph/prefs` | see *section*, below |
+| `next-*.ts` in `auth` and `navigation-guard` | `next/` | a filename prefix doing a directory's job |
+
+A docs group documents one package and carries its name. `ui`'s components alone are grouped by
+Shark's categories, because a reader looks for a dialog, not a package. *What would reverse it:* an
+entry whose code cannot live in one place.
+
+**Every file is kebab-case**, as every file in Shark's registry is; thirteen are not
+(`CodeEditor.tsx`, `KanzoThemeProvider.tsx`, `sortableHeader.tsx` among them). The philosophy page's
+naming rule speaks of *export* names — a vendored primitive and the convenience built on it — and no
+longer claims a meaning for file case, which the files never kept: `composites/` held seven of each.
+*What would reverse it:* nothing measurable; it is the reference's spelling.
+
+**A relative import names the emitted file, `./button.js`.** `mosaic` and `llm` are built by `tsc`
+for Node's ESM, where nothing else resolves, and the Bundler resolution everything else typechecks
+under accepts it. Both spellings were in use, sometimes in one file. A lint rule holds it and its
+fix migrates the rest. *What would reverse it:* TypeScript rewriting extensions in every build.
+
+**One word, one meaning in the tree**, as [naming](/docs/design/naming#one-name-one-meaning-in-every-barrel)
+already requires of exports:
+
+- **section** is the [layout region](/docs/layout/section). A package's block of preferences was a
+  section too — `SectionManifest`, `SectionProvider`, `GRAPH_SECTION`, `graph/section` — while the rest
+  of that family said *pref*: `Pref`, `CORE_PREFS`, `useGraphPrefs`. It becomes **prefs**:
+  `PrefsManifest`, `PrefsProvider`, `GRAPH_PREFS`, `graph/prefs`. *What would reverse it:* a block of
+  preferences drawn by `SectionRoot` as one thing.
+- **testing** is the package; a directory of doubles is `test/` (below).
+- **example** is a file in `docs/examples/`. The world those files draw from is `docs/guild/`, after
+  the Guild it describes; `docs/example/` was one letter from `examples/`.
+
+## Places
+
+**Inside a package, a directory is an entry.** For `ui` that reads, as Shark's registry does:
+
+```
+packages/ui/src/
+├── index.ts         components/  hooks/  theme/  lib/
+├── analytics.ts     analytics/
+├── data-table.ts    data-table/
+├── code-editor.ts   code-editor/
+└── tailwind.css
+```
+
+`components/` is flat. `hooks/` holds the public hooks, `lib/` only what no entry exports, `theme/`
+the appearance plane's React adapter. The three size layers stop being directories: `simples/`,
+`composites/` and `layouts/` described about half of `src/`, and about fifteen files failed their own
+layer's test — `command` and `FacetFilter` are assemblies, `float` and `resizable` position things,
+`show` and `locale` render nothing, `sidebar-cookie` is a parser. Shark keeps every one of those in
+one `components/`, and since the barrel is flat no consumer ever saw a layer.
+[The taxonomy test](/docs/philosophy#the-taxonomy-test) stays what it already said it was: prose that
+places a decision, not a file. Every other package keeps the directories its design page argues for —
+the graph's copy a stated reference per layer — under two rules: the entry rule above, and **the tree a
+design page draws is the tree on disk**. *What would reverse it:* readers who search a package by
+something other than its entries; Shark's registry is the evidence that they do not.
+
+**A unit test sits beside its file; what tests need lives in `<package>/test/`, outside `src/`.**
+Fakes, fixtures, sample data and the runner's setup sat in five shapes — `ai/src/testing/` (the Nobel
+and SNB samples among them), `auth/src/test/`, `graph/test/`, `ui/test/` and a `.fixture.ts` suffix in
+`navigation`. Outside `src/` they need no build exclusion and cannot ship. What every suite repeats —
+the jsdom shims, booting DuckDB in Node, the harness hook — is `@kanzo-tech/testing`'s; `ui` and `ai`
+had byte-identical setups. *What would reverse it:* a double a consumer must import; then it is
+`@kanzo-tech/testing`'s API.
+
+### Repo-wide guards live in a workspace of their own
+
+**A guard that reads more than one package lives in `guards/`, a private workspace beside `docs/`,
+with `guard-corpus.ts` and its data** (`shark-surface.json`, the parity tables). At the root of
+`ui/src` they read `ai/src`, `docs/` and other packages' `dist/` that `ui` never declared, sat among
+`ui`'s entries, and `guard-corpus.d.ts` shipped in `ui`'s tarball. A workspace declares what it reads
+and publishes nothing. **A rule decided by reading one file is a lint rule** — a class list, a
+comment, a specifier, a literal hue — so the linter owns walking, parsing and comments; four guards
+had each written a `stripComments`, in two behaviours. A rule about the set — the barrel against
+Shark, a page's evidence, a token against every theme, the layer walk — is a guard. A guard about
+one package's own files stays beside them. *What would reverse it:* a guard that only means
+something inside one package.
+
+**Every package has one shape**: a README, a `vitest.config.ts`, a `size` budget and the same script
+names. `tsc` builds a package with no React and no stylesheet, vite the rest — the one difference
+with a reason. A guard reads every manifest against that list, and a package that differs says why
+beside the field. *What would reverse it:* a field that means nothing for one package, which says so
+where the field would be.
+
+**In `docs/`, one place per kind of thing.** Page, example, showcase and offered tool are
+`docs/CLAUDE.md`'s. Two kinds lived there unnamed: a **fixture** — a page that exists for a check,
+`app/fixtures/` — whose check runs in CI or the page goes; and **data** — `docs/guild/`, where every
+helper that builds or serves example data lives, none in `examples/` or `lib/`. `examples/` holds
+`example-*.tsx` files with a default export and nothing else. *What would reverse it:* a third kind
+that is neither, which gets its own name here.
+
+## Constants
+
+**A named constant is a smell unless it is one of three things, and each is declared once.** In
+the tree this page was written against, `packages/*/src` declared 214 upper-case constants: 72
+exported, 76 of them a bare number, and seven declared twice — `KEY = "dense_id"`, `VERTEX_INDEX` and
+`VERTICES` in both `graph/core/source.ts` and `relations/graphar.ts`, `SERIES_LIMIT` and `FACET_LIMIT`
+in both `chart-card.tsx` and `dashboard-spec.ts`, `ZOOM = 1.4` in the graph's toolbar and its keyboard
+map, `DEPTH = 8` in the kernel's `problem.ts` and `ui`'s; and `OBLIGATIONS` names two different tables
+in `theme` and `graph`.
+
+1. **A value someone may change is a token or a pref**, declared in its model — `tokens.css`, a
+   prefs manifest — and read where it is used. That is the design-tokens practice the library already
+   follows for colour, extended to a zoom step or a series cap. It is never an exported constant.
+2. **A fact about a format or a protocol** — a column name, a header, a symbol — **is declared by the
+   package that owns the format** and imported by every reader. Two readers of GraphAr writing
+   `"dense_id"` is two definitions of one fact.
+3. **A table is generated from its source, or is the source.** `theme-data.json` is generated from the
+   themes; the Shark parity tables and the dashboard kinds are held to the same rule — a hand-written
+   copy of a list that exists elsewhere is a transcription waiting to rot.
+
+Anything else is a literal at its only use. A number in an expression is named only when the name
+says more than the number does, which is Fowler's *Replace Magic Literal*; `@typescript-eslint/no-magic-numbers`
+holds that per file, with the small integers ignored. Across files, a guard fails when one value is
+declared under a name in two shipped files, and when a shipped entry exports an upper-case constant
+that is not a model — a manifest, a token list, a set of kinds a consumer reads. A test fixture is
+not a constant of the package at all: it lives in `test/`.
+
+*What would reverse it:* a constant that two packages must agree on and neither owns — then it is
+the kernel's, which is the rule applied rather than broken; and a tuning value that a consumer
+needs per instance — then it is a prop with a default, not a pref.
+
 ## What dies
 
 - **The test probes that ship.** `charts/testing-probe.ts` in `ui` and `parts/testing-probe.ts` in
@@ -172,8 +313,10 @@ for the root entry. Every other entry is to be added with the entry-peers guard,
 
 ## The guards
 
-All are specified in `packages/ui/src/` beside `optional-peers.test.ts`, over `SHIPPED` from
-`guard-corpus.ts`, never copied into a second package. Each says what it cannot prove. None exists
+All are specified in [`guards/`](#repo-wide-guards-live-in-a-workspace-of-their-own), over
+`SHIPPED` from `guard-corpus.ts`, never copied into a second package — or, where the rule is decided
+by reading one file, as a local lint rule: `one-deadline` and `no-ambient` are that kind. Each says
+what it cannot prove. None exists
 yet, so no *Held by* line cites one by title, and `documented-evidence.test.ts` will not accept a
 citation until it is a real `it()`.
 
@@ -207,6 +350,8 @@ list, and the list should be a rule of its own.
 | TC39 explicit resource management | read | the dispose symbols |
 | MDN `AbortSignal.any` | read | `within` |
 | Hyrum's Law | read | why a behaviour two repositories state differently is one that diverges |
+| Shark UI's registry, `registry/react/` | read (directory listing, 2026-11-03) | `components/` flat and kebab-case, with `hooks/` and `lib/` beside it |
+| Fowler, *Refactoring* (2nd ed.), Replace Magic Literal; typescript-eslint `no-magic-numbers`; W3C DTCG design tokens | **unverified** | the constants rule |
 | Radix, TanStack Table and Virtual, Parnas, Hickey, SemVer | **unverified** | cited nowhere above as authority |
 
 ## Breaking
@@ -217,7 +362,15 @@ list, and the list should be a rule of its own.
   `@kanzo-tech/relations`, not from `@kanzo-tech/mosaic` or `@kanzo-tech/graph`.
 - The engine imports from `@kanzo-tech/mosaic/engine`; `@duckdb/duckdb-wasm` is installed for that
   entry only.
-- `MosaicProvider`, `GraphRoot` and the analytics components take `engine`, not `coordinator`.
+- `MosaicProvider` takes `engine`, not `coordinator`, and imports from `@kanzo-tech/mosaic/react`.
+  `GraphRoot` takes neither `engine` nor `filterBy`: put it inside the page's `MosaicProvider`.
+- `@kanzo-tech/navigation` is `@kanzo-tech/navigation-guard`. `@kanzo-tech/ui/table` is
+  `@kanzo-tech/ui/data-table`, `@kanzo-tech/ui/editor` is `@kanzo-tech/ui/code-editor`, and
+  `@kanzo-tech/graph/section` is `@kanzo-tech/graph/prefs`, exporting `GRAPH_PREFS`.
+- `SectionManifest` and `SectionProvider` are `PrefsManifest` and `PrefsProvider`.
+- `ui/analytics` no longer re-exports Mosaic's names: import `Selection`, `Query` and the loaders
+  from `@kanzo-tech/mosaic`, and the engine from `@kanzo-tech/mosaic/engine`.
+- Tuning constants are no longer exported; read the pref that replaces each one.
 - `@kanzo-tech/ai` no longer requires `@kanzo-tech/ui` or `@ai-sdk/react` to import `ai/task`.
 - `registerChartForTesting` and its graph twin are gone; `@kanzo-tech/testing` observes the library's
   `kanzo:` entries instead.
