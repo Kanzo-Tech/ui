@@ -643,17 +643,21 @@ export function CodeEditor(p: CodeEditorProps) {
     };
   }, []);
 
-  // Reconcile external value changes — but never clobber active typing.
+  // Reconcile external value changes — but never clobber active typing. A value that arrived while
+  // focused waits for blur, which is why `focused` is a dependency; `applied` keeps a blur from
+  // re-applying a value the parent never changed over what was typed.
+  const applied = useRef(p.value);
   useEffect(() => {
     const v = view.current;
-    if (!v || v.hasFocus) return;
+    if (!v || v.hasFocus || p.value === applied.current) return;
+    applied.current = p.value;
     if (p.value !== v.state.doc.toString()) {
       v.dispatch({
         changes: { from: 0, to: v.state.doc.length, insert: p.value },
         annotations: External.of(true),
       });
     }
-  }, [p.value]);
+  }, [p.value, focused]);
 
   // Swap the language extensions live (compartment reconfigure, no re-create).
   useEffect(() => {
