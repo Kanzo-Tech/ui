@@ -73,8 +73,8 @@ as its cache and consolidator, and no host holds one.** Before, `ai` held an `En
 (keasy's `Graph = { name, attachment, engine }` carried the pair). The two doors had two caches, two
 result decoders and two cancellation semantics, and the same SQL could be cached twice or read twice.
 
-The engine now holds the coordinator privately and `GraphRoot`, `MosaicProvider` and `useGraph` take
-`engine`:
+The engine holds the coordinator privately, and the page hands the engine to `MosaicProvider` once —
+every view reads it from there ([below](#the-page-provides-the-engine-once-and-every-view-reads-it-from-there)):
 
 - A statement a Mosaic client issues (a chart, a brush) goes through the coordinator, so consolidation
   and the cache of mosaic-core still apply to it. The coordinator's connector is the engine's own, so
@@ -93,6 +93,29 @@ door says so by not accepting a coordinator.
 **What would reverse it:** a host with a non-DuckDB Mosaic connector that must draw the same
 charts. Then `MosaicProvider` takes a `Queryable` plus a `Coordinator` built over it, and the
 coordinator is a second optional argument, not a second door.
+
+### The page provides the engine once, and every view reads it from there
+
+One door for statements had left two ways *in* for a view. A host passes
+the engine to `MosaicProvider`, whose context the charts and `ai/data` read; and it passes the same
+engine again to `GraphRoot` as a prop, then bridges the page's selection to the graph by hand —
+`useMosaic()` in a wrapper, `filterBy={selection}` on the root. The workspace showcase's
+`graph-view.tsx` does exactly that. The graph could not read the context because the provider lives
+in `ui/analytics`, an entry whose static closure is vgplot: reading it would make a WebGL viewer
+declare the chart grammar as a peer, which [packaging follows the entry](/docs/design/architecture#packaging-follows-the-entry)
+forbids.
+
+**The provider and the hook that reads it are the engine's React adapter, in an entry of their own,
+`@kanzo-tech/mosaic/react`, with React a peer of that entry alone. `MosaicProvider` takes what the
+page's views share — the engine, and any model read over it — once; `GraphRoot`, the charts and
+`ai/data` read those and the page's selection from it, and none takes any of them as a prop.** The page's slots — the filter bar and the editor's aside — are
+analytics' and stay in `ui/analytics`. A plane's adapter lives in the lowest entry every consumer of
+the plane already reaches, never inside one of the views that consume it; the theme's adapter
+already does, on `ui`'s root.
+
+**What would reverse it:** two engines on one page by design, two corpora that must not hear each
+other. Then the provider takes a key and a view names the one it reads — still not a prop each view
+repeats.
 
 ## Aborting interrupts the statement
 
@@ -342,8 +365,9 @@ test, and the double's interrupt is a documented model of it.
 
 ## Breaking, in the consumer's words
 
-- `GraphRoot`, `MosaicProvider` and `useGraph` take `engine`, not `coordinator`; build one with
-  `engine()` and pass it to all of them and to `ai`. `Graph` no longer needs the pair.
+- `MosaicProvider` takes `engine`, not `coordinator`, from `@kanzo-tech/mosaic/react`; build one
+  with `engine()` and pass it there once. `GraphRoot`, `useGraph` and `ai/data` take neither `engine`
+  nor `filterBy`: they read both from the provider they sit in. `Graph` no longer needs the pair.
 - `import { engine } from "@kanzo-tech/mosaic/engine"`; the root of `@kanzo-tech/mosaic` is the
   `@uwdata` door and no longer has `engine`.
 - `Table` and `Vector` come from `@kanzo-tech/kernel`.
