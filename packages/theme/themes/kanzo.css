@@ -42,14 +42,15 @@
   --radius-box: 0.75rem;
   --radius-field: 0.5rem;
   --radius-selector: 0.25rem;
-
-  /* The brand's display face on headings, as kanzo.tech sets it. Named, never shipped: a host that
-     loads Neue Haas Grotesk Display Pro gets it, and every other host falls back to Geist. */
-  --font-heading: "Neue Haas Grotesk Display Pro", var(--font-geist-sans, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
   --size-field: 0.25rem;
   --size-selector: 0.25rem;
   --stroke: 1px;
   --relief: 0;
+
+  /* Faces */
+  /* The brand's display face on headings, as kanzo.tech sets it. Named, never shipped: a host that
+     loads Neue Haas Grotesk Display Pro gets it, and every other host falls back to Geist. */
+  --font-heading: "Neue Haas Grotesk Display Pro", var(--font-geist-sans, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
 
   /* Categorical set */
   --chart-capacity: 8;
