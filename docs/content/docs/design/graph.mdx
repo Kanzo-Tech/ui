@@ -752,7 +752,8 @@ packages/graph/src/
 │   ├── state.ts              the options, the state a host selects from, and the store's shape
 │   └── categories.ts         the categorical domain, fixed before the graph loads
 ├── render/
-│   ├── renderer.ts           cosmos.gl's lifetime, dirty flags by kind, one render per frame
+│   ├── renderer.ts           cosmos.gl's lifetime: carries out what frame.ts plans
+│   ├── frame.ts              dirty flags by kind, and one frame's operations in order: one render, the layout after it
 │   ├── motion.ts             how long a layout cools, when it hides links, whether it runs, which links are in full colour
 │   ├── placement.ts · camera.ts   where bound positions sit in the square; who holds the camera
 │   └── graph-looks · graph-model · graph-sim · obligations · css-color · webgl
@@ -778,7 +779,9 @@ buffer:
 - **A filter and a state change upload nothing.** The surviving ids, a selection and a focus are
   config — the ids are the indices — and call no `render()`.
 - **One frame renders once, and only for an upload.** Every dirty flag is discharged in one
-  `requestAnimationFrame`.
+  `requestAnimationFrame`. What a frame does, and in what order, is a list of operations
+  `render/frame.ts` plans from what changed; `renderer.ts` is the one adapter that carries it out
+  against cosmos.gl, so the order is tested without one.
 - **Nothing animates.** `transitionDuration` is 0.
 - **The layout runs by the rule above**, from wherever the points are. A drag moves a node and holds
   nothing: there is no pinning, because a held node is a second state beside the selection that no
@@ -801,6 +804,8 @@ and renders once", "repaints colours, sizes and shapes on a look change, and upl
 without a layout running", "leaves the points and the camera to the next canvas, which starts settled
 from them and runs nothing", "drops what it kept when the geometry changes, and the next canvas places
 the new one";
+`packages/graph/src/render/frame.test.ts`, "renders at most once, never before an upload, and starts
+the layout only after it";
 `packages/graph/src/react/graph-root.test.tsx`, "does not rebuild the renderer because a callback
 changed identity".
 
