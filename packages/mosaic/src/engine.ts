@@ -233,7 +233,10 @@ async function start(forget: () => void, made: (duckdb: Duck) => void): Promise<
   // DuckDB's worker inside ours, which drops the line it prints for every HTTP header it sends: an
   // `s3://` read's credential among them (`worker/duckdb.worker.js`).
   const wrapper = served(new URL("../worker/duckdb.worker.js", import.meta.url));
-  const duckdb = new Duck(new VoidLogger(), new Worker(`${wrapper}#${encodeURIComponent(build.mainWorker)}`));
+  const duckdb = new Duck(
+    new VoidLogger(),
+    new Worker(`${wrapper}#${encodeURIComponent(build.mainWorker)}`, { type: "module" }),
+  );
   made(duckdb);
   await duckdb.instantiate(build.mainModule);
 
