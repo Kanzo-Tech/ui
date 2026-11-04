@@ -27,6 +27,8 @@ export interface ProblemDataMap {
   "claims/no-subject": Record<string, never>;
   "api/unreachable": { readonly status?: number };
   "api/silent": { readonly after: number };
+  "storage/path": { readonly path: string };
+  "storage/refused": Record<string, never>;
 }
 
 /** Per code: the HTTP status where it crosses a wire, the title of the TYPE, the `data` fields and their types. */
@@ -54,4 +56,6 @@ export const PROBLEMS: Readonly<Record<keyof ProblemDataMap, { readonly status?:
   "claims/no-subject": { status: 502, title: "The claims name nobody", data: {  } },
   "api/unreachable": { status: 502, title: "The API is unreachable", data: { status: "number" } },
   "api/silent": { status: 504, title: "The API did not answer", data: { after: "number" } },
+  "storage/path": { status: 400, title: "The path names no graph", data: { path: "string" } },
+  "storage/refused": { status: 502, title: "The store refused to vend a credential", data: {  } },
 };

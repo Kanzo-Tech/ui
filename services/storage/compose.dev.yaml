@@ -1,0 +1,11 @@
+# Development, on top of compose.yaml: the service on the host's :8090 so an application's server
+# running outside Compose reaches it, and the values of dev/dev.env. The store is the application's
+# (its MinIO or SeaweedFS); AWS_* below are that store's development user, standing in for the
+# deployment's identity, which production has and development does not.
+services:
+  storage:
+    ports:
+      - "${STORAGE_PORT:-8090}:8090"
+    environment:
+      AWS_ACCESS_KEY_ID: ${STORAGE_DEV_ACCESS_KEY:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${STORAGE_DEV_SECRET_KEY:-minioadmin}

@@ -1,0 +1,21 @@
+{
+  "name": "@kanzo-tech/storage-service",
+  "private": true,
+  "version": "0.0.0",
+  "description": "The platform's storage service: a credential that opens one prefix of an organization's storage, for reading or for writing, for an hour, in Iceberg REST's StorageCredential form. Every signature and token is the cloud's own SDK's; it holds no stored secret.",
+  "type": "module",
+  "scripts": {
+    "start": "node src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sts": "^3.1161.0",
+    "@azure/identity": "^4.14.1",
+    "@azure/storage-file-datalake": "^12.31.0",
+    "@kanzo-tech/auth": "workspace:^",
+    "@kanzo-tech/kernel": "workspace:^",
+    "google-auth-library": "^11.3.3",
+    "jose": "^6.2.12"
+  }
+}

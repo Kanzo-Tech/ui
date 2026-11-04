@@ -5,6 +5,7 @@ The server half of each platform capability, released with its client half under
 | Capability | Service (here) | Package |
 |---|---|---|
 | Identity | [`auth/`](auth) — Keycloak with the realm as code, and the session's edge (oauth2-proxy) | `@kanzo-tech/auth` |
+| Storage | [`storage/`](storage) — a credential that opens one prefix of the organization's storage, from each cloud's own SDK | none here: Iceberg REST's `StorageCredential`, which any reader of that standard consumes |
 
 Each service has the same shape, and Compose is the whole of it — development and deployments
 alike:
@@ -18,6 +19,10 @@ alike:
 ```sh
 docker compose -f compose.dev.yaml up -d --wait   # for development
 ```
+
+`storage` is not in the aggregate files below: an application that writes to an organization's storage
+includes `storage/compose.yaml` itself, because it cannot start without that organization's
+`STORAGE_CONNECTION`.
 
 An application includes them from this repository, at the release it was built against — one URL
 per environment — and adds its own services and declarations:
