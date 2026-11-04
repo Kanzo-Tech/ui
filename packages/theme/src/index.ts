@@ -334,6 +334,9 @@ export {
   type SectionTokenDecl,
 } from "./sections.js";
 
+// The shape a section's obligations take, and the one grading of it. A section declares its own
+// table; `@kanzo-tech/graph` grades its form with these.
+export { gradeObligations, type Obligation, type ObligationCheck } from "./grading.js";
 
 // Authoring-time colour, and the only derivation in the package. It runs in a form while somebody
 // picks a fill, never in a page painting one: what ships is still a flat block of hex, and this is
