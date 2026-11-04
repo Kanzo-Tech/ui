@@ -10,7 +10,7 @@ type Placed = Element & {
   screenAt?(point: { x: number; y: number }): [number, number];
 };
 
-const UNDRAWN = "the graph canvas has not drawn, or is not a GraphCanvas that says where it draws";
+const undrawn = "the graph canvas has not drawn, or is not a GraphCanvas that says where it draws";
 
 export interface GestureOptions {
   /**
@@ -82,7 +82,7 @@ export class GraphCanvasHarness extends ComponentHarness {
   /** Where a vertex is drawn now, in the canvas's pixels — what `{ in: "screen" }` takes. */
   async screenOf(vertex: number): Promise<Point> {
     const at = await this.host.evaluate((canvas, v) => (canvas as Placed).screenOf?.(v) ?? null, vertex);
-    if (!at || at.some(Number.isNaN)) throw new Error(UNDRAWN);
+    if (!at || at.some(Number.isNaN)) throw new Error(undrawn);
     return at;
   }
 
@@ -124,7 +124,7 @@ export class GraphCanvasHarness extends ComponentHarness {
     const offset = await this.host.getDimensions();
     if (space === "screen") return [offset.left + x, offset.top + y];
     const at = await this.host.evaluate((canvas, point) => (canvas as Placed).screenAt?.(point) ?? null, { x, y });
-    if (!at || at.some(Number.isNaN)) throw new Error(UNDRAWN);
+    if (!at || at.some(Number.isNaN)) throw new Error(undrawn);
     return [offset.left + at[0], offset.top + at[1]];
   }
 }

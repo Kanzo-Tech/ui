@@ -1,10 +1,10 @@
 import { ComponentHarness, type By, type TestElement } from "../environment";
 
 /** `Remove the region filter` takes a dashboard's control off the bar; `Remove region Saltmere` retracts a clause. */
-const CONTROL_REMOVE = /^Remove the (.+) filter$/;
-const CLAUSE_REMOVE = /^Remove (.+)$/;
+const controlRemove = /^Remove the (.+) filter$/;
+const clauseRemove = /^Remove (.+)$/;
 /** A dashboard's filter control reads *column: value*, or *column: Any* — its two spans run together in its text. */
-const CONTROL = /^([^:]+):\s?(.*)$/;
+const controlLabel = /^([^:]+):\s?(.*)$/;
 
 /**
  * **The page's `FilterBar`: the region *Filters*.** A clause is a chip with a *Remove …* button, a
@@ -19,10 +19,10 @@ export class FilterBarHarness extends ComponentHarness {
     const chips: string[] = [];
     for (const button of await this.buttons()) {
       const name = await this.nameOf(button);
-      if (CONTROL_REMOVE.test(name)) continue;
-      const clause = CLAUSE_REMOVE.exec(name);
+      if (controlRemove.test(name)) continue;
+      const clause = clauseRemove.exec(name);
       if (clause) chips.push(clause[1] as string);
-      const control = CONTROL.exec(name);
+      const control = controlLabel.exec(name);
       if (!clause && control && (await button.getAttribute("aria-haspopup")) !== null) chips.push(`${control[1]}: ${control[2]}`);
     }
     return chips;
@@ -54,7 +54,7 @@ export class FilterBarHarness extends ComponentHarness {
   async open(field: string): Promise<void> {
     let trigger: TestElement | null = null;
     for (const button of await this.buttons()) {
-      if (CONTROL.exec(await this.nameOf(button))?.[1] === field) trigger = button;
+      if (controlLabel.exec(await this.nameOf(button))?.[1] === field) trigger = button;
     }
     if (!trigger) throw new Error(`no filter control for ${field} in the filter bar`);
     if ((await trigger.getAttribute("aria-expanded")) === "true") return;
@@ -88,12 +88,12 @@ export class FilterBarHarness extends ComponentHarness {
   private async removal(field: string): Promise<string | null> {
     for (const button of await this.buttons()) {
       const name = await this.nameOf(button);
-      const control = CONTROL_REMOVE.exec(name);
+      const control = controlRemove.exec(name);
       if (control) {
         if (control[1] === field) return name;
         continue;
       }
-      const label = CLAUSE_REMOVE.exec(name)?.[1];
+      const label = clauseRemove.exec(name)?.[1];
       if (label !== undefined && (label === field || label.startsWith(`${field} `))) return name;
     }
     return null;

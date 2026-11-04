@@ -14,9 +14,6 @@ export interface EnvironmentOptions {
   models?: Readonly<Record<string, ModelScript>>;
 }
 
-/** Between two reads of a state. Not a wait for a result: `until` returns on the first read that has it. */
-const POLL = 50;
-
 /**
  * **The environment for a Playwright page.** It registers a provider per scripted model with
  * `addInitScript`, before the page's own scripts run, which `localModel` resolves when it is first
@@ -34,7 +31,8 @@ export async function playwright(page: Page, options: EnvironmentOptions = {}): 
         const answer = await probe();
         if (answer) return answer;
         if (Date.now() > deadline) throw new Error(`Timed out after ${timeout} ms: ${what}`);
-        await new Promise((next) => setTimeout(next, POLL));
+        // Between two reads of a state. Not a wait for a result: `until` returns on the first read that has it.
+        await new Promise((next) => setTimeout(next, 50));
       }
     },
   };

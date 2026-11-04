@@ -83,7 +83,7 @@ export interface ScriptedCalls<Call extends PromptedCall = PromptedCall> {
 export function scripted<Call extends PromptedCall>(
   script: ModelScript | (Omit<ModelScript, "turns"> & { readonly turns: (call: Call, index: number) => ModelReply }),
 ): ScriptedCalls<Call> {
-  const USAGE = {
+  const usage = {
     inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
     outputTokens: { total: 1, text: 1, reasoning: 0 },
   };
@@ -131,7 +131,7 @@ export function scripted<Call extends PromptedCall>(
       return {
         content: [...(reasoning ? [{ type: "reasoning", text: reasoning }] : []), { type: "text", text }],
         finishReason: { unified: "stop", raw: "stop" },
-        usage: USAGE,
+        usage,
         warnings: [],
       };
     },
@@ -160,7 +160,7 @@ export function scripted<Call extends PromptedCall>(
               }
               if ("tool" in reply) {
                 controller.enqueue({ type: "tool-call", toolCallId: `call-${index}`, toolName: reply.tool, input: JSON.stringify(reply.input) });
-                controller.enqueue({ type: "finish", finishReason: { unified: "tool-calls", raw: "tool_calls" }, usage: USAGE });
+                controller.enqueue({ type: "finish", finishReason: { unified: "tool-calls", raw: "tool_calls" }, usage });
                 controller.close();
                 return;
               }
@@ -174,7 +174,7 @@ export function scripted<Call extends PromptedCall>(
                 controller.enqueue({ type: "error", error: new Error(reply.fail) });
               } else {
                 controller.enqueue({ type: "text-end", id: "t" });
-                controller.enqueue({ type: "finish", finishReason: { unified: "stop", raw: "stop" }, usage: USAGE });
+                controller.enqueue({ type: "finish", finishReason: { unified: "stop", raw: "stop" }, usage });
               }
               controller.close();
             } catch (reason) {

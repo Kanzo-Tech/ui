@@ -1,13 +1,7 @@
 import { ComponentHarness, type By, type TestElement, type HarnessQuery } from "../environment";
 import { TileHarness } from "./dashboard";
 
-const FILTER = "Filter the page to these rows";
-const ADD = "Add to the dashboard";
-const OPEN = "Open on the dashboard";
-/** Once the tile is there: *Open on the dashboard* when the host gave `onOpen`, *On the dashboard* when not. */
-const ADDED = /^(Open on|On) the dashboard$/;
-/** The caption of the card's data table, cut short or not. */
-const DATA = /^The rows the answer was read from/;
+const addToDashboard = "Add to the dashboard";
 
 /**
  * **Asking data, and the `AnswerCard` it draws** — `/docs/design/ai`. The host is the composer, the
@@ -52,7 +46,8 @@ export class AnswerHarness extends ComponentHarness {
    */
   async rows(): Promise<Record<string, string>[]> {
     const card = await this.settled();
-    const table = await this.locatorFor({ role: "table", name: DATA }, "the answer has no data table: it read no rows")(card);
+    // The caption, cut short or not.
+    const table = await this.locatorFor({ role: "table", name: /^The rows the answer was read from/ }, "the answer has no data table: it read no rows")(card);
     const [head, ...body] = await table.find({ role: "row" });
     if (!head) return [];
     const columns = await Promise.all((await head.find({ role: "columnheader" })).map((cell) => cell.text()));
@@ -70,7 +65,7 @@ export class AnswerHarness extends ComponentHarness {
    */
   async filterTo(): Promise<void> {
     const card = await this.settled();
-    const button = await this.locatorFor({ role: "button", name: FILTER }, "the answer offers no Filter the page to these rows")(card);
+    const button = await this.locatorFor({ role: "button", name: "Filter the page to these rows" }, "the answer offers no Filter the page to these rows")(card);
     if ((await button.getAttribute("aria-pressed")) === "true") return;
     if ((await button.getAttribute("disabled")) !== null) throw new Error("the answer cannot filter the page: it keeps everything in view");
     await button.click();
@@ -85,13 +80,14 @@ export class AnswerHarness extends ComponentHarness {
    */
   async addToDashboard(): Promise<void> {
     const card = await this.settled();
-    const button = await this.locatorFor({ role: "button", name: ADD }, "the answer offers no Add to the dashboard: the host gave it no dashboards and onAdd")(card);
+    const button = await this.locatorFor({ role: "button", name: addToDashboard }, "the answer offers no Add to the dashboard: the host gave it no dashboards and onAdd")(card);
     await button.click();
     // By its name, not by the button: the name is what changes, and Playwright resolves a button by it.
     const outcome = await this.env.until(async () => {
-      if ((await card.find({ role: "button", name: ADDED })).length > 0) return { added: true as const };
+      // *Open on the dashboard* when the host gave `onOpen`, *On the dashboard* when not.
+      if ((await card.find({ role: "button", name: /^(Open on|On) the dashboard$/ })).length > 0) return { added: true as const };
       const [problem] = await card.find({ role: "listitem" });
-      if (problem && (await card.find({ role: "button", name: ADD })).length > 0) return { added: false as const, problem: await problem.text() };
+      if (problem && (await card.find({ role: "button", name: addToDashboard })).length > 0) return { added: false as const, problem: await problem.text() };
       return null;
     }, "the answer was not added to the dashboard: the host never handed back dashboards holding its tile");
     if (!outcome.added) throw new Error(`the answer was not added to the dashboard: ${outcome.problem}`);
@@ -104,7 +100,7 @@ export class AnswerHarness extends ComponentHarness {
    */
   async openOnDashboard(): Promise<void> {
     const card = await this.settled();
-    const button = await this.locatorFor({ role: "button", name: OPEN }, "the answer offers no Open on the dashboard: it is not on the dashboard, or the host gave no onOpen")(card);
+    const button = await this.locatorFor({ role: "button", name: "Open on the dashboard" }, "the answer offers no Open on the dashboard: it is not on the dashboard, or the host gave no onOpen")(card);
     await button.click();
   }
 

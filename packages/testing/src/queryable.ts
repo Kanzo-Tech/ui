@@ -41,10 +41,10 @@ export interface ConformanceOptions {
 }
 
 /** Far longer than any case waits: it ends only if the engine interrupts it, or dies. */
-const LONG = "SELECT sum(i * i) FROM range(1000000000) t(i)";
+const longStatement = "SELECT sum(i * i) FROM range(1000000000) t(i)";
 
 /** After an abort, the connection must answer a trivial statement within this many milliseconds. */
-const RECOVERS_WITHIN = 200;
+const recoversWithin = 200;
 
 function assert(ok: unknown, message: string): asserts ok {
   if (!ok) throw new Error(`queryable conformance: ${message}`);
@@ -147,12 +147,12 @@ export function queryableConformance(
 
   if (cancels) {
     cases.push({
-      name: `interrupts a long statement on abort, and the next one answers within ${RECOVERS_WITHIN} ms`,
+      name: `interrupts a long statement on abort, and the next one answers within ${recoversWithin} ms`,
       async run() {
         const { queryable } = await make();
         const controller = new AbortController();
         const reason = new Error("stop");
-        const long = queryable.query(LONG, { signal: controller.signal });
+        const long = queryable.query(longStatement, { signal: controller.signal });
         await pause(100);
         controller.abort(reason);
         const failure = await rejection(long);
@@ -160,7 +160,7 @@ export function queryableConformance(
         const from = performance.now();
         await queryable.query("SELECT 1 AS one", { signal: signal() });
         const took = performance.now() - from;
-        assert(took < RECOVERS_WITHIN, `the next statement took ${took.toFixed(0)} ms: the abort did not stop the statement`);
+        assert(took < recoversWithin, `the next statement took ${took.toFixed(0)} ms: the abort did not stop the statement`);
       },
     });
   } else {
@@ -180,7 +180,7 @@ export function queryableConformance(
       async run() {
         const { queryable, kill } = await make();
         assert(kill, "the engine under test has no kill, and the kit was not told dies: false");
-        const held = queryable.query(LONG, { signal: signal() });
+        const held = queryable.query(longStatement, { signal: signal() });
         await pause(100);
         await kill();
         const failure = await rejection(held);
