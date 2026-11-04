@@ -670,7 +670,7 @@ for the document; a tenant answers with a `SectionPolicy` of `SectionPrefPolicy`
 
 **Authoring colour.** `inkFor` returns the ink that belongs on a fill and `pageInk` the same family
 read on the page, each as a hex ready to be written into a theme. `contrast` is the WCAG ratio, `AA`
-its 4.5 floor, and `oklch`/`hex` convert between a hex and an `Oklch` (`l` from 0 to 1, `h` in
+its 4.5 floor for text, `NON_TEXT_CONTRAST` its 3 floor for a boundary or a mark, and `oklch`/`hex` convert between a hex and an `Oklch` (`l` from 0 to 1, `h` in
 degrees). `CONTRAST_PAIRS` and `auditContrast` are [the floors](#contrast). These run in a form while
 somebody picks a colour, never in a page painting one.
 

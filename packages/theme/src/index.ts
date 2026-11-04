@@ -204,10 +204,10 @@ export interface ThemePrefs {
  * turned on a live field.
  */
 export const DEFAULT_PREFS: ThemePrefs = {
-  // While nothing is stored the OS's `prefers-color-scheme` answers before this does; a host moves
-  // the fallback with `policy.theme.appearance.default`.
-  appearance: "light",
-  density: "default",
+  // The generated declaration's defaults. While nothing is stored the OS's `prefers-color-scheme`
+  // answers before appearance's does; a host moves it with `policy.theme.appearance.default`.
+  appearance: themeDataJson.prefs.appearance.default as Appearance,
+  density: themeDataJson.prefs.density.default as KanzoDensity,
   // Empty, and both sides fall through to the tenant's default — so a tenant shipping one theme per
   // side stores nothing and gets the `<html>` it always had. `""` per side means the same thing:
   // defer to whichever theme the tenant made default.
@@ -350,6 +350,7 @@ export {
 
 export {
   AA,
+  NON_TEXT_CONTRAST,
   contrast,
   hex,
   inkFor,
