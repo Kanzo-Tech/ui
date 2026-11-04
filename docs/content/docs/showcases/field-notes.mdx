@@ -7,10 +7,11 @@ full: true
 <PreviewIframe name="field-notes" title="Field notes showcase" className="h-[820px]" />
 
 A photograph of five of the Amber Hall's sighting slips becomes five rows of a ledger, and the
-ledger becomes the CSV the archivist already keeps. `ShellHeader` is one row, carrying the title, the source switch (**Demo run** · **Live model**), the
-two tallies and **Extract** with the **CSV** download; `ShellMain` holds the editable table; a
+ledger becomes the CSV the archivist already keeps. `ShellHeader` is one row, carrying the title, the source switch (**Demo run** · **Live model**), the two tallies, **Extract** and a **Download** menu (CSV, Turtle); `ShellMain` holds the editable table; a
 trailing `ShellAside` stands the slip the selected row was read from BESIDE the record it became,
-with **The shape** on the second tab, and the shape switcher sits in that panel's own header.
+with **The shape** on the second tab, and the shape switcher sits in that panel's own header. On a
+phone there is one pane's width, so the ledger stands alone and the slip opens over it when a row's
+paper is tapped.
 
 The tallies are the way in rather than a summary: hovering **unread** or **violations** lists every
 cell it counted with the reason beside it, and pressing one marks those cells where they are. It is a
@@ -30,7 +31,8 @@ viewer keeps one frame across both, because a dialog that sizes to its content m
 from under the pointer that just asked to drag it.
 
 It exists to answer a question the other showcases do not reach: what does a screen look like when
-the machine is *usually* right? Press **Extract** and the rows fill in live. Six of the thirty-five
+the machine is *usually* right? It opens on the sample already read; press **Extract again** and
+the rows fill in live, and **Start over** goes back to the dropzone. Six of the thirty-five
 cells arrive empty, because six of them are not in the photograph — and that is the screen, not a
 defect in the demo.
 
@@ -150,7 +152,7 @@ Existing parts, arranged — nothing here is new:
 - **`DataList`** — the slip panel's record, every column with what was read into it. Shark's.
 - **`ImageCropper`** — the box a reader draws when the model put one in the wrong place, and the
   only paper a row typed by hand ever gets. Shark's, and this is the renderer that adopted it.
-- **`DownloadTrigger`** — the CSV, `;`-separated with a BOM and the decimal comma left as typed,
+- **`DownloadTrigger`** in a **`Menu`** — the CSV, `;`-separated with a BOM and the decimal comma,
   because that is the file a European spreadsheet locale opens by double-click.
 - **`ToggleGroup`** vertical — the activity bar. Two panes, independent, so it is `multiple`.
 - **`SegmentGroup`**, **`ScrollArea`**, **`Badge`**, **`Status`**, **`Show`** — the chrome.

@@ -5,52 +5,58 @@ import {
   BellIcon,
   KeyRoundIcon,
   LayoutDashboardIcon,
+  LibraryIcon,
   PaletteIcon,
   SettingsIcon,
   UserIcon,
   UsersIcon,
-  LibraryIcon,
 } from "lucide-react";
 import {
   Avatar,
   AvatarFallback,
-  Button,
-  Eyebrow,
-  Item,
-  ItemContent,
-  ItemGroup,
-  ItemMedia,
-  ItemTitle,
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
   PreferencesField,
   PreferencesPanel,
   PreferencesRoot,
   PreferencesSections,
   PreferencesTrigger,
+  SectionBody,
   SectionDescription,
   SectionHeader,
   SectionRoot,
   SectionTitle,
   SectionTitleGroup,
+  SegmentGroup,
+  Separator,
+  ShellHeader,
   ShellMain,
+  Show,
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarHeader,
   SidebarIdentity,
   SidebarIdentityAvatar,
   SidebarIdentityDescription,
+  SidebarIdentityIcon,
   SidebarIdentityLabel,
   SidebarIdentityText,
-  SidebarFooter,
-  SidebarIdentityIcon,
   SidebarInset,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarProvider,
   SidebarRail,
-  SegmentGroup,
-  Show,
+  SidebarTrigger,
+  useSidebar,
 } from "@kanzo-tech/ui";
 import { useState } from "react";
 // The one running example the docs speak — a settings page belongs to somebody, and inventing a
@@ -66,65 +72,33 @@ import { HOME_HALL, hall } from "@/example/world";
  * theme, density, and whatever the packages a host installed contribute. Nothing here is a
  * settings-page variant of anything, and if it ever needs to be, the mechanism has failed.
  *
- * A product picks the surface rather than the components: a light one wants the drawer; a product
- * with a real settings area wants the page. Both are one registry and one resolution. The drawer
- * leads with one preference of the product's own, the side its rail sits on, to show a panel
- * composed from children rather than the default body.
- *
- * **Why the theme section lays itself out and this page does not tell it to.** The theme picker
- * lays its cards out on an auto-fill grid, so it fits as many as the drawer or this pane allows —
- * the question it asks is how much room *it* was given, never how big the window is.
- *
- * The reference is GitHub's Appearance page, down to the sub-sidebar and the day/night pairing:
- * grouped nav on the inline start, one scrolling pane, the appearance controls first. Where GitHub
- * draws its tiles as assets, ours are the themes themselves, scoped.
+ * One level of navigation: the settings sections are sub-items of Settings in the app's own rail,
+ * so the pane follows the rail directly. The pane keeps a reading width, left-aligned under the
+ * header, and the theme picker lays its cards out on an auto-fill grid inside whatever it is given.
  */
-/** The product's own places. A settings screen is somewhere you go, not somewhere you live. */
 const PLACES = [
   { icon: LayoutDashboardIcon, label: "Ledger" },
   { icon: UsersIcon, label: "Roster" },
-  { active: true, icon: SettingsIcon, label: "Settings" },
 ] as const;
 
-/**
- * The settings menu — page content, never shell chrome.
- *
- * This is the distinction the first draft got wrong: it built the app's rail and called it a
- * settings sub-sidebar. GitHub's is a column of the page, under the global header, beside the pane
- * it drives. Made of `ItemGroup` / `Item`, which is the vocabulary for exactly this — a compact
- * list of rows with a media slot and a title — rather than the sidebar parts, which carry a rail's
- * context and a rail's collapse behaviour.
- */
-const SETTINGS = [
-  {
-    label: "Personal",
-    items: [
-      { icon: UserIcon, label: "Profile" },
-      { icon: KeyRoundIcon, label: "Account" },
-    ],
-  },
-  {
-    label: "Preferences",
-    items: [
-      { active: true, icon: PaletteIcon, label: "Appearance" },
-      { icon: AccessibilityIcon, label: "Accessibility" },
-      { icon: BellIcon, label: "Notifications" },
-    ],
-  },
+const SECTIONS = [
+  { icon: UserIcon, label: "Profile" },
+  { icon: KeyRoundIcon, label: "Account" },
+  { active: true, icon: PaletteIcon, label: "Appearance" },
+  { icon: AccessibilityIcon, label: "Accessibility" },
+  { icon: BellIcon, label: "Notifications" },
 ] as const;
 
 type Placement = "left" | "right";
 
-export function SettingsShowcase() {
-  const [placement, setPlacement] = useState<Placement>("left");
+function Rail({ placement }: { placement: Placement }) {
+  const { isMobile, setOpenMobile, state } = useSidebar();
+  // Collapsed to icons the sub-items are hidden, so the parent carries the active mark instead.
+  const collapsed = state === "collapsed" && !isMobile;
+  const closeMobile = () => setOpenMobile(false);
 
-  // The product's own rail, and it is a real one — this page is a screen INSIDE an app, not a
-  // standalone settings site. GitHub's settings live under the global header with the account nav
-  // beside the pane, which is two navigations doing different jobs: the app's, and the page's.
-  // Collapsing this one is what gives the settings menu room without taking the product away.
-  const rail = (
+  return (
     <Sidebar collapsible="icon" placement={placement}>
-      {/* The workspace this rail belongs to. */}
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -141,25 +115,47 @@ export function SettingsShowcase() {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarMenu>
-            {PLACES.map((place) => (
-              <SidebarMenuItem key={place.label}>
-                {/* Nothing navigates: this arrangement is about where the sections live, and a
-                    router would be a second thing to read in a file that demonstrates one. */}
-                <SidebarMenuButton isActive={"active" in place && place.active}>
-                  <place.icon />
-                  <span>{place.label}</span>
+        {/* Nothing navigates: a router would be a second thing to read in a file about where the
+            sections live. */}
+        <nav aria-label="Platform">
+          <SidebarGroup>
+            <SidebarMenu>
+              {PLACES.map((place) => (
+                <SidebarMenuItem key={place.label}>
+                  <SidebarMenuButton tooltip={place.label}>
+                    <place.icon />
+                    <span>{place.label}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+              <SidebarMenuItem>
+                <SidebarMenuButton isActive={collapsed} tooltip="Settings">
+                  <SettingsIcon />
+                  <span>Settings</span>
                 </SidebarMenuButton>
+                <SidebarMenuSub aria-label="Settings">
+                  {SECTIONS.map((section) => {
+                    const active = "active" in section && section.active;
+                    return (
+                      <SidebarMenuSubItem key={section.label}>
+                        <SidebarMenuSubButton
+                          aria-current={active ? "page" : undefined}
+                          href={`#${section.label.toLowerCase()}`}
+                          isActive={active}
+                          onClick={closeMobile}
+                        >
+                          <section.icon />
+                          <span>{section.label}</span>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    );
+                  })}
+                </SidebarMenuSub>
               </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
+            </SidebarMenu>
+          </SidebarGroup>
+        </nav>
       </SidebarContent>
-
-      {/* And who is signed in. A rail without it is half a rail — every other shell in this
-          repository carries the person at the foot, and a settings screen is the one place a
-          reader most wants to know whose settings these are. */}
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -180,88 +176,58 @@ export function SettingsShowcase() {
       <SidebarRail />
     </Sidebar>
   );
+}
+
+export function SettingsShowcase() {
+  const [placement, setPlacement] = useState<Placement>("left");
+  const rail = <Rail placement={placement} />;
 
   // The rail's gap is in flow, so a rail on the right comes after the inset in the tree.
   return (
-    <SidebarProvider className="h-dvh min-h-0 overflow-hidden">
+    <SidebarProvider className="h-dvh min-h-0 overflow-hidden" hotkey="mod+b">
       <Show when={placement === "left"}>{rail}</Show>
 
-      <SidebarInset>
+      <SidebarInset className="overflow-hidden">
+        <ShellHeader className="h-12 min-w-0 flex-row items-center gap-2 px-3">
+          <SidebarTrigger />
+          <Separator className="h-4" orientation="vertical" />
+          <Breadcrumb>
+            <BreadcrumbList className="min-w-0 flex-nowrap overflow-hidden">
+              <BreadcrumbItem>
+                <BreadcrumbPage>Settings</BreadcrumbPage>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem className="min-w-0">
+                <BreadcrumbPage className="truncate">Appearance</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </ShellHeader>
+
         <ShellMain className="overflow-y-auto bg-background">
-          <SectionRoot className="mx-auto w-full max-w-5xl px-6 py-8">
-            <div className="grid gap-8 py-6 md:grid-cols-[13rem_1fr]">
-              {/* The settings menu: page content, beside the pane it drives, exactly where GitHub
-                  puts it. `ItemGroup`/`Item` and not the sidebar parts — those carry a rail's
-                  context and a rail's collapse behaviour, and this is a list of rows. */}
-              <nav aria-label="Settings" className="flex flex-col gap-6">
-                {SETTINGS.map((group) => (
-                  <ItemGroup className="gap-0.5" key={group.label}>
-                    {/* The same heading the sections opposite wear — an `Eyebrow` at the panel's
-                        11px — because both columns are headings of one page. */}
-                    <Eyebrow className="mb-1 px-2 text-[length:var(--kanzo-font-size-small)]">{group.label}</Eyebrow>
-                    {group.items.map((entry) => {
-                      const active = "active" in entry && entry.active;
-                      return (
-                        // A pressable row is a BUTTON INSIDE the item, never the item merged with
-                        // one: `item.tsx` says so, and gives the reason — `asChild` would land
-                        // `role="listitem"` on the button and silently stop it being announced as a
-                        // control. `p-0` on the item plus the padding on the button keeps the whole
-                        // row as the target. It was a `cursor-pointer` div, which meant the settings
-                        // menu could not be reached by keyboard at all.
-                        <Item className="p-0" key={entry.label}>
-                          <Button
-                            aria-current={active ? "page" : undefined}
-                            className="h-auto w-full justify-start gap-2 px-2 py-1.5 font-normal"
-                            variant={active ? "secondary" : "ghost"}
-                          >
-                            <ItemMedia>
-                              <entry.icon className="size-4" />
-                            </ItemMedia>
-                            <ItemContent>
-                              <ItemTitle>{entry.label}</ItemTitle>
-                            </ItemContent>
-                          </Button>
-                        </Item>
-                      );
-                    })}
-                  </ItemGroup>
-                ))}
-              </nav>
-
-              <div className="flex min-w-0 flex-col gap-8">
-                {/* The heading sits in the CONTENT column, not spanning the menu beside it: a title
-                    that starts at the page's left edge belongs to the page, and this one belongs to
-                    the pane the menu is pointing at. */}
-                <SectionHeader scale="page">
-                  <SectionTitleGroup>
-                    <SectionTitle level={1} scale="page">
-                      Appearance
-                    </SectionTitle>
-                    <SectionDescription>
-                      Choose how this product looks to you. Selections apply immediately and are
-                      saved to this browser — every control here is the same component the floating
-                      panel renders.
-                    </SectionDescription>
-                  </SectionTitleGroup>
-                </SectionHeader>
-
-                {/* No rule between the sections. Every heading here is now one spelling, and a
-                    heading is what separates them — a line drawn between two of the six said the
-                    colour section was a different KIND of thing, which is the claim this page
-                    exists to deny. */}
-                {/* Every preference this host offers: the theme, density, then whatever the
-                    packages it installed contribute. Radius and the faces are the theme's and
-                    have no control. */}
-                <PreferencesSections />
-              </div>
-            </div>
+          <SectionRoot className="w-full max-w-4xl" fill={false}>
+            <SectionHeader scale="page">
+              <SectionTitleGroup>
+                <SectionTitle level={1} scale="page">
+                  Appearance
+                </SectionTitle>
+                <SectionDescription>
+                  Choose how this product looks to you. Selections apply immediately and are saved
+                  to this browser — every control here is the same component the floating panel
+                  renders.
+                </SectionDescription>
+              </SectionTitleGroup>
+            </SectionHeader>
+            <SectionBody scale="page">
+              <PreferencesSections />
+            </SectionBody>
           </SectionRoot>
         </ShellMain>
       </SidebarInset>
       <Show when={placement === "right"}>{rail}</Show>
 
-      {/* Closed on arrival: the page is the screen, and the drawer opened over it hid half of it. Its
-          trigger opens the same sections, non-modal, beside the pane. */}
+      {/* Closed on arrival: the page is the screen. Its trigger opens the same sections,
+          non-modal, beside the pane. */}
       <PreferencesRoot hotkey="p">
         <PreferencesTrigger />
         <PreferencesPanel>
