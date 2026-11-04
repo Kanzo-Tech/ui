@@ -87,9 +87,6 @@ importers:
       '@codemirror/view':
         specifier: ^6.43.1
         version: 6.43.4
-      '@cosmos.gl/graph':
-        specifier: ^3.4.0
-        version: 3.4.0
       '@internationalized/date':
         specifier: ^3.12.2
         version: 3.12.2

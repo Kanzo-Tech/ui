@@ -26,7 +26,7 @@ export default function Example() {
               group is also what carries `min-w-0`, which lets a long title truncate instead of
               pushing the actions off the row. */}
           <SectionTitleGroup>
-            <SectionTitle level={1} scale="page">
+            <SectionTitle level={2} scale="page">
               The board
             </SectionTitle>
             <SectionDescription>

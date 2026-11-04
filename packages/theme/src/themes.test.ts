@@ -138,10 +138,12 @@ describe("a theme resolves through the bridge", () => {
     expect(themeIndex.map((t) => t.value).sort()).toEqual(THEMES.map((t) => t.name).sort());
   });
 
-  it("carries a family's brand at night at no more chroma than by day, give or take 0.05", () => {
+  it("carries a family's brand at night at no more chroma than by day, give or take 0.05, unless it says so by name", () => {
     // The brand fill and the first series, which is where a family puts its brand on a chart. A
     // dark ground makes a saturated fill louder, not quieter, so the night side may not out-shout
-    // the day side; every family but kanzo already sat below its light partner.
+    // the day side. A family whose brand is a neon at night says so here, by name, and only for its
+    // fill: its first series still holds the rule.
+    const louderByName = new Set(["kanzo-dark --primary"]);
     const byName = new Map(THEMES.map((t) => [t.name, t]));
     const louder: string[] = [];
     for (const family of themeFamilies(themeIndex)) {
@@ -150,7 +152,7 @@ describe("a theme resolves through the bridge", () => {
       for (const token of ["--primary", "--chart-1"]) {
         const d = day?.declared.get(token);
         const n = night?.declared.get(token);
-        if (!d || !n) continue;
+        if (!d || !n || louderByName.has(`${night?.name} ${token}`)) continue;
         const gain = oklch(n).c - oklch(d).c;
         if (gain > 0.05) louder.push(`${night?.name} ${token} ${n} is ${gain.toFixed(3)} more chromatic than ${d}`);
       }

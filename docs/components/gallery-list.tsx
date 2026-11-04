@@ -8,12 +8,6 @@ import { getComponentGroups } from "@/lib/component-groups";
  * Same contract as `ComponentsList` and for the same reason: generated from `source.pageTree`, so
  * a page appears here exactly when it exists on disk, and there is no second list to keep in sync.
  *
- * That derivation also settles a distinction the source directory blurs.
- * `docs/showcases/preferences` uses the standalone-viewport MECHANISM without being a showcase —
- * Preferences is a component whose panel is `Portal`ed and `position: fixed`, so it cannot be
- * rendered inside a framed preview box. It has no page in that group, so it does not appear there;
- * it appears in the components index, which is where a component belongs. A directory listing
- * would have got that wrong.
  */
 export const GalleryList = ({
   group: slug,

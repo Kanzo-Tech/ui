@@ -4,7 +4,7 @@ import { defineConfig } from "vitest/config";
 // against a host element, and `neighboursOf` walks a graph object that only exists beside a canvas.
 // What jsdom cannot do is resolve `color-mix(in srgb, var(--token) …)` — so these tests assert
 // structure, ordering and arithmetic, and leave "is that the right blue" to the browser, where the
-// showcase and the benchmark route both check it.
+// keasy showcase's Discover checks it.
 export default defineConfig({
   test: {
     environment: "jsdom",

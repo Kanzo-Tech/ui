@@ -580,8 +580,7 @@ while the data places the points, and offers it again when an axis is unbound".
 
 ## The viewer costs what cosmos.gl costs
 
-At 200,000 vertices, measured on 2026-09-30 with `graph-bench`'s `measureViewer` in a foreground
-window, the viewer's p95 frame interval was **9.0 ms against 9.3 ms for cosmos.gl alone** on the same
+At 200,000 vertices, measured on 2026-09-30 in a foreground window, the viewer's p95 frame interval was **9.0 ms against 9.3 ms for cosmos.gl alone** on the same
 positions and camera path; the gate is 15%. The difference had been ours, and each cause is now a
 rule:
 
@@ -624,7 +623,7 @@ every run's p50 and p95 frame interval is the no-grid run's to within 0.5 ms, an
 than the CSS layer it replaces on p95 interval and on renderer CPU. It is a frame-interval criterion,
 because that is what a reader feels; CPU is reported beside it and not hidden by it.
 
-Measured on 2026-10-14, a camera path of zoom in ×4 and a sweep (the one `measureViewer` drives), at
+Measured on 2026-10-14, a camera path of zoom in ×4 and a sweep, at
 1280×720, 200 frames a run, nine runs an arm, the arms rotated so none is always first. Chromium 151
 headless with **SwiftShader**, so no real GPU, on four vCPUs shared with a load average near 14: the
 figures are relative and the frame interval is capped at the 60 Hz vsync, 16.7 ms.
@@ -649,8 +648,7 @@ previous arm's teardown, 130 s on this machine, runs in the same process. **200,
 not be measured here**: the viewer never reached its first measured frame in eight minutes under
 SwiftShader, and 10,000 did not finish a 60-frame path in ten. 2,000 is the *strictest* scene
 available, since the grid is the largest share of a frame when the graph is the smallest, and a larger
-graph only dilutes it. `measureGrid` in `docs/showcases/graph-bench/measure-viewer.ts` is that
-comparison, grid off against on, to be run where there is a GPU; the isolated one behind the table
+graph only dilutes it. That comparison, grid off against on, is to be run where there is a GPU; the isolated one behind the table
 needed the CSS layer for its third arm, so it went with it.
 
 **It is not in the scene, and that was the proposal.** A fragment shader behind the points, in
@@ -665,7 +663,7 @@ both modes and at both ratios, and in a light theme a software-composited Chromi
 cosmos.gl's frame clears to `store.backgroundColor`, and `appearance` sets that to `[r, g, b, 0]` for
 the greyout's sake. On a `premultipliedAlpha: true` canvas that is not a transparent pixel but an
 invalid one — red above its alpha — and the compositor adds it: the page behind the canvas in the
-workspace showcase measured `rgb(255, 255, 255)` where the theme's `--background` is `rgb(251, 252,
+keasy showcase's Discover measured `rgb(255, 255, 255)` where the theme's `--background` is `rgb(251, 252,
 251)`. A dark theme's RGB is small, so it added little: the dark page measured `rgb(14, 22, 16)` where
 `--background` is `rgb(7, 11, 8)`, twice it, which nobody sees, and that was the whole of "visible in
 dark". A translucent link carried the background twice for the same reason.
@@ -698,7 +696,7 @@ screenshot at 1× and 2×:
   every point, which loses the hue.
 - **Premultiplying in the config is the same refusal**: `rgb × 0` is `[0, 0, 0, 0]`.
 
-**Seen through the real canvas**, in the workspace showcase at 1× and 2× (the end-to-end test, with
+**Seen through the real canvas**, in the keasy showcase's Discover at 1× and 2× (the end-to-end test, with
 the clear put back as it was for the "before"): the page behind the canvas went from
 `rgb(255, 255, 255)` to `rgb(251, 252, 251)` in light and from `rgb(14, 22, 16)` to `rgb(7, 11, 8)` in
 dark, each now `--background`; the dots in `--input` seen in the screenshot went from 0–1 pixels to 932
@@ -969,7 +967,7 @@ graph loads".
 `attachGraph` answers the attachment whose `detach()` gives the catalog back. The graph is handed a name and the page's one
 coordinator — one per page, because `MosaicProvider` makes its coordinator vgplot's active one and
 that setter is process-wide. [Discovery workspace](/docs/graph/workspace) is the wiring, and
-[the workspace showcase](/docs/showcases/workspace) the reference composition: what it writes is the
+[the keasy showcase's Discover](/docs/showcases/keasy#discover) the reference composition: what it writes is the
 product's — the pairings of look and channels, the hall's name in the inspector, the panels — and
 nothing in it reads a renderer or a buffer.
 

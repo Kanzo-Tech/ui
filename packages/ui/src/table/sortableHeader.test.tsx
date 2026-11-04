@@ -62,4 +62,24 @@ describe("sortableHeader", () => {
     expect(button.className).toContain("-me-1");
     expect(button.className).not.toMatch(/\b-?(mr|ml)-|text-right\b/);
   });
+
+  it("shows the glyph at rest only on the sorted column, without moving the label", async () => {
+    const u = userEvent.setup();
+    render(
+      <Harness
+        columns={[
+          { accessorKey: "name", header: sortableHeader("Name") },
+          { accessorKey: "runs", header: sortableHeader("Runs") },
+        ]}
+      />,
+    );
+
+    const glyph = (name: string) => header(name).querySelector("svg");
+    expect(glyph("Name")?.getAttribute("class")).toMatch(/(^|\s)opacity-0(\s|$)/);
+    expect(glyph("Name")?.getAttribute("class")).toContain("group-focus-visible/sortable-header:opacity-50");
+
+    await u.click(header("Name"));
+    expect(glyph("Name")?.getAttribute("class")).not.toContain("opacity-0");
+    expect(glyph("Runs")?.getAttribute("class")).toMatch(/(^|\s)opacity-0(\s|$)/);
+  });
 });

@@ -115,7 +115,7 @@ export function SectionTitleGroup({ className, slot, ...rest }: ComponentProps<t
 SectionTitleGroup.displayName = "SectionTitleGroup";
 
 const sectionTitleVariants = tv({
-  base: "truncate text-foreground",
+  base: "truncate font-heading text-foreground",
   variants: {
     scale: {
       page: "text-lg font-bold",

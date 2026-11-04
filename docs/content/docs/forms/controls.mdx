@@ -23,7 +23,7 @@ drop to the primitive when you need to rearrange the parts. The rule in full is 
 and 24.5, 28 and 31.5px at compact. `sm` is the theme's `--size-control-min`, the floor its density
 obligation grades against WCAG 2.5.8's 24px. A text input, a number input, a native select, a select, a
 combobox, a tags input, a date picker and its time field, a language picker, a password input, a
-pin cell, a segment group, a toggle and a button all share it. Put any of them beside any other, in a
+segment group, a toggle and a button all share it. Put any of them beside any other, in a
 row or a column, and their edges line up.
 
 The height is written **once**, in `packages/ui/src/lib/control-size.ts`: a `controlSizes` fragment
@@ -161,7 +161,6 @@ pictures a value that has a name, reach for [`Swatch`](/docs/data-display/swatch
 |---|---|---|
 | [`PasswordInput`](/docs/forms/password-input) | A password input with a reveal toggle. | **Entering** a password — sign-in, sign-up. |
 | [`PasswordInput` + `hasStoredValue`](/docs/forms/password-input#editing-a-stored-credential) | The same input in stored-credential mode: renders empty when a secret exists, and submitting empty means "keep it". | **Editing** a credential that already lives server-side. |
-| [`PinInput`](/docs/forms/pin-input) | One cell per character; a pasted code spreads across them. | A one-time password or verification code. |
 
 ## Repeating
 

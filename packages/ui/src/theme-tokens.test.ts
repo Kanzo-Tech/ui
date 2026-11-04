@@ -57,7 +57,7 @@ import { label, READERS, REPO, sourceFiles } from "./guard-corpus";
  * `graph/parts/graph-canvas.tsx` fails the first assertion with
  * `graph/parts/graph-canvas.tsx:23 --brand-a5 — declared by no theme, set nowhere, provided by
  * nothing`; restoring `var(--popover)` on Popover's arrow fails it with `… is a use, and the bridge
- * reads it as var(--popover, var(--card))`; commenting `--kanzo-font-size-xs` out of `tokens.css`
+ * reads it as var(--popover, var(--card))`; commenting `--kanzo-font-size-small` out of `tokens.css`
  * fails it for `ui/simples/badge.tsx`.
  *
  * ## What this guard cannot prove
@@ -345,7 +345,7 @@ describe("every custom property that is read exists", () => {
     // Every assertion above is an assertion of absence, so an empty read of any side passes them.
     expect(THEMES.length).toBe(8);
     expect(USES.size).toBeGreaterThan(8);
-    expect(ROOT.has("--chart-1") && ROOT.has("--kanzo-font-size-xs")).toBe(true);
+    expect(ROOT.has("--chart-1") && ROOT.has("--kanzo-font-size-small")).toBe(true);
     const where = new Set(FILES.map((f) => label(f).split("/")[0]));
     for (const root of ["ui", "ai", "graph", "theme", "docs"]) expect(where.has(root)).toBe(true);
     expect(reads().length).toBeGreaterThan(300);

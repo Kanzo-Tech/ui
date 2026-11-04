@@ -4,7 +4,7 @@ import { availableNow } from "@/example/roster";
 
 export default function Example() {
   return (
-    <StatRoot asChild className="w-full max-w-xs" variant="success">
+    <StatRoot asChild className="w-full max-w-xs">
       <a href="#the-roster">
         <StatIndicator>
           <UsersIcon />
