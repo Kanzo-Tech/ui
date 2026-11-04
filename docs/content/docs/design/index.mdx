@@ -373,6 +373,7 @@ rows are not comparable with the gauges above them.
 | 2026-10-16 | relations root | 5.9 → 6.2 kB, approved by the owner (standing approval, 2026-10-15) | → 6.1 kB | a `JoinGraph` refused where it is made (`/docs/design/relations`): `checked()` at the end of `readJoinGraph` and `withMapping` — duplicate type or edge names, a key not among its columns, an edge end or a union member that is not a type, as `relations/invalid` — on top of `readCounts` reading `fossil:stats` as fossil writes it |
 | 2026-11-04 | ui `./analytics { Dashboard }` | 37.5 → 37.6 kB, approved by the owner (2026-11-04) | 37.43 → 37.56 kB | the charts format in the page's locale (`useLocale`), not the browser's: the text alternative, the timeline's axis and window, the detail table, the filter readout and a stat's share |
 | 2026-11-04 | ui `./analytics` | 30 → 30.1 kB, approved by the owner (2026-11-04) | 29.98 → 30.04 kB | a sort glyph shows on the sorted column and on hover or focus only (`DetailTable`), which is class strings for the hover and focus-visible states |
+| 2026-11-04 | ui `./table` | 3.3 → 3.4 kB, approved by the owner (2026-11-04) | 3.29 → 3.31 kB | `useDataTable` returns to the first page from the filter, global filter and sort handlers instead of TanStack's `autoResetPageIndex`, which reset the page before the table mounted: React warned and `initialPage` was lost |
 
 A difference of a few bytes on a package the change did not touch is the measurement, not the code.
 
