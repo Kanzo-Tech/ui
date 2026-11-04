@@ -27,6 +27,7 @@ import {
 } from "@kanzo-tech/ui";
 import {
   auditContrast,
+  CONTRAST_PAIRS,
   contrast as wcag,
   hex,
   inkFor,
@@ -124,9 +125,7 @@ const GROUPS = [
 ] as const;
 
 /** The eight syntax inks, read on the editor's paper — what fossil's editor paints a program in. */
-const SYNTAX = ["keyword", "string", "number", "function", "variable", "property", "type", "annotation"].map(
-  (role) => `--syntax-${role}`,
-);
+const SYNTAX = [...new Set(CONTRAST_PAIRS.map((p) => p.ink).filter((ink) => ink.startsWith("--syntax-")))];
 
 const COLOURS = [
   ...new Set(
