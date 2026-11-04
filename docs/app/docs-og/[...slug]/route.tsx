@@ -36,7 +36,7 @@ export async function GET(_request: Request, props: { params: Promise<{ slug: st
           width: "100%",
         }}
       >
-        <KanzoLogo height={44} width={228} />
+        <KanzoLogo height={44} width={225} />
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           <div style={{ fontSize: 84, fontWeight: 600, letterSpacing: "-0.03em", lineHeight: 1 }}>
             {forCard(page.data.title)}
