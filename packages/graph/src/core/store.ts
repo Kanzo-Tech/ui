@@ -111,6 +111,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
       geometry,
       encoding,
       kept: keptNow(),
+      filtered: mask,
       keptLinks: keptLinksNow(),
       arrangement,
       ...fields,

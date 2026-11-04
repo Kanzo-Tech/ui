@@ -156,6 +156,8 @@ export interface GraphSnapshot extends GraphState {
    * the rest, never hiding a vertex, and the counts, the legend, the toolbar and `frame()` act on it.
    */
   readonly kept: Uint8Array | null;
+  /** What the page's other clauses keep, before the canvas's own: what a gesture's count is measured against. */
+  readonly filtered: Uint8Array | null;
   /** The links `kept` keeps, by index, `keptLinksOf`; `null` with `kept`. */
   readonly keptLinks: number[] | null;
   /** What the search was last used to go to, newest first — for the root's life, never stored. */
@@ -230,6 +232,7 @@ export const blank = (options: GraphOptions, binding: Binding): GraphSnapshot =>
   geometry: null,
   encoding: null,
   kept: null,
+  filtered: null,
   keptLinks: null,
   recent: [],
   arrangement: null,
