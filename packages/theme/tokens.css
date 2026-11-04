@@ -253,13 +253,17 @@
   --warning-foreground: initial;
 }
 
-/* The selection wash — a text selection, a lasso, a matching bracket — is `--primary` at 17%. It is
-   read from style objects (a CodeMirror theme, an SVG fill), not a utility, so it cannot be bridged;
-   and declared on `:root` alone it would resolve against the page's `--primary` under a scoped theme.
-   Declared on every element that carries a theme, it resolves against that element's, and a theme
-   block that authors its own wins. */
+/* Uses of a theme's own values that are read where no utility reaches, so they cannot be bridged:
+   declared on `:root` alone they would resolve against the page's values under a scoped theme.
+   Declared on every element that carries a theme, they resolve against that element's, and a theme
+   block that authors its own wins.
+
+   `--selection` is the wash a text selection, a lasso and a matching bracket wear — read from a
+   CodeMirror theme and an SVG fill. `--size-control-min` is the smallest control, the floor
+   `obligations.ts` grades against WCAG 2.5.8 and `@kanzo-tech/ui`'s `sm` size reads. */
 :where(:root, [data-theme]) {
   --selection: color-mix(in oklab, var(--primary) 17%, transparent);
+  --size-control-min: calc(var(--size-field) * 7);
 }
 
 :root {

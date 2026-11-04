@@ -1,4 +1,5 @@
 import themeDataJson from "../theme-data.json" with { type: "json" };
+import { catalogue } from "../scripts/catalogue.mjs";
 import { gradeObligations, type Obligation, type ObligationCheck } from "./grading.js";
 
 /*
@@ -35,13 +36,16 @@ const px = (v: string) => (Number.parseFloat(v) / 100) * BROWSER_ROOT_PX;
 const minRoot = Math.min(...Object.values(DENSITIES).map(px));
 
 /**
- * The library's smallest interactive height, in `rem`, at the smallest density.
- *
- * `Button size="xs"` is `h-6` — 1.5rem. Written here as the rem figure and multiplied by the axis,
- * because the axis is what this file can grade; the 1.5 is `@kanzo-tech/ui`'s to change and a test
- * there is what would catch it moving.
+ * The smallest control, in `rem`, in the theme that makes it smallest: `--size-control-min`, a
+ * multiple of `--size-field`, read off `tokens.css` and each theme so neither number is copied.
  */
-const SMALLEST_CONTROL_REM = 1.5;
+const SMALLEST_CONTROL_REM = Math.min(
+  ...catalogue.themes.map((theme) => {
+    const read = (name: string) => theme.declarations.get(name) ?? catalogue.root.get(name) ?? "";
+    const multiple = /^calc\(var\(--size-field\)\s*\*\s*([\d.]+)\)$/.exec(read("--size-control-min"))?.[1];
+    return Number(multiple) * Number.parseFloat(read("--size-field"));
+  }),
+);
 
 const OBLIGATIONS: readonly Obligation[] = [
   {
@@ -54,11 +58,9 @@ const OBLIGATIONS: readonly Obligation[] = [
     against: "WCAG 2.5.8 Target Size (Minimum), AA",
     reason:
       "Every size in the library is `rem`, so the density axis multiplies every target. The " +
-      "smallest control is `Button size=\"xs\"` at 1.5rem, which is exactly 24px at the default " +
-      "root and 21px at compact. Measured over the app-shell, workspace and metadata-form " +
-      "showcases at compact, **no `size=\"xs\"` button failed**: every undersized target was saved " +
-      "by 2.5.8's spacing exception. The eleven genuine failures were a hand-rolled 1.25rem list " +
-      "row, and they fail at the default density too — see the docblock above on ownership.",
+      "smallest control is `--size-control-min`, `sm`'s 1.75rem: 28px at the default root and " +
+      "24.5px at compact. What failed in the showcases at compact was a hand-rolled 1.25rem list " +
+      "row, which fails at the default density too — see the docblock above on ownership.",
   },
   {
     id: "x-height",

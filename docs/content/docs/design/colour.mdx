@@ -310,16 +310,18 @@ claim.
 preference table and take the mechanism back below its call-site threshold.
 
 *Held by* `packages/graph/src/render/obligations.test.ts`, "grades at least one, which is what admits it as a
-section"; `packages/theme/src/obligations.test.ts`, "fails exactly the one it is known to fail, and no
-other"; `packages/theme/src/sections.test.ts`, "keeps a section whose package is not installed".
+section"; `packages/theme/src/obligations.test.ts`, "holds every bar it can grade";
+`packages/theme/src/sections.test.ts`, "keeps a section whose package is not installed".
 
-## Density's legibility floor is a section's bar, and it is currently red
+## Density's legibility floor is a section's bar
 
 Density is a section because it has a gradeable bar: **WCAG 2.5.8 Target Size (Minimum)**. Its
 obligations are rows of `@kanzo-tech/theme`'s `Obligation`, graded by its `gradeObligations`, as the
-graph's are. The target-size bar **fails today** and is pinned by id rather than hidden. The x-height
-bar is named and ungradeable, with what would close it. **No height and no density step is changed**: the measurement says
-the fix does not go where it first appeared to.
+graph's are. The target-size bar grades `--size-control-min`, the smallest control, which `ui`'s `sm`
+reads: 1.75rem, **24.5 px at compact**, so it holds. It was red for as long as it graded a copy of
+`Button size="xs"`'s 1.5rem — 21 px at compact — after `xs` itself had gone (`2c455580`); reading the
+token instead of the figure is what found it. The x-height bar is named and ungradeable, with what
+would close it.
 
 `themes.css` sets the root font-size per `data-font-size` as a percentage of the browser's — compact
 87.5%, default 100%, comfortable 112.5%, so 14, 16 and 18 px at the browser default — and every size in
@@ -327,12 +329,12 @@ the library is `rem`, so compact scales everything by 0.875.
 
 | thing | default (16 px root) | **compact (14 px root)** | bar |
 |---|---:|---:|---|
-| `Button size="xs"` (`h-6`) | 24.0 px | **21.0 px** | WCAG 2.5.8 AA: **24×24** |
-| `Button size="sm"` (`h-7`) | 28.0 px | 24.5 px | same |
+| `Button size="xs"` (`h-6`), gone in `2c455580` | 24.0 px | **21.0 px** | WCAG 2.5.8 AA: **24×24** |
+| `Button size="sm"` (`--size-control-min`) | 28.0 px | 24.5 px | same |
 | `Input size="sm"` (`h-7`) | 28.0 px | 24.5 px | same |
 | `--kanzo-font-size-xs` (0.625rem) | 10.0 px | **8.75 px** | none in WCAG, and no house bar either |
 
-The smallest button is exactly *at* the bar at default density, which is the tell that nobody chose 24 —
+The smallest button was exactly *at* the bar at default density, which is the tell that nobody chose 24 —
 it fell out of `h-6` and the default root, and the density axis then moved it without anything noticing.
 
 **Probed live at `compact` across three showcases**, deduplicating nested targets (a checkbox is a 14×14
@@ -360,9 +362,9 @@ bar both layers can break, and here the component broke it first.** The obligati
 `@kanzo-tech/theme` because that is where the multiplier lives and where the axis can be graded — not
 because the fix belongs there.
 
-**And that is the finding worth more than raising `h-6`:** the system's own `xs` variant is fine in
-practice, and what actually fails is hand-rolled markup with a `py-0.5`. Raising the variant would have
-fixed nothing measured here.
+**And that is the finding worth more than raising `h-6`:** the system's own `xs` variant was fine in
+practice, and what actually fails is hand-rolled markup with a `py-0.5`. `xs` went for its name, which
+promised a size it could not deliver at one density, not for a failure measured here.
 
 **What would close it**, in the order the bars are worth having: a target-size obligation over every
 interactive recipe at every density, checkable in jsdom against the compiled stylesheet, which is the one
@@ -373,8 +375,8 @@ font-size the density axis may emit.
 **What would reverse it:** the target-size bar turning out not to be density's to grade — the measurement
 above already moved it halfway.
 
-*Held by* `packages/theme/src/obligations.test.ts`, "fails exactly the one it is known to fail, and no
-other"; `packages/theme/src/obligations.ts`, `check`.
+*Held by* `packages/theme/src/obligations.test.ts`, "holds every bar it can grade";
+`packages/theme/src/obligations.ts`, `check`.
 
 ## A preference is contributed the way a token is
 
