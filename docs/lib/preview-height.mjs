@@ -10,9 +10,10 @@
 // median derived frame carried 183px of empty space and 72 % sat on the cap. Measuring is done at
 // build time rather than in the browser, so the first paint is right and nothing resizes on load.
 
-/** The preview's floor, not the code's: a `Button` is 36px tall and would sit in a frame shorter
- *  than its own dashed guides. */
-export const FLOOR = 220;
+/** The preview's floor, not the code's. A 36px `Button` in it, less the frame's 24px padding,
+ *  leaves 38px above and below: under 40, which is where a band of nothing starts to read as a hole
+ *  (the 220 this replaced left 52 inside the old guides). */
+export const FLOOR = 160;
 
 /** The derived height's cap, Shark's 450. A measured number may go past it. */
 export const CAP = 450;
@@ -22,11 +23,11 @@ export const CAP = 450;
 export const CEILING = 900;
 
 /**
- * The line box is 18.57px — 13px mono at 1.4286 — and the scrolling viewport adds 14px top and
+ * The line box is 20px — 14px mono at 1.4286 — and the scrolling viewport adds 14px top and
  * bottom. Px and not `rem` on purpose: the code face is set in px, so its line box does not move
  * with the density axis.
  */
-const LINE = 18.5714;
+const LINE = 20;
 const VIEWPORT_PAD = 28;
 
 /**

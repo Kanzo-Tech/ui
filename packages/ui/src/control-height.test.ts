@@ -43,7 +43,6 @@ const BOXES = [
   "simples/native-select.tsx",
   "simples/button.tsx",
   "simples/toggle.tsx",
-  "simples/pin-input.tsx",
   "simples/number-input.tsx",
   "simples/tags-input.tsx",
   "simples/input-group.tsx",

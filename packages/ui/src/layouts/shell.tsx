@@ -28,7 +28,7 @@ import { cn } from "../lib/cn.js";
  * Generalising an implementation while preserving a rejected appearance is not generalising.
  *
  * So a dense IDE strip is not a component here; it is something you PUT in this region, and
- * it lives in the workspace showcase.
+ * it lives in the keasy showcase's Discover.
  *
  * No role is declared. A top region is often `banner` and a bottom one `contentinfo`, but a
  * strip is neither and a shell may have several — the call site passes the landmark.

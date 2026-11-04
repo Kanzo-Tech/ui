@@ -1,4 +1,4 @@
-// A small seeded force layout. Its one caller is `showcases/workspace/graph-data.ts`, which runs it
+// A small seeded force layout. Its one caller is `showcases/keasy/graph-data.ts`, which runs it
 // once, when the archive's rows are generated, to bake `x`/`y` into the node rows.
 //
 // d3-force is in the store as a transitive of `d3`, but not a declared dependency of anything we
@@ -37,7 +37,7 @@ const DECAY = 0.972;
  * these group sizes. It has to. Springs pull along edges, and where groups share vertices the edges
  * genuinely cross the groups, so keeping them apart is a constraint the link structure disagrees
  * with. That belongs to a force which ignores links — on this canvas, cosmos.gl's cluster force
- * with explicit positions (`showcases/workspace/cluster-ring`).
+ * with explicit positions (`showcases/keasy/cluster-ring`).
  */
 export function forceLayout(
   count: number,

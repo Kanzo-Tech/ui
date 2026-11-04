@@ -7,6 +7,10 @@ import { getMDXComponents } from "@/mdx-components";
 import { UpstreamLinks } from "@/components/upstream-links";
 import { baseUrl, ogImageUrl, siteName } from "@/lib/metadata";
 
+/** fumadocs' page actions, unfilled and in muted ink: tools beside the page, not its first block. */
+const PAGE_ACTION =
+  "border-0 bg-transparent text-sm font-normal text-fd-muted-foreground hover:bg-fd-accent hover:text-fd-foreground";
+
 export default async function Page(props: { params: Promise<{ slug?: string[] }> }) {
   const params = await props.params;
   const page = source.getPage(params.slug);
@@ -16,15 +20,20 @@ export default async function Page(props: { params: Promise<{ slug?: string[] }>
   const markdownUrl = `${page.url}.mdx`;
 
   return (
-    <DocsPage toc={page.data.toc} full={page.data.full}>
-      <DocsTitle>{page.data.title}</DocsTitle>
-      <DocsDescription>{page.data.description}</DocsDescription>
-      {/* One row, so the badge sizes to its content: as a bare child of DocsPage's flex column
-          it stretched to the full page width. No `githubUrl` — this repo has no remote. */}
-      <div className="flex flex-row flex-wrap items-center gap-2 border-b pt-2 pb-6">
-        <MarkdownCopyButton markdownUrl={markdownUrl} />
-        <ViewOptionsPopover markdownUrl={markdownUrl} />
-        <UpstreamLinks links={page.data.links} />
+    <DocsPage
+      breadcrumb={{ enabled: false }}
+      // One measure for every reading page — fumadocs' 900px column ran prose to ~110 characters.
+      // A `full` page is a gallery and keeps fumadocs' wide column.
+      className={page.data.full ? undefined : "max-w-[49rem]"}
+      full={page.data.full}
+      toc={page.data.toc}
+    >
+      <DocsTitle className="text-[2rem] leading-tight tracking-[-0.02em]">{page.data.title}</DocsTitle>
+      <DocsDescription className="-mt-2 mb-0 text-base">{page.data.description}</DocsDescription>
+      <div className="-ms-2 flex flex-row flex-wrap items-center gap-1">
+        <MarkdownCopyButton className={PAGE_ACTION} markdownUrl={markdownUrl} />
+        <ViewOptionsPopover className={PAGE_ACTION} markdownUrl={markdownUrl} />
+        <UpstreamLinks className={PAGE_ACTION} links={page.data.links} />
       </div>
       <DocsBody>
         <MDX components={getMDXComponents()} />

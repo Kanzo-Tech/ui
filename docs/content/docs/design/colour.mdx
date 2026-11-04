@@ -92,12 +92,19 @@ and ring and `#52b770` (0.140, hue 151) as its first series; the neon stays as `
 where the day side keeps it too. The allowance is there because a fill at the day side's chroma on a
 near-black ground reads greyer than the same fill on white.
 
+**Reversed for `kanzo` on 2026-11-04, by name.** The brand is the neon on kanzo.tech's own dark
+pages and reads as itself only that way, so `kanzo-dark` takes `#1ae973` as its fill and ring again
+and says so in its header; its first series stays `#52b770` under the rule. Two greens a step apart
+were the cost the first time — the neon was `--success`, 1.56:1 from `#5cb572` — so success moves to
+the brand's mid green `#0f8c42`, 2.67:1 from the fill, with its inks from `inkFor` and `pageInk`.
+
 **What would reverse it:** a family whose identity *is* a saturated colour at night — a brand that
 is neon on its own dark site and reads as itself only that way. Then that family declares its night
-side louder in its header, and the guard learns the exception by name.
+side louder in its header, and the guard learns the exception by name, as `kanzo-dark --primary` is.
+And for kanzo: the brand's dark pages leaving the neon.
 
 *Held by* `packages/theme/src/themes.test.ts`, "carries a family's brand at night at no more chroma
-than by day, give or take 0.05".
+than by day, give or take 0.05, unless it says so by name".
 
 ## The obvious ink is computed in the form, not in the page
 
@@ -332,20 +339,20 @@ the library is `rem`, so compact scales everything by 0.875.
 | `Button size="xs"` (`h-6`), gone in `2c455580` | 24.0 px | **21.0 px** | WCAG 2.5.8 AA: **24×24** |
 | `Button size="sm"` (`--size-control-min`) | 28.0 px | 24.5 px | same |
 | `Input size="sm"` (`h-7`) | 28.0 px | 24.5 px | same |
-| `--kanzo-font-size-xs` (0.625rem) | 10.0 px | **8.75 px** | none in WCAG, and no house bar either |
+| `--kanzo-font-size-small` (0.6875rem) | 11.0 px | **9.63 px** | none in WCAG; the house floor is 11 px at the default root |
 
 The smallest button was exactly *at* the bar at default density, which is the tell that nobody chose 24 —
 it fell out of `h-6` and the default root, and the density axis then moved it without anything noticing.
 
-**Probed live at `compact` across three showcases**, deduplicating nested targets (a checkbox is a 14×14
+**Probed live at `compact` across three screens**, deduplicating nested targets (a checkbox is a 14×14
 `<label>` wrapping a 1×1 sr-only `<input>`; counting both made every checkbox fail against itself, which
 was the first draft of this probe and was wrong):
 
-| showcase | targets | under 24×24 | saved by the 2.5.8 spacing exception | genuinely failing |
+| screen | targets | under 24×24 | saved by the 2.5.8 spacing exception | genuinely failing |
 |---|---:|---:|---:|---:|
-| app-shell | 45 | 8 | 8 | **0** |
-| metadata-form (compact) | 26 | 4 | 4 | **0** |
-| workspace | 32 | 15 | 4 | **11** |
+| keasy's dashboard | 45 | 8 | 8 | **0** |
+| a form, since removed (compact) | 26 | 4 | 4 | **0** |
+| keasy's Discover | 32 | 15 | 4 | **11** |
 
 **No `size="xs"` button failed anywhere.** Every undersized button was saved by the spacing exception,
 because the library's own gaps are wider than 24 px between target centres. **The eleven real failures are
@@ -369,7 +376,8 @@ promised a size it could not deliver at one density, not for a failure measured 
 **What would close it**, in the order the bars are worth having: a target-size obligation over every
 interactive recipe at every density, checkable in jsdom against the compiled stylesheet, which is the one
 with a real external standard behind it; a minimum type size, which needs a house bar with a reason
-because WCAG sets none; or a floor on the axis itself, the cheapest of the three, declaring a minimum root
+because WCAG sets none — that one now exists at the default root, in the next section, and the compact
+figure stays ungraded; or a floor on the axis itself, the cheapest of the three, declaring a minimum root
 font-size the density axis may emit.
 
 **What would reverse it:** the target-size bar turning out not to be density's to grade — the measurement
@@ -377,6 +385,32 @@ above already moved it halfway.
 
 *Held by* `packages/theme/src/obligations.test.ts`, "holds every bar it can grade";
 `packages/theme/src/obligations.ts`, `check`.
+
+## Nothing is set below 11px at the default root
+
+The smallest type a recipe writes is `--kanzo-font-size-small`, 0.6875rem: **11px at the default root**,
+two steps under the IDE tier's 13px base. No arbitrary size goes under it (`text-[10px]`, a `0.625rem`, a
+`fontSize` in a style object or a CodeMirror theme), no named step does (Tailwind ships nothing under
+`text-xs`, so a `text-2xs` resolves only if a theme declares one), and the scale declares no step under it.
+
+WCAG sets no minimum, so the number is the house's. The design pass of 2026-11-04 found three things under
+it — `Badge size="xs"` and `Status`'s words at 10px, and a 10px step of the scale whose only
+reader was the badge — and the guard, on its first run, found the two the pass had missed: the graph's
+node labels and its count chip, both `text-[10px]`. All five are at the token now, or deleted.
+
+**The floor is at the default root, and density is allowed under it.** Every size is a `rem`, so compact
+sets the same step at 9.63px. That is the axis doing what a reader asked of it; the table above keeps the
+compact figure as an ungraded `x-height` obligation rather than a bar the library fails.
+
+**What would reverse it:** a reading at 11px that measures illegible in the face and the weight this
+library ships, which raises the floor; or a role whose content is not read but glanced at — a tick label
+on a dense axis, a minimap — measured legible below it, which is a named exception in the guard with that
+measurement beside it, not a lower floor. A density preference that should not go under 11px is the
+third bar above (a floor on the axis), and a different rule.
+
+*Held by* `packages/ui/src/type-floor.test.ts`, "no recipe or class in the corpus sets type below 11px",
+"no type step the theme declares is under 11px" and "would catch a size under the floor however it was
+spelled".
 
 ## A preference is contributed the way a token is
 

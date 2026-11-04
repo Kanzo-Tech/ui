@@ -100,7 +100,7 @@ export interface Ledger {
 }
 
 // ── The shape's IR, as it crosses the wasm boundary ──────────────────────────
-// Only the parts this showcase reads. `metadata-form`'s `ShapeIR` is the full one.
+// Only the parts this showcase reads.
 
 interface IrTerm {
   termType: string;

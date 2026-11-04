@@ -11,9 +11,9 @@ import {
 } from "./stat.js";
 
 describe("a stat is one card, whatever element it renders as", () => {
-  it("writes its status family where the indicator reads it", () => {
+  it("is type, not a tile: a plain muted icon and a tabular figure", () => {
     const { container } = render(
-      <StatRoot variant="destructive">
+      <StatRoot>
         <StatIndicator>!</StatIndicator>
         <StatLabel>Overdue</StatLabel>
         <StatValue>3</StatValue>
@@ -23,16 +23,16 @@ describe("a stat is one card, whatever element it renders as", () => {
     const root = container.firstElementChild as HTMLElement;
     expect(root.tagName).toBe("ARTICLE");
     expect(root.dataset.slot).toBe("stat-root");
-    expect(root.dataset.variant).toBe("destructive");
-    expect(root.className).toContain("group/stat");
-    expect(container.querySelector('[data-slot="stat-indicator"]')?.className).toContain(
-      "group-data-[variant=destructive]/stat:text-destructive-foreground",
-    );
+    expect(root.hasAttribute("data-variant")).toBe(false);
+    const indicator = container.querySelector('[data-slot="stat-indicator"]') as HTMLElement;
+    expect(indicator.classList).toContain("text-muted-foreground");
+    expect(indicator.className).not.toMatch(/\bbg-|rounded-full/);
+    expect(container.querySelector('[data-slot="stat-value"]')?.classList).toContain("tabular-nums");
   });
 
   it("becomes the anchor under asChild, so a linked tile is one link and not a link around a card", () => {
     render(
-      <StatRoot asChild variant="success">
+      <StatRoot asChild>
         <a href="#roster">
           <StatLabel>Members ready</StatLabel>
           <StatValue>19</StatValue>
@@ -42,7 +42,6 @@ describe("a stat is one card, whatever element it renders as", () => {
     const links = screen.getAllByRole("link");
     expect(links).toHaveLength(1);
     expect(links[0]?.dataset.slot).toBe("stat-root");
-    expect(links[0]?.dataset.variant).toBe("success");
     expect(document.querySelector("article")).toBeNull();
   });
 

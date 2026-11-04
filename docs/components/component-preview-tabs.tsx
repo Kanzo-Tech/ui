@@ -15,7 +15,6 @@ interface ComponentPreviewTabsProps {
   /** `componentName/fileName`, written to `data-example` on a framed preview pane, which
    *  `scripts/measure-previews.mjs` selects on. */
   measureKey?: string;
-  showBorders?: boolean;
 }
 
 /**
@@ -28,15 +27,11 @@ interface ComponentPreviewTabsProps {
  * shifts the page, which is what Shark's constant was for, without spending 73 % of a five-line
  * example on emptiness. `lib/preview-height.mjs` is how it is chosen.
  *
- * The backdrop is four dashed 1px guides marking the padding box. `inset-s-*` / `inset-e-*` are
- * logical, so it mirrors correctly in RTL. **They sit at the padding, and upstream's do not** —
- * Shark writes `p-4 sm:p-10` with guides at `top-4 sm:top-10`, so above the `sm` breakpoint the
- * lines land 8px inside the padding they are drawn to show, and below it the guides are hidden
- * anyway. Ours are `sm:*-10` against the same `sm:p-10`. Measured 2026-08-20: padding 40px, guides
- * were at 32px. It is a docs app rather than the registry, so `shark-parity.test.ts` has no opinion
- * either way; the divergence is here so the comment above can be true.
+ * The frame is a border and the page's own ground, with 24px of padding — Shark's dashed padding
+ * guides and its 40px are gone. A guide drawn around a 36px button framed a void rather than the
+ * example, and it was the frame, not the example, that a reader saw first.
  *
- * `fullBleed` drops all of that — frame, padding, centring and height — for components the frame
+ * `fullBleed` drops all of that — border, padding, centring and height — for components the frame
  * actively hides: a shell, a workspace, a panel. Those examples bring their own container, so the
  * outer border moves to the code pane rather than doubling up around theirs.
  */
@@ -47,7 +42,6 @@ export const ComponentPreviewTabs = ({
   fullBleed = false,
   height,
   measureKey,
-  showBorders = true,
 }: ComponentPreviewTabsProps) => {
   const { paneRef, cue, halt } = usePreviewAutoplay(autoplay);
 
@@ -58,7 +52,7 @@ export const ComponentPreviewTabs = ({
       <TabsTrigger value="code">Code</TabsTrigger>
     </TabsList>
 
-    <div className={cn("relative overflow-hidden rounded-2xl", !fullBleed && "border")}>
+    <div className={cn("relative overflow-hidden rounded-xl", !fullBleed && "border")}>
       <TabsContent slot="tab-preview" value="preview">
         <div
           className={cn(
@@ -70,7 +64,7 @@ export const ComponentPreviewTabs = ({
             // Shark's, and the dot was never part of the component at all.
             "not-prose",
             "relative w-full",
-            !fullBleed && "flex items-center justify-center overflow-y-auto p-4 sm:p-10",
+            !fullBleed && "flex items-center justify-center overflow-y-auto p-4 sm:p-6",
           )}
           data-slot="preview"
           data-example={measureKey}
@@ -83,21 +77,13 @@ export const ComponentPreviewTabs = ({
           ref={autoplay ? paneRef : undefined}
           style={height ? { height } : undefined}
         >
-          {showBorders && (
-            <>
-              <div className="absolute inset-x-0 top-4 border border-border/64 border-dashed max-sm:hidden sm:top-10" />
-              <div className="absolute inset-x-0 bottom-4 border border-border/64 border-dashed max-sm:hidden sm:bottom-10" />
-              <div className="absolute inset-s-4 inset-y-0 border border-border/64 border-dashed max-sm:hidden sm:inset-s-10" />
-              <div className="absolute inset-e-4 inset-y-0 border border-border/64 border-dashed max-sm:hidden sm:inset-e-10" />
-            </>
-          )}
           <PreviewAutoplayProvider cue={cue}>{component}</PreviewAutoplayProvider>
         </div>
       </TabsContent>
 
       <TabsContent slot="tab-code" value="code">
         <div
-          className={cn("overflow-hidden", fullBleed && "rounded-2xl border")}
+          className={cn("overflow-hidden", fullBleed && "rounded-xl border")}
           data-slot="code"
         >
           {source}

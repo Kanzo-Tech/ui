@@ -15,7 +15,7 @@ import { GraphCanvasHarness, playwright } from "../src";
  */
 
 const ORIGIN = process.env.KANZO_DOCS_URL ?? "http://localhost:3100";
-const WORKSPACE = `${ORIGIN}/view/showcases/workspace`;
+const DISCOVER = `${ORIGIN}/view/showcases/keasy#/graphs/archive/discover`;
 
 let browser: Browser;
 beforeAll(async () => {
@@ -58,7 +58,7 @@ async function read(dark: boolean, deviceScaleFactor: number): Promise<Reading> 
   const page = await context.newPage();
   try {
     const env = await playwright(page, { timeout: 30_000 });
-    await page.goto(WORKSPACE);
+    await page.goto(DISCOVER);
     await (await env.getHarness(GraphCanvasHarness)).ready();
     const reading = async (): Promise<Reading | null> => {
       const ink = await token(page, "--input");
@@ -143,7 +143,7 @@ async function see(dark: boolean, deviceScaleFactor: number): Promise<Seen> {
   const page = await context.newPage();
   try {
     const env = await playwright(page, { timeout: 30_000 });
-    await page.goto(WORKSPACE);
+    await page.goto(DISCOVER);
     const graph = await env.getHarness(GraphCanvasHarness);
     await graph.ready();
     await graph.pause();

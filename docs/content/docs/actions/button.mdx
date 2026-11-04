@@ -52,6 +52,9 @@ the layout never shifts mid-action. It also sets `aria-busy` and `aria-disabled`
 | --- | --- | --- |
 | `variant` | `"default" \| "secondary" \| "outline" \| "ghost" \| "destructive" \| "link"` | `"default"` |
 | `size` | `"sm" \| "md" \| "lg" \| "xl" \| "icon-sm" \| "icon-md" \| "icon-lg" \| "icon-xl"` | `"md"` |
+| `isLoading` | `boolean` | `false` |
+| `clickEffect` | `boolean` | `true` |
+| `pill` | `boolean` | `false` |
 
 <Callout type="info" title="`sm` is the floor, and it is measured">
   There was an `xs` at `1.5rem`. Every size here is a `rem` against a root the density axis sets —
@@ -64,9 +67,6 @@ the layout never shifts mid-action. It also sets `aria-busy` and `aria-disabled`
   `xs` sat in a cluster. It went because its *name* promised a size it could not deliver at one
   density.
 </Callout>
-| `isLoading` | `boolean` | `false` |
-| `clickEffect` | `boolean` | `true` |
-| `pill` | `boolean` | `false` |
 
 Extends `React.ComponentProps<typeof ark.button>`, so `ref` and every native button prop pass
 through.

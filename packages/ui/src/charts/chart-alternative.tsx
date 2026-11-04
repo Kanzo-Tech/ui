@@ -1,4 +1,7 @@
+"use client";
+
 import { isAggregateExpression } from "@kanzo-tech/mosaic";
+import { useLocale } from "../simples/locale.js";
 import type { ChartConfig } from "./chart-config.js";
 
 /**
@@ -79,10 +82,10 @@ export function readAlternatives(marks: readonly AlternativeMark[], config: Char
   }));
 }
 
-function text(value: unknown): string {
+function text(value: unknown, locale: string): string {
   if (value === null || value === undefined) return "";
   if (value instanceof Date) return value.toISOString().slice(0, 10);
-  if (typeof value === "number" || typeof value === "bigint") return new Intl.NumberFormat().format(value);
+  if (typeof value === "number" || typeof value === "bigint") return new Intl.NumberFormat(locale).format(value);
   return String(value);
 }
 
@@ -92,6 +95,7 @@ function text(value: unknown): string {
  * Visually hidden and read by a screen reader in place of the picture, which is `aria-hidden`.
  */
 export function ChartAlternative({ title, tables }: { title?: string; tables: readonly Alternative[] }) {
+  const { locale } = useLocale();
   if (tables.length === 0) return null;
   return (
     <div className="sr-only" data-slot="chart-alternative">
@@ -106,25 +110,25 @@ export function ChartAlternative({ title, tables }: { title?: string; tables: re
               </thead>
               <tbody>
                 {table.rows.map((row, r) => (
-                  <tr key={r}>{row.map((cell, c) => (c === 0 ? <th key={c} scope="row">{text(cell)}</th> : <td key={c}>{text(cell)}</td>))}</tr>
+                  <tr key={r}>{row.map((cell, c) => (c === 0 ? <th key={c} scope="row">{text(cell, locale)}</th> : <td key={c}>{text(cell, locale)}</td>))}</tr>
                 ))}
               </tbody>
             </table>
           );
         }
-        return <p key={i}>{summary(caption, table)}</p>;
+        return <p key={i}>{summary(caption, table, locale)}</p>;
       })}
     </div>
   );
 }
 
 /** How many marks, the largest and the smallest by the first value column, and where the rows are. */
-function summary(caption: string | undefined, table: Alternative): string {
+function summary(caption: string | undefined, table: Alternative, locale: string): string {
   const value = table.keys;
   const ranked = value < table.columns.length ? [...table.rows].sort((a, b) => Number(a[value]) - Number(b[value])) : [];
-  const part = (row: readonly unknown[] | undefined) => (row ? `${text(row[0])}, ${text(row[value])}` : "");
+  const part = (row: readonly unknown[] | undefined) => (row ? `${text(row[0], locale)}, ${text(row[value], locale)}` : "");
   return [
-    `${caption ?? "Chart"}: ${text(table.rows.length)} marks.`,
+    `${caption ?? "Chart"}: ${text(table.rows.length, locale)} marks.`,
     ranked.length > 0 ? `Largest: ${part(ranked.at(-1))}. Smallest: ${part(ranked[0])}.` : "",
     "Too many to list here; the rows are in the page's data table.",
   ].filter(Boolean).join(" ");
