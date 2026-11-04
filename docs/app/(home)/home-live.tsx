@@ -97,9 +97,11 @@ export function ThemeSource({ sources }: { sources: Record<string, ReactNode> })
   const { family } = useFamily();
   const entry = FAMILIES.find((f) => f.family === family);
   return (
-    <div className="flex flex-col gap-4 dark:flex-col-reverse" data-ui>
+    <div className="flex flex-1 flex-col gap-4 dark:flex-col-reverse" data-ui>
       {(["light", "dark"] as const).map((side) => (
-        <div key={side}>{sources[entry?.[side]?.value ?? ""]}</div>
+        <div className="flex flex-1 flex-col" key={side}>
+          {sources[entry?.[side]?.value ?? ""]}
+        </div>
       ))}
     </div>
   );

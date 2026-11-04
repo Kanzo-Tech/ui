@@ -24,7 +24,7 @@ function excerpt(theme: string) {
   return [selector.trim().replace(/, /g, ",\n"), ...shown.map((line) => `  ${line}`), `  /* and ${rest} more */`, "}"].join("\n");
 }
 
-const CODE = { className: "my-0 text-[0.9375rem]", allowCopy: false } as const;
+const CODE = { className: "my-0 flex-1 text-[0.9375rem]", allowCopy: false } as const;
 
 async function sources() {
   const out: Record<string, ReactNode> = {};
@@ -96,7 +96,7 @@ export default async function HomePage() {
   return (
     <main className="flex flex-1 flex-col">
       <FamilyScope>
-        <section className="mx-auto w-full max-w-[1400px] px-4 pt-12 sm:px-8 sm:pt-16 lg:pt-20">
+        <section className="mx-auto w-full max-w-(--fd-layout-width) px-4 pt-12 sm:pt-16 lg:pt-20">
           <h1
             className={`${styles.rise} text-balance font-heading font-medium text-[clamp(2.75rem,1rem+5.6vw,6.25rem)] leading-[0.95] tracking-[-0.035em]`}
           >
@@ -123,7 +123,7 @@ export default async function HomePage() {
               <pre className={`${styles.rise} w-fit rounded-field bg-muted px-4 py-3 font-mono text-sm lg:order-last`} style={step(3)}>
                 <code>npm install @kanzo-tech/ui</code>
               </pre>
-              <div className={`${styles.rise} flex flex-col gap-3 lg:mt-8`} style={step(3)}>
+              <div className={`${styles.rise} flex flex-col gap-3 lg:mt-auto`} style={step(3)}>
                 <FamilySwitch className="w-full sm:w-fit" />
                 <p className="max-w-[44ch] text-muted-foreground" id="home-screen-caption">
                   The screen is painted by <ThemeFileName side="light" /> by day and{" "}
@@ -139,33 +139,31 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <section className="mx-auto mt-32 w-full max-w-[1400px] px-4 sm:px-8 lg:mt-48">
-          <div className="grid gap-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16">
-            <div className="flex flex-col gap-12">
-              <h2 className={`${styles.reveal} font-heading font-medium text-[clamp(2rem,1rem+2.6vw,3.25rem)] leading-none tracking-[-0.03em]`}>
-                What it is made of
-              </h2>
-              <dl className="flex flex-col gap-10">
-                {ACCOUNT.map((item) => (
-                  <div className={`${styles.reveal} flex flex-col gap-2`} key={item.title}>
-                    <dt className="font-heading font-medium text-2xl tracking-[-0.02em]">{item.title}</dt>
-                    <dd className="max-w-[52ch] text-[1.0625rem] leading-relaxed">{item.body}</dd>
-                    <dd className="flex flex-wrap gap-x-5 font-medium">
-                      <Link className="underline underline-offset-4 hover:no-underline" href={item.href}>
-                        {item.link}
+        <section className="mx-auto mt-32 w-full max-w-(--fd-layout-width) px-4 lg:mt-48">
+          <h2 className={`${styles.reveal} font-heading font-medium text-[clamp(2rem,1rem+2.6vw,3.25rem)] leading-none tracking-[-0.03em]`}>
+            What it is made of
+          </h2>
+          <div className="mt-12 grid gap-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16">
+            <dl className="flex flex-col gap-10">
+              {ACCOUNT.map((item) => (
+                <div className={`${styles.reveal} flex flex-col gap-2`} key={item.title}>
+                  <dt className="font-heading font-medium text-2xl tracking-[-0.02em]">{item.title}</dt>
+                  <dd className="max-w-[52ch] text-[1.0625rem] leading-relaxed">{item.body}</dd>
+                  <dd className="flex flex-wrap gap-x-5 font-medium">
+                    <Link className="underline underline-offset-4 hover:no-underline" href={item.href}>
+                      {item.link}
+                    </Link>
+                    {item.extra && (
+                      <Link className="underline underline-offset-4 hover:no-underline" href={item.extra.href}>
+                        {item.extra.link}
                       </Link>
-                      {item.extra && (
-                        <Link className="underline underline-offset-4 hover:no-underline" href={item.extra.href}>
-                          {item.extra.link}
-                        </Link>
-                      )}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
+                    )}
+                  </dd>
+                </div>
+              ))}
+            </dl>
 
-            <figure className={`${styles.reveal} flex min-w-0 flex-col gap-4 lg:sticky lg:top-24 lg:self-start`}>
+            <figure className={`${styles.reveal} flex min-w-0 flex-col gap-4`}>
               <ThemeSource sources={code} />
               <figcaption className="text-muted-foreground text-sm">
                 The opening of <ThemeFileName side="light" /> and <ThemeFileName side="dark" />, as
@@ -177,7 +175,7 @@ export default async function HomePage() {
         </section>
       </FamilyScope>
 
-      <section className="mx-auto mt-32 w-full max-w-[1400px] px-4 sm:px-8 lg:mt-48">
+      <section className="mx-auto mt-32 w-full max-w-(--fd-layout-width) px-4 lg:mt-48">
         <h2 className={`${styles.reveal} font-heading font-medium text-[clamp(2rem,1rem+2.6vw,3.25rem)] leading-none tracking-[-0.03em]`}>
           Whole screens, not samples
         </h2>
@@ -199,7 +197,7 @@ export default async function HomePage() {
         </ul>
       </section>
 
-      <footer className="mx-auto mt-32 w-full max-w-[1400px] px-4 pb-8 sm:px-8 lg:mt-48">
+      <footer className="mx-auto mt-32 w-full max-w-(--fd-layout-width) px-4 pb-8 lg:mt-48">
         <div className="flex flex-col gap-10">
           <nav aria-label="Footer" className="flex flex-wrap justify-between gap-x-8 gap-y-4 font-medium">
             <div className="flex flex-wrap gap-x-8 gap-y-3">
