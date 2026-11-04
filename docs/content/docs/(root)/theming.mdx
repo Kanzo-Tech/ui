@@ -411,6 +411,12 @@ the vocabulary.
   the value in the *utility*, so the `var()` resolves on the element wearing the class.
 </Callout>
 
+**One use is declared rather than bridged: `--selection`**, the wash under a text selection in
+`CodeEditor`, its matching bracket and the graph's lasso — `--primary` at 17%. Its readers are a
+CodeMirror theme and an SVG fill, which read no utility, so it is declared on every element that
+carries a theme (`:where(:root, [data-theme])`) and resolves against that element's `--primary`. A
+theme that wants a different wash authors `--selection` in its block, and wins.
+
 ### Syntax inks and the editor
 
 Eight inks colour code, and every theme authors all eight at AA on the editor's paper

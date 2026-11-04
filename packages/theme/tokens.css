@@ -253,6 +253,15 @@
   --warning-foreground: initial;
 }
 
+/* The selection wash — a text selection, a lasso, a matching bracket — is `--primary` at 17%. It is
+   read from style objects (a CodeMirror theme, an SVG fill), not a utility, so it cannot be bridged;
+   and declared on `:root` alone it would resolve against the page's `--primary` under a scoped theme.
+   Declared on every element that carries a theme, it resolves against that element's, and a theme
+   block that authors its own wins. */
+:where(:root, [data-theme]) {
+  --selection: color-mix(in oklab, var(--primary) 17%, transparent);
+}
+
 :root {
   /* ── The categorical set a theme gets by saying nothing ───────────────────────
      Every shipped theme authors its own eight; this is what a tenant's theme gets when it does not.

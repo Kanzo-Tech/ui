@@ -425,13 +425,13 @@ const baseTheme = EditorView.theme({
   // lavender applied in dark mode too. It is driven from the appearance now, which moves the
   // default to `&dark`'s — a different stock colour, still not ours, still covered by this rule.
   "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": {
-    backgroundColor: "color-mix(in oklab, var(--primary) 17%, transparent)",
+    backgroundColor: "var(--selection)",
   },
   // **A selection must not repaint the text, and ours repainted all of it.** `tokens.css` sets a
   // document-wide `::selection { bg-primary/80 text-primary-foreground }`, which is right
   // everywhere prose is selected and wrong inside an editor: `drawSelection` suppresses the native
   // selection's *background* and not its `color`, so the fill came from `.cm-selectionBackground`
-  // — a 17% wash of `--primary` — while every glyph inside it took `--primary-foreground`.
+  // — `--selection`, a 17% wash of `--primary` — while every glyph inside it took `--primary-foreground`.
   //
   // Measured on `/docs/forms/code-editor`: #fafafa text on a #dcdcdc block. Keys, strings and
   // numbers all flattened to one near-white, so selecting seven lines of JSON erased the
@@ -441,7 +441,7 @@ const baseTheme = EditorView.theme({
   // `currentColor` is the fix, and it has to be `currentColor` and not a token: a fixed colour
   // flattens the tokens just as thoroughly, one shade later.
   ".cm-selectionBackground, .cm-content ::selection": {
-    backgroundColor: "color-mix(in oklab, var(--primary) 17%, transparent)",
+    backgroundColor: "var(--selection)",
     color: "currentColor",
   },
   ".cm-activeLine": { backgroundColor: "var(--muted)" },
@@ -452,7 +452,7 @@ const baseTheme = EditorView.theme({
     color: "var(--foreground)",
     fontWeight: "600",
   },
-  ".cm-matchingBracket, &.cm-focused .cm-matchingBracket": { backgroundColor: "color-mix(in oklab, var(--primary) 17%, transparent)", outline: "1px solid var(--primary)" },
+  ".cm-matchingBracket, &.cm-focused .cm-matchingBracket": { backgroundColor: "var(--selection)", outline: "1px solid var(--primary)" },
   ".cm-nonmatchingBracket, &.cm-focused .cm-nonmatchingBracket": { backgroundColor: "color-mix(in oklab, var(--destructive) 14%, transparent)" },
   // **A neutral tint, because it is not a search hit.** This wore the warning wash, byte for byte
   // what `.cm-searchMatch` wears — so the other occurrences of the word under your caret were
