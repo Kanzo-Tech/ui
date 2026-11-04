@@ -38,7 +38,7 @@ export function DashboardStat(props: DashboardStatProps) {
   const share = stat.measure.op === "share";
   const { locale } = useLocale();
   const format = share
-    ? (v: number) => new Intl.NumberFormat(locale, { maximumFractionDigits: 1, minimumFractionDigits: 1, style: "percent" }).format(v / 100)
+    ? (v: number) => (v / 100).toLocaleString(locale, { style: "percent", minimumFractionDigits: 1 })
     : stat.measure.op === "count" || stat.measure.op === "distinct"
       ? undefined
       : (v: number) => v.toLocaleString(locale, { maximumFractionDigits: 1, notation: Math.abs(v) >= 10_000 ? "compact" : "standard" });
