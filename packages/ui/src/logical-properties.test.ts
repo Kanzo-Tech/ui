@@ -1,6 +1,5 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { label, resolvePath, sourceFiles, subtrees, unreadable } from "./guard-corpus";
+import { code, label, resolvePath, sourceFiles, subtrees, unreadable } from "./guard-corpus";
 
 /**
  * Logical properties, never physical: one code path mirrors correctly under RTL.
@@ -82,9 +81,6 @@ const ALLOWED: Record<string, string[]> = {
   "ui/simples/toast.tsx": ["left-[calc(var(--viewport-offset-right)/2)]"],
 };
 
-const stripComments = (src: string) =>
-  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
-
 /**
  * Every file the scan will read, keyed by the path it reports.
  *
@@ -105,7 +101,7 @@ function scan() {
   const found: string[] = [];
   const used = new Set<string>();
   for (const key of corpus()) {
-    const source = stripComments(readFileSync(resolvePath(key), "utf8"));
+    const source = code(resolvePath(key));
     for (const match of source.matchAll(PHYSICAL)) {
       const hit = match[1] ?? "";
       const exemption = ALLOWED[key]?.find((ok) => hit.startsWith(ok));

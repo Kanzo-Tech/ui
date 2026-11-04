@@ -1,6 +1,5 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { CHROMA_FLOOR, label, oklch, sourceFiles, subtrees, unreadable } from "./guard-corpus";
+import { CHROMA_FLOOR, code, label, oklch, sourceFiles, subtrees, unreadable } from "./guard-corpus";
 
 /**
  * No hue is written by hand.
@@ -231,10 +230,6 @@ const READERS: { name: string; pattern: RegExp; chroma: (m: RegExpMatchArray) =>
   },
 ];
 
-/** Comments are prose: they quote the very hexes this rule is about, and quoting is not deciding. */
-const stripComments = (source: string) =>
-  source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/.*$/gm, "$1");
-
 const FILES = sourceFiles();
 
 /**
@@ -277,7 +272,7 @@ describe("no literal hues in the source", () => {
     for (const file of FILES) {
       const rel = label(file);
       if (ALLOWED.has(rel)) continue;
-      const source = stripComments(readFileSync(file, "utf8"));
+      const source = code(file);
 
       for (const { name, pattern, chroma } of READERS) {
         for (const match of source.matchAll(pattern)) {
@@ -299,7 +294,7 @@ describe("no literal hues in the source", () => {
     for (const file of FILES) {
       const rel = label(file);
       if (ALLOWED.has(rel)) continue;
-      for (const [hit] of stripComments(readFileSync(file, "utf8")).matchAll(TAILWIND_PALETTE)) {
+      for (const [hit] of code(file).matchAll(TAILWIND_PALETTE)) {
         offenders.push(`${rel}: ${hit}`);
       }
     }

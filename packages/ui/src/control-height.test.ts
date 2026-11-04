@@ -1,7 +1,6 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { controlHeight, controlMinHeight, controlSizes } from "./lib/control-size";
-import { label, sourceFiles } from "./guard-corpus";
+import { code, label, sourceFiles } from "./guard-corpus";
 
 /**
  * A single-line control is the height its size token says, and the token is written once.
@@ -63,13 +62,10 @@ const BUILT_ON: Record<string, RegExp> = {
   "composites/language-picker.tsx": /<Combobox\b|<ComboboxInput\b/,
 };
 
-const stripComments = (source: string) =>
-  source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-
 const read = (path: string) => {
   const file = sourceFiles(/\.tsx$/).find((f) => label(f) === `ui/${path}`);
   if (!file) throw new Error(`ui/${path} is not in the guard corpus`);
-  return stripComments(readFileSync(file, "utf8"));
+  return code(file);
 };
 
 /** A fixed height written into a variant: `h-8`, `min-h-9`, `size-7`, `h-[32px]`. */
@@ -148,12 +144,13 @@ describe("control height", () => {
     for (const file of sourceFiles(/\.tsx?$/)) {
       const name = label(file);
       if (name === "ui/lib/control-size.ts") continue;
-      const source = stripComments(readFileSync(file, "utf8"));
+      const source = code(file);
       for (const m of source.matchAll(/\[--size:calc\(var\(--size-field\)\*(\d+)\)\]/g)) {
-        if (name === "ui/simples/button.tsx" && m[1] === "10") continue;
         copies.push(`${name} · *${m[1]}`);
       }
     }
-    expect(copies, "restate the height formula? spread `controlSizes` instead").toEqual([]);
+    expect(copies, "restate the height formula? spread `controlSizes` instead").toEqual([
+      "ui/simples/button.tsx · *10",
+    ]);
   });
 });

@@ -1,6 +1,5 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { label, sourceFiles } from "./guard-corpus";
+import { code, label, sourceFiles, stripComments } from "./guard-corpus";
 
 /**
  * **A list that strips its markers stops being a list, and three of ours had.**
@@ -46,16 +45,14 @@ const DECLARES_ROLE = /role=["']list["']/;
  * demand a directive nobody needs, and that is the safe direction to be wrong in. Here it is the
  * unsafe one — a comment reading *`role="list"`, because `list-none` takes the implicit one away*
  * satisfies the check on a file that never writes the attribute. Verified by deleting the real one
- * from `ai/task.tsx`: the guard stayed green, which is the only reason this function exists.
+ * from `ai/task.tsx`: the guard stayed green, which is why it reads through `code` from
+ * `guard-corpus.ts`.
  */
-const code = (source: string) =>
-  source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/.*$/gm, "$1");
-
 const scan = () => {
   const violations: string[] = [];
   const checked: string[] = [];
   for (const file of sourceFiles()) {
-    const source = code(readFileSync(file, "utf8"));
+    const source = code(file);
     if (!STRIPS_MARKERS.test(source)) continue;
     checked.push(label(file));
     if (!DECLARES_ROLE.test(source)) violations.push(label(file));
@@ -90,8 +87,8 @@ describe("a styled list keeps its semantics", () => {
     expect(DECLARES_ROLE.test(stripped)).toBe(false);
     expect(DECLARES_ROLE.test(`${stripped}\n      role="list"`)).toBe(true);
     // And a comment that only talks about the attribute is not the attribute.
-    expect(DECLARES_ROLE.test(code('// role="list", because list-none'))).toBe(false);
-    expect(DECLARES_ROLE.test(code('/** role="list" */\n role="list"'))).toBe(true);
+    expect(DECLARES_ROLE.test(stripComments('// role="list", because list-none'))).toBe(false);
+    expect(DECLARES_ROLE.test(stripComments('/** role="list" */\n role="list"'))).toBe(true);
     // Not a substring match: `list-none` is a whole utility, and `data-list-none` is not it.
     expect(STRIPS_MARKERS.test('className="marker:list-none"')).toBe(true);
     expect(STRIPS_MARKERS.test('data-slot="checklist-nonempty"')).toBe(false);
