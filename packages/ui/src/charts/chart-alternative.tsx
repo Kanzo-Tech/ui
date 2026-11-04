@@ -85,7 +85,7 @@ export function readAlternatives(marks: readonly AlternativeMark[], config: Char
 function text(value: unknown, locale: string): string {
   if (value === null || value === undefined) return "";
   if (value instanceof Date) return value.toISOString().slice(0, 10);
-  if (typeof value === "number" || typeof value === "bigint") return value.toLocaleString(locale);
+  if (typeof value === "number" || typeof value === "bigint") return new Intl.NumberFormat(locale).format(value);
   return String(value);
 }
 
