@@ -39,7 +39,7 @@ export interface SuggestionsProps extends React.ComponentProps<typeof ark.div> {
   pending?: number;
 }
 
-const PENDING_WIDTHS = ["w-44", "w-36", "w-52", "w-40"];
+const pendingWidths = ["w-44", "w-36", "w-52", "w-40"];
 
 export const Suggestions = (props: SuggestionsProps) => {
   const { className, children, pending = 0, slot, ...rest } = props;
@@ -53,7 +53,7 @@ export const Suggestions = (props: SuggestionsProps) => {
     >
       {children}
       {Array.from({ length: Math.max(0, pending) }, (_, i) => (
-        <Skeleton className={cn("h-7 max-w-full rounded-full", PENDING_WIDTHS[i % PENDING_WIDTHS.length])} key={i} />
+        <Skeleton className={cn("h-7 max-w-full rounded-full", pendingWidths[i % pendingWidths.length])} key={i} />
       ))}
     </ark.div>
   );

@@ -92,10 +92,10 @@ function isChartDescriptor(type: unknown): type is ChartDescriptor<unknown> {
 }
 
 /** Guards against a pathological tree; nothing legitimate nests fragments this deep. */
-const MAX_DEPTH = 16;
+const maxDepth = 16;
 
 function collect(node: ReactNode, ctx: ChartSpecContext, out: ChartDirective[], depth: number): void {
-  if (node == null || typeof node === "boolean" || depth > MAX_DEPTH) return;
+  if (node == null || typeof node === "boolean" || depth > maxDepth) return;
   if (Array.isArray(node)) {
     for (const child of node) collect(child as ReactNode, ctx, out, depth + 1);
     return;
@@ -155,7 +155,7 @@ export interface ChartSpecOptions extends ChartFacetOptions {
   attributes?: readonly unknown[];
 }
 
-const MARGIN_SIDES = { top: "Top", right: "Right", bottom: "Bottom", left: "Left" } as const;
+const marginSides = { top: "Top", right: "Right", bottom: "Bottom", left: "Left" } as const;
 
 function marginDirectives(
   prefix: "margin" | "facetMargin",
@@ -164,9 +164,9 @@ function marginDirectives(
   if (margin === undefined) return [];
   const sides: ChartMargin =
     typeof margin === "number" ? { top: margin, right: margin, bottom: margin, left: margin } : margin;
-  return (Object.keys(MARGIN_SIDES) as (keyof ChartMargin)[])
+  return (Object.keys(marginSides) as (keyof ChartMargin)[])
     .filter((side) => sides[side] !== undefined)
-    .map((side) => ({ kind: "attribute", name: `${prefix}${MARGIN_SIDES[side]}`, value: sides[side] }));
+    .map((side) => ({ kind: "attribute", name: `${prefix}${marginSides[side]}`, value: sides[side] }));
 }
 
 /**
@@ -320,7 +320,7 @@ function tag(value: unknown, depth: number): unknown {
   if (typeof value === "function") return `fn#${identityOf(value)}`;
   if (typeof value === "symbol") return `sym#${String(value.description)}`;
   if (value === null || typeof value !== "object") return value;
-  if (depth > MAX_DEPTH) return `deep#${identityOf(value)}`;
+  if (depth > maxDepth) return `deep#${identityOf(value)}`;
   if (Array.isArray(value)) return value.map((v) => tag(v, depth + 1));
   const proto: unknown = Object.getPrototypeOf(value);
   if (proto === Object.prototype || proto === null) {

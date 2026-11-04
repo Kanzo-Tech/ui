@@ -26,7 +26,10 @@ import {
   type TileKind,
 } from "./dashboard-spec.js";
 import type { FieldStat } from "./field-stats.js";
-import { MeasurePick, NONE, Pick, fieldOptions } from "./tile-controls.js";
+import { MeasurePick, Pick, fieldOptions } from "./tile-controls.js";
+
+/** The empty choice of an optional slot; Ark's collection cannot hold `""` and `undefined` apart. */
+const none = "—";
 
 /**
  * **How each kind of tile is edited** — its name, icon and hint in the kind picker, and the fields
@@ -58,7 +61,7 @@ function ChartFields({ tile, fields, onChange }: TileFieldsProps<ChartTile>) {
     if (valid) onChange(valid);
   };
   const optional = (channel: "color" | "facet") => [
-    { value: NONE, label: "None" },
+    { value: none, label: "None" },
     ...fieldOptions(channelFields(tile.type, channel, fields).filter((f) => f.name !== tile.x)),
   ];
   const rows = tile.type === "dot" || tile.type === "regression";
@@ -103,17 +106,17 @@ function ChartFields({ tile, fields, onChange }: TileFieldsProps<ChartTile>) {
         {optional("color").length > 1 ? (
           <Pick
             label="Series"
-            onChange={(color) => set({ ...tile, color: color === NONE ? undefined : color })}
+            onChange={(color) => set({ ...tile, color: color === none ? undefined : color })}
             options={optional("color")}
-            value={tile.color ?? NONE}
+            value={tile.color ?? none}
           />
         ) : null}
         {optional("facet").length > 1 ? (
           <Pick
             label="Split into panels"
-            onChange={(facet) => set({ ...tile, facet: facet === NONE ? undefined : facet })}
+            onChange={(facet) => set({ ...tile, facet: facet === none ? undefined : facet })}
             options={optional("facet")}
-            value={tile.facet ?? NONE}
+            value={tile.facet ?? none}
           />
         ) : null}
       </div>
@@ -127,9 +130,9 @@ function StatFields({ tile, fields, onChange }: TileFieldsProps<StatTile>) {
       <MeasurePick fields={fields} measure={tile.measure} onChange={(measure) => onChange({ ...tile, measure })} />
       <Pick
         label="Trend along"
-        onChange={(value) => onChange({ ...tile, trend: value === NONE ? undefined : value })}
-        options={[{ value: NONE, label: "None" }, ...fieldOptions(trendFields(fields))]}
-        value={tile.trend ?? NONE}
+        onChange={(value) => onChange({ ...tile, trend: value === none ? undefined : value })}
+        options={[{ value: none, label: "None" }, ...fieldOptions(trendFields(fields))]}
+        value={tile.trend ?? none}
       />
     </>
   );

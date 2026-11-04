@@ -81,20 +81,6 @@ export function resolveTokenColor(host: Element, token: string): string {
 export { CHART_SLOTS };
 
 /**
- * The custom property carrying the document's `categorical.capacity`.
- *
- * `compile()` emits it at the head of both blocks — the one declaration in the sheet that is not a
- * colour, because it is the one fact about the set that the colours cannot carry. A custom property
- * and not a JS constant: the cascade is the only channel a scoped palette override travels down,
- * and it is the same channel `--chart-*` itself arrives on. A stylesheet that declares nothing
- * (anything older than the document, or a test fixture) falls back to `CHART_SLOTS`.
- *
- * Module-level only: `categoricalCapacity` is the way to read it, and an export whose whole use is
- * to be passed straight back into the function beside it is a second way to do one thing.
- */
-export const CHART_CAPACITY_PROPERTY = "--chart-capacity";
-
-/**
  * How many slots name a real category, read off the live cascade.
  *
  * `compile()` writes `var(--muted-foreground)` into every slot past capacity, so the *colour* of a
@@ -109,7 +95,9 @@ export const CHART_CAPACITY_PROPERTY = "--chart-capacity";
  */
 export function categoricalCapacity(host: Element): number {
   if (typeof getComputedStyle === "undefined") return CHART_SLOTS;
-  const raw = getComputedStyle(host).getPropertyValue(CHART_CAPACITY_PROPERTY).trim();
+  // A custom property and not a JS constant: the cascade is the only channel a scoped palette
+  // override travels down. `compile()` emits it beside the `--chart-*` slots.
+  const raw = getComputedStyle(host).getPropertyValue("--chart-capacity").trim();
   // **A declared zero is an answer; an absent property is not.** They used to be one branch, and
   // that was right while zero could only arrive by accident. A document may now decline the
   // categorical channel outright — one ink, no category carried by colour — and it says so with

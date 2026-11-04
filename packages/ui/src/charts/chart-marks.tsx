@@ -75,9 +75,6 @@ export interface ChartMarkProps {
   [option: string]: unknown;
 }
 
-/** Only these two channels can hold a colour; everything else keeps its column name. */
-const COLOR_CHANNELS = ["fill", "stroke"] as const;
-
 /**
  * Marks that stack, and therefore need a series key.
  *
@@ -88,7 +85,7 @@ const COLOR_CHANNELS = ["fill", "stroke"] as const;
  * So we restore Plot's own default: a column-valued `fill`/`stroke` becomes `z` unless the caller
  * set one. `z={null}` opts out (Plot's own way of saying "do not group").
  */
-const STACKING_MARKS = new Set([
+const stackingMarks = new Set([
   "barY", "barX", "areaY", "areaX", "area", "rectY", "rectX", "rect", "waffleY", "waffleX",
 ]);
 
@@ -113,13 +110,13 @@ function markDirective(mark: string, props: ChartMarkProps, ctx: ChartSpecContex
   delete channels.at;
   delete channels.table;
   // Read the series key before the colour channels are resolved to `rgb(...)` strings.
-  if (STACKING_MARKS.has(mark) && !("z" in channels)) {
+  if (stackingMarks.has(mark) && !("z" in channels)) {
     const series = [channels.fill, channels.stroke].find(
       (v) => typeof v === "string" && !isColorValue(v),
     );
     if (series !== undefined) channels.z = series;
   }
-  for (const channel of COLOR_CHANNELS) {
+  for (const channel of ["fill", "stroke"] as const) {
     const value = channels[channel];
     // `fill="host"` is the *column* host; only a token reference is a colour we must resolve.
     if (typeof value === "string" && isColorToken(value)) channels[channel] = ctx.resolveColor(value);

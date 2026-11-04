@@ -19,7 +19,7 @@ export interface ActionsColumnOptions<TData> {
 
 // The trigger at `--size-field: 0.25rem` (28px) plus the cell's `p-2`. A floor, not a clamp: in
 // an auto-layout table a wider density's trigger still wins, and the column takes no slack.
-const WIDTH = 44;
+const columnWidth = 44;
 
 /**
  * A trailing row-menu column. A row with nothing permitted gets no trigger rather than an empty
@@ -59,8 +59,8 @@ export function actionsColumn<TData>(
     enableSorting: false,
     header: () => <span className="sr-only">{headerLabel}</span>,
     id,
-    maxSize: WIDTH,
-    minSize: WIDTH,
-    size: WIDTH,
+    maxSize: columnWidth,
+    minSize: columnWidth,
+    size: columnWidth,
   };
 }

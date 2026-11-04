@@ -15,9 +15,6 @@ export interface PickOption {
   disabled?: boolean;
 }
 
-/** The empty choice of an optional slot; Ark's collection cannot hold `""` and `undefined` apart. */
-export const NONE = "—";
-
 export function Pick({
   label,
   value,

@@ -469,7 +469,7 @@ function Pref({ name, translations }: PrefProps) {
   const pref = usePref(name);
   if (!pref) return null;
   const key = name.slice(name.indexOf(".") + 1);
-  if (name.startsWith(`${CORE_NAMESPACE}.`) && PICKER.has(key)) return <ThemeSection t={t} />;
+  if (name.startsWith(`${CORE_NAMESPACE}.`) && picker.has(key)) return <ThemeSection t={t} />;
   const { decl, value, setValue, options, specimen } = pref;
   if (!pref.offered || !pref.shown) return null;
   // The declaration's name, and the key when it has none.
@@ -622,12 +622,12 @@ export interface PreferencesSectionsProps {
 }
 
 /** The two declared preferences the theme picker draws as one control. */
-const PICKER = new Set(["appearance", "themeByAppearance"]);
+const picker = new Set(["appearance", "themeByAppearance"]);
 
 function PreferencesSections({ namespace, translations }: PreferencesSectionsProps = {}) {
   const { corePrefs, sectionPrefs } = useKanzoTheme();
   // The picker answers to two names; drawn once, at whichever the declaration lists first.
-  const core = Object.keys(corePrefs).filter((key, i, keys) => !PICKER.has(key) || keys.findIndex((k) => PICKER.has(k)) === i);
+  const core = Object.keys(corePrefs).filter((key, i, keys) => !picker.has(key) || keys.findIndex((k) => picker.has(k)) === i);
   const names = [
     ...(!namespace || namespace === CORE_NAMESPACE ? core.map((key) => `${CORE_NAMESPACE}.${key}`) : []),
     ...Object.entries(sectionPrefs)

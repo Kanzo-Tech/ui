@@ -104,7 +104,7 @@ export const FacetFilter = (props: FacetFilterProps) => {
   // an inline literal hands back a fresh `contains` every render, which rebuilds the collection
   // every render, which makes the listbox re-sync its highlight in a microtask while you are still
   // typing. The visible symptom is dropped keystrokes, and it points nowhere near here.
-  const { contains } = useFilter(FILTER_SENSITIVITY);
+  const { contains } = useFilter(filterOptions);
 
   const entries = useMemo(() => {
     const listed = new Map(items.map((item) => [item.value, item]));
@@ -271,7 +271,7 @@ export const FacetFilter = (props: FacetFilterProps) => {
   );
 };
 
-const FILTER_SENSITIVITY = { sensitivity: "base" } as const;
+const filterOptions = { sensitivity: "base" } as const;
 
 const facetLabel = (item: FacetFilterItem) =>
   typeof item.label === "string" ? item.label : item.value;

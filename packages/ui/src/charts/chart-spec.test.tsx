@@ -137,7 +137,7 @@ describe("compileChartSpec", () => {
     );
 
     expect(marks(spec)[0]?.options).toEqual({ fill: "rgb(var(--chart-1))", stroke: "rgb(--primary)" });
-    // The column-valued fill also becomes the stacking series key — see `STACKING_MARKS`. A token
+    // The column-valued fill also becomes the stacking series key — see `stackingMarks`. A token
     // fill (the mark above) does not: it is a colour, not a series.
     expect(marks(spec)[1]?.options).toEqual({ fill: "host", stroke: "#ff0000", z: "host" });
   });

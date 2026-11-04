@@ -46,7 +46,7 @@ import { cn } from "../lib/cn";
  */
 
 /** The default id, so the link and the target agree without either call site writing a string. */
-const SKIP_NAV_ID = "skip-nav-content";
+const skipNavId = "skip-nav-content";
 
 export interface SkipNavLinkProps extends React.ComponentProps<typeof ark.a> {
   /**
@@ -71,7 +71,7 @@ export interface SkipNavLinkProps extends React.ComponentProps<typeof ark.a> {
  * against the page behind it.
  */
 export const SkipNavLink = (props: SkipNavLinkProps) => {
-  const { id = SKIP_NAV_ID, className, children, slot, ...rest } = props;
+  const { id = skipNavId, className, children, slot, ...rest } = props;
 
   return (
     <ark.a
@@ -124,7 +124,7 @@ export interface SkipNavContentProps extends React.ComponentProps<typeof ark.div
  * script; drawing a ring around the whole page body on arrival would be noise, not an affordance.
  */
 export const SkipNavContent = (props: SkipNavContentProps) => {
-  const { id = SKIP_NAV_ID, className, slot, ...rest } = props;
+  const { id = skipNavId, className, slot, ...rest } = props;
 
   return (
     <ark.div

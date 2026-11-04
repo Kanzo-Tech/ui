@@ -118,10 +118,10 @@ export const cookieStorageAdapter = (
  * `baseTint`, `primary`, `scheme`, `schemeColors` all shipped. Whitelisting on READ is what ends
  * that: the next write drops them, and no colour can re-enter the model through storage.
  */
-const PREF_KEYS = Object.keys(DEFAULT_PREFS) as (keyof ThemePrefs)[];
+const prefKeys = Object.keys(DEFAULT_PREFS) as (keyof ThemePrefs)[];
 function known(stored: Partial<ThemePrefs>): Partial<ThemePrefs> {
   const out: Partial<ThemePrefs> = {};
-  for (const key of PREF_KEYS) if (stored[key] !== undefined) out[key] = stored[key] as never;
+  for (const key of prefKeys) if (stored[key] !== undefined) out[key] = stored[key] as never;
   return out;
 }
 

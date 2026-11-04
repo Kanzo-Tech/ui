@@ -43,7 +43,7 @@ import { ScrollArea } from "../simples/scroll-area.js";
 import { Toggle } from "../simples/toggle.js";
 
 /** A severity is a domain word; the surface's families are `Diagnostic`'s. */
-const VARIANT = {
+const variantOf = {
   violation: "destructive",
   warning: "warning",
   info: "info",
@@ -119,7 +119,7 @@ const nameOf = (translations: FindingsTranslations, where: React.ReactNode) =>
   typeof where === "string" ? `${translations.details}: ${where}` : translations.details;
 
 /** A label a reader may have to type back into a tool — a path, a file — that wraps anywhere. */
-const MONO = "min-w-0 flex-1 font-mono text-muted-foreground text-xs wrap-anywhere";
+const mono = "min-w-0 flex-1 font-mono text-muted-foreground text-xs wrap-anywhere";
 
 // ── The action ──────────────────────────────────────────────────────────────────────────────────
 
@@ -166,7 +166,7 @@ export const FindingsActions = (props: React.ComponentProps<typeof DiagnosticAct
 
 /** Where, as a part: the one cell of line 1 that grows, and it wraps — anywhere, for an IRI. */
 const Where = ({ children }: { children: React.ReactNode }) => (
-  <ark.span className={MONO} data-slot="findings-where">
+  <ark.span className={mono} data-slot="findings-where">
     {children}
   </ark.span>
 );
@@ -237,7 +237,7 @@ export function FindingsItem<Place>(props: FindingsItemProps<Place>) {
       data-count={group?.count}
       data-severity={finding.severity}
       slot={slot ?? "findings-item"}
-      variant={VARIANT[finding.severity]}
+      variant={variantOf[finding.severity]}
       {...rest}
     >
       <DiagnosticHeader>
@@ -312,7 +312,7 @@ export const FindingsTally = (props: FindingsTallyProps) => {
             data-severity={severity}
             key={severity}
             size="xs"
-            variant={VARIANT[severity]}
+            variant={variantOf[severity]}
           >
             <ark.span className="sr-only">{translations.severity[severity]} </ark.span>
             {count.format(tally[severity])}
@@ -421,7 +421,7 @@ export const FindingsBadge = (props: FindingsBadgeProps) => {
   const { children, className, slot, ...rest } = props;
   const { tally, worst } = useFindings();
   const label = typeof children === "function" ? children(tally) : children;
-  const variant = !tally ? "outline" : worst ? VARIANT[worst] : "success";
+  const variant = !tally ? "outline" : worst ? variantOf[worst] : "success";
 
   return (
     <PopoverTrigger asChild>
@@ -498,7 +498,7 @@ export const FindingsHeader = (props: React.ComponentProps<typeof PopoverHeader>
 /** What was checked — a file, a form — beside the title: muted, monospace, and it wraps. */
 export const FindingsSource = (props: React.ComponentProps<typeof ark.span>) => {
   const { className, slot, ...rest } = props;
-  return <ark.span className={cn(MONO, className)} {...rest} data-slot={slot ?? "findings-source"} />;
+  return <ark.span className={cn(mono, className)} {...rest} data-slot={slot ?? "findings-source"} />;
 };
 
 export interface FindingsListProps extends React.ComponentProps<typeof ark.div> {

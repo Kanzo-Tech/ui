@@ -25,15 +25,12 @@ export function isColorToken(value: string): boolean {
   return value.startsWith("var(--") || value.startsWith("--");
 }
 
-const COLOR_FUNCTION = /^(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color|color-mix|light-dark)\(/;
-const HEX = /^#[0-9a-f]{3,8}$/;
-
 /**
  * The CSS named colours, so the answer below does not depend on a DOM. Asking `CSS.supports` would
  * be shorter and is what Plot does, but jsdom ships `CSS` without `supports` — the test suite would
  * then disagree with the browser about `fill="red"`, which is worse than carrying the list.
  */
-const NAMED_COLORS = new Set(
+const namedColors = new Set(
   ("aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen").split(" "),
 );
 
@@ -53,8 +50,8 @@ export function isColorValue(value: string): boolean {
   const v = value.toLowerCase().trim();
   if (v === "none" || v === "currentcolor" || v === "transparent") return true;
   if (isColorToken(v) || v.startsWith("url(")) return true;
-  if (HEX.test(v) || COLOR_FUNCTION.test(v)) return true;
-  return NAMED_COLORS.has(v);
+  if (/^#[0-9a-f]{3,8}$/.test(v) || /^(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color|color-mix|light-dark)\(/.test(v)) return true;
+  return namedColors.has(v);
 }
 
 /** `var(--chart-1, red)` → `--chart-1`. */

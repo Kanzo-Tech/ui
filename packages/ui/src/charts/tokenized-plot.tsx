@@ -22,7 +22,7 @@ export interface TokenizedPlotProps {
 }
 
 /** How long a resize has to be quiet before the plot is rebuilt at the new width. */
-const RESIZE_SETTLE_MS = 140;
+const resizeSettleMs = 140;
 
 /**
  * The frame under `ChartRoot`: measure the container, build the vgplot node, and mount it
@@ -70,7 +70,7 @@ export function TokenizedPlot({ render, deps, className }: TokenizedPlotProps) {
         return;
       }
       if (settle) clearTimeout(settle);
-      settle = setTimeout(() => setWidth(w), RESIZE_SETTLE_MS);
+      settle = setTimeout(() => setWidth(w), resizeSettleMs);
     });
     ro.observe(host);
     return () => {

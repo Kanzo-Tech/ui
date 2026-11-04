@@ -54,13 +54,10 @@ const ENGLISH: ProblemTranslations = {
 
 type Severity = "error" | "warning" | "info";
 
-const VARIANT = { error: "destructive", warning: "warning", info: "info" } as const;
-
-/** `area/kind`: two lowercase kebab-case words — the grammar every coded error here is written in. */
-const CODE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*\/[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
+const variantOf = { error: "destructive", warning: "warning", info: "info" } as const;
 
 /** Past this, a chain of causes is a cycle or a fault of its own, and the tree stops drawing it. */
-const DEPTH = 8;
+const maxDepth = 8;
 
 interface Row {
   code?: string;
@@ -87,7 +84,8 @@ function read(value: unknown, describe: Describe | undefined, seen: Set<unknown>
   if (typeof value !== "object" || value === null) return { title: String(value), severity: "error", children: [] };
   seen.add(value);
   const shape = value as Record<string, unknown>;
-  const code = typeof shape.code === "string" && CODE.test(shape.code) ? shape.code : undefined;
+  // `area/kind`: two lowercase kebab-case words.
+  const code = typeof shape.code === "string" && /^[a-z][a-z0-9]*(-[a-z0-9]+)*\/[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(shape.code) ? shape.code : undefined;
   const message = text(shape.message) ?? text(shape.detail);
   const title = text(shape.title) ?? message ?? text(shape.name) ?? String(value);
   const severity: Severity =
@@ -95,10 +93,10 @@ function read(value: unknown, describe: Describe | undefined, seen: Set<unknown>
 
   const children: Row[] = [];
   const cause = shape.cause;
-  if (cause !== undefined && cause !== null && !seen.has(cause) && depth < DEPTH) {
+  if (cause !== undefined && cause !== null && !seen.has(cause) && depth < maxDepth) {
     children.push(read(cause, describe, seen, depth + 1));
   }
-  if (Array.isArray(shape.related) && depth < DEPTH) {
+  if (Array.isArray(shape.related) && depth < maxDepth) {
     for (const related of shape.related) children.push(read(related, describe, seen, depth + 1));
   }
 
@@ -140,13 +138,13 @@ function Item(props: {
       data-code={row.code}
       defaultOpen={row.code !== undefined}
       {...rest}
-      variant={VARIANT[row.severity]}
+      variant={variantOf[row.severity]}
     >
       <DiagnosticHeader className="flex-nowrap items-start">
         {/* The title takes the rest of the line and the actions stay at its end. In a narrow container
             the title takes a line of its own under severity and code instead of a word per line. */}
         <ark.div className="flex min-h-6 min-w-0 flex-1 flex-wrap items-center gap-2">
-          <DiagnosticSeverity>{t[VARIANT[row.severity]]}</DiagnosticSeverity>
+          <DiagnosticSeverity>{t[variantOf[row.severity]]}</DiagnosticSeverity>
           <DiagnosticTitle className="@max-md:order-last @max-md:basis-full @max-md:whitespace-normal">
             {row.title}
           </DiagnosticTitle>

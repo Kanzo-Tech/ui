@@ -24,12 +24,6 @@ import { useHotkey } from "../lib/use-hotkey.js";
 import { useIsMobile } from "../lib/use-is-mobile.js";
 import { SIDEBAR_COOKIE_NAME } from "./sidebar-cookie.js";
 
-const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
-const SIDEBAR_WIDTH = "16rem";
-const SIDEBAR_WIDTH_MOBILE = "18rem";
-const SIDEBAR_WIDTH_ICON = "3rem";
-const SIDEBAR_KEYBOARD_SHORTCUT = "mod+b";
-
 interface SidebarContextProps {
   isMobile: boolean;
   open: boolean;
@@ -126,7 +120,7 @@ export const SidebarProvider = (props: SidebarProviderProps) => {
         _setOpen(openState);
       }
 
-      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${60 * 60 * 24 * 7}`;
     },
     [setOpenProp, open, intent]
   );
@@ -139,7 +133,7 @@ export const SidebarProvider = (props: SidebarProviderProps) => {
     }
   }, [isMobile, setOpen]);
 
-  useHotkey(SIDEBAR_KEYBOARD_SHORTCUT, toggleSidebar);
+  useHotkey("mod+b", toggleSidebar);
 
   const state = open ? "expanded" : "collapsed";
 
@@ -169,8 +163,8 @@ export const SidebarProvider = (props: SidebarProviderProps) => {
           )}
           style={
             {
-              "--sidebar-width": SIDEBAR_WIDTH,
-              "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
+              "--sidebar-width": "16rem",
+              "--sidebar-width-icon": "3rem",
               ...style,
             } as React.CSSProperties
           }
@@ -242,7 +236,7 @@ export const Sidebar = (props: SidebarProps) => {
           placement={placement === "left" ? "left" : "right"}
           style={
             {
-              "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
+              "--sidebar-width": "18rem",
             } as React.CSSProperties
           }
         >

@@ -5,7 +5,7 @@ import type { ChartConfig } from "./chart-config.js";
  * Past this many rows a chart's text alternative is a summary, not a table: a table of 4,000 bars is
  * not one anyone reads. A decision, not a measurement (`/docs/design/analytics`).
  */
-export const ALT_ROWS = 50;
+const altRows = 50;
 
 /** What a vgplot mark holds once its query has answered, as far as the alternative reads it. */
 export interface AlternativeMark {
@@ -24,7 +24,7 @@ export interface Alternative {
 }
 
 /** Channels that carry no value a reader would want in a table. */
-const NOT_A_VALUE = new Set(["tip", "sort", "title"]);
+const notAValue = new Set(["tip", "sort", "title"]);
 
 const label = (config: ChartConfig, name: string): string => {
   const given = config[name]?.label;
@@ -49,7 +49,7 @@ export function readAlternatives(marks: readonly AlternativeMark[], config: Char
     const { data } = mark;
     if (!data || data.numRows === 0) continue;
     const named = mark.channels.filter(
-      (c) => c.field !== undefined && !NOT_A_VALUE.has(c.channel) && typeof c.as === "string" && data.columns[c.as] !== undefined,
+      (c) => c.field !== undefined && !notAValue.has(c.channel) && typeof c.as === "string" && data.columns[c.as] !== undefined,
     ) as { field: unknown; as: string }[];
     const keys = [...new Set(named.filter((c) => !isAggregateExpression(c.field as never)).map((c) => c.as))];
     const values = [...new Set(named.filter((c) => isAggregateExpression(c.field as never)).map((c) => c.as))];
@@ -88,7 +88,7 @@ function text(value: unknown): string {
 
 /**
  * **A chart's text alternative**: a `table` with the chart's title for its caption, or, past
- * {@link ALT_ROWS}, a summary of how many marks there are and the largest and smallest by label.
+ * {@link altRows}, a summary of how many marks there are and the largest and smallest by label.
  * Visually hidden and read by a screen reader in place of the picture, which is `aria-hidden`.
  */
 export function ChartAlternative({ title, tables }: { title?: string; tables: readonly Alternative[] }) {
@@ -97,7 +97,7 @@ export function ChartAlternative({ title, tables }: { title?: string; tables: re
     <div className="sr-only" data-slot="chart-alternative">
       {tables.map((table, i) => {
         const caption = title === undefined ? undefined : i === 0 ? title : `${title} (${i + 1})`;
-        if (table.rows.length <= ALT_ROWS) {
+        if (table.rows.length <= altRows) {
           return (
             <table key={i}>
               {caption !== undefined && <caption>{caption}</caption>}

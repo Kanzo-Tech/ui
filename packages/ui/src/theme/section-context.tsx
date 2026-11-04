@@ -25,7 +25,7 @@ export interface SectionProviderProps {
   children?: React.ReactNode;
 }
 
-const NONE = {};
+const none = {};
 
 /**
  * **What only a section's owner knows, for the subtree beneath it** — the lists its choices name
@@ -43,7 +43,7 @@ const NONE = {};
  * unanswered — `prefOptions` says `null` — and the control it fills is not drawn, which is what a
  * tenant who published no themes already gets.
  */
-export function SectionProvider({ namespace, sources = NONE, specimens = NONE, children }: SectionProviderProps) {
+export function SectionProvider({ namespace, sources = none, specimens = none, children }: SectionProviderProps) {
   const outer = React.useContext(SectionContext);
   const value = React.useMemo(() => {
     const before = outer.get(namespace);

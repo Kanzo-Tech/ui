@@ -10,7 +10,7 @@ import { useMosaic } from "./mosaic-provider.js";
  * reading a dropped answer asks again and suspends once more; the number only bounds a page that
  * builds statements from what a reader types.
  */
-const KEPT = 256;
+const capacity = 256;
 
 interface Answer {
   readonly rows: Promise<readonly unknown[]>;
@@ -21,7 +21,7 @@ interface Answer {
  * What a read that nothing stops hands the engine. A suspended reader holds no effect, so React
  * gives no moment at which it has gone: the statement runs to its end and its answer is kept.
  */
-const UNSTOPPED = new AbortController().signal;
+const unstopped = new AbortController().signal;
 
 const answers = new WeakMap<Engine, Map<string, Answer>>();
 
@@ -39,12 +39,12 @@ function rowsFor(engine: Engine, sql: string): Promise<readonly unknown[]> {
     return known.rows;
   }
   const answer: Answer = {
-    rows: engine.query(sql, { signal: UNSTOPPED }).then(rowsOf),
+    rows: engine.query(sql, { signal: unstopped }).then(rowsOf),
     failed: false,
   };
   kept.set(sql, answer);
   answer.rows.catch(() => (answer.failed = true)); // the caller holds `rows`; this only records it
-  if (kept.size > KEPT) kept.delete(kept.keys().next().value as string);
+  if (kept.size > capacity) kept.delete(kept.keys().next().value as string);
   return answer.rows;
 }
 

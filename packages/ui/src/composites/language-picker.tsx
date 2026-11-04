@@ -19,7 +19,7 @@ import {
  * A broad default set of language subtags, offered when the host does not pin `languages`. The
  * search filters it, so its length is not a cost.
  */
-const COMMON_LANGUAGES = [
+const commonLanguages = [
   "en", "es", "fr", "de", "it", "pt", "nl", "ca", "gl", "eu", "ast", "oc",
   "ga", "cy", "sv", "da", "nb", "nn", "fi", "is", "pl", "cs", "sk", "sl",
   "hr", "sr", "bg", "ro", "hu", "el", "tr", "ru", "uk", "ar", "he", "fa",
@@ -152,7 +152,7 @@ export const LanguagePicker = (props: LanguagePickerProps) => {
   const inputId = useId();
 
   const items = useMemo<Language[]>(
-    () => (languages?.length ? languages : COMMON_LANGUAGES).map((code) => ({ code, name: endonym(code) })),
+    () => (languages?.length ? languages : commonLanguages).map((code) => ({ code, name: endonym(code) })),
     [languages]
   );
 

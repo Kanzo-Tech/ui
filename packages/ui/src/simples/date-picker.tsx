@@ -60,8 +60,6 @@ interface TimedPicker {
   max?: DateValue;
 }
 
-const CLOCK = /(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*([ap])\.?\s*m?\.?)?/i;
-
 /**
  * A date and a time read from pasted text: an ISO string (`2026-03-14T18:30`), or the locale's own
  * order (`14/03/2026 18:30`, `3/14/2026, 6:30 PM`). Ark's segments take a paste only as a bare ISO
@@ -75,7 +73,7 @@ function parsePasted(text: string, locale: string, kept?: DateValue): DateValue 
   } catch {
     // Not ISO: read it in the locale's field order.
   }
-  const clock = CLOCK.exec(text);
+  const clock = /(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*([ap])\.?\s*m?\.?)?/i.exec(text);
   const numbers = text.replace(clock?.[0] ?? "", " ").match(/\d+/g)?.map(Number);
   if (numbers?.length !== 3) return undefined;
   const yearFirst = /^\D*\d{4}\b/.test(text);

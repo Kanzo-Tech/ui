@@ -74,7 +74,7 @@ export interface KanzoThemeProps extends React.ComponentPropsWithoutRef<"div"> {
  * The axes a scope may override: the keyed one, the theme. Read off `AXES` rather than naming
  * `data-theme`, so the attribute is spelled once. Density is the other row and is root-only.
  */
-const SCOPED = AXES.filter(({ byAppearance }) => byAppearance);
+const scopedAxes = AXES.filter(({ byAppearance }) => byAppearance);
 
 export function KanzoTheme({
   theme,
@@ -103,7 +103,7 @@ export function KanzoTheme({
   // them too, which is what stops a scoped preview from painting the page's palette on first paint
   // and then correcting itself.
   const attributes: Record<string, string> = {};
-  for (const { attr, byAppearance, key } of SCOPED) {
+  for (const { attr, byAppearance, key } of scopedAxes) {
     // A keyed axis holds a map, indexed by the side this scope is about to paint — the same
     // expression the provider and the pre-hydration script run, off the same row.
     const stored = overrides[key];

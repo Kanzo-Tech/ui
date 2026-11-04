@@ -9,7 +9,7 @@ import { cte, isAggregateExpression, literal, Query, sum, type FilterExpr } from
  * (`filter: null`); for a stack read from SQL that is completing the grid in the query.
  */
 
-const STACK = "__stack";
+const stack = "__stack";
 
 /** One encoding channel as mosaic-plot's `Mark` holds it: the column it reads, and its output name. */
 export interface StackChannel {
@@ -39,10 +39,10 @@ export function denseStack(query: Query, channels: readonly StackChannel[], alon
   const series = dims.filter((dim) => dim !== along);
   if (!dims.includes(along) || series.length === 0 || measures.length === 0) return query;
 
-  const zeros = Query.from(Query.from(STACK).select(along).distinct(), Query.from(STACK).select(...series).distinct())
+  const zeros = Query.from(Query.from(stack).select(along).distinct(), Query.from(stack).select(...series).distinct())
     .select(...dims, Object.fromEntries(measures.map((m) => [m, literal(0)])));
-  return Query.with(cte(STACK, query, true))
-    .from(Query.unionAll(Query.from(STACK).select(...dims, ...measures), zeros))
+  return Query.with(cte(stack, query, true))
+    .from(Query.unionAll(Query.from(stack).select(...dims, ...measures), zeros))
     .select(...dims, Object.fromEntries(measures.map((m) => [m, sum(m)])))
     .groupby(dims)
     .orderby(along);

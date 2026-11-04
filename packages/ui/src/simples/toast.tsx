@@ -61,7 +61,7 @@ export const Toaster = (props: ToasterProps) => {
   );
 };
 
-const TOAST_ICONS = {
+const toastIcons = {
   loading: <Spinner />,
   success: <CircleCheckIcon />,
   error: <CircleAlertIcon />,
@@ -80,7 +80,7 @@ export const ToastItem = (props: ToastItemProps) => {
   const { toast: toastData, className, slot, ...rest } = props;
 
   const ToastIcon = toastData.type
-    ? TOAST_ICONS[toastData.type as keyof typeof TOAST_ICONS]
+    ? toastIcons[toastData.type as keyof typeof toastIcons]
     : null;
 
   const isExplicitClosable = toastData.closable === false;
