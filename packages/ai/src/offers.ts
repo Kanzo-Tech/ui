@@ -6,7 +6,7 @@ import type { AssistEvent } from "./engine.js";
 import type { Proposal } from "./task/index.js";
 
 /** Below this there is not enough text to continue, so nothing is asked. */
-export const MIN_CONTINUE_LENGTH = 4;
+const MIN_CONTINUE_LENGTH = 4;
 
 export const askable = (value: string) => value.trim().length >= MIN_CONTINUE_LENGTH;
 
