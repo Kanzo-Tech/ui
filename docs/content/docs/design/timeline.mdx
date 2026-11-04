@@ -32,7 +32,7 @@ under the pointer. A clip is an attribute, drawn in the same frame. The brush is
 because d3's grey fill over the window read as the part left out. *What would reverse it:* a Plot
 that redraws one mark in place; then the bars in front can be the window's own query again, and
 show its counts rather than its extent. Cosmograph's `Timeline` draws the same two
-layers (`highlightSelectedData`) and publishes `isBetween(column, range)` from a client of its own.
+layers ([`highlightSelectedData`](https://cosmograph.app/docs-lib/api/interfaces/CosmographTimelineConfig/#highlightselecteddata)).
 Ours is a `ChartRoot` of `ChartRectY` marks and a `ChartIntervalX`. The bins are SQL, through vgplot's
 `bin()`, which bins a temporal channel by date.
 
@@ -60,9 +60,10 @@ there is nothing to hand over and no place to keep.
 **It replaced the dashboard's private `Timeline`**, the filter control behind a temporal field's chip
 (`packages/ui/src/charts/dashboard-filters.tsx`), which drew the same marks with no playback and
 could not be placed anywhere else. The chip renders `ChartTimeline` now: one implementation, as the
-graph and the dashboard need the same part. **Cosmograph's binning was turned down**: it reads the
-whole column into the browser and bins it in JavaScript, 250 bars by default. Ours asks the
-coordinator for one row per bin, which a pre-aggregate can answer.
+graph and the dashboard need the same part. **Binning in the browser was turned down**: it needs the
+whole column on the client, and a column grows with the graph. Ours asks the coordinator for one row
+per bin, which a pre-aggregate can answer. Cosmograph draws 250 bars by default
+([`barCount`](https://cosmograph.app/docs-lib/api/interfaces/CosmographTimelineConfig/#barcount)); ours draws 60.
 
 **What would reverse it:** a temporal column whose bins cannot be a `GROUP BY` — a time with a
 timezone per row, read as wall-clock time. Then the bins are computed over the rows the client holds,
@@ -123,8 +124,8 @@ under the query for whom even that is too much; then Play steps one bar per pres
 
 **One clause, and one chip, for the timeline's life.** Each frame is published through the
 interval's own clause, whose source is its place in the plot (above), so a frame, a drag, a stuck
-drag-end and a rebuild all replace the same clause. Cosmograph does the same with one
-`FilteringClient` per timeline publishing as `source: this`. Mosaic depends on it: a crossfilter
+drag-end and a rebuild all replace the same clause. Cosmograph's `Timeline` is likewise one
+filtering client, with an `id` that keeps it the same across remounts ([`id`](https://cosmograph.app/docs-lib/api/interfaces/CosmographTimelineConfig/#id)). Mosaic depends on it: a crossfilter
 selection drops queued values whose clause has the same source (`queueFilter`), so with one source a
 burst of steps collapses to the newest. While it plays the chip reads as it does paused, its text
 following the window, with no marker; its × stops play and lets the range go, as the page's
@@ -198,9 +199,9 @@ a value, as `Slider` does. Then play writes the `Param`, and `ChartTimeline` sto
 ## Time is read from the schema, never guessed
 
 **A column is temporal when the graph says it is: a GraphAr `date` or `timestamp` column, or a
-number or a time whose datatype in the graph's mapping is a time.** Cosmograph instead samples 100
-values and calls a column of year-like integers a year. A count of rows, a price or an id in that
-range would be read as a date, and the schema already says which column is a time. GraphAr has no
+number or a time whose datatype in the graph's mapping is a time.** Cosmograph detects a timeline's
+`mode` from the data when none is set ([`mode`](https://cosmograph.app/docs-lib/api/interfaces/CosmographTimelineConfig/#mode)). A guess from the values reads a count
+of rows, a price or an id in a year's range as a date, and the schema already says which column is a time. GraphAr has no
 year type: the `xsd:gYear` a shape declared over an `int32` lives in the graph's RML mapping, which
 the host reads with rudof's `Mapping.model()` and hands the root as `mapping` — fossil's D4 — so the
 timeline offers a year once the mapping has arrived, and not before. Without one, a year is a number.
@@ -233,13 +234,13 @@ relations](/docs/design/crossfilter#one-selection-across-relations)). It names t
 so every client answers it, without a Binder error. The chip reads *date 1910 – 1940*: the clause
 itself, on the page's one selection.
 
-**A vertex without the column is outside every window, so it is greyed, as Cosmograph greys it.**
+**A vertex without the column is outside every window, so it is greyed.**
 The crossing was first an anti-join, `dense_id NOT IN (… WHERE NOT <the window>)`, which dropped only
 the dated rows the window leaves out and kept every type without the column whole. In keasy that read
 wrong: on SNB, a window over 30 birthdays left *340,163 of 341,661* vertices in colour, every post,
-place and tag among them, and it looked like a window that selected more than it should. Cosmograph's
-`Timeline` filters its points by `isBetween(column, range)`, and a point with no time answers false,
-so it is greyed with what the window leaves out. The semi-join is that rule over identity: only the
+place and tag among them, and it looked like a window that selected more than it should. A window is a range
+predicate, and a range predicate on a point with no time is `NULL`, which no `WHERE` keeps, so the
+point is greyed with what the window leaves out. The semi-join is that rule over identity: only the
 rows that have the column and fall in the window are kept, so the same window reads *30 of 341,661*.
 The edges follow by the rule that a link needs both its ends.
 
@@ -289,7 +290,7 @@ its own `design/later/edge-properties`.
 
 **What would reverse it:** a graph that writes edge properties. Then an edge table lists its columns
 as a vertex table does, a link gets an index as a vertex does, and a clause over an edge column keeps
-the edges it matches and their endpoints — Cosmograph's rule, `endpointPointsOf`.
+the edges it matches and their endpoints.
 
 ## The window is two thumbs, and the bins are a table
 

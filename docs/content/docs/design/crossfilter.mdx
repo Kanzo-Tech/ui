@@ -72,8 +72,8 @@ and
 > *kept_C(v) = ⋀_\{c ∈ C\} ans(c, v)*, with *kept_∅(v) = true*.
 
 The second case of *ans* is the rule decided here: a clause a type cannot answer keeps none of that
-type. It is what Cosmograph's `isBetween(column, range)` does to a point with no value
-([Timeline](/docs/design/timeline)), and what a dashboard's relation already does with a semi-join
+type. It is what a range predicate does to a point with no value: `BETWEEN` answers `NULL`,
+which no `WHERE` keeps ([Timeline](/docs/design/timeline)), and what a dashboard's relation already does with a semi-join
 on its root: a client applies every clause it is handed.
 
 **A client's own view.** A chart that publishes from source *s* and is filtered by the same selection
@@ -161,8 +161,7 @@ identity form, `key IN (SELECT key FROM <relation> WHERE …)`, by the page's re
 a dashboard and the canvas alike, with no route of their own ([below](#one-selection-across-relations)).
 The timeline stops being a special path: it is `ChartTimeline` over `vertices`.
 
-**A clause a type cannot answer keeps none of that type, everywhere.** It is the timeline's rule and
-Cosmograph's (a point with no value answers `isBetween` false and is greyed,
+**A clause a type cannot answer keeps none of that type, everywhere.** It is the timeline's rule (a point with no value is outside every window and is greyed,
 [Timeline](/docs/design/timeline)). `GraphClient` asks only the vertex tables that answer every
 clause, under all of them, and the search's `inside` reads the same rule; a clause on another
 relation reaches the graph already crossed by key, which every vertex table answers. The rule is held
