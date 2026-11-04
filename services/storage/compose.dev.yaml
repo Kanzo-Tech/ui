@@ -2,10 +2,15 @@
 # running outside Compose reaches it, and the values of dev/dev.env. The store is the application's
 # (its MinIO or SeaweedFS); AWS_* below are that store's development user, standing in for the
 # deployment's identity, which production has and development does not.
+#
+# It also joins the default network in development, where the issuer is localhost and the realm's
+# keys are reached as http://keycloak:8080.
 services:
   storage:
+    networks: [default, storage]
     ports:
       - "${STORAGE_PORT:-8090}:8090"
     environment:
       AWS_ACCESS_KEY_ID: ${STORAGE_DEV_ACCESS_KEY:-minioadmin}
       AWS_SECRET_ACCESS_KEY: ${STORAGE_DEV_SECRET_KEY:-minioadmin}
+      AUTH_JWKS: http://keycloak:8080/realms/kanzo/protocol/openid-connect/certs

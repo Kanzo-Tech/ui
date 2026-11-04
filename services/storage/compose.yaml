@@ -6,9 +6,16 @@
 # role, or a web identity), DefaultAzureCredential (a managed or workload identity), Google's ADC. The
 # organization grants that identity a role on its storage, and STORAGE_CONNECTION names it.
 #
-# Nothing publishes its port: an application's server reaches it as http://storage:8090 inside the
-# network, after its own permission check, forwarding the person's access token. Nothing here names
-# an application; AUTH_CLIENT_ID is the deployment's value.
+# Nothing publishes its port, and it sits on its own network, `kanzo-storage`, which only the
+# application's server joins: the web, the edge and Keycloak cannot reach it. The server calls
+# http://storage:8090 after its own permission check, forwarding the person's access token, which
+# must name a member of AUTH_ORGANIZATION. It fetches the realm's keys from the public issuer, since
+# Keycloak is not on its network. Nothing here names an application: AUTH_CLIENT_ID and
+# AUTH_ORGANIZATION are the deployment's values.
+#
+#   services:
+#     server:              # the application's
+#       networks: [default, storage]
 name: kanzo-storage
 
 services:
@@ -20,10 +27,16 @@ services:
       STORAGE_CONNECTION: ${STORAGE_CONNECTION:?set STORAGE_CONNECTION, the organization's storage and the role granted there}
       AUTH_ISSUER: ${AUTH_ISSUER:?set AUTH_ISSUER, the realm's public issuer}
       AUTH_CLIENT_ID: ${AUTH_CLIENT_ID:?set AUTH_CLIENT_ID, the application whose server calls this service}
-      AUTH_JWKS: ${AUTH_JWKS:-http://keycloak:8080/realms/kanzo/protocol/openid-connect/certs}
+      AUTH_ORGANIZATION: ${AUTH_ORGANIZATION:?set AUTH_ORGANIZATION, the organization this deployment serves}
+      AUTH_JWKS: ${AUTH_JWKS:-}
+    networks: [storage]
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8090/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
       interval: 5s
       timeout: 5s
       retries: 20
     restart: unless-stopped
+
+networks:
+  storage:
+    name: kanzo-storage
