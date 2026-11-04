@@ -30,9 +30,10 @@ organization grants that identity a role on its storage. No key of the organizat
 
 ## Who may call it
 
-An application's **server**, inside the deployment's network, after its own permission check. It
-forwards the person's access token as the edge forwarded it; the service verifies it against the
-realm (`@kanzo-tech/auth/server`) and names the person in the cloud's audit log
+An application's **server**, after its own permission check, on the `kanzo-storage` network that
+only it joins. It forwards the person's access token as the edge forwarded it; the service verifies
+it against the realm (`@kanzo-tech/auth/server`), requires a member of the deployment's
+organization (`AUTH_ORGANIZATION`), and names the person in the cloud's audit log
 (`RoleSessionName`). Whether this person may open this path is the application's decision: the
 service holds no permissions of its own. `/docs/design/services` says why, and what would reverse it.
 
@@ -40,7 +41,7 @@ service holds no permissions of its own. `/docs/design/services` says why, and w
 
 ```sh
 STORAGE_CONNECTION='{"kind":"s3","bucket":"b","root":"graphs","region":"eu-west-1","roleArn":"arn:aws:iam::123:role/kanzo-storage","externalId":"…"}' \
-AUTH_ISSUER=https://id.example/realms/kanzo AUTH_CLIENT_ID=my-app \
+AUTH_ISSUER=https://id.example/realms/kanzo AUTH_CLIENT_ID=my-app AUTH_ORGANIZATION=acme \
 docker compose -f compose.yaml up -d --wait
 ```
 

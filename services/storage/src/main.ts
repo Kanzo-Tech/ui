@@ -3,12 +3,14 @@
  * Iceberg REST's `LoadCredentialsResponse`. Its caller is an application's server, after its own
  * permission check, forwarding the person's access token as the edge forwarded it to that server
  * (`x-forwarded-access-token`); the token is verified against the realm's keys by
- * `@kanzo-tech/auth/server` and names the person in the cloud's audit log. The service is reached
- * only inside the deployment's network: nothing publishes its port (`compose.yaml`).
+ * `@kanzo-tech/auth/server`, must name a member of the deployment's organization (`AUTH_ORGANIZATION`),
+ * and names the person in the cloud's audit log. The service is reached only on its own network,
+ * which the application's server alone joins (`compose.yaml`).
  */
 import { createServer } from "node:http";
 import { sessionReader } from "@kanzo-tech/auth/server";
 import { Problem } from "@kanzo-tech/kernel";
+import { member } from "./caller.ts";
 import { vend, type Access, type Connection } from "./vend.ts";
 
 function required(name: string): string {
@@ -23,6 +25,7 @@ const read = sessionReader({
   clientId: required("AUTH_CLIENT_ID"),
   ...(process.env.AUTH_JWKS ? { jwks: process.env.AUTH_JWKS } : {}),
 });
+const organization = required("AUTH_ORGANIZATION");
 const port = Number(process.env.PORT ?? 8090);
 
 /** What a role session may be named: `[\w+=,.@-]`, at most 64 characters (STS). */
@@ -41,6 +44,7 @@ createServer(async (request, response) => {
     for (const [name, value] of Object.entries(request.headers)) if (typeof value === "string") headers.set(name, value);
     const session = await read(headers);
     if (session === null) return problem(new Problem("session/absent", "no access token was forwarded"));
+    member(session, organization);
     let body = "";
     for await (const chunk of request) body += chunk;
     const { path, access } = JSON.parse(body) as { path?: unknown; access?: unknown };
