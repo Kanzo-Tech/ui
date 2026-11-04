@@ -7,6 +7,8 @@
 // seconds, and a guard that is slow or flaky is a guard somebody switches off. The price of that
 // is a snapshot that can go stale silently, which is paid two ways — the snapshot carries the date
 // and the commit it was taken at, and the test fails once it is older than the limit it names.
+// The same two facts keep it out of `pnpm check:generated`: it needs the network and stamps the day
+// it ran, so a regeneration can never reproduce the checked-in copy.
 //
 // **This script's own blind spot is the one that produced it.** `raw.githubusercontent.com` serves
 // `vinihvc/shark-ui` — the previous owner — with HTTP 200 and no redirect at all, so a URL that

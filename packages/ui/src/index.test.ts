@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as UI from "./index";
+import { WITHHELD } from "./shark-parity.divergences";
 
 /**
  * What `import { … } from "@kanzo-tech/ui"` is allowed to find, and what it must not.
@@ -130,6 +131,13 @@ describe("@kanzo-tech/ui public surface", () => {
     // consumer before they were written here.
     expect(UI.useAsyncCollection).toBeTypeOf("function");
     expect(UI.useDebouncedCommit).toBeTypeOf("function");
+  });
+
+  it("exposes useHotkey, the one window key listener, for a sibling package's keys", () => {
+    // `@kanzo-tech/graph`'s Escape went through a `keydown` of its own and so disagreed with every
+    // other key here: it fired while a field had focus. A part outside `ui` registering its key
+    // through the same hook is what keeps the typing rule one rule.
+    expect(UI.useHotkey).toBeTypeOf("function");
   });
 
   it("exposes the one facet-filter surface, on the root barrel", () => {
@@ -495,17 +503,12 @@ describe("@kanzo-tech/ui public surface", () => {
     // wrote (`FileUploadList`, `PaginationItems`, `PaginationItemLink`); and a part Ark ships that
     // we already export under the machine's own name — `DialogTrigger`, `ComboboxGroupLabel`,
     // `Tour.Control` via `TourActions` — which the record names as the case its line does not
-    // reach.
+    // reach. The names and their reasons are `WITHHELD`, read here rather than listed twice.
+    // `ClipboardValue` is the rename, not a decline: Shark's name for `ClipboardValueText`.
     const surface = UI as Record<string, unknown>;
-    for (const name of [
-      "ClipboardValue",
-      "CommandDialogTrigger", "CommandGroupLabel",
-      "FileUploadTitle", "FileUploadDescription", "FileUploadHelper", "FileUploadDropzoneIcon",
-      "FileUploadList",
-      "PaginationItems", "PaginationItemLink",
-      "SkeletonCircle", "SkeletonText",
-      "TourBody", "TourFooter",
-    ]) {
+    const withheld = Object.keys(WITHHELD).map((key) => key.split(":")[1] as string);
+    expect(withheld.length, "WITHHELD is empty, so this loop asserts nothing").toBeGreaterThan(0);
+    for (const name of ["ClipboardValue", ...withheld]) {
       expect(surface[name], name).toBeUndefined();
     }
     // The names each decline points at instead. A decline that leaves no way to build the thing is

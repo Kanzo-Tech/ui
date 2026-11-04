@@ -3,7 +3,8 @@
  *
  * A control's size is one custom property, `--size`, and its height is one utility that reads it.
  * `controlSizes` assigns the property per size token — a multiple of `--size-field`, the knob a
- * tenant turns to ask for tighter controls without asking for tighter text — and `controlHeight`
+ * tenant turns to ask for tighter controls without asking for tighter text; `sm` is the theme's
+ * `--size-control-min`, the floor its density obligation grades — and `controlHeight`
  * reads it. Every recipe for a control that sits in a form row spreads the first into its `size`
  * variant and puts the second on its `base`, so a text input, a select, a combobox, a date picker
  * and a segment group are the same height at the same token, at every density, by construction.
@@ -14,10 +15,10 @@
  * instead; one that lives inside another control's border (an input inside a group) is the group's
  * height less its border, and is written that way in `input-group.tsx`.
  *
- * `control-size.test.ts` fails when a recipe listed there stops using these.
+ * `control-height.test.ts` fails when a recipe listed there stops using these.
  */
 export const controlSizes = {
-  sm: "[--size:calc(var(--size-field)*7)]",
+  sm: "[--size:var(--size-control-min)]",
   md: "[--size:calc(var(--size-field)*8)]",
   lg: "[--size:calc(var(--size-field)*9)]",
 } as const;

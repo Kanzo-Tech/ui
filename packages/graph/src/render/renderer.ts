@@ -1,14 +1,16 @@
 import { Graph } from "@cosmos.gl/graph";
 import { Problem } from "@kanzo-tech/kernel";
 import { greyedOf } from "../core/kept";
-import type { Geometry } from "../core/load";
+import type { Encoding, Geometry } from "../core/load";
 import type { Arrangement, GraphStore } from "../core/store";
 import type { GraphCommands, Motion, VertexId } from "../core/types";
 import { resolveLook, type Look } from "./graph-looks";
 import { appearance, forces, paint } from "./graph-model";
 import { resolveSim, type Sim } from "./graph-sim";
-import { createCamera, FIT_DURATION, glide } from "./camera";
+import { createCamera, FIT_DURATION, FIT_PADDING, glide } from "./camera";
+import { CELL } from "./label-limits";
 import { nearest } from "./direction";
+import { planChange, planFrame, type Dirty, type Seen } from "./frame";
 import { decayFor, highlighted, LINKS_WHILE_RUNNING, placedByData, simulating } from "./motion";
 import { cornersOf, placed, placementOf } from "./placement";
 import { holdDevice, webglBox } from "./webgl";
@@ -93,14 +95,12 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   };
 
   let look: Look = resolveLook(store.getOptions().look);
-  let lookPatch = store.getOptions().look;
-  const dirty = { positions: true, paint: true, state: true };
+  let dirty: Dirty = { positions: true, paint: true, state: true };
   let frame = 0;
   let links: Float32Array | null = null;
   /** The geometry whose positions this canvas uploaded and rendered: the only one it can write back. */
   let shown: Geometry | null = null;
-  let last = store.getSnapshot();
-  let lastOptions = store.getOptions();
+  let seen: Seen = { snapshot: store.getSnapshot(), options: store.getOptions() };
 
   const size = () => store.getSnapshot().geometry?.size ?? 0;
 
@@ -117,6 +117,8 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       randomSeed: "kanzo-discovery",
       pixelRatio: window.devicePixelRatio || 1,
       enableDrag: true,
+      // Set, not defaulted: the labels count the view's sample in these cells (`cellsIn`).
+      pointSamplingDistance: CELL,
       hoveredPointCursor: "pointer",
       attribution: "",
       onSimulationStart: () => store.report("running"),
@@ -167,44 +169,45 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
 
   function draw(): void {
     const snapshot = store.getSnapshot();
-    const { geometry, encoding } = snapshot;
+    const { geometry, encoding, arrangement: kept } = snapshot;
     const options = store.getOptions();
-    // Positions wait for the first colours, so a graph's first frame is the drawn one, not a grey one.
-    const placing = dirty.positions && encoding ? geometry : null;
-    const kept = placing && snapshot.arrangement;
-    if (placing) {
-      dirty.positions = false;
-      graph.setPointPositions(position(placing, kept), true);
-      if (placing.links !== links) {
-        links = placing.links;
-        graph.setLinks(links);
-        dirty.paint = dirty.state = true;
+    const plan = planFrame(dirty, { geometry: geometry !== null, encoding: encoding !== null, newLinks: geometry?.links !== links });
+    dirty = plan.dirty;
+    if (geometry) for (const op of plan.ops) {
+      switch (op) {
+        case "positions":
+          graph.setPointPositions(position(geometry, kept), true);
+          break;
+        case "links":
+          graph.setLinks((links = geometry.links));
+          break;
+        case "paint": {
+          const buffers = paint(geometry, encoding as Encoding, look, host, options);
+          graph.setPointColors(buffers.colors);
+          graph.setPointSizes(buffers.sizes);
+          graph.setPointShapes(buffers.shapes);
+          graph.setLinkColors(buffers.linkColors);
+          graph.setPointClusters((encoding as Encoding).clusters ?? []);
+          graph.setConfigPartial({ ...appearance(look, host, buffers.palette), renderLinks: linksShown() });
+          break;
+        }
+        case "state":
+          graph.setConfigPartial({
+            ...highlighted(snapshot),
+            focusedPointIndex: snapshot.focus === null || snapshot.focus >= geometry.size ? undefined : snapshot.focus,
+          });
+          break;
+        case "render":
+          graph.render();
+          break;
+        case "layout":
+          shown = geometry;
+          layout(geometry, kept);
+          break;
+        case "drawn":
+          store.reportDrawn(snapshot);
       }
     }
-    const painting = dirty.paint && geometry && encoding;
-    if (painting) {
-      dirty.paint = false;
-      const buffers = paint(geometry, encoding, look, host, options);
-      graph.setPointColors(buffers.colors);
-      graph.setPointSizes(buffers.sizes);
-      graph.setPointShapes(buffers.shapes);
-      graph.setLinkColors(buffers.linkColors);
-      graph.setPointClusters(encoding.clusters ?? []);
-      graph.setConfigPartial({ ...appearance(look, host, buffers.palette), renderLinks: linksShown() });
-    }
-    if (dirty.state && geometry) {
-      dirty.state = false;
-      graph.setConfigPartial({
-        ...highlighted(snapshot),
-        focusedPointIndex: snapshot.focus === null || snapshot.focus >= geometry.size ? undefined : snapshot.focus,
-      });
-    }
-    if (painting || placing) graph.render();
-    if (placing) {
-      shown = placing;
-      layout(placing, kept); // after render(): cosmos.gl 3.4 turning its simulation on drops unrendered uploads
-    }
-    if (geometry && encoding && !dirty.paint) store.reportDrawn(snapshot);
     events.onFrame?.();
   }
 
@@ -298,35 +301,23 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   schedule();
 
   const unsubscribe = store.subscribe(() => {
-    const snapshot = store.getSnapshot();
-    const options = store.getOptions();
-    if (snapshot.geometry !== last.geometry) dirty.positions = true;
-    if (snapshot.encoding !== last.encoding) dirty.paint = true;
-    if (options.look !== lookPatch) {
-      lookPatch = options.look;
-      look = resolveLook(options.look);
-      dirty.paint = true;
-    }
-    if (options.fill !== lastOptions.fill || options.symbol !== lastOptions.symbol || options.stroke !== lastOptions.stroke) {
-      dirty.paint = true;
-    }
-    if (snapshot.selection !== last.selection || snapshot.focus !== last.focus || snapshot.kept !== last.kept) dirty.state = true;
-    if (options.sim !== lastOptions.sim) applyForces(options.sim);
-    if (live && moving && placedByData(options, snapshot) && !placedByData(lastOptions, last)) graph.pause();
-    const wants = simulating(options, snapshot.geometry);
-    if (snapshot.geometry === last.geometry && wants !== simulating(lastOptions, last.geometry)) {
-      if (wants) run(REHEAT);
+    const next = { snapshot: store.getSnapshot(), options: store.getOptions() };
+    const plan = planChange(seen, next, live && moving);
+    seen = next;
+    dirty = { positions: dirty.positions || plan.dirty.positions, paint: dirty.paint || plan.dirty.paint, state: dirty.state || plan.dirty.state };
+    for (const op of plan.ops) {
+      if (op === "look") look = resolveLook(next.options.look);
+      else if (op === "forces") applyForces(next.options.sim);
+      else if (op === "run") run(REHEAT);
       else graph.pause();
     }
-    last = snapshot;
-    lastOptions = options;
     if (dirty.positions || dirty.paint || dirty.state) schedule();
   });
 
   return {
     graph,
     repaint() {
-      dirty.paint = true;
+      dirty = { ...dirty, paint: true };
       schedule();
     },
     hit(shape) {
@@ -362,7 +353,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       if (visible === null || !greyedOf(store.getSnapshot())) return camera.fit();
       camera.take();
       const vertices = visible.filter((id) => id < size());
-      if (vertices.length > 0) graph.fitViewByPointIndices(vertices, glide(FIT_DURATION), 0.25);
+      if (vertices.length > 0) graph.fitViewByPointIndices(vertices, glide(FIT_DURATION), FIT_PADDING);
     },
     clear,
     toward(from, direction) {

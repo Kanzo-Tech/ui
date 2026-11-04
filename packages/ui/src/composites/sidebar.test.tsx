@@ -1,7 +1,8 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
-import { useState } from "react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { type CSSProperties, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  Sidebar,
   SidebarIntent,
   SidebarProvider,
   SidebarTrigger,
@@ -9,20 +10,21 @@ import {
 } from "./sidebar.js";
 import { parseSidebarCookie, SIDEBAR_COOKIE_NAME } from "./sidebar-cookie.js";
 
-// jsdom ships no `matchMedia`; stub it per-file (do not edit `@kanzo-tech/testing/jsdom`). Its `innerWidth`
-// is 1024, so the provider takes the desktop branch.
-beforeEach(() => {
+// jsdom ships no `matchMedia`; stub it per-file (do not edit `@kanzo-tech/testing/jsdom`). It matches
+// nothing, so the provider takes the desktop branch unless a test says otherwise.
+const viewport = (mobile: boolean) =>
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
     writable: true,
     value: vi.fn().mockImplementation((query: string) => ({
-      matches: false,
+      matches: mobile,
       media: query,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
     })),
   });
-});
+
+beforeEach(() => viewport(false));
 
 afterEach(() => {
   document.cookie = `${SIDEBAR_COOKIE_NAME}=; path=/; max-age=0`;
@@ -35,10 +37,10 @@ const State = () => <output>{useSidebar().state}</output>;
 const state = () => screen.getByRole("status").textContent;
 
 /** A route that can be entered and left, so the intent mounts and unmounts. */
-const Shell = ({ defaultOpen }: { defaultOpen?: boolean }) => {
+const Shell = ({ defaultOpen, hotkey = "mod+b" }: { defaultOpen?: boolean; hotkey?: string }) => {
   const [immersive, setImmersive] = useState(false);
   return (
-    <SidebarProvider defaultOpen={defaultOpen}>
+    <SidebarProvider defaultOpen={defaultOpen} hotkey={hotkey}>
       <State />
       <SidebarTrigger />
       <button onClick={() => setImmersive((on) => !on)} type="button">
@@ -50,6 +52,10 @@ const Shell = ({ defaultOpen }: { defaultOpen?: boolean }) => {
 };
 
 const toggle = () => fireEvent.click(screen.getByRole("button", { name: "Toggle Sidebar" }));
+const press = (key: string) =>
+  act(() => {
+    window.dispatchEvent(new KeyboardEvent("keydown", { key, metaKey: true }));
+  });
 const route = () => fireEvent.click(screen.getByRole("button", { name: "route" }));
 
 describe("the preference cookie reads back on a server", () => {
@@ -67,6 +73,43 @@ describe("the preference cookie reads back on a server", () => {
     expect(parseSidebarCookie(cookie())).toBe(false);
     toggle();
     expect(parseSidebarCookie(cookie())).toBe(true);
+  });
+});
+
+describe("the hotkey", () => {
+  it("toggles with the key the host names, and claims none unless asked", () => {
+    const { unmount } = render(<Shell hotkey="mod+j" />);
+    press("j");
+    expect(state()).toBe("collapsed");
+    press("b");
+    expect(state()).toBe("collapsed");
+    unmount();
+    render(
+      <SidebarProvider>
+        <State />
+      </SidebarProvider>,
+    );
+    press("b");
+    expect(state()).toBe("expanded");
+  });
+});
+
+describe("the mobile sheet", () => {
+  it("takes its width from the provider's --sidebar-width-mobile", async () => {
+    viewport(true);
+    render(
+      <SidebarProvider style={{ "--sidebar-width-mobile": "20rem" } as CSSProperties}>
+        <Sidebar>rail</Sidebar>
+        <SidebarTrigger />
+      </SidebarProvider>,
+    );
+    toggle();
+    const sheet = await waitFor(() => {
+      const found = document.querySelector<HTMLElement>("[data-mobile=true]");
+      expect(found).not.toBeNull();
+      return found as HTMLElement;
+    });
+    expect(sheet.style.getPropertyValue("--sidebar-width")).toBe("20rem");
   });
 });
 
@@ -93,9 +136,7 @@ describe("a route's intent over the person's preference", () => {
     expect(state()).toBe("collapsed");
     toggle();
     expect(state()).toBe("expanded");
-    act(() => {
-      window.dispatchEvent(new KeyboardEvent("keydown", { key: "b", metaKey: true }));
-    });
+    press("b");
     expect(state()).toBe("collapsed");
     toggle();
     expect(cookie()).toBeUndefined();

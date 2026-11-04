@@ -2,7 +2,7 @@ import { Selection, clauseInterval } from "@kanzo-tech/mosaic";
 import { act, renderHook } from "@testing-library/react";
 import type React from "react";
 import { useState } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Graph } from "@cosmos.gl/graph";
 import { attach, settle } from "../../test/corpus";
 import { createGraph } from "../core/store";
@@ -127,5 +127,37 @@ describe("a modified gesture over a filtered page", () => {
     await settle(corpus);
     expect(searchHolds()).toBe(true);
     expect(store.getSnapshot().matching).toBe(KEPT.length);
+  });
+});
+
+describe("the running count", () => {
+  it("ends on the shape the pointer stopped at, even when it stopped inside the measuring window", () => {
+    const caught = { ids: [] as number[] };
+    const graph = { findPointsInRect: () => caught.ids, findPointsInPolygon: () => caught.ids } as unknown as Graph;
+    const { result } = renderHook(() =>
+      useGesture({ getGraph: () => graph, getSelection: () => null, commit: () => {}, setTool: () => {}, tool: "rect" }),
+    );
+    const pointer = (x: number) =>
+      ({
+        button: 0,
+        pointerId: 1,
+        clientX: x,
+        clientY: x,
+        currentTarget: { setPointerCapture() {}, getBoundingClientRect: () => ({ left: 0, top: 0 }) },
+      }) as unknown as React.PointerEvent;
+    vi.useFakeTimers();
+    try {
+      act(() => result.current.handlers.onPointerDown(pointer(0)));
+      caught.ids = [1];
+      act(() => result.current.handlers.onPointerMove(pointer(30)));
+      expect(result.current.preview).toBe(1);
+      caught.ids = [1, 2, 3];
+      act(() => result.current.handlers.onPointerMove(pointer(50)));
+      expect(result.current.preview).toBe(1);
+      act(() => void vi.advanceTimersByTime(100));
+      expect(result.current.preview).toBe(3);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -20,7 +20,8 @@ drop to the primitive when you need to rearrange the parts. The rule in full is 
 
 **A single-line control is exactly as tall as its size token, and every one of them is.** `sm`,
 `md` and `lg` are `7`, `8` and `9` times `--size-field`, so 28, 32 and 36px at the default density
-and 24.5, 28 and 31.5px at compact — a text input, a number input, a native select, a select, a
+and 24.5, 28 and 31.5px at compact. `sm` is the theme's `--size-control-min`, the floor its density
+obligation grades against WCAG 2.5.8's 24px. A text input, a number input, a native select, a select, a
 combobox, a tags input, a date picker and its time field, a language picker, a password input, a
 segment group, a toggle and a button all share it. Put any of them beside any other, in a
 row or a column, and their edges line up.

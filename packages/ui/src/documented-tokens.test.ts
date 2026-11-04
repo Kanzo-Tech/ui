@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
+import { REPO } from "./guard-corpus";
 
 /**
  * A page may not name a custom property nothing declares.
@@ -49,9 +49,6 @@ import { describe, expect, it } from "vitest";
  *   they stopped.
  */
 
-const SRC = dirname(fileURLToPath(import.meta.url));
-const REPO = resolve(SRC, "../../..");
-
 /** Generated or installed. A corpus that includes build output cannot tell whose name it is reading. */
 const EXCLUDED = ["node_modules", ".next", "dist", ".claude", ".turbo"];
 
@@ -79,8 +76,11 @@ function walk(dir: string, extensions: string[], out: string[] = []): string[] {
 const declared = new Set<string>();
 for (const root of DECLARING) {
   for (const file of walk(join(REPO, root), [".css", ".ts", ".tsx"])) {
+    // A test's fixture declares nothing a page could rely on.
+    if (/\.test\.tsx?$/.test(file)) continue;
     const text = readFileSync(file, "utf8");
-    for (const [, token] of text.matchAll(/(--[a-zA-Z0-9-]+)\s*:/g)) {
+    // `--x:` in a sheet, `"--x": …` as a style object's key.
+    for (const [, token] of text.matchAll(/(--[a-zA-Z0-9-]+)["']?\s*:/g)) {
       declared.add(token as string);
     }
     // A name is also declared by being the *overridable head* of a fallback in the bridge:

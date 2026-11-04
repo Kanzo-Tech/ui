@@ -160,9 +160,19 @@ readable form at 48px, so it is dropped rather than squeezed.
 
 ## Collapsing
 
-`SidebarProvider` owns the state; `SidebarTrigger` toggles it and `⌘B` is bound for you. On
+`SidebarProvider` owns the state; `SidebarTrigger` toggles it, and so does the key passed as
+`hotkey` — `"mod+b"` for ⌘B / Ctrl+B. No key is bound unless you pass one. On
 narrow viewports the whole sidebar becomes a `Sheet` instead of collapsing in place — that swap
 is automatic and is why the provider must wrap both the sidebar and the content.
+
+Its widths are variables set through the provider's `style`: `--sidebar-width` (16rem),
+`--sidebar-width-icon` (3rem) and the sheet's `--sidebar-width-mobile` (18rem).
+
+```tsx
+<SidebarProvider
+  style={{ "--sidebar-width-mobile": "20rem" } as React.CSSProperties}
+>
+```
 
 Read the state anywhere below the provider:
 

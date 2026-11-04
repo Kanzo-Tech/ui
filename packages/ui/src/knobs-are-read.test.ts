@@ -66,7 +66,7 @@ describe("every shape knob is read by something", () => {
    * A knob may be read from a recipe as well as from the stylesheet, and `--size-field` is why this
    * exists: control heights used to be CSS rules keyed on `[data-slot="button"]`, which is the one
    * attribute a caller may rename, so a renamed part lost its height. The heights moved onto each
-   * recipe's `base` as `h-(--size)` with the variants spelling `[--size:calc(var(--size-field)*7)]`
+   * recipe's `base` as `h-(--size)` with the variants spelling `[--size:calc(var(--size-field)*8)]`
    * — the knob is read exactly as much as before, from a file this guard was not looking at.
    */
   const sources = sourceFiles().map((file) => readFileSync(file, "utf8"));

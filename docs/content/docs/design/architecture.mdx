@@ -265,34 +265,44 @@ that is neither, which gets its own name here.
 
 ## Constants
 
-**A named constant is a smell unless it is one of three things, and each is declared once.** In
-the tree this page was written against, `packages/*/src` declared 214 upper-case constants: 72
-exported, 76 of them a bare number, and seven declared twice — `KEY = "dense_id"`, `VERTEX_INDEX` and
-`VERTICES` in both `graph/core/source.ts` and `relations/graphar.ts`, `SERIES_LIMIT` and `FACET_LIMIT`
-in both `chart-card.tsx` and `dashboard-spec.ts`, `ZOOM = 1.4` in the graph's toolbar and its keyboard
-map, `DEPTH = 8` in the kernel's `problem.ts` and `ui`'s; and `OBLIGATIONS` names two different tables
-in `theme` and `graph`.
+**A constant's home is decided by who changes its value, and casing is not the question.** Whether
+it is spelled `SIDEBAR_WIDTH` or `sidebarWidth` says nothing about where it belongs; renaming one to
+the other, or inlining it at its only use, moves no decision. What does is asking who would edit the
+number, and putting it where that person edits things.
 
-1. **A value someone may change is a token or a pref**, declared in its model — `tokens.css`, a
-   prefs manifest — and read where it is used. That is the design-tokens practice the library already
-   follows for colour, extended to a zoom step or a series cap. It is never an exported constant.
-2. **A fact about a format or a protocol** — a column name, a header, a symbol — **is declared by the
-   package that owns the format** and imported by every reader. Two readers of GraphAr writing
-   `"dense_id"` is two definitions of one fact.
-3. **A table is generated from its source, or is the source.** `theme-data.json` is generated from the
-   themes; the Shark parity tables and the dashboard kinds are held to the same rule — a hand-written
-   copy of a list that exists elsewhere is a transcription waiting to rot.
+1. **The consumer changes it → it is configuration.** A token in `tokens.css` when a theme or a
+   stylesheet sets it (`--selection`, `--size-control-min`, `--sidebar-width-mobile`), a prop with a
+   default when it is per instance (`SidebarProvider`'s `hotkey`), the provider or a pref when it is
+   per person, and `translations` when it is words a reader sees (`Tool`'s state labels,
+   `PromptInputSubmit`'s *Send*, *Stop* and *Retry*). It is never an exported constant the consumer
+   cannot reach.
+2. **A format or a protocol changes it → its owner declares it once**, and every reader imports it. A
+   column name, a header, a breakpoint: `useIsMobile` reads Tailwind's `--breakpoint-md` off the page
+   instead of copying 768, and `Chat` asks `Tool`'s table which states are still working instead of
+   restating three of them. A table is generated from its source or is the source; the obligations of
+   `theme` and `graph` are two module-local tables in one shape, `Obligation`, graded by one function,
+   `gradeObligations`, declared in `theme` — the lowest package the two import.
+3. **Nobody changes it → it is private**, a module-local name or a literal at its only use. It is not
+   exported for a test: a test asserts through behaviour, so `ALT_ROWS` and `CHART_CAPACITY_PROPERTY`
+   are module-local and their tests count rows and read the property.
 
-Anything else is a literal at its only use. A number in an expression is named only when the name
-says more than the number does, which is Fowler's *Replace Magic Literal*; `@typescript-eslint/no-magic-numbers`
-holds that per file, with the small integers ignored. Across files, a guard fails when one value is
-declared under a name in two shipped files, and when a shipped entry exports an upper-case constant
-that is not a model — a manifest, a token list, a set of kinds a consumer reads. A test fixture is
-not a constant of the package at all: it lives in `test/`.
+**Measured on the tree this was written against**, by every top-level `const` whose name is upper
+case in a shipped `packages/*/src` file, typed (`const X: T =`) or not: 319, 68 of them exported and
+81 a bare number. Seven values are still declared twice under one name — `KEY = "dense_id"`,
+`VERTEX_INDEX` and `VERTICES` in `graph/core/source.ts` and `relations/graphar.ts`, `SERIES_LIMIT` and
+`FACET_LIMIT` in `chart-card.tsx` and `dashboard-spec.ts`, `DEPTH = 8` in the kernel's `problem.ts` and
+`ui`'s, and the never-aborting `UNSTOPPED` signal in `graph` and `ui` — each a fact or a limit with
+one owner that has not been chosen yet. `ENGLISH` in 26
+files is not a duplicate: it is each component's own default for its own `translations`.
 
-*What would reverse it:* a constant that two packages must agree on and neither owns — then it is
-declared by the lowest package both import, which is the rule applied rather than broken; and a tuning value that a consumer
-needs per instance — then it is a prop with a default, not a pref.
+**Nothing checks this yet**, and the counts above are a grep, not a guard: whether a value is a
+consumer's, a format's or nobody's is a judgement about who edits it, which no scan reads off the
+source. What a guard could hold is the narrow half — the same value under one name in two shipped
+files, and an export whose only importer is its own test — and it is not written.
+
+*What would reverse it:* a value two packages must agree on and neither owns, which is declared by the
+lowest package both import — the rule applied rather than broken; or a consumer who needs to change a
+value classified as nobody's, which moves it to the first kind, not to an exported constant.
 
 ## What dies
 

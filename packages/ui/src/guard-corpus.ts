@@ -286,6 +286,34 @@ export function unreadable(files: string[]): { binary: string[]; empty: string[]
   };
 }
 
+/**
+ * A source file with its comments taken out, for every guard that asserts on code.
+ *
+ * Comments are prose, and prose quotes the very spellings these rules ban: a docblock reading
+ * `role="list"` satisfied `list-semantics` on a file that never wrote the attribute, and a JSDoc
+ * inside a `size: {}` block was read by `pressable-floor` as a variant. Six source-reading tests
+ * kept their own copy of this, in three spellings; this is the strictest of them, and every one of
+ * them passed unchanged on it.
+ *
+ * - A block comment becomes a space, not nothing, so the code either side of it cannot join into a
+ *   token neither half wrote.
+ * - A line comment goes wherever it starts on the line, not only at the start of one: the copies that
+ *   anchored on `^\s*\/\/` read a trailing comment as code.
+ * - A `//` right after a `:` is kept, so `https://` inside a string survives.
+ *
+ * It is a regex, not a parser, and what that cannot prove: a `//` or `/*` inside a string literal
+ * (other than after a colon) is taken as the start of a comment and the rest is dropped, so a ban
+ * written after one on the same line is not seen.
+ */
+export function stripComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/.*$/gm, "$1");
+}
+
+/** {@link stripComments} over a file on disk — what a guard reads when it reads a corpus file. */
+export function code(file: string): string {
+  return stripComments(readFileSync(file, "utf8"));
+}
+
 // ── Chroma, for the guard that bans a hand-written hue ───────────────────────────────────────────
 //
 // The maths came here when `@kanzo-tech/palette` was deleted, as the twelve lines a guard actually

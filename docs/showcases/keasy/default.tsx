@@ -134,7 +134,7 @@ export function KeasyShowcase() {
 
   return (
     <Tour steps={TOUR_STEPS}>
-      <SidebarProvider className="h-dvh min-h-0 overflow-hidden">
+      <SidebarProvider className="h-dvh min-h-0 overflow-hidden" hotkey="mod+b">
         {/* The rail is its own component because its switcher, nav and footer all read
             `useSidebar()`, and that context is only readable BELOW the provider. */}
         <Show when={path !== ROUTES.discover}>

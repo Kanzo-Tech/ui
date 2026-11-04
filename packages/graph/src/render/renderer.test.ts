@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Selection, clauseInterval } from "@kanzo-tech/mosaic";
@@ -25,12 +23,8 @@ const uploaded: { positions: Float32Array | null; colors: Float32Array | null; c
 };
 /** What the next graph's `ready` is, and whether its first `render()` throws. */
 const device: { ready: () => Promise<void>; broken: unknown } = { ready: () => Promise.resolve(), broken: undefined };
-/**
- * cosmos.gl 3.4's position buffer, as it behaves: `setPointPositions` flags an upload that `render()`
- * makes, and turning `enableSimulation` on runs its `create()`, which clears the flag first. A fit that
- * reads positions back with no buffer throws what luma.gl throws.
- */
-const gpu = { pending: false, buffer: false, unreadable: false };
+/** Whether a fit that reads positions back throws what luma.gl throws when cosmos.gl holds none. */
+const gpu = { unreadable: false };
 /** The duration of every glide the camera was told. */
 const durations: number[] = [];
 /** What cosmos.gl's link index answers for any point: its neighbours, in buffer indices. */
@@ -71,17 +65,14 @@ vi.mock("@cosmos.gl/graph", () => ({
     destroy = () => calls.push("destroy");
     render = () => {
       if (device.broken !== undefined) throw device.broken;
-      if (gpu.pending) gpu.buffer = true;
-      gpu.pending = false;
       calls.push("render");
     };
     setPointPositions = (positions: Float32Array) => {
       uploaded.positions = positions;
-      gpu.pending = true;
       calls.push("positions");
     };
     fitView = () => {
-      if (!gpu.buffer || gpu.unreadable) throw new TypeError("Cannot destructure property 'device' of 'texture' as it is undefined.");
+      if (gpu.unreadable) throw new TypeError("Cannot destructure property 'device' of 'texture' as it is undefined.");
       calls.push("fitView");
     };
     setLinks = () => calls.push("links");
@@ -96,7 +87,6 @@ vi.mock("@cosmos.gl/graph", () => ({
     setPointClusters = () => calls.push("clusters");
     setPinnedPoints = () => calls.push("pinned");
     setConfigPartial = (config: Record<string, unknown>) => {
-      if (config.enableSimulation === true && uploaded.config.enableSimulation !== true) gpu.pending = false;
       Object.assign(uploaded.config, config);
       calls.push(`config:${Object.keys(config).join(",")}`);
     };
@@ -130,7 +120,7 @@ beforeEach(() => {
   uploaded.view = null;
   device.ready = () => Promise.resolve();
   device.broken = undefined;
-  Object.assign(gpu, { pending: false, buffer: false, unreadable: false });
+  gpu.unreadable = false;
   vi.stubGlobal("requestAnimationFrame", (run: () => void) => setTimeout(run, 0));
   vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
   // A context already lost, so a destroyed canvas has nothing to give back.
@@ -604,12 +594,13 @@ describe("dragging", () => {
 });
 
 describe("the renderer's lifetime", () => {
-  it("gives the context back when the graph goes", () => {
-    const device = readFileSync(resolve(process.cwd(), "src/render/webgl.ts"), "utf8");
-    expect(device).toContain("WEBGL_lose_context");
-    expect(device).toContain("releaseContext(canvas)");
-    expect(device.indexOf("graph.destroy()")).toBeLessThan(device.indexOf("releaseContext(canvas)"));
-    expect(readFileSync(resolve(process.cwd(), "src/render/renderer.ts"), "utf8")).toContain("holdDevice(graph, host, {");
+  it("gives the context back when the graph goes, once cosmos.gl has let go of it", async () => {
+    const { renderer } = await drawing();
+    const loseContext = (name: string) => (name === "WEBGL_lose_context" ? { loseContext: () => calls.push("loseContext") } : null);
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ isContextLost: () => false, getExtension: loseContext } as unknown as RenderingContext);
+    calls.length = 0;
+    renderer?.destroy();
+    expect(commands()).toEqual(["destroy", "loseContext"]);
   });
 });
 

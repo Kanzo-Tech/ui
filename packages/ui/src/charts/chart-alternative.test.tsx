@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import type { Coordinator, MosaicClient } from "@uwdata/mosaic-core";
 import { count } from "@kanzo-tech/mosaic";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ALT_ROWS, ChartAlternative, readAlternatives, type AlternativeMark } from "./chart-alternative.js";
+import { ChartAlternative, readAlternatives, type AlternativeMark } from "./chart-alternative.js";
 import { ChartBarY } from "./chart-marks.js";
 import { ChartRoot } from "./chart-root.js";
 import { LocaleProvider } from "../simples/locale.js";
@@ -57,8 +57,8 @@ describe("ChartAlternative", () => {
     expect(within(grid).getAllByRole("cell").map((c) => c.textContent)).toEqual(["4", "1,234"]);
   });
 
-  it("is a summary past ALT_ROWS: how many marks, the largest and the smallest", () => {
-    const rows = Array.from({ length: ALT_ROWS + 1 }, (_, i) => [`bar ${i}`, i + 1]);
+  it("is a summary past 50 rows: how many marks, the largest and the smallest", () => {
+    const rows = Array.from({ length: 51 }, (_, i) => [`bar ${i}`, i + 1]);
     render(<ChartAlternative title="Many" tables={[{ ...table, rows }]} />);
     expect(screen.queryByRole("table")).toBeNull();
     expect(screen.getByText(/^Many: 51 marks\. Largest: bar 50, 51\. Smallest: bar 0, 1\./)).toBeTruthy();

@@ -130,6 +130,8 @@ export const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
       return;
     }
 
+    // Not `useHotkey`: this Escape closes from inside a text field and under any modifier, and
+    // yields to one already handled — all three are what that hook exists to rule out.
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") {
         return;

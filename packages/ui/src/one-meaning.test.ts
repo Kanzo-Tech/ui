@@ -1,8 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, relative } from "node:path";
 import ts from "typescript";
 import { beforeAll, describe, expect, it } from "vitest";
+import { REPO } from "./guard-corpus";
 
 /**
  * **A name means one thing across every entry, and shadows none of the language's.** `Table` was
@@ -26,9 +26,6 @@ import { beforeAll, describe, expect, it } from "vitest";
  *   can leave without this going red; `index.test.ts` enumerates by hand what it asserts, and
  *   `shark-parity.test.ts` holds the half of the surface Shark also ships.
  */
-
-const SRC = dirname(fileURLToPath(import.meta.url));
-const REPO = resolve(SRC, "../../..");
 
 const COMPILER: ts.CompilerOptions = {
   noEmit: true,
