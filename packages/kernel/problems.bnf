@@ -87,3 +87,6 @@ row claims/no-subject       = 502 ; "The claims name nobody"                 ; -
 
 row api/unreachable         = 502 ; "The API is unreachable"                 ; status?: number .
 row api/silent              = 504 ; "The API did not answer"                 ; after: number .
+
+row storage/path            = 400 ; "The path names no graph"                ; path: string .
+row storage/refused         = 502 ; "The store refused to vend a credential" ; - .

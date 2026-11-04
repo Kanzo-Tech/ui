@@ -136,3 +136,50 @@ deployments copy, not as a default `compose.yaml` falls back to.
 Held by nothing: a default added to `compose.yaml` would pass every gate here, and review is what
 stands in front of it. The `services` job in CI runs `compose.dev.yaml`, so it proves development's
 values reach the service, not that production's are absent.
+
+## The storage service
+
+An application that writes a graph into an organization's own storage needs, in the browser, a
+credential that opens that graph's prefix and nothing else. `services/storage` is the server half
+that issues it: `POST /v1/credentials` `{ path, access }` answers Iceberg REST's
+`StorageCredential` — the shape Unity Catalog and Polaris vend for a table, and what
+`@fossil-lang/storage` already consumes.
+
+**Its client half is a standard, not a sibling package.** The rule above wants the reader beside the
+server so one pull request changes both. Here the contract is Iceberg REST's published
+`StorageCredential`, which neither half owns and neither can change; a `@kanzo-tech/storage`
+re-exporting its type would be a second statement of somebody else's schema. The tag still pins
+what the halves do share — the realm whose tokens the service verifies, through
+`@kanzo-tech/auth/server` at the same commit.
+
+**Nothing in it signs.** Each cloud's own SDK opens the prefix: STS's AssumeRole with a session
+policy, a user delegation SAS over a directory, a Credential Access Boundary. That is why it is
+TypeScript: on 4 November 2026 no Rust library generated a directory SAS — `object_store`'s signer is
+crate-private and signs single blobs, and the Azure SDK for Rust has no SAS builder — so the one
+Rust implementation in the platform's products (Keasy's `vend.rs`) wrote Azure's string-to-sign by
+hand. It was correct: the test below holds this service's SDK-signed SAS to the signatures that
+hand-written signer produced for the same key and window. Correct is not the point; owning a
+signature is.
+
+**It stores no key.** Its authority is the deployment's identity — the AWS default chain,
+`DefaultAzureCredential`, Google's ADC — and an organization grants that identity a role, as
+Snowflake's storage integrations and Unity Catalog's master role do. A key per organization in a
+database is what this replaces.
+
+**It decides nothing about who may.** The caller is an application's server, inside the network,
+after its own permission check; the service verifies the forwarded token so the cloud's audit log
+names the person, and refuses a path that climbs out of the organization's root. Permissions stay
+where the application's domain is.
+
+**What it cost.** A process per deployment, and the service trusts its network for the decision it
+leaves to its caller: anyone inside who holds a person's token can ask for any path under the root.
+
+**What would reverse it:** a Rust SDK that generates a user delegation SAS over a directory and a
+Credential Access Boundary, at which point the vending is a library an application's server links
+and the process goes. Or a catalog — Unity Catalog OSS, Polaris — that vends for a non-table
+location on every cloud through its API; measured on 4 November 2026, Unity Catalog OSS v0.7.0 did so
+only for AWS, and its session policy's `kms:ViaService` condition is refused by MinIO.
+
+*Held by* `services/storage/src/vend.test.ts`, "names the directory and its depth, and signs as
+Azure's string-to-sign says" and "reads and lists the prefix, or writes under it; never deletes, and
+writing does not read".
