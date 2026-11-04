@@ -497,7 +497,7 @@ function ArchiveShell() {
 	const MainRegion = view === "graph" ? ArchiveCanvas : SightingsRegion;
 
 	return (
-		<SidebarProvider className="h-dvh min-h-0 overflow-hidden">
+		<SidebarProvider className="h-dvh min-h-0 overflow-hidden" hotkey="mod+b">
 			<Sidebar collapsible="icon">
 				<SidebarHeader>
 					<HallSwitcher />

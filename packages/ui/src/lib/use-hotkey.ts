@@ -46,7 +46,7 @@ export function matchesHotkey(hotkey: Hotkey, event: KeyboardEvent): boolean {
 
 /**
  * **The one keyboard listener a part registers on the window** — `PreferencesRoot`'s `hotkey`,
- * `CommandDialog`'s, the sidebar's ⌘B, a questionnaire's `1`–`9` and the theme picker's Escape all
+ * `CommandDialog`'s, `SidebarProvider`'s, a questionnaire's `1`–`9` and the theme picker's Escape all
  * come through here, so they agree on what a key is and on the rule that a key pressed while typing
  * in a field, a select or an editable region is the field's — Mantine's default, and why ⌘B in a
  * rich-text editor stays bold. `onPress` is handed the hotkey that matched, for a list of several.

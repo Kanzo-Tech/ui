@@ -227,7 +227,7 @@ function initials(name: string) {
 export function AppShellShowcase() {
   return (
     <Tour steps={TOUR_STEPS}>
-      <SidebarProvider className="h-dvh min-h-0 overflow-hidden">
+      <SidebarProvider className="h-dvh min-h-0 overflow-hidden" hotkey="mod+b">
         {/* The shell is its own component because the rail's switcher, nav and footer all read
             `useSidebar()`, and that context is only readable BELOW the provider. */}
         <Shell />
