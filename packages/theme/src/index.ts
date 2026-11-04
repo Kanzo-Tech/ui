@@ -346,7 +346,6 @@ export {
 } from "./contrast.js";
 
 export {
-  AA,
   contrast,
   hex,
   inkFor,

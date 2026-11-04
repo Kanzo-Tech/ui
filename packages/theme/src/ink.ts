@@ -40,7 +40,7 @@
 // | the formula alone | 1,041 (11.3%) | 3.16:1 |
 // | {@link inkFor} | **0** | **4.50:1** |
 //
-// The second departure is `LIGHT_PULL`, and it has its own note. Between the two, the distance from
+// The second departure is `lightPull`, and it has its own note. Between the two, the distance from
 // the plain formula is worth stating twice because the two numbers say different things: over
 // daisyUI's own shipped pairs the median difference is ΔE 0.60 and 21 of 23 land within 8, so on
 // the colours daisyUI actually chose these are the same rule. Over the synthetic sweep — which is
@@ -123,12 +123,12 @@ export function contrast(a: string, b: string): number {
 }
 
 /** The floor {@link inkFor} will not knowingly return below — WCAG AA for body text. */
-export const AA = 4.5;
+const floor = 4.5;
 
 /**
  * The hue kept, the chroma at a fifth, the lightness pulled toward one end.
  *
- * `k` is how far. daisyUI's own value is 0.8 both ways, and this leans on `LIGHT_PULL` for the pale
+ * `k` is how far. daisyUI's own value is 0.8 both ways, and this leans on `lightPull` for the pale
  * branch instead — see the constant.
  */
 const pull = (fill: Oklch, dark: boolean, k: number, chroma = 0.2): Oklch => ({
@@ -138,7 +138,7 @@ const pull = (fill: Oklch, dark: boolean, k: number, chroma = 0.2): Oklch => ({
 });
 
 /** daisyUI's, unchanged: a dark ink sits at a fifth of its fill's lightness. */
-const DARK_PULL = 0.8;
+const darkPull = 0.8;
 
 /**
  * A pale ink goes further than daisyUI takes it — 0.9 of the way to white rather than 0.8.
@@ -157,7 +157,7 @@ const DARK_PULL = 0.8;
  * Going all the way to white fits this house perfectly too and daisyUI barely at all (13 of 23),
  * which is what a constant overfitted to one corpus looks like. It was not taken.
  */
-const LIGHT_PULL = 0.9;
+const lightPull = 0.9;
 
 /**
  * The *other* ink a status colour needs: the one that reads on the page, not on the fill.
@@ -195,7 +195,7 @@ export function pageInk(fill: string, ground: string, surface?: string): string 
     });
   };
   const measured = at(0.6);
-  if (surface === undefined || contrast(measured, surface) >= AA) return measured;
+  if (surface === undefined || contrast(measured, surface) >= floor) return measured;
   // Sixty percent is where the authored values sit, not a floor. Give it the surface the ink is
   // read on and it becomes one: walk further toward `ground` until the pair clears AA. Every value
   // the sixteen hand-written themes author already does, so this changes nothing for them. It
@@ -204,23 +204,23 @@ export function pageInk(fill: string, ground: string, surface?: string): string 
   // clear.
   for (let p = 0.58; p >= 0; p -= 0.02) {
     const candidate = at(p);
-    if (contrast(candidate, surface) >= AA) return candidate;
+    if (contrast(candidate, surface) >= floor) return candidate;
   }
   return at(0);
 }
 
 /** Walk one branch out to its end, giving up lightness first and chroma only when that runs out. */
 function reach(fill: string, colour: Oklch, dark: boolean): string {
-  const start = dark ? DARK_PULL : LIGHT_PULL;
+  const start = dark ? darkPull : lightPull;
   const base = hex(pull(colour, dark, start));
-  if (contrast(fill, base) >= AA) return base;
+  if (contrast(fill, base) >= floor) return base;
   for (let k = start; k <= 1.0001; k += 0.01) {
     const candidate = hex(pull(colour, dark, k));
-    if (contrast(fill, candidate) >= AA) return candidate;
+    if (contrast(fill, candidate) >= floor) return candidate;
   }
   for (let chroma = 0.2; chroma >= -0.0001; chroma -= 0.02) {
     const candidate = hex(pull(colour, dark, 1, chroma));
-    if (contrast(fill, candidate) >= AA) return candidate;
+    if (contrast(fill, candidate) >= floor) return candidate;
   }
   return hex(pull(colour, dark, 1, 0));
 }
@@ -234,10 +234,10 @@ function reach(fill: string, colour: Oklch, dark: boolean): string {
 export function inkFor(fill: string): string {
   const colour = oklch(fill);
   const dark =
-    contrast(fill, hex(pull(colour, true, DARK_PULL))) >=
-    contrast(fill, hex(pull(colour, false, LIGHT_PULL)));
+    contrast(fill, hex(pull(colour, true, darkPull))) >=
+    contrast(fill, hex(pull(colour, false, lightPull)));
   const first = reach(fill, colour, dark);
-  if (contrast(fill, first) >= AA) return first;
+  if (contrast(fill, first) >= floor) return first;
   // The preferred branch can cap out below AA where the other one, pushed, does not.
   const second = reach(fill, colour, !dark);
   return contrast(fill, second) > contrast(fill, first) ? second : first;

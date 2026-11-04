@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { AA, contrast, hex, inkFor, oklch, pageInk } from "./ink";
+import { contrast, hex, inkFor, oklch, pageInk } from "./ink";
 
 /**
  * What the rule owes, and what it cannot be asked for.
@@ -115,7 +115,7 @@ describe("inkFor", () => {
   it("never returns an ink below AA", () => {
     const short = fills
       .map((fill) => ({ fill, ink: inkFor(fill), ratio: contrast(fill, inkFor(fill)) }))
-      .filter((r) => r.ratio < AA);
+      .filter((r) => r.ratio < 4.5);
     expect(short).toEqual([]);
   });
 
@@ -181,7 +181,7 @@ describe("inkFor", () => {
     const short = DAISY.map(([name, fill]) => ({
       name,
       ratio: contrast(fill, inkFor(fill)),
-    })).filter((r) => r.ratio < AA);
+    })).filter((r) => r.ratio < 4.5);
     expect(short).toEqual([]);
   });
 });
