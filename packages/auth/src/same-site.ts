@@ -38,11 +38,9 @@ import { addressedUrl } from "./next-bound";
  * where the cookie *lives*, not who may cause a request to it. Anything that can serve
  * `docs.example.test` could otherwise call `app.example.test`'s API as every reader of it.
  */
-const TRUSTED_SITES = new Set(["same-origin", "none"]);
-
 export function isSameSite(request: Request): boolean {
   const site = request.headers.get("sec-fetch-site");
-  if (site !== null) return TRUSTED_SITES.has(site);
+  if (site !== null) return site === "same-origin" || site === "none";
 
   const origin = request.headers.get("origin");
   if (origin !== null) return origin === addressedUrl(request).origin;
