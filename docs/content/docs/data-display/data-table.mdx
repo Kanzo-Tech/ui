@@ -264,6 +264,30 @@ Nothing throws; the table just stops reacting to filters and paging.
 `DataTableRoot` therefore allocates a fresh context object on every render. Leave it alone.
 </Callout>
 
+## Translations
+
+Every word a part draws that is not your data is an entry of its `translations`, English until you
+pass one: `DataTablePagination`, `DataTableViewOptions`, `selectColumn` and `actionsColumn` each
+take it. `DataTablePagination`'s also carries [`Pagination`'s own](/docs/navigation/pagination) —
+`rootLabel`, `prevTriggerLabel`, `nextTriggerLabel`, `ellipsisLabel` and `itemLabel` — and hands
+them to it. A word you leave out keeps its English.
+
+```tsx
+<DataTablePagination
+  pageSizes={[10, 25]}
+  translations={{
+    selected: (count, total) => `${count} de ${total} filas seleccionadas.`,
+    rowsPerPage: "Filas por página",
+    ellipsisLabel: "Más páginas",
+    prevTriggerLabel: "Página anterior",
+    nextTriggerLabel: "Página siguiente",
+  }}
+/>
+```
+
+Two words are not entries, because they are already yours: `DataTableSearch`'s `placeholder` is the
+input's own attribute, and `DataTableContent`'s `empty` is markup.
+
 ## API Reference
 
 ### useDataTable
@@ -318,7 +342,12 @@ from `@kanzo-tech/ui`. An item without a `count` is given the column's.
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `label` | `ReactNode` | `"View"` |
+| `translations` | `Partial<DataTableViewOptionsTranslations>` | English, below |
+
+| Key | Default |
+| --- | --- |
+| `label` | `"View"` — the trigger's text |
+| `heading` | `"Toggle columns"` — the menu's group heading |
 
 ### DataTableContent
 
@@ -367,6 +396,13 @@ simply cannot be read. The pinned cells are painted `bg-background`; on another 
 | Prop | Type | Default |
 | --- | --- | --- |
 | `pageSizes` | `number[]` | — (no selector) |
+| `translations` | `Partial<DataTablePaginationTranslations>` | English, below |
+
+| Key | Default |
+| --- | --- |
+| `selected` | `` (count, total) => `${count} of ${total} row(s) selected.` `` |
+| `rowsPerPage` | `"Rows per page"` — the selector's label and accessible name |
+| `rootLabel`, `prevTriggerLabel`, `nextTriggerLabel`, `ellipsisLabel`, `itemLabel` | [`Pagination`'s](/docs/navigation/pagination) |
 
 Extends `ark.div`. Renders nothing when there is one page, no selection and no `pageSizes`.
 
@@ -377,8 +413,12 @@ Extends `ark.div`. Renders nothing when there is one page, no selection and no `
 | Option | Type | Default |
 | --- | --- | --- |
 | `id` | `string` | `"select"` |
-| `headerLabel` | `string` | `"Select all rows on this page"` |
-| `rowLabel` | `(row: Row<TData>) => string` | `` `Select row ${n}` `` |
+| `translations` | `Partial<SelectColumnTranslations<TData>>` | English, below |
+
+| Key | Default |
+| --- | --- |
+| `headerLabel` | `"Select all rows on this page"` |
+| `rowLabel` | `` (row) => `Select row ${n}` `` — name it by the row's data where it has a name |
 
 ### actionsColumn
 
@@ -389,7 +429,7 @@ Extends `ark.div`. Renders nothing when there is one page, no selection and no `
 | `label` | `(row: Row<TData>) => string` | — |
 | `menu` | `(row: Row<TData>) => ReactNode` | — (`null` renders no trigger) |
 | `id` | `string` | `"actions"` |
-| `headerLabel` | `string` | `"Actions"` |
+| `translations` | `Partial<ActionsColumnTranslations>` | `{ headerLabel: "Actions" }` |
 
 The column declares `size`, `minSize` and `maxSize` of 44, and `DataTableContent` gives a header a
 width only when its column declares a `size` of its own — the other columns keep sizing to their
@@ -410,7 +450,8 @@ Every part's props are exported as an interface — `DataTableContentProps`,
 `DataTableSearchProps` and `DataTableViewOptionsProps` — so a wrapper can take the same props
 without restating them.
 
-`SelectColumnOptions` is exported — the third argument to the checkbox column, carrying `id`,
-`headerLabel` and a `rowLabel(row)` for the per-row accessible name. It is generic in the row type,
-so a column built for your data keeps it.
-`ActionsColumnOptions` is exported beside it, for the same reason.
+`SelectColumnOptions` is exported — the argument to the checkbox column, carrying `id` and its
+`translations`. It and `SelectColumnTranslations` are generic in the row type, so a `rowLabel`
+written for your data keeps it. `ActionsColumnOptions` is exported beside it, for the same reason,
+and each part's words as `DataTablePaginationTranslations`, `DataTableViewOptionsTranslations`,
+`SelectColumnTranslations` and `ActionsColumnTranslations`.

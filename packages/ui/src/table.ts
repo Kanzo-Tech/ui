@@ -27,19 +27,20 @@ export type {
   DataTableSearchProps,
   DataTableFacetFilterProps,
   DataTableViewOptionsProps,
+  DataTableViewOptionsTranslations,
 } from "./table/data-table-toolbar.js";
 
 export { DataTableContent } from "./table/data-table-content.js";
 export type { DataTableContentProps } from "./table/data-table-content.js";
 
 export { DataTablePagination } from "./table/data-table-pagination.js";
-export type { DataTablePaginationProps } from "./table/data-table-pagination.js";
+export type { DataTablePaginationProps, DataTablePaginationTranslations } from "./table/data-table-pagination.js";
 
 export { selectColumn } from "./table/select-column.js";
-export type { SelectColumnOptions } from "./table/select-column.js";
+export type { SelectColumnOptions, SelectColumnTranslations } from "./table/select-column.js";
 
 export { actionsColumn } from "./table/actions-column.js";
-export type { ActionsColumnOptions } from "./table/actions-column.js";
+export type { ActionsColumnOptions, ActionsColumnTranslations } from "./table/actions-column.js";
 
 // Split from DataTable's module so React Fast Refresh sees a component-only file (a mixed
 // component + factory export makes it bail, corrupting the hot module).

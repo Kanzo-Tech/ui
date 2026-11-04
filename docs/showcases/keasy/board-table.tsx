@@ -73,7 +73,7 @@ function numericHeader(label: string) {
 }
 
 const COLUMNS: ColumnDef<Quest>[] = [
-  selectColumn<Quest>({ rowLabel: (row) => `Select ${row.original.title}` }),
+  selectColumn<Quest>({ translations: { rowLabel: (row) => `Select ${row.original.title}` } }),
   {
     accessorKey: "title",
     header: sortableHeader("Contract"),

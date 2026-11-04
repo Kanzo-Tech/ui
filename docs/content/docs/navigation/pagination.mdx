@@ -73,9 +73,23 @@ end. Ellipsis markers fill the gaps the machine leaves between those ranges.
 | `count` | `number` | `1` |
 | `pageSize` | `number` | `10` |
 | `siblingCount` | `number` | `1` |
+| `translations` | `PaginationTranslations` | English, below |
+
+`translations` is Ark's own — `rootLabel`, `prevTriggerLabel`, `nextTriggerLabel` and
+`itemLabel({ page, totalPages })` — plus `ellipsisLabel`, the name every `PaginationEllipsis` inside
+reads, since Ark labels no ellipsis. The triggers draw no label of their own, so what you pass is
+what is read.
+
+| Key | Default |
+| --- | --- |
+| `rootLabel` | `"Pagination"` |
+| `prevTriggerLabel` | `"Previous page"` |
+| `nextTriggerLabel` | `"Next page"` |
+| `ellipsisLabel` | `"More pages"` |
+| `itemLabel` | Ark's — `"page 3"`, `"last page, page 10"` |
 
 Everything else — `page`, `defaultPage`, `onPageChange`, `pageSize` / `defaultPageSize`,
 `onPageSizeChange`, `boundaryCount` — is Ark's `Pagination.Root`. `usePagination` re-exports
 Ark's `usePaginationContext` for reading the computed `pages` from a descendant.
 
-`PaginationItemProps` is exported, so a wrapper can take the same props without restating them.
+`PaginationProps`, `PaginationTranslations` and `PaginationItemProps` are exported, so a wrapper can take the same props without restating them.

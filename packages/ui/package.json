@@ -159,9 +159,9 @@
   "gauges": {
     ".": "51 kB",
     "./editor": "4.7 kB",
-    "./table": "3.4 kB",
+    "./table": "3.5 kB",
     "./analytics": "30.1 kB",
-    "./analytics { Dashboard }": "37.6 kB",
+    "./analytics { Dashboard }": "37.7 kB",
     ". { Button }": "2 kB"
   }
 }
