@@ -189,4 +189,7 @@ only for AWS, and its session policy's `kms:ViaService` condition is refused by 
 *Held by* `services/storage/src/vend.test.ts`, "names the directory and its depth, and signs as
 Azure's string-to-sign says" and "reads and lists the prefix, or writes under it; never deletes, and
 writing does not read"; `services/storage/src/caller.test.ts`, "lets a member of the deployment's
-organization ask, and nobody from another". The network is held by nothing but `compose.yaml`.
+organization ask, and nobody from another".
+
+The network is held by nothing: a service added to it would pass every gate here, and review is what
+stands in front of it.
