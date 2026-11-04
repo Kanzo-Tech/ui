@@ -1,5 +1,5 @@
 
-# The workspace's archive, written by showcases/workspace/corpus/build-corpus.mjs. A compiler output
+# Discover's archive, written by showcases/keasy/corpus/build-corpus.mjs. A compiler output
 # belongs in a build, not in history: the showcase reads a corpus because that is what a product
 # reads, and a corpus is written once by the real writer rather than built in the tab.
 /public/corpus/

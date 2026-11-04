@@ -3,28 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Badge,
-  AvatarFallback,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
   Float,
-  isActivePath,
-  MenuGroup,
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarIdentity,
-  SidebarIdentityAvatar,
-  SidebarIdentityDescription,
-  SidebarIdentityIcon,
-  SidebarIdentityLabel,
-  SidebarIdentityText,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
-  useSidebar,
   Button,
   ButtonGroup,
   ButtonGroupSeparator,
@@ -51,9 +30,6 @@ import {
   MenuRadioItem,
   MenuSeparator,
   MenuTrigger,
-  PreferencesPanel,
-  PreferencesRoot,
-  PreferencesTrigger,
   RadioGroup,
   RadioGroupCard,
   RadioGroupIndicator,
@@ -62,21 +38,10 @@ import {
   ResizablePanel,
   ResizableResizeTrigger,
   ScrollArea,
-  Separator,
   ShellAside,
   ShellBody,
-  ShellFooter,
-  ShellHeader,
   ShellMain,
   Show,
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarInset,
-  SidebarProvider,
-  SidebarRail,
-  SidebarTrigger,
   Spinner,
   Steps,
   StepsContent,
@@ -86,7 +51,6 @@ import {
   StepsSeparator,
   StepsTitle,
   StepsTrigger,
-  Toaster,
   ToggleGroup,
   ToggleGroupItem,
   toast,
@@ -97,32 +61,27 @@ import {
   CheckIcon,
   ChevronDownIcon,
   CodeIcon,
-  LogOutIcon,
   PencilIcon,
   PlugZapIcon,
-  ChevronRightIcon,
-  ChevronsUpDownIcon,
-  LandmarkIcon,
-  PlusIcon,
   SaveIcon,
-  SettingsIcon,
-  UserIcon,
+  TelescopeIcon,
   WandIcon,
   XIcon,
 } from "lucide-react";
-// The same tenant the other showcases run on. A new screen joins the product; it does not
-// invent a second company with a second set of workspaces.
-import { ACTIVE_PATH, INSTANCES, NAV, SUPPORT, USER, type SidebarNavItem } from "../app-shell/data";
-import { initialsOf } from "@/example/people";
+import { ROUTES } from "./data";
+import { ScreenHeader } from "./header";
 import { slotsIn } from "./connection-slots";
-import { CONNECTIONS, sleep, TEMPLATES } from "./data";
+import { CONNECTIONS, sleep, TEMPLATES } from "./studio-data";
 import { analyse, connectionRefs, fossil } from "./fossil-lang";
-import { type ConfigValues, ConfigureForm, ConnectionsPanel, SummaryPage } from "./panels";
+import { type ConfigValues, ConfigureForm, ConnectionsPanel, SummaryPage } from "./studio-panels";
 
-/** The chrome a floating cluster wears — the same utilities workspace's canvas controls use. */
+/** The chrome a floating cluster wears — the same utilities Discover's canvas controls use. */
 const FLOATING = "rounded-lg border bg-card shadow-sm";
 
 const STEPS = ["Editor", "Configure", "Summary"] as const;
+
+const EDITOR_PANE = "relative flex min-h-0 min-w-0 flex-1 flex-col bg-background";
+const PAGE = "flex min-w-0 flex-1 flex-col overflow-auto bg-background";
 
 /**
  * The job studio — a product's "create a job" flow, rebuilt on this library.
@@ -131,206 +90,15 @@ const STEPS = ["Editor", "Configure", "Summary"] as const;
  * the difference from the draft this replaced, where the same band spanned the screen while
  * governing a single column: it promised to command the editor and did not. The rail is for what
  * ACCOMPANIES the program — the connections it can reference — so only the Editor page has one,
- * and the switcher for it sits in the status strip, exactly where workspace keeps its dock's.
+ * and the switcher for it sits in the status strip, exactly where Discover keeps its dock's.
  *
  * The original swaps the whole screen per step too (it returns a different tree for each), but
  * its editor is one of the things that disappears. Here the program is the page you come back to,
  * and the two after it are settings and a receipt.
  */
-/* ── The rail, hand-composed ──────────────────────────────────────────────────────────────────
- * `InstanceSwitcher`, `SidebarNav` and `SidebarUser` are gone: each took its layout tree as an
- * array of `ReactNode`s, which you cannot reorder, wrap, or spread a prop onto. `app-shell` writes
- * the whole argument out; this is the same parts, arranged for a rail that is not the subject of
- * its own page. */
-
-function HallSwitcher({ activeId, onSelect }: { activeId: string; onSelect: (id: string) => void }) {
-  const { isMobile, setOpenMobile } = useSidebar();
-  const active = INSTANCES.find((entry) => entry.id === activeId) ?? INSTANCES[0];
-
-  return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <Menu positioning={{ gutter: 4, placement: isMobile ? "bottom-start" : "right-start" }}>
-          <MenuTrigger asChild>
-            <SidebarMenuButton
-              aria-label={active.label}
-              className="group-data-[collapsible=icon]:justify-center"
-              size="lg"
-            >
-              <SidebarIdentity responsive>
-                <SidebarIdentityIcon>
-                  <LandmarkIcon />
-                </SidebarIdentityIcon>
-                <SidebarIdentityText>
-                  <SidebarIdentityLabel>{active.label}</SidebarIdentityLabel>
-                  <SidebarIdentityDescription>{active.description}</SidebarIdentityDescription>
-                </SidebarIdentityText>
-              </SidebarIdentity>
-              <ChevronsUpDownIcon className="ms-auto group-data-[collapsible=icon]:hidden" />
-            </SidebarMenuButton>
-          </MenuTrigger>
-          <MenuContent className="w-(--reference-width) min-w-60">
-            <MenuGroup heading="Halls">
-              {INSTANCES.map((entry) => (
-                <MenuItem
-                  key={entry.id}
-                  onClick={() => {
-                    onSelect(entry.id);
-                    setOpenMobile(false);
-                  }}
-                  value={entry.id}
-                >
-                  <SidebarIdentity>
-                    <SidebarIdentityIcon>
-                      <LandmarkIcon />
-                    </SidebarIdentityIcon>
-                    <SidebarIdentityText>
-                      <SidebarIdentityLabel>{entry.label}</SidebarIdentityLabel>
-                      <SidebarIdentityDescription>{entry.description}</SidebarIdentityDescription>
-                    </SidebarIdentityText>
-                  </SidebarIdentity>
-                </MenuItem>
-              ))}
-            </MenuGroup>
-            <MenuSeparator />
-            <MenuItem
-              onClick={() => toast.create({ title: "Charter a hall", type: "info" })}
-              value="charter"
-            >
-              <PlusIcon />
-              Charter a hall
-            </MenuItem>
-          </MenuContent>
-        </Menu>
-      </SidebarMenuItem>
-    </SidebarMenu>
-  );
-}
-
-function RailNav({
-  className,
-  items,
-  label,
-}: {
-  className?: string;
-  items: SidebarNavItem[];
-  label: string;
-}) {
-  const { setOpenMobile } = useSidebar();
-  const close = () => setOpenMobile(false);
-
-  return (
-    <nav aria-label={label} className={className}>
-      <SidebarGroup>
-        <SidebarGroupLabel>{label}</SidebarGroupLabel>
-        <SidebarMenu>
-          {items.map((item) =>
-            item.items ? (
-              <SidebarMenuItem key={item.title}>
-                <Collapsible
-                  defaultOpen={item.items.some((sub) => isActivePath(ACTIVE_PATH, sub.href))}
-                >
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton
-                      className="[&[data-state=open]>svg:last-child]:rotate-90"
-                      tooltip={item.title}
-                    >
-                      {item.icon}
-                      <span className="truncate">{item.title}</span>
-                      <ChevronRightIcon className="ms-auto shrink-0 transition-transform duration-200 motion-reduce:transition-none!" />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      {item.items.map((sub) => (
-                        <SidebarMenuSubItem key={sub.title}>
-                          <SidebarMenuSubButton
-                            asChild
-                            isActive={isActivePath(ACTIVE_PATH, sub.href)}
-                          >
-                            <a href={sub.href} onClick={close}>
-                              <span className="truncate">{sub.title}</span>
-                            </a>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </Collapsible>
-              </SidebarMenuItem>
-            ) : (
-              <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={isActivePath(ACTIVE_PATH, item.href)}
-                  tooltip={item.title}
-                >
-                  <a href={item.href} onClick={close}>
-                    {item.icon}
-                    <span className="truncate">{item.title}</span>
-                  </a>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ),
-          )}
-        </SidebarMenu>
-      </SidebarGroup>
-    </nav>
-  );
-}
-
-function RailUser() {
-  const { isMobile } = useSidebar();
-  const announce = (title: string) => () => toast.create({ title, type: "info" });
-
-  return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <Menu positioning={{ gutter: 4, placement: isMobile ? "bottom-end" : "right-end" }}>
-          <MenuTrigger asChild>
-            <SidebarMenuButton
-              aria-label={USER.name}
-              className="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-full"
-              size="lg"
-            >
-              <SidebarIdentity responsive>
-                <SidebarIdentityAvatar>
-                  <AvatarFallback>{initialsOf(USER.name)}</AvatarFallback>
-                </SidebarIdentityAvatar>
-                <SidebarIdentityText>
-                  <SidebarIdentityLabel>{USER.name}</SidebarIdentityLabel>
-                  <SidebarIdentityDescription>{USER.email}</SidebarIdentityDescription>
-                </SidebarIdentityText>
-              </SidebarIdentity>
-              <ChevronsUpDownIcon className="ms-auto group-data-[collapsible=icon]:hidden" />
-            </SidebarMenuButton>
-          </MenuTrigger>
-          <MenuContent className="w-(--reference-width) min-w-56">
-            <MenuItem onClick={announce("Profile")} value="profile">
-              <UserIcon />
-              Profile
-            </MenuItem>
-            <MenuItem onClick={announce("Settings")} value="settings">
-              <SettingsIcon />
-              Settings
-            </MenuItem>
-            <MenuSeparator />
-            <MenuItem onClick={announce("Logged out")} value="logout" variant="destructive">
-              <LogOutIcon />
-              Log out
-            </MenuItem>
-          </MenuContent>
-        </Menu>
-      </SidebarMenuItem>
-    </SidebarMenu>
-  );
-}
-
-export function JobStudioShowcase() {
-  const [mode, setMode] = useState<"studio" | "assistant" | null>(null);
+export function Studio() {
   const [step, setStep] = useState(0);
   const [railOpen, setRailOpen] = useState(true);
-  const [instance, setInstance] = useState(INSTANCES[0].id);
 
   // Opens on the two-source starter, whose second source is an empty socket — so the drag
   // target is the first thing on screen rather than something you have to go find.
@@ -429,55 +197,6 @@ export function JobStudioShowcase() {
     v.focus();
   };
 
-  // ── How to start ────────────────────────────────────────────────────────────
-  // The original puts this on a blank screen with two bare toggle buttons. Cards carry the one
-  // thing the choice actually needs: what each mode does.
-
-  if (mode === null) {
-    return (
-      <div className="flex h-dvh flex-col items-center justify-center gap-6 bg-background p-6">
-        <div className="flex flex-col items-center gap-1.5 text-center">
-          <h1 className="font-heading font-semibold text-xl">New job</h1>
-          <p className="text-muted-foreground text-sm">How do you want to build it?</p>
-        </div>
-
-        <RadioGroup
-          className="w-[30rem]"
-          columns={2}
-          onValueChange={(d) => d.value === "studio" && setMode("studio")}
-        >
-          <RadioGroupCard className="items-start" value="studio">
-            <CodeIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <RadioGroupText>Studio</RadioGroupText>
-              <span className="text-muted-foreground text-xs leading-snug">
-                Write the mapping yourself, in the editor.
-              </span>
-            </div>
-            <RadioGroupIndicator className="order-last mt-0.5 ms-auto" />
-          </RadioGroupCard>
-
-          <div className="relative">
-            <RadioGroupCard className="items-start" disabled value="assistant">
-              <WandIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
-              <div className="flex min-w-0 flex-col gap-0.5">
-                <RadioGroupText>Assistant</RadioGroupText>
-                <span className="text-muted-foreground text-xs leading-snug">
-                  Describe the result and let it draft the program.
-                </span>
-              </div>
-              <RadioGroupIndicator className="order-last mt-0.5 ms-auto" />
-            </RadioGroupCard>
-            <Float className="-end-2 -top-2" placement="top-end">
-              <Badge size="xs" variant="secondary">Coming soon</Badge>
-            </Float>
-          </div>
-        </RadioGroup>
-
-      </div>
-    );
-  }
-
   // ── The three pages ─────────────────────────────────────────────────────────
 
   const editorPane = (
@@ -503,7 +222,7 @@ export function JobStudioShowcase() {
       {/* Top-end, which is where an editor's own actions go: VS Code puts its editor actions at
           the top-right of the group, GitHub puts the copy button at the top-right of a code
           block. Bottom-right in an editor is where the caret position and the language live, not
-          commands — workspace's cluster is there because a canvas has no top-right chrome to
+          commands — Discover's cluster is there because a canvas has no top-right chrome to
           compete with, and this pane does.
 
           And it is only copy now. Next/previous-problem lived here too, which made the findings
@@ -521,7 +240,7 @@ export function JobStudioShowcase() {
 
   const editorPage = (
     <Show
-      fallback={<ShellMain className="relative bg-background p-0">{editorPane}</ShellMain>}
+      fallback={<div className={EDITOR_PANE}>{editorPane}</div>}
       when={railOpen}
     >
       <Resizable
@@ -533,7 +252,7 @@ export function JobStudioShowcase() {
         ]}
       >
         <ResizablePanel className="flex min-w-0 flex-col overflow-hidden" id="editor">
-          <ShellMain className="relative bg-background p-0">{editorPane}</ShellMain>
+          <div className={EDITOR_PANE}>{editorPane}</div>
         </ResizablePanel>
         <ResizableResizeTrigger id="editor:rail" withHandle />
         <ResizablePanel className="flex min-h-0 min-w-0 flex-col" id="rail">
@@ -556,9 +275,8 @@ export function JobStudioShowcase() {
   );
 
   // `StepsContent` hides the inactive steps with the `hidden` ATTRIBUTE rather than unmounting
-  // them, which is why the pages can each own a `ShellMain`: the rule is one `<main>` that is not
-  // hidden, not one `<main>` in the document. It also means the editor keeps its undo history and
-  // its scroll position while you are two pages away, instead of being rebuilt on return.
+  // them, so the editor keeps its undo history and its scroll position while you are two pages
+  // away, instead of being rebuilt on return.
   const pages = (
     <>
       <StepsContent className="flex min-h-0 flex-1" index={0}>
@@ -566,17 +284,17 @@ export function JobStudioShowcase() {
       </StepsContent>
 
       <StepsContent className="flex min-h-0 flex-1" index={1}>
-        <ShellMain className="bg-background">
+        <div className={PAGE}>
           <ConfigureForm
             jobName={name}
             onChange={(patch) => setConfig((p) => ({ ...p, ...patch }))}
             values={config}
           />
-        </ShellMain>
+        </div>
       </StepsContent>
 
       <StepsContent className="flex min-h-0 flex-1" index={2}>
-        <ShellMain className="bg-background">
+        <div className={PAGE}>
           <SummaryPage
             blocked={blocked}
             creating={creating}
@@ -587,31 +305,26 @@ export function JobStudioShowcase() {
             program={program}
             values={config}
           />
-        </ShellMain>
+        </div>
       </StepsContent>
     </>
   );
 
   return (
-    <SidebarProvider className="h-dvh min-h-0 overflow-hidden">
-      <Sidebar collapsible="icon">
-        <SidebarHeader>
-          <HallSwitcher activeId={instance} onSelect={setInstance} />
-        </SidebarHeader>
-
-        <SidebarContent>
-          <RailNav items={NAV} label="The hall" />
-          <RailNav className="mt-auto" items={SUPPORT} label="Reference" />
-        </SidebarContent>
-
-        <SidebarFooter>
-          <RailUser />
-        </SidebarFooter>
-        <SidebarRail />
-      </Sidebar>
-
-      <SidebarInset>
-        {/* `Steps` wraps the whole inset because its list lives in the header and the pages it
+    <>
+      <ScreenHeader crumbs={[{ label: "Graphs", href: ROUTES.graphs }, { label: name || "Unnamed job" }]}>
+        {/* The graph read back: Discover is where the program's output is explored. */}
+        <Button asChild size="sm" variant="outline">
+          <a href={ROUTES.discover}>
+            <TelescopeIcon />
+            Discover
+          </a>
+        </Button>
+      </ScreenHeader>
+      {/* keasy's studio is a page under the app header: its toolbar and its status strip are rows
+          of the one `<main>`, not a second header and footer. */}
+      <ShellMain className="@container overflow-hidden bg-background">
+        {/* `Steps` wraps the whole column because its list lives in the toolbar and the pages it
             governs live in the body. It renders a plain div, so it takes the column classes and
             stays one element. */}
         <Steps
@@ -620,11 +333,6 @@ export function JobStudioShowcase() {
           onStepChange={(d) => setStep(Math.min(d.step, STEPS.length - 1))}
           step={step}
         >
-          {/* ONE row, which is what the reference does. shadcn's dashboard and sidebar blocks,
-              alongside Mantine and Ant, put a single `h-16` strip inside the content column holding a trigger, a separator and the trail,
-              and NO primary actions: those live in the rail or in the content. This was two
-              half-empty rows carrying a duplicate error count and an attribution that competes
-              with the job's own name. */}
           {/* A three-column grid, so the steps sit on the header's true centre no matter how long
               the job's name is — a flex row with `ms-auto` only pushes them off the left group's
               width, which moves every time the name is edited.
@@ -637,12 +345,10 @@ export function JobStudioShowcase() {
 
               `overflow-hidden` on the side groups is the other half: `minmax(0,1fr)` lets a column
               shrink below its content, so without it the name spilled into the steps rather than
-              truncating. */}
-          <ShellHeader className="@container grid h-14 min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-3">
+              truncating. Below `@xl` of the page, the end column takes its content's width instead:
+              centring the steps is worth less than the save controls overlapping them. */}
+          <div className="@container grid h-14 min-w-0 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] @max-xl:grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-b px-3">
             <div className="flex min-w-0 items-center gap-1 overflow-hidden @2xl:gap-3">
-              <SidebarTrigger />
-              <Separator className="h-4" orientation="vertical" />
-
             {/* A pencil beside a double-click target, so the name reads as a control. The width
                 is bounded on the root; the preview truncates and titles itself. */}
             <Editable
@@ -753,14 +459,14 @@ export function JobStudioShowcase() {
               </Menu>
             </ButtonGroup>
             </div>
-          </ShellHeader>
+          </div>
 
           <ShellBody className="min-w-0">{pages}</ShellBody>
 
-          {/* A STATUS strip, the shape workspace closes with ("582 nodes · 1,092 edges ·
-              Settling"), and the dock switcher at its trailing edge, where workspace keeps its
+          {/* A STATUS strip, the shape Discover closes with ("582 nodes · 1,092 edges ·
+              Settling"), and the dock switcher at its trailing edge, where Discover keeps its
               own. Only the Editor page has a dock, so only the Editor page shows the icons. */}
-          <ShellFooter className="h-8 flex-row items-center gap-2 px-3 text-muted-foreground text-xs">
+          <div className="flex h-8 shrink-0 flex-row items-center gap-2 border-t px-3 text-muted-foreground text-xs">
             {/* No finding count here any more: the badge in the header owns that, and says it
                 with the list behind it. This strip reports what nothing else does. */}
             <span className="truncate">
@@ -785,20 +491,63 @@ export function JobStudioShowcase() {
                 </ToggleGroupItem>
               </ToggleGroup>
             </Show>
-          </ShellFooter>
+          </div>
         </Steps>
-      </SidebarInset>
-      {/* The library's own all-in-one: a floating palette FAB pinned to the corner plus the
-          drawer, instead of a labelled button competing for room in the action row. Preferences
-          are a thing you reach for occasionally; they should not read as one of the screen's
-          main verbs. Appearance is a side card inside that panel's Colour section, so there is no
-          second control for it anywhere. */}
-      <PreferencesRoot hotkey="p">
-        <PreferencesTrigger />
-        <PreferencesPanel />
-      </PreferencesRoot>
-      <Toaster />
-    </SidebarProvider>
+      </ShellMain>
+    </>
+  );
+}
+
+/**
+ * How a new job starts. The original puts this on a blank screen with two bare toggle buttons.
+ * Cards carry the one thing the choice actually needs: what each mode does.
+ */
+export function NewJob() {
+  return (
+    <>
+      <ScreenHeader crumbs={[{ label: "Graphs", href: ROUTES.graphs }, { label: "New job" }]} />
+      <ShellMain className="items-center justify-center gap-6 bg-background p-6">
+        <div className="flex flex-col items-center gap-1.5 text-center">
+          <h1 className="font-heading font-semibold text-xl">New job</h1>
+          <p className="text-muted-foreground text-sm">How do you want to build it?</p>
+        </div>
+
+        <RadioGroup
+          className="w-full max-w-[30rem]"
+          columns={2}
+          onValueChange={(d) => {
+            if (d.value === "studio") window.location.hash = ROUTES.graphs;
+          }}
+        >
+          <RadioGroupCard className="items-start" value="studio">
+            <CodeIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <RadioGroupText>Studio</RadioGroupText>
+              <span className="text-muted-foreground text-xs leading-snug">
+                Write the mapping yourself, in the editor.
+              </span>
+            </div>
+            <RadioGroupIndicator className="order-last mt-0.5 ms-auto" />
+          </RadioGroupCard>
+
+          <div className="relative">
+            <RadioGroupCard className="items-start" disabled value="assistant">
+              <WandIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <RadioGroupText>Assistant</RadioGroupText>
+                <span className="text-muted-foreground text-xs leading-snug">
+                  Describe the result and let it draft the program.
+                </span>
+              </div>
+              <RadioGroupIndicator className="order-last mt-0.5 ms-auto" />
+            </RadioGroupCard>
+            <Float className="-end-2 -top-2" placement="top-end">
+              <Badge size="xs" variant="secondary">Coming soon</Badge>
+            </Float>
+          </div>
+        </RadioGroup>
+      </ShellMain>
+    </>
   );
 }
 
@@ -873,4 +622,3 @@ function ValidationBadge({
   );
 }
 
-export default JobStudioShowcase;

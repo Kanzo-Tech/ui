@@ -8,7 +8,7 @@ import {
   type ViewUpdate,
   WidgetType,
 } from "@codemirror/view";
-import type { Connection } from "./data";
+import type { Connection } from "./studio-data";
 
 /**
  * A connection SLOT — the empty socket a program leaves where a source has not been wired yet.

@@ -1,16 +1,6 @@
-import {
-  BookOpenIcon,
-  CoinsIcon,
-  EyeIcon,
-  MessageSquareIcon,
-  PawPrintIcon,
-  ScrollTextIcon,
-  SettingsIcon,
-  SwordsIcon,
-  UsersIcon,
-} from "lucide-react";
+import { DatabaseIcon, HomeIcon, WorkflowIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { INSTANCES as HALL_INSTANCES, NAV as WORLD_NAV } from "@/example/nav";
+import { INSTANCES as HALL_INSTANCES } from "@/example/nav";
 import { initialsOf, membersOf, member, VIEWER } from "@/example/people";
 import {
   boardValue,
@@ -35,9 +25,9 @@ import { hall, HOME_HALL, type Tag } from "@/example/world";
  */
 
 /**
- * `Instance` and `SidebarNavItem` are this app's shapes. A switcher and a nav column are layout
- * trees, so they are hand-composed in `default.tsx`, and the library has no reason to name the
- * data behind an arrangement it does not ship. That belongs to whoever holds it, which is here.
+ * `Instance` and `NavItem` are this app's shapes. A switcher and a nav column are layout trees, so
+ * they are hand-composed in `default.tsx`, and the library has no reason to name the data behind an
+ * arrangement it does not ship.
  */
 export interface Instance {
   id: string;
@@ -45,50 +35,35 @@ export interface Instance {
   description?: string;
 }
 
-export interface SidebarNavSubItem {
+export interface NavItem {
   title: string;
   href: string;
+  icon: ReactNode;
 }
 
-export interface SidebarNavItem {
-  title: string;
-  href?: string;
-  icon?: ReactNode;
-  items?: SidebarNavSubItem[];
-}
+/**
+ * keasy's routes, as hashes: the showcase is one page, and `isActivePath` prefix-matches every
+ * `href` against the hash it is on, so Discover lights Graphs.
+ */
+export const ROUTES = {
+  dashboard: "#/",
+  graphs: "#/graphs",
+  newJob: "#/graphs/new",
+  connections: "#/connections",
+  discover: "#/graphs/archive/discover",
+} as const;
 
-/** The route this screen pretends to be on. `isActivePath` prefix-matches every `href` against it. */
-export const ACTIVE_PATH = "#/board";
-
-/** `NAV` names its icons rather than holding elements, so the world stays React-free. */
-const ICONS: Record<string, ReactNode> = {
-  ScrollText: <ScrollTextIcon />,
-  Swords: <SwordsIcon />,
-  Users: <UsersIcon />,
-  PawPrint: <PawPrintIcon />,
-  Eye: <EyeIcon />,
-  Coins: <CoinsIcon />,
-  Settings: <SettingsIcon />,
-};
+export const NAV: NavItem[] = [
+  { title: "Dashboard", href: ROUTES.dashboard, icon: <HomeIcon /> },
+  { title: "Graphs", href: ROUTES.graphs, icon: <WorkflowIcon /> },
+  { title: "Connections", href: ROUTES.connections, icon: <DatabaseIcon /> },
+];
 
 /** The tenant switcher's rows are the five halls, already shaped the way `Instance` wants them. */
 export const INSTANCES: Instance[] = HALL_INSTANCES;
 
 /** The signed-in viewer is on the roster like everyone else — Ravenna, the Amber Hall's quartermaster. */
 export const USER = { name: VIEWER.name, email: VIEWER.email };
-
-export const NAV: SidebarNavItem[] = WORLD_NAV.map((entry) => ({
-  title: entry.title,
-  href: entry.href,
-  icon: entry.icon ? ICONS[entry.icon] : undefined,
-  items: entry.items?.map((child) => ({ title: child.title, href: child.href })),
-}));
-
-/** Reference the hall keeps, rather than work it posts — hence a second group, not a `NAV` entry. */
-export const SUPPORT: SidebarNavItem[] = [
-  { title: "Party rules", href: "#/rules", icon: <BookOpenIcon /> },
-  { title: "Send word", href: "#/word", icon: <MessageSquareIcon /> },
-];
 
 /** Everything posted in the last seven days — a real week of intake, not a guessed delta. */
 const POSTED_THIS_WEEK = QUESTS.filter((contract) => contract.postedDayOffset >= -7);

@@ -99,7 +99,7 @@ coordinator is a second optional argument, not a second door.
 One door for statements had left two ways *in* for a view. A host passes
 the engine to `MosaicProvider`, whose context the charts and `ai/data` read; and it passes the same
 engine again to `GraphRoot` as a prop, then bridges the page's selection to the graph by hand —
-`useMosaic()` in a wrapper, `filterBy={selection}` on the root. The workspace showcase's
+`useMosaic()` in a wrapper, `filterBy={selection}` on the root. The keasy showcase's
 `graph-view.tsx` does exactly that. The graph could not read the context because the provider lives
 in `ui/analytics`, an entry whose static closure is vgplot: reading it would make a WebGL viewer
 declare the chart grammar as a peer, which [packaging follows the entry](/docs/design/architecture#packaging-follows-the-entry)

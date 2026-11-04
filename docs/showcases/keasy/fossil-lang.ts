@@ -5,7 +5,7 @@ import type { Extension } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
 import { connectionSlots, referenceAt, slotsIn } from "./connection-slots";
-import type { Connection } from "./data";
+import type { Connection } from "./studio-data";
 
 /**
  * A fossil language for CodeMirror, written HERE and not imported.

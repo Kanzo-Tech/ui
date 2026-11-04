@@ -1,10 +1,8 @@
 {
   "title": "Showcases",
   "pages": [
-    "app-shell",
-    "workspace",
+    "keasy",
     "settings",
-    "field-notes",
-    "job-studio"
+    "field-notes"
   ]
 }

@@ -48,13 +48,13 @@ import {
   ZapIcon,
 } from "lucide-react";
 import { connectionDragProps } from "./connection-slots";
-import { type Connection, CONNECTIONS, DESTINATIONS, ORGANISATION, type RunMode } from "./data";
+import { type Connection, CONNECTIONS, DESTINATIONS, ORGANISATION, type RunMode } from "./studio-data";
 import { type Finding, mappingsIn } from "./fossil-lang";
 
 // ── The connections rail ──────────────────────────────────────────────────────
 
-const KIND_ICON = { data: DatabaseIcon, vocab: BookMarkedIcon } as const;
-const KIND_LABEL = { data: "data source", vocab: "RDF vocabulary" } as const;
+export const KIND_ICON = { data: DatabaseIcon, vocab: BookMarkedIcon } as const;
+export const KIND_LABEL = { data: "data source", vocab: "RDF vocabulary" } as const;
 
 /**
  * What the editor needs at hand: the connections a program can reference.

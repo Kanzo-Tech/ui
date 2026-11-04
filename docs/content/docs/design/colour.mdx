@@ -342,15 +342,15 @@ the library is `rem`, so compact scales everything by 0.875.
 The smallest button is exactly *at* the bar at default density, which is the tell that nobody chose 24 —
 it fell out of `h-6` and the default root, and the density axis then moved it without anything noticing.
 
-**Probed live at `compact` across three showcases**, deduplicating nested targets (a checkbox is a 14×14
+**Probed live at `compact` across three screens**, deduplicating nested targets (a checkbox is a 14×14
 `<label>` wrapping a 1×1 sr-only `<input>`; counting both made every checkbox fail against itself, which
 was the first draft of this probe and was wrong):
 
-| showcase | targets | under 24×24 | saved by the 2.5.8 spacing exception | genuinely failing |
+| screen | targets | under 24×24 | saved by the 2.5.8 spacing exception | genuinely failing |
 |---|---:|---:|---:|---:|
-| app-shell | 45 | 8 | 8 | **0** |
+| keasy's dashboard | 45 | 8 | 8 | **0** |
 | a form, since removed (compact) | 26 | 4 | 4 | **0** |
-| workspace | 32 | 15 | 4 | **11** |
+| keasy's Discover | 32 | 15 | 4 | **11** |
 
 **No `size="xs"` button failed anywhere.** Every undersized button was saved by the spacing exception,
 because the library's own gaps are wider than 24 px between target centres. **The eleven real failures are

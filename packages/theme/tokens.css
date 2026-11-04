@@ -307,7 +307,7 @@
      property makes `font-size` invalid at computed-value time, so the declaration is dropped and
      the element silently inherits. Measured on 2026-08-23: `Badge size="xs"` computed 16px inside
      its own `h-4` box, and since the recipe carries `overflow-hidden` the text was clipped by
-     3px — a 19px content in a 16px box, visible in `app-shell` and `job-studio` and in no test.
+     3px — a 19px content in a 16px box, visible in the `keasy` showcase's dashboard and studio and in no test.
      `theme-tokens.test.ts` is the guard that makes the next deletion fail out loud.
 
      `CodeEditor` read two of these with a literal fallback and so kept rendering — at 14px and

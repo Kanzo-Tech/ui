@@ -964,7 +964,7 @@ export function FieldNotesShowcase() {
         />
 
         <div className="flex min-w-0 flex-1">
-          {/* The same mechanism the workspace showcase's dock uses — there is no `Workspace` component in the library, only
+          {/* The same mechanism Discover's dock uses in the keasy showcase — there is no `Workspace` component in the library, only
               `Resizable` over Shell regions. Keyed on the open set so the panel model re-inits
               cleanly. Logical throughout: start/end, never left/right. */}
           {(() => {

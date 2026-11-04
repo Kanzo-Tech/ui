@@ -1,9 +1,7 @@
 import { notFound } from "next/navigation";
-import { AppShellShowcase } from "@/showcases/app-shell/default";
-import { JobStudioShowcase } from "@/showcases/job-studio/default";
 import { FieldNotesShowcase } from "@/showcases/field-notes/default";
+import { KeasyShowcase } from "@/showcases/keasy/default";
 import { SettingsShowcase } from "@/showcases/settings/default";
-import { WorkspaceShowcase } from "@/showcases/workspace/default";
 
 /**
  * Standalone, chrome-free route for a showcase, one per name.
@@ -13,11 +11,9 @@ import { WorkspaceShowcase } from "@/showcases/workspace/default";
  * nothing, so it gets its own page and the docs embed that page in an iframe.
  */
 const SHOWCASES = {
-  "app-shell": AppShellShowcase,
-  workspace: WorkspaceShowcase,
-  // A wizard whose editor never leaves the screen: `Steps` drives the aside, not the whole
-  // page. It is also the library's first real consumer of `CodeEditor`'s `extensions` slot.
-  "job-studio": JobStudioShowcase,
+  // One product's screens behind one rail: the dashboard, the graph studio, its connections and
+  // Discover. Its route is the hash, so `#/graphs/archive/discover` opens on a screen.
+  keasy: KeasyShowcase,
   // The preference sections on both surfaces: a settings page, and the drawer its trigger opens.
   // The drawer is Portal-ed and `position: fixed`, so it can only be shown honestly in its own
   // viewport — which is also why `/docs/layout/preferences` embeds this rather than a preview box.

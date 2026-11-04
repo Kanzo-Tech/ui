@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
  * in this repository: the build passes, the page renders, and the thing at the end of the URL is a
  * 404 nobody sees. It bit three times in one afternoon before this file existed:
  *
- * · `showcases/workspace/graph-state.tsx` held `"/corpus/archive"` — the graph canvas stayed empty.
+ * · the archive showcase's `graph-state.tsx` held `"/corpus/archive"` — the graph canvas stayed empty.
  * · `components/preview-iframe.tsx` held `"/view/showcases/<name>"` — EVERY showcase embed on the
  *   site pointed at the organisation's root instead, so every one of them was a 404 in a box.
  * · three image-cropper examples and one showcase held `"/example/<file>.svg"` — a broken image and

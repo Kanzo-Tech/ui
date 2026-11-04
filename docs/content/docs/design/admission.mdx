@@ -215,8 +215,8 @@ exception to: components style their own text, and the `Heading` and `Text` atom
 because they were a scale of knobs with no consumer.
 
 This is neither. It was the same five utilities typed out by hand four times — `LABEL` in
-`@kanzo-tech/ai`'s `Tool`, `PREF_HEADING` in `Preferences`, the archive's heading in the `discovery`
-showcase and the settings column in `settings` — with a fifth in keasy's guided chat, which is what
+`@kanzo-tech/ai`'s `Tool`, `PREF_HEADING` in `Preferences`, the archive's heading in the `keasy`
+showcase's Discover and the settings column in `settings` — with a fifth in keasy's guided chat, which is what
 asked. One role, no knobs, five call sites: that passes the second admission rule without the
 example directory counting.
 
@@ -268,7 +268,7 @@ indeterminate given null".
 [`Gated`](/docs/layout/gated) ships as three parts: `GatedRoot`, `GatedContent`, `GatedBadge`.
 `Ribbon` stays a tombstone — a positioned box, a `Float` and a `Badge` behind scalar props, shorter
 than the composition and no more capable. What changed is that the composition turned out to be
-wrong where it was written out. The app-shell showcase and the Badge page both said `inert` "leaves
+wrong where it was written out. The keasy showcase's dashboard and the Badge page both said `inert` "leaves
 it readable to a screen reader", and it does not: inert content is withheld from the accessibility
 tree, like `aria-hidden`. The only thing left to read was a badge saying *Coming soon* about nothing
 a reader could perceive. A consumer builds the same gate for a connection location that is not
@@ -283,7 +283,7 @@ because `inert` already hit-tests that way.
 No `data-gated`: nothing selects on it, and `data-slot="gated"` already marks the root for a
 caller.
 
-A `disabled` control is not gated. `job-studio`'s two *Coming soon* radios stay a `Float` and a
+A `disabled` control is not gated. The keasy studio's two *Coming soon* radios stay a `Float` and a
 `Badge` beside a `disabled` card, because an inert radio would leave its group rather than be
 announced as unavailable.
 
