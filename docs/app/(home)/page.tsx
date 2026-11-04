@@ -3,9 +3,14 @@ import { join } from "node:path";
 import { Button } from "@kanzo-tech/ui";
 import { ServerCodeBlock } from "fumadocs-ui/components/codeblock.rsc";
 import { ArrowRightIcon } from "lucide-react";
+import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import { KanzoLogo } from "@/components/kanzo-logo";
+import dashboardDark from "./shots/keasy-dashboard-dark.jpg";
+import dashboardLight from "./shots/keasy-dashboard-light.jpg";
+import discoverDark from "./shots/keasy-discover-dark.jpg";
+import discoverLight from "./shots/keasy-discover-light.jpg";
 import { FAMILIES } from "./families";
 import { FamilyScope, FamilySwitch, LiveScreen, ThemeFileName, ThemeSource } from "./home-live";
 import styles from "./home.module.css";
@@ -43,7 +48,7 @@ const ACCOUNT = [
   },
   {
     title: "Appearance follows Shark UI",
-    body: "Every component's classes are checked against a Shark reference in CI, and where one differs, the difference and its reason are written down.",
+    body: "Spacing, radius, borders and type follow Shark UI's components, and where one of ours differs, the difference and its reason are written down.",
     href: "/docs/components",
     link: "The components",
   },
@@ -62,11 +67,18 @@ const ACCOUNT = [
   },
 ];
 
-const SHOWCASES = [
+type Shot = { name: string; light: StaticImageData; dark: StaticImageData };
+
+const SHOWCASES: { name: string; body: string; href: string; shots?: Shot[] }[] = [
   {
     name: "keasy",
     body: "Kanzo's product, rebuilt on the library: the dashboard behind its rail, and Discover, where a graph is read back.",
     href: "/docs/showcases/keasy",
+    /* Taken from the build by `scripts/capture-home.mjs`. */
+    shots: [
+      { name: "Dashboard", light: dashboardLight, dark: dashboardDark },
+      { name: "Discover", light: discoverLight, dark: discoverDark },
+    ],
   },
   {
     name: "Settings",
@@ -191,6 +203,19 @@ export default async function HomePage() {
                   <ArrowRightIcon className="ms-3 inline size-[0.7em] align-[-0.05em] transition-transform group-hover:translate-x-1" />
                 </span>
                 <span className="max-w-[52ch] text-[1.0625rem] leading-relaxed">{s.body}</span>
+                {s.shots && (
+                  <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:col-span-2 lg:mt-10 lg:gap-6">
+                    {s.shots.map((shot) => (
+                      <figure className="flex flex-col gap-3" key={shot.name}>
+                        <div className="overflow-hidden rounded-box border">
+                          <Image alt={`keasy's ${shot.name}`} className="dark:hidden" sizes="(min-width: 640px) 50vw, 100vw" src={shot.light} />
+                          <Image alt={`keasy's ${shot.name}`} className="hidden dark:block" sizes="(min-width: 640px) 50vw, 100vw" src={shot.dark} />
+                        </div>
+                        <figcaption className="text-muted-foreground text-sm">{shot.name}</figcaption>
+                      </figure>
+                    ))}
+                  </div>
+                )}
               </Link>
             </li>
           ))}
