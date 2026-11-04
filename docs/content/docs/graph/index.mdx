@@ -396,9 +396,11 @@ defaults, and so does this section. A preference a tenant pinned is not offered.
 
 **Labels are one ordered scale**, each level adding to the one before. **None** draws no text at all,
 not even the hover card. **Hovered** is the hover card and the focused point's label. **Top** adds the
-150 biggest points by the size channel — Cosmograph's `showTopLabelsLimit` default. **Visible** adds
+150 biggest points by the size channel — Cosmograph's top labels, `showTopLabelsLimit`. **Visible** adds
 the 100 biggest of cosmos.gl's sample of the points in view (one per 100 px cell), taken again each
-time the camera rests — Cosmograph's dynamic labels, `showDynamicLabelsLimit`. **All** adds every
+time the camera rests — Cosmograph's dynamic labels, `showDynamicLabelsLimit`. The 150 and the 100 are
+this package's numbers; Cosmograph's defaults for both are 30
+([its labels config](https://cosmograph.app/docs-lib/api/internal/interfaces/LabelsCosmographConfig/#showtoplabelslimit)). **All** adds every
 point of that sample, with no count of its own: the bound is the screen's, one point per 100 px
 square, so an 800 × 600 view adds at most 48 whether the graph holds a thousand points or 327,000.
 Cosmograph has no unbounded label set either, and All once was one — a sort, a label element, a

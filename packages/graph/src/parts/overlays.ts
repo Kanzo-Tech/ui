@@ -5,6 +5,7 @@ import type { Graph } from "@cosmos.gl/graph";
 import { resolveTokenColor } from "@kanzo-tech/ui";
 import type { VertexId } from "../core/types";
 import { drawGrid } from "../render/grid";
+import { GRAPH_SECTION } from "../section";
 
 /**
  * Everything that floats over the canvas and has to keep up with it: the hub labels, the hover
@@ -23,6 +24,9 @@ import { drawGrid } from "../render/grid";
  * which silently disabled every overlay for the life of the page. It took a long time to find in a
  * 700-line component and would have been obvious here.
  */
+
+// The section's `grid` token over its declared default: `resolveTokenColor` reads `var(<this>)`.
+const GRID_INK = `--${GRAPH_SECTION.namespace}-grid, ${GRAPH_SECTION.tokens.grid.default}`;
 
 /** How far the hover card clears its node, and the margin it keeps from the canvas edge. */
 const CARD_GAP = 14;
@@ -235,12 +239,12 @@ export function useOverlays(api: { getGraph: () => Graph | null; theme: number }
     return () => observer.disconnect();
   }, [schedule]);
 
-  // `--input`, not `--border`: a border's colour is gone on a light page. Resolved against the host
-  // so a scoped theme wins, and once per theme change: `getComputedStyle` is not a per-frame call.
+  // Resolved against the host so a scoped theme wins, and once per theme change: `getComputedStyle`
+  // is not a per-frame call.
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    ink.current = resolveTokenColor(host, "--input");
+    ink.current = resolveTokenColor(host, GRID_INK);
     schedule();
   }, [theme, schedule]);
 

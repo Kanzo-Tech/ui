@@ -536,8 +536,10 @@ with `relations/no-step` and keeps no `FALSE` behind it.
 - Vega-Lite, [selections](https://vega.github.io/vega-lite/docs/selection.html) (`empty`,
   conditional encodings: a selection is drawn, not removed) and
   [invalid data](https://vega.github.io/vega-lite/docs/invalid-data.html).
-- Cosmograph `Timeline`, read in `@cosmograph/cosmograph` 2.5.1: `isBetween(column, range)` from a
-  client of its own, points without a value greyed ([Timeline](/docs/design/timeline)).
+- Cosmograph, [`CosmographTimelineConfig`](https://cosmograph.app/docs-lib/api/interfaces/CosmographTimelineConfig/)
+  and [`CosmographConfig`](https://cosmograph.app/docs-lib/api/interfaces/CosmographConfig/), its
+  public documentation: a timeline filters through the instance's crossfilter, and what it leaves out
+  is greyed rather than hidden ([Timeline](/docs/design/timeline)).
 - cosmos.gl 3.4.0 `config.d.ts`: `pointGreyoutOpacity`, `pointGreyoutColor`, `linkGreyoutOpacity`.
 - Kepler.gl, [filters](https://docs.kepler.gl/docs/user-guides/e-filters): rows outside a filter are
   not drawn; rows without coordinates are not plotted.

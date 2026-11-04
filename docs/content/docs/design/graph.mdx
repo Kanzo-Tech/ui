@@ -11,7 +11,8 @@ not abort a read, ships a pick's ids as SQL text, has no guard at 2²⁴ vertice
 to assistive technology as an unnamed `div`. [The scale limit](/docs/design/graph-hardening#the-scale-limit-is-guarded-and-raised-only-by-measurement),
 [recovery](/docs/design/graph-hardening#a-failed-read-is-retried-a-lost-context-is-restored),
 [a large pick](/docs/design/graph-hardening#a-pick-does-not-ship-its-ids) and [the canvas for assistive technology](/docs/design/graph-hardening#the-canvas-is-operable-without-a-pointer-and-readable-without-sight)
-are decided and not built; the *Breaking* list at the end is what a consumer edits. Everything else
+are decided and not built, and so is [the configuration in Cosmograph's words](#the-configuration-is-cosmographs-word-for-word),
+which waits for #251; the *Breaking* list at the end is what a consumer edits. Everything else
 on the page is the tree.
 
 <Callout type="info">
@@ -28,8 +29,11 @@ into its two types; and the information files as relations,
 first three. The graph carries no position.
 </Callout>
 
-**The reference is Cosmograph v2**, read from its shipped 2.5.1 bundle — its code is CC-BY-NC, so
-only the architecture is borrowed: DuckDB-WASM, a Mosaic coordinator and cosmos.gl; points indexed
+**The reference is Cosmograph v2**, read from its public documentation only
+([`CosmographConfig`](https://cosmograph.app/docs-lib/api/interfaces/CosmographConfig/),
+[`Cosmograph`](https://cosmograph.app/docs-lib/api/classes/Cosmograph/)) — it is paid and CC-BY-NC,
+so it is never a dependency, its code is never opened, and only the behaviour and the shape are
+borrowed: DuckDB-WASM, a Mosaic coordinator and cosmos.gl; points indexed
 `0 … N − 1` and links as index pairs, which is exactly [the global id](#the-global-id-is-the-graphs-arithmetic), `src` and `dst`; position
 as a view choice, with a GPU simulation from a seeded start when nothing places the points; a
 cluster column fed to `setPointClusters`; filtering as a query for the surviving indices, drawn as a
@@ -1085,49 +1089,206 @@ plan shows the canvas can address.
 *Held by* `packages/graph/src/core/source.ts`, `Float32Array`; `packages/graph/src/core/store.test.ts`,
 "reads the structure from GraphAr's relations, and every vertex by its global id".
 
-## A look is form, and a channel is a binding
+## The configuration is Cosmograph's, word for word
 
-`Look` is form and carries no encoding. What a channel carries is **bound on the root**, under
-Plot's names and Plot's rule that a CSS colour is a **constant** and anything else is a **column**:
-`fill`, `symbol`, `r`, `stroke`, `title`, and the position channels `x`, `y` and `cluster`. `symbol`
-stands beside `fill`, so identity may be drawn as colour, as shape or as both. `stroke` absent tints
-each link by the vertex it leaves; `r` absent is degree.
+*Status: decided 2026-11-04, not built.* It rewrites the graph's props, and those are the door
+[#251](https://github.com/Kanzo-Tech/ui/pull/251) rewrites (`state.ts`, `use-graph.ts`,
+`graph-section.tsx`), so it lands after that merges. Until then the tree is the old vocabulary, and
+this section's last paragraph says which tests hold it.
 
-**A binding is a column read.** `fill`, `r` and `cluster` as columns are read where a table has them.
-`fill` as a constant and `stroke` are never read, and `symbol` is read only as the one categorical
-column when `fill` is a constant or absent. `isColour` is the constant test, narrowed to `var(…)`, a
-hex and the colour functions, so **a bare word is always a column**. A theme may not rebind an
-encoding — Vega-Lite's `config` rule.
+**Today one setting has up to three names.** The root's props use Observable Plot's channel names:
+`fill`, `symbol`, `r`, `stroke`, `title`, `x`, `y` and `cluster`. Beside them sit two nested patches in
+this package's own words, `look` (`size`, `link.curve`, `link.blend`) and `sim` (`gravity`,
+`linkSpring`). The preferences are kebab-case axes, and half of them already use Cosmograph's
+spelling (`x-by`, `cluster-by`). Four functions do nothing but translate:
+- `isColour` guesses whether `fill` is a column or a constant;
+- `placementFrom` turns `x-by` into `x`;
+- `forces()` turns `gravity` into `simulationGravity`;
+- `appearance()` turns `link.curve` into `curvedLinks` and `curvedLinkControlPointDistance`.
 
-**The case that does not fit.** Ink's radius floor exists because it spends shape on identity and
-size on degree at once, so that obligation is graded against the composition.
+So a host reads `x-by`, passes `x`, and cosmos.gl is handed `pointXBy`'s position buffer. The graph's
+stated reference is Cosmograph (the top of this page). Its configuration is one flat camelCase
+object, and most of it is cosmos.gl's `GraphConfig` passed through
+([`CosmographConfig`](https://cosmograph.app/docs-lib/api/interfaces/CosmographConfig/)). The
+Plot-names rule this replaces had no *what would reverse it* of its own. Its one clause was about
+the composition check, which stays below.
 
-**A radius is screen pixels**, `scalePointsOnZoom: false`, which is cosmos.gl 3.4's default and
-Cosmograph's. Sizing in graph space was measured on 2026-10-08 at 327,588 vertices and 913,221
-links in the default look, framed whole: zoomed out, the points go under a pixel and the link layer
-covers them, so the disc reads as link colour with no type mix left in it, where pixel sizes keep
-the points visible through the links. Without links it is the better picture, overlap reading as
-density, but links are drawn by default. **What would reverse it:** a graph framed whole with links
-drawn where points in graph space stay visible, or a density control that makes overlap legible
-at pixel sizes.
+**The rule: a prop, a preference and the engine key are one word, and where Cosmograph has the word,
+it is Cosmograph's.** The vocabulary is flat and camelCase. Cosmograph's grammar decides the shape of
+a name:
+- `…By` names a column, and `…Default…` names the constant used when no column applies, so
+  `pointColorBy` and `pointDefaultColor` are two props and nothing has to be sniffed;
+- `…Strategy` says how a value becomes a mark;
+- `…Range` is an output range;
+- `enable…`, `show…` and `render…` are booleans;
+- `…Limit` caps a count.
 
-**What this does not touch.** The graph holds **one** categorical column, and it authors no colour;
-it reads the page's categorical scale.
+Where Cosmograph has no word, the name is coined in that grammar: `renderGrid` and `renderVignette`
+are ours. The translation functions keep only what is *derived*: the greyout from the painted
+colours, the background's alpha, the resolution of a token. None of them renames anything.
 
-**What would reverse it:** the composition check never firing — if every host that binds `symbol`
-also asks for the form bundled with it, the pairing was the abstraction.
+**Defaults stay ours where they were measured or tuned.** Each doc string gives Cosmograph's default
+beside ours, so a reader can compare. `fitViewPadding` is one value, where today there are three
+(0.18, 0.3 and a literal 0.25). Locate becomes a private multiple of it.
 
-*Held by* `packages/graph/src/render/graph-looks.ts`, `Look`; `packages/graph/src/core/channels.ts`,
-`Channels`, `bindingOf`; `packages/graph/src/render/obligations.ts`, `gradeComposition`;
-`packages/graph/src/core/store.test.ts`, "sizes by degree when r is unbound, and by the column when it
-is bound", "colours by vertex type unless fill binds a column".
+**What it costs: the graph and `@kanzo-tech/ui`'s charts now name the same idea differently.** A
+chart's `fill` and `r` are the graph's `pointColorBy` and `pointSizeBy`, so a host binding one column
+on both writes two names. Each package follows its own reference: Plot and vgplot for the charts,
+Cosmograph for the graph. Renaming either one toward the other would put the split inside a package
+instead of between two. `ChartTimeline` is the charts' and keeps `field`, though it runs under the
+graph's canvas. Cosmograph's Timeline calls the same thing `accessor`
+([`CosmographTimelineConfig`](https://cosmograph.app/docs-lib/api/interfaces/CosmographTimelineConfig/)).
+
+**Following Cosmograph's names does not bring in its colour model.** Cosmograph puts
+`pointColorPalette`, `pointColorByMap` and hex defaults in the config. Here colour stays the theme's
+categorical scale ([colour](/docs/design/colour)), and `pointDefaultColor` and `linkDefaultColor`
+take a CSS value, a `var(--…)`, which the browser resolves. A look carries form only. Cosmograph is
+read from its public documentation alone. It is a paid product under CC-BY-NC, so it is never a
+dependency and its code is never opened.
+
+**The mapping, old → new.** No old name survives as an alias.
+
+| today | becomes | where |
+|---|---|---|
+| `fill` as a column | `pointColorBy` | prop |
+| `fill` as a CSS colour | `pointDefaultColor` | prop |
+| `symbol` | `pointShapeBy` | prop |
+| `r` | `pointSizeBy` | prop |
+| `title` | `pointLabelBy` | prop |
+| `stroke` as a CSS colour | `linkDefaultColor` | prop |
+| `x`, `y` | `pointXBy`, `pointYBy` | prop |
+| `cluster` | `pointClusterBy` | prop |
+| `simulate` | `enableSimulation` | prop |
+| `look` | gone: its fields are flat props (below) | prop |
+| `look.size` | `pointSizeRange` | prop |
+| `look.link.render` | `renderLinks` | prop |
+| `look.link.opacity` | `linkOpacity` | prop |
+| `look.link.width` | `linkDefaultWidth` | prop |
+| `look.link.curve` | `curvedLinks` and `curvedLinkControlPointDistance` | prop |
+| `look.link.blend` | `linkBlending` | prop |
+| `look.link.fade` | `linkVisibilityDistanceRange` | prop |
+| `look.labels` | the `show…Label(s)` switches (the `labels` pref, below) | prop |
+| `look.vignette` | `renderVignette` | prop |
+| `look.grid` | `renderGrid` | prop |
+| `sim` | gone: its fields are flat props (below) | prop |
+| `sim.gravity` | `simulationGravity` | prop |
+| `sim.repulsion` | `simulationRepulsion` | prop |
+| `sim.linkSpring` | `simulationLinkSpring` | prop |
+| `sim.linkDistance` | `simulationLinkDistance` | prop |
+| `sim.friction` | `simulationFriction` | prop |
+| `sim.cluster` | `simulationCluster` | prop |
+| `TOP_LABELS` (150, a constant) | `showTopLabelsLimit`, default 150; Cosmograph's is 30 | prop |
+| `VISIBLE_LABELS` (100, a constant) | `showDynamicLabelsLimit`, default 100; Cosmograph's is 30 | prop |
+| `FIT_PADDING`, `LOCATE_PADDING`, the literal 0.25 | `fitViewPadding`, one value; Cosmograph's is 0.1 | prop |
+| `GraphSearch`'s `limit` | `suggestionsLimit` | part prop |
+| `x-by`, `y-by` | `pointXBy`, `pointYBy` | pref |
+| `cluster-by` | `pointClusterBy` | pref |
+| `gravity` | `simulationGravity` | pref |
+| `repulsion` | `simulationRepulsion` | pref |
+| `link-spring` | `simulationLinkSpring` | pref |
+| `link-distance` | `simulationLinkDistance` | pref |
+| `friction` | `simulationFriction` | pref |
+| `cluster` | `simulationCluster` | pref |
+| `additive-links` | `linkBlending` | pref |
+| `vignette` | `renderVignette` | pref |
+| `grid` | `renderGrid` | pref |
+| `time-by` | `timelineBy` | pref |
+| `GRAPH_SECTION`, `@kanzo-tech/graph/section` | `GRAPH_PREFS`, `@kanzo-tech/graph/prefs` ([architecture](/docs/design/architecture)) | export |
+| `useGraphPrefs()` → `{ look, sim, placement, timeline }` | `useGraphPrefs()` → one flat object of the props above, spread onto the root | export |
+| `lookFrom`, `simFrom` | gone: `useGraphPrefs` is the one reader | export |
+| `Channels`, `Placement`, `Look`, `LookPatch`, `Sim` | gone: the props are `GraphOptions`'s own fields | export |
+| `isColour`, `forces()`, the renaming in `appearance()` and `placementFrom` | gone | internal |
+
+That is 48 rows. `pointSamplingDistance` is not in the table because it is not a prop. It is set
+explicitly from the labels' `CELL` so that the sample the labels count stays the sample cosmos.gl
+draws. Today it relies on the engine's default happening to be the same 100.
+
+`timelineBy` is a coinage. Cosmograph's word is the Timeline's `accessor`, which is a widget prop
+and not a graph setting. It follows `…By` because it names the column the timeline under the graph
+reads.
+
+**Names that do not change.** These are ours because Cosmograph has no setting that does the same
+job:
+- `graph` (`from` until #251), `engine`, `filterBy`, `categories`, `onFailure`, `onSelect` and
+  `onFocus`. `categories` names a value, where `pointColorByMap` would colour it.
+- The parts: `GraphCanvas`, `GraphLegend` and the rest. They are Ark-shaped parts over one context,
+  not Cosmograph's widget instances, and the vocabulary covers configuration, not part names.
+
+**Four preferences keep composite names.** Each is an axis a reader can name, it sets several props
+at once, and each one's doc string says which props it sets:
+
+| pref | sets |
+|---|---|
+| `marks` | `pointSizeRange`, `linkOpacity`, `linkDefaultWidth` |
+| `edges` | `renderLinks`, `curvedLinks`, `curvedLinkControlPointDistance` |
+| `labels` | `showHoveredPointLabel` and `showFocusedPointLabel` (Hovered), with `showTopLabels` (Top), with `showDynamicLabels` (Visible), with `showDynamicLabelsLimit` unbounded (All); None sets all of them false |
+| `placement` | which of `pointXBy`, `pointYBy` and `pointClusterBy` reach the root, and `enableSimulation` by Cosmograph's own rule ([`enableSimulation`](https://cosmograph.app/docs-lib/api/interfaces/CosmographConfig/#enablesimulation)) |
+
+**What Cosmograph has and the graph lacks is built in the same programme.** Each item gets its
+Cosmograph name and the home below. Colour stays a token in every row.
+
+| capability | Cosmograph | home |
+|---|---|---|
+| point colour strategy: categorical, continuous, degree, single | [`pointColorStrategy`](https://cosmograph.app/docs-lib/features/color/) | prop. Continuous and degree read a sequential ramp, and that ramp is a token, so the colour layer decides it ([colour](/docs/design/colour)) |
+| link colour by a column | [`linkColorBy`, `linkColorStrategy`](https://cosmograph.app/docs-lib/api/interfaces/CosmographConfig/#linkcolorby) | prop, over the same categorical tokens |
+| point size strategy: degree clamped to the 5th–95th percentile, direct, single | [`pointSizeStrategy`](https://cosmograph.app/docs-lib/features/size/) | prop, beside `pointSizeRange` |
+| link width by a column | [`linkWidthBy`, `linkWidthRange`](https://cosmograph.app/docs-lib/api/interfaces/CosmographConfig/#linkwidthby) | prop |
+| arrows | [`linkDefaultArrows`, `linkArrowBy`, `linkArrowsSizeScale`](https://cosmograph.app/docs-lib/api/interfaces/CosmographConfig/#linkarrowby) | prop. The default comes from GraphAr's `directed` on the edge type. A `linkDefaultArrows` pref, shown while links are drawn |
+| cluster labels | [`showClusterLabels`](https://cosmograph.app/docs-lib/api/internal/interfaces/LabelsCosmographConfig/#showclusterlabels) | prop, and a pref shown under Clustered. Its text reads the point labels' token |
+| label rank by a column | [`pointLabelWeightBy`](https://cosmograph.app/docs-lib/api/interfaces/CosmographConfig/#pointlabelweightby) | prop |
+| labels on the selection | [`showSelectedLabels`, `selectedPointLabelsLimit`](https://cosmograph.app/docs-lib/api/internal/interfaces/LabelsCosmographConfig/#showselectedlabels) | prop |
+| range colour legend | [`CosmographRangeColorLegend`](https://cosmograph.app/docs-lib/api/interfaces/CosmographRangeColorLegendConfig/) | a part beside `GraphLegend`, built with the continuous strategy |
+| size legend | [`CosmographSizeLegend`](https://cosmograph.app/docs-lib/api/interfaces/CosmographSizeLegendConfig/) | a part beside `GraphLegend` |
+| click behaviour | [`selectPointOnClick`](https://cosmograph.app/docs-lib/api/interfaces/CosmographConfig/#selectpointonclick), [`focusPointOnClick`](https://cosmograph.app/docs-lib/api/interfaces/CosmographConfig/#focuspointonclick), [`resetSelectionOnEmptyCanvasClick`](https://cosmograph.app/docs-lib/api/interfaces/CosmographConfig/#resetselectiononemptycanvasclick) | props. The defaults are today's behaviour: select with neighbours, focus, clear on the background |
+| repulsion accuracy | [`simulationRepulsionTheta`](https://cosmograph.app/docs-lib/api/interfaces/CosmographConfig/#simulationrepulsiontheta) | prop, and a pref slider from 0.3 to 2, the range Cosmograph's app offers ([its settings](https://classic.cosmograph.app/docs/cosmograph/Sharing%20Graphs)) |
+| cluster pull per point | [`pointClusterStrengthBy`](https://cosmograph.app/docs-lib/api/interfaces/CosmographConfig/#pointclusterstrengthby) | prop |
+| a timeline over the links | [`useLinksData`](https://cosmograph.app/docs-lib/api/interfaces/CosmographTimelineConfig/#uselinksdata) | `ChartTimeline`'s, in `@kanzo-tech/ui`, so it is recorded here and not owned here. It waits on edge properties ([timeline](/docs/design/timeline)) |
+
+`simulationDecay` is not offered as a pref. Ours is derived from the vertex count by a measurement
+([layout](/docs/graph/layout#how-the-layout-scales)), and a slider would let a reader undo that
+measurement.
+
+**A look is still form, and a binding is still a column read.** Identity may be drawn as colour, as
+shape, or as both. With `linkColorBy` unbound, a link takes the colour of the vertex it leaves. With
+`pointSizeBy` unbound, size is degree. A theme may not rebind an encoding, which is Vega-Lite's
+`config` rule. The graph holds **one** categorical column, and it authors no colour: it reads the
+page's categorical scale.
+
+**The case that does not fit.** Ink's radius floor exists because Ink spends shape on identity and
+size on degree at the same time, so that obligation is graded against the composition. **What would
+reverse it:** the composition check never firing. If every host that binds `pointShapeBy` also asks
+for the form bundled with it, the pairing was the abstraction.
+
+**A radius is screen pixels**, `scalePointsOnZoom: false`. That is cosmos.gl 3.4's default and
+Cosmograph's. Sizing in graph space was measured on 2026-10-08 at 327,588 vertices and 913,221 links
+in the default look, framed whole. Zoomed out, the points go under a pixel and the link layer covers
+them, so the disc reads as link colour with no type mix left in it. Pixel sizes keep the points
+visible through the links. Without links, graph space is the better picture, with overlap reading
+as density, but links are drawn by default. **What would reverse it:** a graph framed whole with
+links drawn where points in graph space stay visible, or a density control that makes overlap
+legible at pixel sizes.
+
+**What would reverse the vocabulary:**
+- The graph's reference changing from Cosmograph. Then the names follow the new reference, and this
+  table is redone against it.
+- Hosts that bind one column on a chart and on the graph turning out to be the common case, and
+  being hurt by writing two names for it. Then the graph and the charts share one vocabulary. Which
+  of the two references wins is decided by which one carries more of the settings. Today that is
+  Cosmograph's, by the table above.
+
+*Held by*, for the tree until this lands: `packages/graph/src/render/graph-looks.ts`, `Look`;
+`packages/graph/src/core/channels.ts`, `Channels`, `bindingOf`;
+`packages/graph/src/render/obligations.ts`, `gradeComposition`; `packages/graph/src/core/store.test.ts`,
+"sizes by degree when r is unbound, and by the column when it is bound", "colours by vertex type
+unless fill binds a column"; `packages/graph/src/index.test.ts`, "is exactly this list, and grows only
+by somebody writing a name into it". That last test is the one the rename has to edit.
 
 ## A look declares what it changes
 
 A look declares only what it moves from the shared defaults, and the preferences panel offers the
 **axes a reader can name** — `marks`, `edges`, `additive-links`, `labels`, `vignette` — which
 recover the three shipped looks and combine into others. `edges` and `labels` are Cosmograph's
-configuration read as choices: `showLinks` and `curvedLinks` as Hidden, Straight or Curved, and the
+configuration read as choices: `renderLinks` and `curvedLinks` as Hidden, Straight or Curved, and the
 hovered, top and dynamic labels as one ordered scale, None to All, because a reader asks *how much
 text* rather than which of three switches. `additive-links` stays its own switch: it is how links
 composite, not the path they take, and Nebula is additive *and* straight.
@@ -1184,6 +1345,7 @@ or readers asking for a named starting point the axes' defaults do not give them
 | Source | Status | Used for |
 | --- | --- | --- |
 | cosmos.gl 3.4.0 `package.json`, `dist/config.d.ts`, `dist/index.js` | read | the buffer API, the `Float32Array` links, no `webglcontext*` handler |
+| Cosmograph v2's public documentation, [`docs-lib`](https://cosmograph.app/docs-lib/): `CosmographConfig`, the labels config, the colour and size features, the legend and timeline configs | read, 2026-11-04 | the configuration's vocabulary and defaults, and the capabilities to build; never its code |
 | WAI-ARIA Graphics Module 1.0 | read | `graphics-document` as the role this widget's reversal names |
 | WCAG 2.2, SC 2.2.2 Pause, Stop, Hide | read | the pause mechanism that cannot be a toolbar a host omits |
 | WCAG 2.2, SC 1.1.1, 1.4.1, 1.4.13, 2.1.1, 2.4.7, 2.4.11, 2.5.1, 2.5.7, 2.5.8 | **unverified** | cited from the standard, not re-read for this page |
@@ -1210,4 +1372,10 @@ or readers asking for a named starting point the axes' defaults do not give them
 - A host that kept the graph's `window.__KANZO_TESTING__` hook for its end-to-end tests reads where
   the canvas draws off its element, `screenOf(vertex)` and `screenAt({ x, y })`: the global is gone.
 - keasy's own run codes leave the `graph/` area, which the package owns.
+- Every graph prop, preference key and look or force field takes Cosmograph's name, by
+  [the table](#the-configuration-is-cosmographs-word-for-word): `fill` is `pointColorBy` or
+  `pointDefaultColor`, `r` is `pointSizeBy`, `x-by` is `pointXBy`, `gravity` is `simulationGravity`.
+  `look`, `sim`, `lookFrom`, `simFrom`, `Look`, `LookPatch`, `Sim`, `Channels` and `Placement` are
+  gone; `useGraphPrefs()` returns the flat props to spread. A stored preference under an old key is
+  not read.
 

@@ -7,7 +7,8 @@ A timeline is a brushable histogram of one temporal column, which filters the pa
 range and can play that range forward. `ChartTimeline` is the analytics part, and a timeline under a
 graph canvas is the same part over `vertices`, every vertex type as one relation, on the column the
 graph's `time-by` setting chooses. The reference is Cosmograph's
-`CosmographTimeline`, read from `@cosmograph/ui` and `@cosmograph/cosmograph` 2.5.1. This page is
+`CosmographTimeline`, read from its public documentation
+([`CosmographTimelineConfig`](https://cosmograph.app/docs-lib/api/interfaces/CosmographTimelineConfig/)). This page is
 why ours is shaped as it is.
 
 *Status: partly to be built.* The tree announces the window as a `group` carrying `aria-valuetext`,
@@ -80,24 +81,21 @@ The brush stays drawn as the range's outline, the bars from its start to the fra
 the rest of the range is dimmed, and outside it is grey. A pause or the end shows the same, frozen.
 When nothing plays, the range is a plain window.
 
-**Cosmograph's moving window was built first and turned down.** Cosmograph's `Timeline` moves the
-selection itself a bar at a time, keeping its width, and clears it at the end
-(`@cosmograph/ui` 2.5.1, `modules/timeline/component.js`: `_animateSelection` and
-`stopAnimation`). Built that way here, it threw away the range the reader had chosen: the window left
+**Cosmograph's moving window was built first and turned down.** Cosmograph's `Timeline` animates by
+moving the selection brush itself, one movement every `animationSpeed` milliseconds
+([`animationSpeed`](https://cosmograph.app/docs-lib/api/interfaces/CosmographTimelineConfig/#animationspeed)). Built that way here, it threw away the range the reader had chosen: the window left
 the years it was brushed over, and a sweep from a narrow window over a large graph greyed almost
 everything. A reader who brushes 1980 – 1990 is asking to watch those years, so the range stays and
 the frame grows inside it. *What would reverse it:* readers who want a fixed-width window moving over
 time — a rolling year; then a second mode, Kepler's `free`, beside this one, chosen in the settings.
 
-**With no range, Play is disabled, as Cosmograph's is.** It is described, and its tooltip says why:
-*Brush a range to play*. Cosmograph disables its control without a selection
-(`_initAnimationControls` and the `disabled` class). The sweep from the axis's start that we tried
+**With no range, Play is disabled.** It is described, and its tooltip says why:
+*Brush a range to play*. The sweep from the axis's start that we tried
 instead played a range nobody chose.
 
 **At the end, it stops and keeps the whole range; the next Play starts over from its first bar.**
 That is Vizabi's rule, *go to start if we start from end point*, and what Observable's
-[Scrubber](https://observablehq.com/@mbostock/scrubber) does on the next press. Cosmograph clears the
-selection at the end, which reads as play undoing the reader's range, and Kepler loops forever, which
+[Scrubber](https://observablehq.com/@mbostock/scrubber) does on the next press. Kepler loops forever, which
 never lets a graph settle. *What would reverse it:* a reader who wants it to loop; then a loop
 setting, off by default.
 
@@ -157,9 +155,9 @@ own timeline part took on the store, which made the rule one part's when it is e
 would reverse it:* a page whose charts are much slower than its graph; then the canvas shows first
 and the charts catch up, as a column chosen later does.
 
-**Play is a bare glyph at the band's left edge, muted until hovered, as Cosmograph's is.** Cosmograph
-draws a borderless icon, 20 – 30 px wide and half opaque, as a flex item left of its bars
-(`style.js`, `animationControl`). Ours is a solid 20 px glyph centred on the band, with 10 px on either
+**Play is a bare glyph at the band's left edge, muted until hovered.** Cosmograph's is opt-in,
+`showAnimationControls` off by default ([`showAnimationControls`](https://cosmograph.app/docs-lib/api/interfaces/CosmographTimelineConfig/#showanimationcontrols)); ours
+is on unless `playable` is false. Ours is a solid 20 px glyph centred on the band, with 10 px on either
 side, so the band's edge is as far from it as the bars are, with no box at all: no border, background or hover tint. It sits muted at 0.6 opacity, rises to
 the foreground at 1 on hover and focus, and to 0.2 when there is nothing to play. Keyboard focus
 outlines the glyph alone. It is a plain `button`, not `Button`, whose recipe is the box. It is named *Play time* or *Pause time*, the same words as its
@@ -268,8 +266,9 @@ prop of the part again, and the setting is the default the root hands it.
 ## Filtered is greyed out, and playing does not change that
 
 **What the window leaves out is greyed out, and nothing is hidden.** What has no time is left out
-too. Cosmograph 2.5 does the same: it hands cosmos.gl `highlightedPointIndices` and
-`highlightedLinkIndices`, and the rest takes the greyout opacity. So there is no "hide" preference for playback. A graph that grows over time reads as points
+too. Cosmograph does the same: its configuration keeps cosmos.gl's `highlightedPointIndices` and
+`highlightedLinkIndices` to itself and offers `pointGreyoutOpacity` for the rest
+([`CosmographConfig`](https://cosmograph.app/docs-lib/api/interfaces/CosmographConfig/)). So there is no "hide" preference for playback. A graph that grows over time reads as points
 coming into colour against the shape of the whole.
 
 **What would reverse it:** readers who take the greyed-out points as present while it plays, often
