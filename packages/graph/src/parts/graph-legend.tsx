@@ -20,7 +20,7 @@ export interface GraphLegendTranslations {
   noEdges: string;
 }
 
-const ENGLISH: GraphLegendTranslations = {
+const english: GraphLegendTranslations = {
   other: "Other",
   unplaced: "No position",
   noEdges: "No edges have both ends on the map.",
@@ -66,7 +66,7 @@ const shallow = (a: readonly unknown[], b: readonly unknown[]) => a.length === b
  * encoding one product's policy, which is the parts rule's reversal.
  */
 export function GraphLegend({ className, slot, translations, ...rest }: GraphLegendProps) {
-  const t = { ...ENGLISH, ...translations };
+  const t = { ...english, ...translations };
   const styles = graphLegend();
   const options = useGraphState((s) => s.options);
   const domain = useGraphState((s) => s.drawn?.domain ?? s.domain, shallow);

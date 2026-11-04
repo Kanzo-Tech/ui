@@ -27,12 +27,11 @@ export type Rgba = [number, number, number, number];
  * It is a *nothing-resolved* signal, and if it ever reaches a real screen that is a bug in the
  * caller's `host`, not a colour to tune.
  */
-const FALLBACK: Rgba = [0.7, 0.7, 0.7, 1];
-const CHANNELS = /(-?[\d.]+)/g;
+const fallbackGrey: Rgba = [0.7, 0.7, 0.7, 1];
 
 /** `rgb(37, 99, 235)` / `rgba(37, 99, 235, 0.5)` → four floats. */
 function parseRgb(css: string, fallback: Rgba): Rgba {
-  const parts = css.match(CHANNELS)?.map(Number);
+  const parts = css.match(/(-?[\d.]+)/g)?.map(Number);
   if (!parts || parts.length < 3 || parts.some(Number.isNaN)) return fallback;
   const [r = 0, g = 0, b = 0, a = 1] = parts;
   return [r / 255, g / 255, b / 255, a];
@@ -44,7 +43,7 @@ function parseRgb(css: string, fallback: Rgba): Rgba {
  * `host` matters and is not ceremony: resolving against the element the canvas actually sits in is
  * what lets a scoped theme override win, which resolving against `<html>` would quietly lose.
  */
-export function resolveToken(host: Element, value: string, fallback: Rgba = FALLBACK): Rgba {
+export function resolveToken(host: Element, value: string, fallback: Rgba = fallbackGrey): Rgba {
   if (typeof document === "undefined" || !value) return fallback;
   const token = value.trim().replace(/^var\(\s*|\s*\)$/g, "");
   const resolved = resolveTokenColor(host, token.startsWith("--") ? token : value);

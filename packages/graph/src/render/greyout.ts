@@ -28,10 +28,10 @@
 export type Rgb = readonly [number, number, number];
 
 /** WCAG 2.2 SC 1.4.11: a graphical object against what it must be told from. */
-export const NON_TEXT_CONTRAST = 3;
+const nonTextContrast = 3;
 
 /** The grid `α` is searched on. */
-const STEPS = 1000;
+const steps = 1000;
 
 const linear = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
 const byte = (c: number) => Math.round(Math.min(1, Math.max(0, c)) * 255) / 255;
@@ -64,11 +64,11 @@ export const over = (colour: Rgb, alpha: number, background: Rgb): Rgb =>
  * `pointGreyoutOpacity` for a canvas painting `colours` on `background`.
  */
 export function greyoutOpacity(colours: readonly Rgb[], background: Rgb): number {
-  const told = colours.filter((c) => contrastOf(c, background) >= NON_TEXT_CONTRAST);
+  const told = colours.filter((c) => contrastOf(c, background) >= nonTextContrast);
   if (told.length === 0) return 1;
   const greyed = told.map((c) => greyedOf(c, background));
-  const holds = (alpha: number) => told.every((c, i) => contrastOf(c, over(greyed[i]!, alpha, background)) >= NON_TEXT_CONTRAST);
+  const holds = (alpha: number) => told.every((c, i) => contrastOf(c, over(greyed[i]!, alpha, background)) >= nonTextContrast);
   let k = 0;
-  while (k < STEPS && holds((k + 1) / STEPS)) k++;
-  return k / STEPS;
+  while (k < steps && holds((k + 1) / steps)) k++;
+  return k / steps;
 }

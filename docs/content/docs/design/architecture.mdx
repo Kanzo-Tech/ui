@@ -270,8 +270,9 @@ the tree this page was written against, `packages/*/src` declared 214 upper-case
 exported, 76 of them a bare number, and seven declared twice — `KEY = "dense_id"`, `VERTEX_INDEX` and
 `VERTICES` in both `graph/core/source.ts` and `relations/graphar.ts`, `SERIES_LIMIT` and `FACET_LIMIT`
 in both `chart-card.tsx` and `dashboard-spec.ts`, `ZOOM = 1.4` in the graph's toolbar and its keyboard
-map, `DEPTH = 8` in the kernel's `problem.ts` and `ui`'s; and `OBLIGATIONS` names two different tables
-in `theme` and `graph`.
+map, `DEPTH = 8` in the kernel's `problem.ts` and `ui`'s. The obligations of `theme` and `graph` are
+two module-local tables in one shape, `Obligation`, graded by one function, `gradeObligations`, both
+declared in `theme` — the lowest package the two import.
 
 1. **A value someone may change is a token or a pref**, declared in its model — `tokens.css`, a
    prefs manifest — and read where it is used. That is the design-tokens practice the library already

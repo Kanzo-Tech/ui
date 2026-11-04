@@ -11,7 +11,7 @@ export interface GraphStatusTranslations {
   failed: string;
 }
 
-const ENGLISH: GraphStatusTranslations = { loading: "Loading", layingOut: "Laying out", ready: "Ready", failed: "Failed" };
+const english: GraphStatusTranslations = { loading: "Loading", layingOut: "Laying out", ready: "Ready", failed: "Failed" };
 
 /** `Badge`'s props: the status is a badge, and takes everything one does, `asChild` included. */
 export interface GraphStatusProps extends Omit<React.ComponentProps<typeof Badge>, "children"> {
@@ -20,7 +20,7 @@ export interface GraphStatusProps extends Omit<React.ComponentProps<typeof Badge
 
 type Word = keyof GraphStatusTranslations;
 
-const TONE = { loading: "info", layingOut: "info", ready: "success", failed: "destructive" } as const;
+const tone = { loading: "info", layingOut: "info", ready: "success", failed: "destructive" } as const;
 
 /**
  * **Where the graph is, in one word** — Loading, Laying out 42%, Ready or Failed. It reads both axes
@@ -33,7 +33,7 @@ const TONE = { loading: "info", layingOut: "info", ready: "success", failed: "de
  * is `aria-busy` while loading or laying out. The dot is decoration, hidden from the tree.
  */
 export function GraphStatus({ className, slot, translations, ...rest }: GraphStatusProps) {
-  const t = { ...ENGLISH, ...translations };
+  const t = { ...english, ...translations };
   const word = useGraphState((s): Word => {
     if (s.status === "failed") return "failed";
     if (s.status !== "idle") return "loading";
@@ -52,7 +52,7 @@ export function GraphStatus({ className, slot, translations, ...rest }: GraphSta
       className={cn("gap-1.5 tabular-nums", className)}
       slot={slot ?? "graph-status"}
     >
-      <Status className="ring-0" size="sm" variant={TONE[word]} />
+      <Status className="ring-0" size="sm" variant={tone[word]} />
       <span aria-live="polite">{t[word]}</span>
       <Show when={word === "layingOut"}>
         <FormatNumber maximumFractionDigits={0} style="percent" value={progress} />

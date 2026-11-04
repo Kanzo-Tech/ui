@@ -23,13 +23,6 @@ export type Point = [number, number];
 /** A selection gesture in flight. The two tools differ only in what they accumulate. */
 export type Drag = { tool: "rect"; from: Point; to: Point } | { tool: "lasso"; path: Point[] };
 
-/** Below this the hit test would be answering about a click, not a box. */
-const MIN_RECT = 3;
-/** A raw pointer stream makes a polygon of near-duplicate vertices; the hit test walks every one. */
-const PATH_STEP = 4;
-/** Slower than the hand, faster than the eye — and one GPU readback per gesture frame is plenty. */
-const MEASURE_MS = 60;
-
 /** The running count rides just off the cursor, at the edge the gesture is growing from. */
 export function cursorChip(drag: Drag | null): React.CSSProperties {
   if (!drag) return { display: "none" };
@@ -61,7 +54,7 @@ export interface GraphSelectionOptions {
   setTool: (tool: Tool) => void;
 }
 
-const NAME: Record<"rect" | "lasso", { source: VertexSelectionSource; label: string }> = {
+const named: Record<"rect" | "lasso", { source: VertexSelectionSource; label: string }> = {
   rect: { source: "marquee", label: "Marquee" },
   lasso: { source: "lasso", label: "Lasso" },
 };
@@ -81,7 +74,8 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
       // selects nothing, which is what it looks like.
       if (shape.tool === "rect") {
         const [[ax, ay], [bx, by]] = [shape.from, shape.to];
-        if (Math.abs(bx - ax) < MIN_RECT || Math.abs(by - ay) < MIN_RECT) return [];
+        // Under 3px the hit test would be answering about a click, not a box.
+        if (Math.abs(bx - ax) < 3 || Math.abs(by - ay) < 3) return [];
         return Array.from(
           graph.findPointsInRect([
             [Math.min(ax, bx), Math.min(ay, by)],
@@ -100,7 +94,8 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
   const measure = useCallback(
     (shape: Drag) => {
       const now = performance.now();
-      if (now - measured.current < MEASURE_MS) return;
+      // Every 60ms: slower than the hand, faster than the eye, and one GPU readback per gesture frame is plenty.
+      if (now - measured.current < 60) return;
       measured.current = now;
       setPreview(hitTest(shape).length);
     },
@@ -152,7 +147,7 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
     // pick's chip and Escape are for — and with Alt it would turn what a filter keeps into
     // the canvas's pick for no visible change.
     if (vertices.size === 0) return;
-    const { label, source } = NAME[shape.tool];
+    const { label, source } = named[shape.tool];
     const verb = event.altKey ? "take" : event.metaKey || event.ctrlKey ? "add" : "replace";
     const next = modified(getSelection(), vertices, verb);
     commit(next && next.vertices.size > 0 ? next.vertices : null, source, label, next?.excludes ?? false);
@@ -185,7 +180,8 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
           return;
         }
         const last = drag.path[drag.path.length - 1] as Point;
-        if (Math.hypot(next[0] - last[0], next[1] - last[1]) < PATH_STEP) return;
+        // Drop points under 4px apart: a raw pointer stream makes a polygon of near-duplicate vertices, and the hit test walks every one.
+        if (Math.hypot(next[0] - last[0], next[1] - last[1]) < 4) return;
         const shape: Drag = { tool: "lasso", path: [...drag.path, next] };
         setDrag(shape);
         measure(shape);

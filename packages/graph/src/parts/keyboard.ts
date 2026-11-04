@@ -9,11 +9,10 @@ import { useGraphSnapshot, useGraphState } from "../react/use-graph-state";
 import { modified } from "./gesture";
 import { useTitles } from "./labels";
 
-/** How far Shift + an arrow pans, in screen pixels, and how much `+` and `-` zoom, as the toolbar's buttons do. */
-const PAN = 80;
-export const ZOOM = 1.4;
+/** How much `+` and `-` zoom, and the toolbar's buttons with them. */
+export const zoomStep = 1.4;
 
-const ARROWS: Record<string, readonly [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+const arrows: Record<string, readonly [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
 
 /** Where a walk through a vertex's neighbours stands: the vertex it stopped on, its place among them and how many there are. */
 interface Walk {
@@ -57,9 +56,10 @@ export function useKeyboard(announce: (title: string, type: string, neighbours: 
     const { key } = event;
     const r = renderer();
     const plain = !event.metaKey && !event.ctrlKey && !event.altKey;
-    const direction = ARROWS[key];
+    const direction = arrows[key];
     let handled = true;
-    if (direction && event.shiftKey) r?.pan(direction[0] * PAN, direction[1] * PAN);
+    // Shift + an arrow pans 80 screen pixels.
+    if (direction && event.shiftKey) r?.pan(direction[0] * 80, direction[1] * 80);
     else if (direction) {
       const next = r?.toward(focus, direction) ?? null;
       if (next !== null) move(next, null);
@@ -76,8 +76,8 @@ export function useKeyboard(announce: (title: string, type: string, neighbours: 
       const caught = new Set<VertexId>([focus, ...(r?.neighbours(focus) ?? [])]);
       const next = modified(api.getState().selection, caught, event.altKey ? "take" : event.metaKey || event.ctrlKey ? "add" : "replace");
       store.select(next ? [...next.vertices] : null, "node", "Node", next?.excludes ?? false);
-    } else if (plain && (key === "+" || key === "=")) api.zoomBy(ZOOM);
-    else if (plain && (key === "-" || key === "_")) api.zoomBy(1 / ZOOM);
+    } else if (plain && (key === "+" || key === "=")) api.zoomBy(zoomStep);
+    else if (plain && (key === "-" || key === "_")) api.zoomBy(1 / zoomStep);
     else if (plain && (key === "f" || key === "F")) api.frame();
     else if (plain && (key === "p" || key === "P")) {
       if (api.getState().motion === "running") api.pause();

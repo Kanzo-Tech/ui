@@ -36,7 +36,7 @@ export interface GraphCanvasTranslations {
   focused: (title: string, type: string, neighbours: number, kept: boolean, walk: readonly [number, number] | null) => string;
 }
 
-const ENGLISH: GraphCanvasTranslations = {
+const english: GraphCanvasTranslations = {
   loading: "Loading the graph…",
   holds: (count, n) => `${count} node${n === 1 ? "" : "s"}`,
   name: "Graph",
@@ -53,14 +53,14 @@ export interface GraphCanvasProps extends React.ComponentProps<typeof ark.div> {
   translations?: Partial<GraphCanvasTranslations>;
 }
 
-const WASH = "color-mix(in oklab, var(--primary) 17%, transparent)";
+const wash = "color-mix(in oklab, var(--primary) 17%, transparent)";
 
 /**
  * Where an overlay the renderer places every frame starts: the canvas's top-left corner, written as
  * a style beside the `transform` `overlays.ts` writes, because both are cosmos.gl's screen
  * coordinates — a corner, not a reading direction, so they do not mirror under `dir="rtl"`.
  */
-const ORIGIN: React.CSSProperties = { left: 0, top: 0 };
+const origin: React.CSSProperties = { left: 0, top: 0 };
 
 const graphCanvas = tv({
   slots: {
@@ -103,7 +103,7 @@ const graphCanvas = tv({
  * its element says: `screenOf(vertex)` and `screenAt({ x, y })` (`./screen`).
  */
 export function GraphCanvas({ children, className, slot, translations, ...rest }: GraphCanvasProps) {
-  const t = { ...ENGLISH, ...translations };
+  const t = { ...english, ...translations };
   const styles = graphCanvas();
   const api = useGraphContext();
   const generated = useId();
@@ -220,7 +220,7 @@ export function GraphCanvas({ children, className, slot, translations, ...rest }
             data-slot="graph-canvas-label"
             key={String(label.vertex)}
             ref={labelRef(label.vertex)}
-            style={ORIGIN}
+            style={origin}
           >
             {label.text}
           </span>
@@ -248,7 +248,7 @@ export function GraphCanvas({ children, className, slot, translations, ...rest }
                   height={Math.abs(drag.to[1] - drag.from[1])}
                   strokeDasharray="4 3"
                   strokeWidth={1}
-                  style={{ fill: WASH }}
+                  style={{ fill: wash }}
                   width={Math.abs(drag.to[0] - drag.from[0])}
                   x={Math.min(drag.from[0], drag.to[0])}
                   y={Math.min(drag.from[1], drag.to[1])}
@@ -259,7 +259,7 @@ export function GraphCanvas({ children, className, slot, translations, ...rest }
                     className="stroke-primary"
                     points={drag.path.map(([x, y]) => `${x},${y}`).join(" ")}
                     strokeWidth={1}
-                    style={{ fill: WASH }}
+                    style={{ fill: wash }}
                   />
                 )
               )}
@@ -312,7 +312,7 @@ function HoverCard({ cardRef, styles, domain, encoding, options, scale, schedule
   const rank = encoding.ranks[hovered] ?? 0;
   const category = rank < domain.length ? nameOf(domain[rank], options.categories) : null;
   return (
-    <div className={styles.card()} data-slot="graph-canvas-card" ref={cardRef} style={ORIGIN}>
+    <div className={styles.card()} data-slot="graph-canvas-card" ref={cardRef} style={origin}>
       <ShapeGlyph className={styles.cardGlyph()} color={scale.color(rank)} shape={scale.shape(rank)} />
       <span className={styles.cardTitle()}>{titles.get(hovered) || `#${hovered}`}</span>
       <Show when={category !== null}>

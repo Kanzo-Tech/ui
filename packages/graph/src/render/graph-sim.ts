@@ -54,11 +54,11 @@ export function simFrom(values: Readonly<Record<string, string | undefined>> = {
 /**
  * What a canvas simulates with when nobody has chosen anything.
  *
- * **Not on the barrel, and it used to be** — for the reason its twin was: it is `simFrom()`, a
- * second public name for a value already available on request, exported only because `sim` took a
- * whole `Sim` and a host changing `gravity` had to supply the other five.
+ * Module-local: it is `simFrom()`, and `resolveSim()` is how anything outside this file reaches it.
+ * It was on the barrel only because `sim` took a whole `Sim` and a host changing `gravity` had to
+ * supply the other five.
  */
-export const DEFAULT_SIM: Sim = simFrom();
+const defaultSim: Sim = simFrom();
 
 /**
  * The coefficients a caller wants different, over the ones this package chose.
@@ -68,6 +68,6 @@ export const DEFAULT_SIM: Sim = simFrom();
  * per render would put energy back into a settled layout on every render.
  */
 export function resolveSim(patch?: Partial<Sim>): Sim {
-  if (!patch) return DEFAULT_SIM;
-  return { ...DEFAULT_SIM, ...patch };
+  if (!patch) return defaultSim;
+  return { ...defaultSim, ...patch };
 }

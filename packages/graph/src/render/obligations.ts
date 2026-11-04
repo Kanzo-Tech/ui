@@ -1,44 +1,24 @@
+import { gradeObligations, type Obligation, type ObligationCheck } from "@kanzo-tech/theme";
 import type { Channels } from "../core/channels";
-import { lookFrom, SHAPE_ORDER, SHAPE_OTHER, type Look } from "./graph-looks";
+import { lookFrom, shapeOrder, shapeOther, type Look } from "./graph-looks";
 
-/**
- * What the graph's geometry owes, as a report rather than as prose.
- *
- * This is the retired derivation's `OBLIGATIONS` one section along, and the shape is deliberately the
- * same family: a stable `id` a caller can branch on, and a `reason` that is one line a panel can
- * show. What is added is the part that makes an obligation checkable instead of quotable — the
- * number, the bar, and what the number was measured against.
+/*
+ * What the graph's geometry owes, as a report rather than as prose — the colour and density
+ * sections' shape, `Obligation` from `@kanzo-tech/theme`, graded by the same function.
  *
  * **Why this file exists.** The colour section publishes twenty-one obligations and the graph
  * section published none, while having four that were perfectly real and living in comments. That
  * asymmetry made "are these two the same kind of thing?" an argument. With both sections reporting,
  * it is an observation.
  *
- * **What `FORM_OBLIGATIONS` does not do.** It grades constants of ours — the shape scale and the three
+ * **What `check()` does not do.** It grades constants of ours — the shape scale and the three
  * shipped forms — so it cannot fail at runtime for a consumer; it is the section's own claim about
  * itself, checked in CI. `gradeComposition` is the half that *can* fail for a consumer, because
  * what it grades is what the caller composed.
  */
-export interface Obligation {
-  /** Stable key, so a caller branches on the failure rather than parsing prose. */
-  id: string;
-  /** What the number is a property of. */
-  subject: string;
-  /** The measured value, in `unit`. `null` means the obligation is real and not yet gradeable. */
-  measured: number | null;
-  /** The bar `measured` must clear, in `unit`. `null` where `measured` is. */
-  threshold: number | null;
-  /** How `measured` must stand to `threshold`. */
-  holds: ">=" | "<=" | "<";
-  unit: string;
-  /** What the bar comes from — an external system, a standard, or a measurement of ours. */
-  against: string;
-  /** The rule in one line. */
-  reason: string;
-}
 
-/** How many of the ordered shapes `SHAPE_OTHER` collides with. Must be none. */
-const otherCollisions = SHAPE_ORDER.filter((s) => s === SHAPE_OTHER).length;
+/** How many of the ordered shapes `shapeOther` collides with. Must be none. */
+const otherCollisions = shapeOrder.filter((s) => s === shapeOther).length;
 
 /** The largest curvature any look asks for. */
 // One curvature now, not three: the `edges` axis picks it or zero, so the largest a form
@@ -60,7 +40,7 @@ const maxCurve = lookFrom({ edges: "curved" }).link.curve;
  * not user-authored today; when one is, this is the function that has to run against it.* The
  * binding got there first.
  */
-const SHAPE_FLOOR: Omit<Obligation, "measured"> = {
+const shapeFloor = {
   id: "shape-floor",
   subject: "the smallest point radius of a form that `symbol` is bound on",
   threshold: 4,
@@ -81,7 +61,7 @@ const SHAPE_FLOOR: Omit<Obligation, "measured"> = {
     "has no second channel to interfere with. NOT 'shapes collapse at small sizes' — Smart & " +
     "Szafir measured 16 shapes across 6 sizes and found discrimination robust to size, varying " +
     "significantly only at 6px and by 4.5 accuracy points.",
-};
+} satisfies Omit<Obligation, "measured">;
 
 /**
  * Grade what a host actually composed: this form, with these bindings.
@@ -89,18 +69,16 @@ const SHAPE_FLOOR: Omit<Obligation, "measured"> = {
  * `null` when `symbol` is not bound, which is not a pass — there is no obligation to grade, because
  * a point wearing one glyph has no second channel to protect.
  */
-export function gradeComposition(look: Look, channels: Channels): Check | null {
+export function gradeComposition(look: Look, channels: Channels): ObligationCheck | null {
   if (channels.symbol === undefined) return null;
-  const measured = look.size[0];
-  const threshold = SHAPE_FLOOR.threshold as number;
-  return { ...SHAPE_FLOOR, measured, threshold, ok: measured >= threshold };
+  return gradeObligations([{ ...shapeFloor, measured: look.size[0] }])[0] ?? null;
 }
 
-export const FORM_OBLIGATIONS: readonly Obligation[] = [
+const obligations: readonly Obligation[] = [
   {
     id: "shape-capacity",
     subject: "distinguishable glyphs the scale can name, including the past-capacity one",
-    measured: SHAPE_ORDER.length + 1,
+    measured: shapeOrder.length + 1,
     threshold: 5,
     holds: "<=",
     unit: "glyphs",
@@ -111,7 +89,7 @@ export const FORM_OBLIGATIONS: readonly Obligation[] = [
       "Naming more categories than the channel can carry claims a difference nobody can see, which " +
       "is the same mistake `categoricalCapacity` exists to stop colour making. The two scales have " +
       "different cardinalities because the CHANNELS do, not because one is drawn smaller: four " +
-      "ordered slots plus SHAPE_OTHER is exactly the five the literature allows, and the colour " +
+      "ordered slots plus `shapeOther` is exactly the five the literature allows, and the colour " +
       "side agrees from the other end — Dracula's document publishes a capacity of 7. cosmos.gl " +
       "would draw nine, and nine is the number this bar exists to refuse.",
   },
@@ -122,10 +100,10 @@ export const FORM_OBLIGATIONS: readonly Obligation[] = [
     threshold: 0,
     holds: "<=",
     unit: "collisions",
-    against: "`SHAPE_ORDER`, the four slots a real category can wear",
+    against: "`shapeOrder`, the four slots a real category can wear",
     reason:
       "A fifth category must say *not one of the four* rather than repeat the first one, so " +
-      "`SHAPE_OTHER` may not be a member of the order — the fallback used to be `circle`, which is " +
+      "`shapeOther` may not be a member of the order — the fallback used to be `circle`, which is " +
       "category 0's glyph. It also may not be cosmos.gl's `None` (8): the point fragment shader " +
       "`discard`s a NONE point carrying no image, so 'past capacity' spelled that way deletes the " +
       "node from the picture, and a category nobody can name is still a node with edges.",
@@ -163,33 +141,12 @@ export const FORM_OBLIGATIONS: readonly Obligation[] = [
   },
 ];
 
-/** An obligation that can be graded, and whether it holds. */
-export interface Check extends Obligation {
-  measured: number;
-  threshold: number;
-  ok: boolean;
-}
-
 /**
- * Grade every obligation that carries a number.
- *
- * Ungradeable rows are skipped rather than defaulted to passing: a bar nobody has established
- * cannot be cleared, and reporting one as green is how a guard comes to test a corpus of zero.
- * `FORM_OBLIGATIONS.length - check().length` is the number of open questions this section has.
+ * Every form obligation, graded. A row with no number is `ok: null` — `link-fade` is one, and the
+ * count of them is the number of open questions this section has.
  */
-export function check(): Check[] {
-  return FORM_OBLIGATIONS.filter(
-    (o): o is Obligation & { measured: number; threshold: number } =>
-      o.measured !== null && o.threshold !== null,
-  ).map((o) => ({
-    ...o,
-    ok:
-      o.holds === ">="
-        ? o.measured >= o.threshold
-        : o.holds === "<="
-          ? o.measured <= o.threshold
-          : o.measured < o.threshold,
-  }));
+export function check(): ObligationCheck[] {
+  return gradeObligations(obligations);
 }
 
 // `SHAPE` was re-exported here "so a caller can name it", and a caller names it as `"cross"` now.

@@ -25,13 +25,11 @@ import { drawGrid } from "../render/grid";
  */
 
 /** How far the hover card clears its node, and the margin it keeps from the canvas edge. */
-const CARD_GAP = 14;
-const CARD_EDGE = 8;
+const cardGap = 14;
+const cardEdge = 8;
 
-/** How far a label floats above its node, how tall its box is, and the air it demands around it. */
-const LABEL_LIFT = 10;
-const LABEL_HEIGHT = 12;
-const LABEL_GAP = 3;
+/** The air a label demands around its box. */
+const labelGap = 3;
 
 const clamp = (value: number, low: number, high: number) =>
   Math.min(Math.max(value, low), Math.max(low, high));
@@ -149,8 +147,9 @@ export function useOverlays(api: { getGraph: () => Graph | null; theme: number }
       }
       const x1 = x - width / 2;
       const x2 = x1 + width;
-      const y2 = y - LABEL_LIFT;
-      const y1 = y2 - LABEL_HEIGHT;
+      // A label floats 10px above its node, in a box 12px tall.
+      const y2 = y - 10;
+      const y1 = y2 - 12;
       const offscreen =
         bounds !== null && (x2 < 0 || y2 < 0 || x1 > bounds.width || y1 > bounds.height);
       const collides = placed.some((r) => x1 < r[2] && x2 > r[0] && y1 < r[3] && y2 > r[1]);
@@ -158,7 +157,7 @@ export function useOverlays(api: { getGraph: () => Graph | null; theme: number }
         element.style.opacity = "0";
         continue;
       }
-      placed.push([x1 - LABEL_GAP, y1 - LABEL_GAP, x2 + LABEL_GAP, y2 + LABEL_GAP]);
+      placed.push([x1 - labelGap, y1 - labelGap, x2 + labelGap, y2 + labelGap]);
       // Positioned at the box that was just tested, in pixels. The previous version measured a
       // rectangle here and then drew the label somewhere else — `translate(-50%, -160%)` offsets by
       // percentages of the element's own size, so the collision box sat about nine pixels below the
@@ -201,12 +200,12 @@ export function useOverlays(api: { getGraph: () => Graph | null; theme: number }
           size = { width: card.offsetWidth, height: card.offsetHeight };
           cardSize.current = size;
         }
-        const above = y - CARD_GAP - size.height;
-        const below = y + CARD_GAP;
-        const top = above >= CARD_EDGE ? above : below;
+        const above = y - cardGap - size.height;
+        const below = y + cardGap;
+        const top = above >= cardEdge ? above : below;
         card.style.transform = `translate(${Math.round(
-          clamp(x - size.width / 2, CARD_EDGE, bounds.width - size.width - CARD_EDGE),
-        )}px, ${Math.round(clamp(top, CARD_EDGE, bounds.height - size.height - CARD_EDGE))}px)`;
+          clamp(x - size.width / 2, cardEdge, bounds.width - size.width - cardEdge),
+        )}px, ${Math.round(clamp(top, cardEdge, bounds.height - size.height - cardEdge))}px)`;
         card.style.opacity = "1";
       }
     }

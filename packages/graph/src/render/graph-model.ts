@@ -3,7 +3,7 @@ import { CHART_SLOTS, categoricalCapacity, categoricalColor } from "@kanzo-tech/
 import { isColour, type Channels } from "../core/channels";
 import type { Encoding, Geometry } from "../core/load";
 import { resolveToken, toHex, type Rgba } from "./css-color";
-import { SHAPE_INDEX, SHAPE_ORDER, SHAPE_OTHER, type Look, type Shape } from "./graph-looks";
+import { shapeIndex, shapeOrder, shapeOther, type Look, type Shape } from "./graph-looks";
 import type { Sim } from "./graph-sim";
 import { greyoutOpacity, type Rgb } from "./greyout";
 
@@ -25,7 +25,7 @@ export function scaleOf(channels: Channels, capacity = CHART_SLOTS) {
       if (constant) return constant;
       return ordinal >= capacity ? "var(--muted-foreground)" : categoricalColor(ordinal, undefined, capacity);
     },
-    shape: (ordinal: number): Shape => (shaped ? (SHAPE_ORDER[ordinal] ?? SHAPE_OTHER) : "circle"),
+    shape: (ordinal: number): Shape => (shaped ? (shapeOrder[ordinal] ?? shapeOther) : "circle"),
   };
 }
 
@@ -78,7 +78,7 @@ export function paint(geometry: Geometry, encoding: Encoding, look: Look, host: 
     const value = ramp ? (ramp[i] as number) : Number.NaN;
     const t = Number.isNaN(value) ? 0 : (Math.sqrt(value) - lo) / span;
     sizes[i] = look.size[0] + t * (look.size[1] - look.size[0]);
-    shapes[i] = SHAPE_INDEX[scale.shape(ordinal)] as number;
+    shapes[i] = shapeIndex[scale.shape(ordinal)] as number;
   }
 
   const count = geometry.links.length / 2;

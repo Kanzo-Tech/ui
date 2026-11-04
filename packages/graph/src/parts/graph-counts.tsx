@@ -29,7 +29,7 @@ export interface GraphCountsTranslations {
   separator: string;
 }
 
-const ENGLISH: GraphCountsTranslations = {
+const english: GraphCountsTranslations = {
   nodes: (count) => <>{count} nodes</>,
   placedNodes: (count, total, placed) => (
     <>
@@ -59,10 +59,8 @@ const graphCounts = tv({
   },
 });
 
-const COMPACT = { notation: "compact", maximumFractionDigits: 1 } as const;
-
 function Count({ value }: { value: number | null | undefined }) {
-  return value === null || value === undefined ? "—" : <FormatNumber value={value} {...COMPACT} />;
+  return value === null || value === undefined ? "—" : <FormatNumber maximumFractionDigits={1} notation="compact" value={value} />;
 }
 
 /**
@@ -83,7 +81,7 @@ function Count({ value }: { value: number | null | undefined }) {
  * `GraphStatus`'s word.
  */
 export function GraphCounts({ className, slot, translations, ...rest }: GraphCountsProps) {
-  const t = { ...ENGLISH, ...translations };
+  const t = { ...english, ...translations };
   const styles = graphCounts();
   const total = useGraphState((s) => s.total);
   // What the canvas holds that another filter hides: the one figure only this sentence says.

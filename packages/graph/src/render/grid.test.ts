@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { dots, drawGrid, GRID_MIN, side, spacing, type GridView } from "./grid";
+import { dots, drawGrid, side, spacing, type GridView } from "./grid";
 
 const view = (over: Partial<GridView> = {}): GridView => ({ x: 0, y: 0, scale: 1, width: 400, height: 300, ratio: 1, ...over });
 
@@ -19,8 +19,8 @@ describe("spacing", () => {
     for (let exponent = -6; exponent <= 6; exponent += 0.05) {
       const scale = 10 ** exponent;
       const step = spacing(scale) * scale;
-      expect(step).toBeGreaterThanOrEqual(GRID_MIN * (1 - 1e-9));
-      expect(step).toBeLessThan(GRID_MIN * 2.5 * (1 + 1e-9));
+      expect(step).toBeGreaterThanOrEqual(22 * (1 - 1e-9));
+      expect(step).toBeLessThan(22 * 2.5 * (1 + 1e-9));
     }
   });
 
@@ -60,7 +60,7 @@ describe("dots", () => {
       expect(y).toBeGreaterThanOrEqual(0);
       expect(y).toBeLessThan(720);
     }
-    expect(found.length).toBeLessThanOrEqual(Math.ceil(1280 / GRID_MIN) * Math.ceil(720 / GRID_MIN));
+    expect(found.length).toBeLessThanOrEqual(Math.ceil(1280 / 22) * Math.ceil(720 / 22));
     expect(found.length).toBeGreaterThan(0);
   });
 

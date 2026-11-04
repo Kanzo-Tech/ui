@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { placementFrom, timelineFrom } from "./core/channels";
 import { DEFAULT_LOOK, lookFrom, type Look } from "./render/graph-looks";
-import { DEFAULT_SIM, simFrom } from "./render/graph-sim";
+import { resolveSim, simFrom } from "./render/graph-sim";
 import { GRAPH_SECTION } from "./section";
 
 /**
@@ -66,7 +66,7 @@ describe("the look axes", () => {
   it("simulates what a graph simulated before any of this existed, when nothing is stored", () => {
     const sim = { gravity: 0.14, repulsion: 1.1, linkSpring: 0.6, linkDistance: 18, friction: 0.86, cluster: 0.1 };
     expect(simFrom()).toEqual(sim);
-    expect(DEFAULT_SIM).toEqual(sim);
+    expect(resolveSim()).toEqual(sim);
     expect(simFrom({ gravity: "not a number" })).toEqual(sim);
   });
 

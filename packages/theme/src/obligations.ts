@@ -1,7 +1,8 @@
 import themeDataJson from "../theme-data.json" with { type: "json" };
+import { gradeObligations, type Obligation, type ObligationCheck } from "./grading.js";
 
-/**
- * What the density axis owes — the third section's obligations, in the graph section's shape.
+/*
+ * What the density axis owes — the third section's obligations.
  *
  * Density sets the root font-size the whole `rem` scale resolves against, so it is a **multiplier
  * on every size the component layer declares**. That is what makes it a section rather than a
@@ -20,29 +21,16 @@ import themeDataJson from "../theme-data.json" with { type: "json" };
  * broke it first. The obligation is stated here because this is where the multiplier lives and
  * where the axis can be graded; the fix for a specific failure may well belong in `ui`.
  */
-export interface Obligation {
-  id: string;
-  subject: string;
-  measured: number | null;
-  threshold: number | null;
-  holds: ">=" | "<=" | "<";
-  unit: string;
-  against: string;
-  reason: string;
-}
-
-/** Root font-size per density, read from the generated table rather than re-typed. */
-const DENSITIES: Record<string, string> = themeDataJson.densities;
 
 /**
  * The steps are percentages of the BROWSER's font size, so they are graded at the browser default
  * of 16px. A person who enlarged their browser has larger targets than these figures, never smaller.
  */
-const BROWSER_ROOT_PX = 16;
-const px = (v: string) => (Number.parseFloat(v) / 100) * BROWSER_ROOT_PX;
+const browserRootPx = 16;
+const px = (v: string) => (Number.parseFloat(v) / 100) * browserRootPx;
 
-/** The smallest root font-size the axis offers. Derived, so a new density step is graded too. */
-const minRoot = Math.min(...Object.values(DENSITIES).map(px));
+/** The smallest root font-size the axis offers, read from the generated table so a new step is graded too. */
+const minRoot = Math.min(...Object.values(themeDataJson.densities).map(px));
 
 /**
  * The library's smallest interactive height, in `rem`, at the smallest density.
@@ -51,13 +39,13 @@ const minRoot = Math.min(...Object.values(DENSITIES).map(px));
  * because the axis is what this file can grade; the 1.5 is `@kanzo-tech/ui`'s to change and a test
  * there is what would catch it moving.
  */
-const SMALLEST_CONTROL_REM = 1.5;
+const smallestControlRem = 1.5;
 
-export const OBLIGATIONS: readonly Obligation[] = [
+const obligations: readonly Obligation[] = [
   {
     id: "target-size",
     subject: "the smallest interactive control, at the smallest density",
-    measured: Number((SMALLEST_CONTROL_REM * minRoot).toFixed(2)),
+    measured: Number((smallestControlRem * minRoot).toFixed(2)),
     threshold: 24,
     holds: ">=",
     unit: "CSS px",
@@ -87,30 +75,7 @@ export const OBLIGATIONS: readonly Obligation[] = [
   },
 ];
 
-export interface Check extends Obligation {
-  measured: number;
-  threshold: number;
-  ok: boolean;
-}
-
-/**
- * Grade every obligation carrying a number.
- *
- * Ungradeable rows are skipped rather than defaulted to passing, for the same reason the graph's
- * are: a bar nobody established cannot be cleared, and reporting one green is how a guard comes to
- * test a corpus of zero.
- */
-export function check(): Check[] {
-  return OBLIGATIONS.filter(
-    (o): o is Obligation & { measured: number; threshold: number } =>
-      o.measured !== null && o.threshold !== null,
-  ).map((o) => ({
-    ...o,
-    ok:
-      o.holds === ">="
-        ? o.measured >= o.threshold
-        : o.holds === "<="
-          ? o.measured <= o.threshold
-          : o.measured < o.threshold,
-  }));
+/** Every density obligation, graded — including the one nobody can grade yet. */
+export function check(): ObligationCheck[] {
+  return gradeObligations(obligations);
 }

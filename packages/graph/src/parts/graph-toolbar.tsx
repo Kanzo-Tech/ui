@@ -18,7 +18,7 @@ import { useGraphContext } from "../react/graph-root";
 import { tv } from "tailwind-variants";
 import { placedByData } from "../render/motion";
 import { useGraphState } from "../react/use-graph-state";
-import { ZOOM } from "./keyboard";
+import { zoomStep } from "./keyboard";
 
 /** Every name and hint the toolbar's buttons and clusters carry. */
 export interface GraphToolbarTranslations {
@@ -42,7 +42,7 @@ export interface GraphToolbarTranslations {
   restart: string;
 }
 
-const ENGLISH: GraphToolbarTranslations = {
+const english: GraphToolbarTranslations = {
   tools: "Selection tool",
   marquee: "Marquee",
   marqueeHint: "Drag a box — or just hold Shift",
@@ -83,7 +83,7 @@ const graphToolbar = tv({
 });
 
 /** One action per state, named for what it does. */
-const TRANSPORT: Record<Motion, { pause: boolean; label: "pause" | "resume" | "run" }> = {
+const transports: Record<Motion, { pause: boolean; label: "pause" | "resume" | "run" }> = {
   running: { pause: true, label: "pause" },
   paused: { pause: false, label: "resume" },
   settled: { pause: false, label: "run" },
@@ -106,7 +106,7 @@ const TRANSPORT: Record<Motion, { pause: boolean; label: "pause" | "resume" | "r
  * is the posture a reader spends most of their time in.
  */
 export function GraphToolbar({ className, orientation = "horizontal", slot, translations, ...rest }: GraphToolbarProps) {
-  const t = { ...ENGLISH, ...translations };
+  const t = { ...english, ...translations };
   const styles = graphToolbar({ orientation });
   const api = useGraphContext();
   const ready = useGraphState((s) => s.structure !== null);
@@ -119,7 +119,7 @@ export function GraphToolbar({ className, orientation = "horizontal", slot, tran
   const motion = useGraphState((s) => s.motion);
   // The data places the points: there is no layout to run, pause or re-run.
   const placed = useGraphState((s) => placedByData(s.options, s));
-  const transport = TRANSPORT[motion];
+  const transport = transports[motion];
   const cluster = styles.cluster();
 
   return (
@@ -151,11 +151,11 @@ export function GraphToolbar({ className, orientation = "horizontal", slot, tran
       </ButtonGroup>
 
       <ButtonGroup aria-label={t.camera} className={cluster} orientation={orientation}>
-        <Button aria-label={t.zoomIn} disabled={!ready} onClick={() => api.zoomBy(ZOOM)} size="icon-sm" variant="ghost">
+        <Button aria-label={t.zoomIn} disabled={!ready} onClick={() => api.zoomBy(zoomStep)} size="icon-sm" variant="ghost">
           <PlusIcon />
         </Button>
         <ButtonGroupSeparator />
-        <Button aria-label={t.zoomOut} disabled={!ready} onClick={() => api.zoomBy(1 / ZOOM)} size="icon-sm" variant="ghost">
+        <Button aria-label={t.zoomOut} disabled={!ready} onClick={() => api.zoomBy(1 / zoomStep)} size="icon-sm" variant="ghost">
           <MinusIcon />
         </Button>
         <ButtonGroupSeparator />

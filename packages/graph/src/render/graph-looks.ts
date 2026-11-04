@@ -46,7 +46,7 @@ export type Shape = "circle" | "square" | "triangle" | "diamond" | "cross";
  * Module-scoped and off the barrel. `buffers` reads it on the way to the GPU; nothing else needs it,
  * and anything that did would be reaching for the enum this type exists to hide.
  */
-export const SHAPE_INDEX: Record<Shape, number> = {
+export const shapeIndex: Record<Shape, number> = {
   circle: 0,
   square: 1,
   triangle: 2,
@@ -63,7 +63,7 @@ export const SHAPE_INDEX: Record<Shape, number> = {
  *
  * **Four because the shape channel's measured capacity is five, not because small shapes stop being
  * distinguishable.** Giovannangeli et al. (arXiv 2103.06084) put the ceiling at **5 for shape**
- * against **7 for colour**; `SHAPE_ORDER`'s four plus `SHAPE_OTHER` is exactly five distinguishable
+ * against **7 for colour**; `shapeOrder`'s four plus `shapeOther` is exactly five distinguishable
  * glyphs, and the two scales differ in cardinality because the channels do. The colour side already
  * says the same thing from the other end — Dracula's document publishes `--chart-capacity: 7`.
  *
@@ -72,19 +72,19 @@ export const SHAPE_INDEX: Record<Shape, number> = {
  * doi:10.1145/3290605.3300899) measured 16 shapes across 6 mark sizes from 6 to 50 px and found
  * shape discrimination *robust* to size: the only significant variation is at 6 px, and it is 4.5
  * accuracy points against 50 px. The conclusion survived the argument that was given for it, which
- * is the most dangerous shape a comment can have — see `FORM_OBLIGATIONS` in `./obligations.ts` for what
+ * is the most dangerous shape a comment can have — see `check()` in `./obligations.ts` for what
  * the floor actually protects.
  */
-export const SHAPE_ORDER: Shape[] = ["circle", "square", "triangle", "diamond"];
+export const shapeOrder: Shape[] = ["circle", "square", "triangle", "diamond"];
 
 /**
  * What a category past the scale wears — the shape channel's `--muted-foreground`.
  *
  * No slot wears it, which is the whole point: it says *not one of the four* rather than repeating
  * the first one. This is the half that used to be missing, and the comment above was false without
- * it — `SHAPE_ORDER[4]` is `undefined`, and the fallback was `circle`.
+ * it — `shapeOrder[4]` is `undefined`, and the fallback was `circle`.
  */
-export const SHAPE_OTHER: Shape = "cross";
+export const shapeOther: Shape = "cross";
 
 /** How much text the canvas carries, least to most — Cosmograph's label model as one scale. */
 export type LabelLevel = "none" | "hovered" | "top" | "visible" | "all";
@@ -194,7 +194,7 @@ export interface Look {
  * and smaller marks worsen it both ways — the luminance JND above, and a square reported larger than
  * any other shape at equal area in 82% of trials (Smart & Szafir, CHI 2019). Not "a triangle and a
  * square are the same dot below four pixels", which is what this said for months and is false; see
- * `SHAPE_ORDER` for the measurement that refutes it.
+ * `shapeOrder` for the measurement that refutes it.
  *
  * **The values are strings because a contributed preference is a string**, in all three kinds, so an
  * unrecognised namespace rides through a write untouched. Parsing what a kind means is the reader's
@@ -281,7 +281,7 @@ export function resolveLook(patch?: LookPatch): Look {
  * A component carries all three and cannot fall out of step with itself. It left the barrel in turn
  * when no host called it: the glyph reaches a page through the parts that draw it.
  */
-export const SHAPE_PATH: Record<Shape, string> = {
+export const shapePath: Record<Shape, string> = {
   circle: "M6 1.6a4.4 4.4 0 1 0 0 8.8 4.4 4.4 0 0 0 0-8.8Z",
   square: "M2 2h8v8H2Z",
   triangle: "M6 1.6 10.6 10H1.4Z",

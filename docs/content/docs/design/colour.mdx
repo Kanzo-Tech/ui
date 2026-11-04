@@ -316,9 +316,9 @@ other"; `packages/theme/src/sections.test.ts`, "keeps a section whose package is
 ## Density's legibility floor is a section's bar, and it is currently red
 
 Density is a section because it has a gradeable bar: **WCAG 2.5.8 Target Size (Minimum)**. Its
-obligations ship as a `Report[]` in `@kanzo-tech/theme`, in the same shape the graph's use. The
-target-size bar **fails today** and is pinned by id rather than hidden. The x-height bar is named and
-ungradeable, with what would close it. **No height and no density step is changed**: the measurement says
+obligations are rows of `@kanzo-tech/theme`'s `Obligation`, graded by its `gradeObligations`, as the
+graph's are. The target-size bar **fails today** and is pinned by id rather than hidden. The x-height
+bar is named and ungradeable, with what would close it. **No height and no density step is changed**: the measurement says
 the fix does not go where it first appeared to.
 
 `themes.css` sets the root font-size per `data-font-size` as a percentage of the browser's — compact
@@ -374,7 +374,7 @@ font-size the density axis may emit.
 above already moved it halfway.
 
 *Held by* `packages/theme/src/obligations.test.ts`, "fails exactly the one it is known to fail, and no
-other"; `packages/theme/src/obligations.ts`, `OBLIGATIONS`.
+other"; `packages/theme/src/obligations.ts`, `check`.
 
 ## A preference is contributed the way a token is
 

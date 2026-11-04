@@ -1,4 +1,4 @@
-import { SHAPE_PATH, type Shape } from "../render/graph-looks";
+import { shapePath, type Shape } from "../render/graph-looks";
 
 /**
  * The glyph the canvas draws for a category, in the DOM — the legend's keys, the inspector's and
@@ -37,7 +37,7 @@ export function ShapeGlyph({ color = "currentColor", shape, ...rest }: ShapeGlyp
     // a `width`/`height`, or `x`/`y`/`width`/`height` when this is nested inside another `<svg>`,
     // which is how a preview places a glyph at a vertex.
     <svg viewBox="0 0 12 12" {...rest}>
-      <path d={SHAPE_PATH[shape]} fill={color} />
+      <path d={shapePath[shape]} fill={color} />
     </svg>
   );
 }

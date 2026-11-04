@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { contrast } from "@kanzo-tech/theme";
 import { describe, expect, it } from "vitest";
-import { greyoutOpacity, NON_TEXT_CONTRAST, type Rgb } from "./greyout";
+import { greyoutOpacity, type Rgb } from "./greyout";
 
 /**
  * **The greyout, against every shipped theme** (`/docs/design/crossfilter#the-greyout`). The oracle is
@@ -39,11 +39,11 @@ function shown(colour: string, background: string, alpha: number): string {
   return toHex(greyed.map((g, i) => alpha * g + (1 - alpha) * b[i]!) as unknown as Rgb);
 }
 
-/** The criterion at `alpha`, for every colour that is itself at 3 : 1 to the background. */
+/** The criterion at `alpha`, for every colour that is itself at 3 : 1 to the background — WCAG 2.2 SC 1.4.11. */
 const holds = (theme: (typeof themes)[number], alpha: number) =>
   theme.colours
-    .filter((c) => contrast(c, theme.background) >= NON_TEXT_CONTRAST)
-    .every((c) => contrast(c, shown(c, theme.background, alpha)) >= NON_TEXT_CONTRAST);
+    .filter((c) => contrast(c, theme.background) >= 3)
+    .every((c) => contrast(c, shown(c, theme.background, alpha)) >= 3);
 
 describe("the greyout, per theme", () => {
   it("reads all eight shipped themes", () => {

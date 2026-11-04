@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import themeDataJson from "../theme-data.json" with { type: "json" };
-import { check, OBLIGATIONS } from "./obligations.js";
+import { check } from "./obligations.js";
 
 /**
  * The density section grades itself, and one of its bars is currently red.
@@ -14,12 +14,12 @@ import { check, OBLIGATIONS } from "./obligations.js";
  */
 describe("the density section's obligations", () => {
   it("grades at least one, which is what admits it as a section", () => {
-    expect(check().length).toBeGreaterThan(0);
+    expect(check().filter((c) => c.ok !== null).length).toBeGreaterThan(0);
   });
 
   it("fails exactly the one it is known to fail, and no other", () => {
     const failing = check()
-      .filter((c) => !c.ok)
+      .filter((c) => c.ok === false)
       .map((c) => c.id);
     // `target-size`: `Button size="xs"` is 1.5rem = 21.0 CSS px at compact's 14px root, against
     // WCAG 2.5.8 AA's 24. Open, and NOT to be closed by quietly raising `h-6` — measured over three
@@ -43,6 +43,6 @@ describe("the density section's obligations", () => {
   });
 
   it("says how many questions it has not answered, rather than reporting them green", () => {
-    expect(OBLIGATIONS.filter((o) => o.measured === null).map((o) => o.id)).toEqual(["x-height"]);
+    expect(check().filter((c) => c.ok === null).map((c) => c.id)).toEqual(["x-height"]);
   });
 });

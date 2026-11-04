@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { lookFrom, SHAPE_INDEX, SHAPE_ORDER, SHAPE_OTHER } from "./graph-looks";
-import { check, gradeComposition, FORM_OBLIGATIONS } from "./obligations";
+import { lookFrom, shapeIndex, shapeOrder, shapeOther } from "./graph-looks";
+import { check, gradeComposition } from "./obligations";
 
 /**
  * The graph section grades itself, the way the colour section does.
@@ -11,7 +11,7 @@ import { check, gradeComposition, FORM_OBLIGATIONS } from "./obligations";
 describe("the graph section's obligations", () => {
   it("holds every one it can grade", () => {
     const failed = check()
-      .filter((c) => !c.ok)
+      .filter((c) => c.ok === false)
       .map((c) => `${c.id}: measured ${c.measured}${c.unit} against ${c.holds} ${c.threshold}`);
     expect(failed).toEqual([]);
   });
@@ -21,18 +21,17 @@ describe("the graph section's obligations", () => {
     // only if its obligations return at least one measurable claim. If this ever reaches zero the
     // graph stops being a section and becomes a preference table, which is where radius, font and
     // density sit today.
-    expect(check().length).toBeGreaterThan(0);
+    expect(check().filter((c) => c.ok !== null).length).toBeGreaterThan(0);
   });
 
   it("says how many questions it has not answered, rather than reporting them green", () => {
     // A bar nobody established cannot be cleared. `link-fade` is the one, and it is named in the
     // table with what would close it — the count is pinned so a second one cannot arrive quietly.
-    const ungradeable = FORM_OBLIGATIONS.filter((o) => o.measured === null);
-    expect(ungradeable.map((o) => o.id)).toEqual(["link-fade"]);
+    expect(check().filter((c) => c.ok === null).map((c) => c.id)).toEqual(["link-fade"]);
   });
 
   it("measures the shipped forms, not a copy of their numbers", () => {
-    // Every `measured` is derived from `lookFrom` or `SHAPE_ORDER` at module load. A hand-typed
+    // Every `measured` is derived from `lookFrom` or `shapeOrder` at module load. A hand-typed
     // number would go stale the first time an axis changed, silently and in the direction of
     // passing. There is one curvature now rather than three, and it is what Curved draws.
     const curve = check().find((c) => c.id === "link-curve");
@@ -62,14 +61,14 @@ describe("the graph section's obligations", () => {
   });
 
   it("keeps the past-capacity glyph out of the ordered four, and off cosmos.gl's None", () => {
-    expect(SHAPE_ORDER).not.toContain(SHAPE_OTHER);
+    expect(shapeOrder).not.toContain(shapeOther);
     // A name, since a shape stopped being cosmos.gl's enum index and became what it is called. The
     // assertion reads as the rule it holds — the fallback is the cross — rather than as `7`.
-    expect(SHAPE_OTHER).toBe("cross");
+    expect(shapeOther).toBe("cross");
     // 8 is `None` in cosmos.gl's enum; the fragment shader discards a NONE point with no image. The
     // translation is the only place that number can enter, so this is where it is checked: no name
     // this scale can produce may map onto it.
-    expect(SHAPE_INDEX[SHAPE_OTHER]).not.toBe(8);
-    expect(Object.values(SHAPE_INDEX)).not.toContain(8);
+    expect(shapeIndex[shapeOther]).not.toBe(8);
+    expect(Object.values(shapeIndex)).not.toContain(8);
   });
 });

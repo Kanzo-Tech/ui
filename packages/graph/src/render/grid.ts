@@ -3,11 +3,8 @@
 // Pure arithmetic and one draw call, so the cost is a number a test can count. `overlays.ts` owns
 // when it runs (once a frame, and only when the view moved); this file owns where the dots are.
 
-/** The fewest CSS pixels between two dots. The ladder keeps the on-screen step in [MIN, 2.5·MIN). */
-export const GRID_MIN = 22;
-
-/** A dot's width in CSS pixels. A one-pixel radius was a sub-pixel stipple at 1×. */
-export const DOT = 2;
+/** The fewest CSS pixels between two dots. The ladder keeps the on-screen step in [min, 2.5·min). */
+const gridMin = 22;
 
 /**
  * **The world distance between dots, on a 1-2-5 ladder** — the smallest 1, 2 or 5 times a power of
@@ -16,7 +13,7 @@ export const DOT = 2;
  * lattice is a reference plane that belongs to the graph, with round numbers where a reader counts.
  * `0` when the camera has no scale to say, which draws nothing.
  */
-export function spacing(pxPerUnit: number, min: number = GRID_MIN): number {
+export function spacing(pxPerUnit: number, min: number = gridMin): number {
   if (!(pxPerUnit > 0) || !Number.isFinite(pxPerUnit)) return 0;
   const need = min / pxPerUnit;
   const decade = 10 ** Math.floor(Math.log10(need));
@@ -56,8 +53,11 @@ export function* dots(view: GridView): Generator<[number, number]> {
   }
 }
 
-/** A dot's side in device pixels: whole, so it is the same shape wherever it lands and never a faint blur. */
-export const side = (ratio: number): number => Math.max(2, Math.round(DOT * ratio));
+/**
+ * A dot's side in device pixels: 2 CSS pixels, whole, so it is the same shape wherever it lands and
+ * never a faint blur. A one-pixel radius was a sub-pixel stipple at 1×.
+ */
+export const side = (ratio: number): number => Math.max(2, Math.round(2 * ratio));
 
 /**
  * Clear the canvas and fill the dots in `ink`, each a square of whole device pixels snapped to the
