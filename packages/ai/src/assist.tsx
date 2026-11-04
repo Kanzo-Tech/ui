@@ -9,7 +9,7 @@ import { AiMark } from "./ai-mark.js";
 import { type AssistEvent, useCandidates, useContinuation } from "./engine.js";
 import { askable, nextWord } from "./offers.js";
 import { type FieldBrief, candidates, continuation } from "./proposals.js";
-import { PILLS } from "./pills.js";
+import { pendingPills } from "./pills.js";
 import type { Proposal } from "./task/index.js";
 
 // ── The words ────────────────────────────────────────────────────────────────
@@ -143,12 +143,6 @@ function describe(el: Control | null, given: Omit<FieldBrief, "name" | "descript
 
 // ── Geometry ─────────────────────────────────────────────────────────────────
 
-const METRICS = [
-  "fontFamily", "fontSize", "fontWeight", "fontStyle", "letterSpacing", "lineHeight",
-  "textTransform", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
-  "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth",
-] as const;
-
 const px = (v: string) => Number.parseFloat(v) || 0;
 
 /** The box `el` occupies inside `root`, as logical insets. */
@@ -176,12 +170,16 @@ function mirror(el: Control, root: HTMLElement) {
     borderStyle: "solid",
     borderColor: "transparent",
   };
-  for (const k of METRICS) metrics[k] = cs[k as keyof CSSStyleDeclaration] as string;
+  for (const k of [
+    "fontFamily", "fontSize", "fontWeight", "fontStyle", "letterSpacing", "lineHeight",
+    "textTransform", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
+    "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth",
+  ] as const) metrics[k] = cs[k];
   return { metrics: metrics as React.CSSProperties, rtl };
 }
 
 /** Room for the ✨ inside the control's box, so typed text never runs under it. */
-const MARK_ROOM = "2.25rem";
+const markRoom = "2.25rem";
 
 const merge =
   <E,>(...handlers: (((e: E) => void) | undefined)[]) =>
@@ -256,10 +254,9 @@ const briefOf = (
  * Whether the control holds a secret: a password, a card, a one-time code. Its value is never read
  * for a model, and it is never asked for an offer — whatever `Assist` is wrapped around.
  */
-const SECRET = /^(cc-|one-time-code$|current-password$|new-password$)/;
 const sensitive = (el: Control | null) =>
   el?.type === "password" ||
-  (el?.getAttribute("autocomplete") ?? "").split(/\s+/).some((token) => SECRET.test(token.toLowerCase()));
+  (el?.getAttribute("autocomplete") ?? "").split(/\s+/).some((token) => /^(cc-|one-time-code$|current-password$|new-password$)/.test(token.toLowerCase()));
 
 /** An ask that offers nothing, and so reads nothing. */
 async function* nothing(): AsyncGenerator<never> {}
@@ -316,7 +313,7 @@ function TextAssist(props: Inner<string>) {
     const root = rootRef.current;
     if (!el || !root) return;
     setMultiline(el instanceof HTMLTextAreaElement);
-    el.style.paddingInlineEnd = MARK_ROOM;
+    el.style.paddingInlineEnd = markRoom;
     const sync = () => {
       const m = mirror(el, root);
       const box = insets(el, root, m.rtl);
@@ -619,7 +616,7 @@ function Candidates(props: {
   return (
     <Suggestions
       className="min-h-7 w-full"
-      pending={list.status === "loading" ? PILLS - list.items.length : 0}
+      pending={list.status === "loading" ? pendingPills - list.items.length : 0}
       slot="assist-candidates"
     >
       {/* A failure is the answer, even after some arrived: the reader is told, not left with a part. */}
@@ -687,7 +684,7 @@ function ListAssist(props: Inner<string[]>) {
     const root = rootRef.current;
     const box = root?.querySelector<HTMLElement>("[data-part=control]") ?? (root?.firstElementChild as HTMLElement | null);
     if (!root || !box) return;
-    box.style.paddingInlineEnd = MARK_ROOM;
+    box.style.paddingInlineEnd = markRoom;
     const sync = () => {
       const rtl = getComputedStyle(box).direction === "rtl";
       const b = insets(box, root, rtl);

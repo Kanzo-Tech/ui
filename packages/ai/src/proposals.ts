@@ -32,10 +32,6 @@ const brief = (field: FieldBrief) =>
     .filter(Boolean)
     .join("\n");
 
-const CONTINUE = `You complete text inside a form field, like an editor's inline completion.
-Reply with ONLY the text to insert at <caret/>: no quotes, no commentary, never repeat text that is already there.
-Keep the language, tone and format of the existing text. Stop at a natural point: the end of the sentence for an automatic suggestion; up to a short paragraph when explicitly asked.`;
-
 /** One continuation at the caret, streamed. */
 export async function* continuation(
   model: LanguageModel,
@@ -48,23 +44,13 @@ export async function* continuation(
     : "";
   yield* stream({
     model,
-    system: CONTINUE,
+    system: `You complete text inside a form field, like an editor's inline completion.
+Reply with ONLY the text to insert at <caret/>: no quotes, no commentary, never repeat text that is already there.
+Keep the language, tone and format of the existing text. Stop at a natural point: the end of the sentence for an automatic suggestion; up to a short paragraph when explicitly asked.`,
     prompt: `${brief(field)}\nRequest: ${trigger}${differ}\n\nText:\n${text}`,
     abortSignal: signal,
   }).text;
 }
-
-const CANDIDATES = `You suggest values for a form field. Each value must be complete and ready to enter as-is, in the language of the form.`;
-
-const OFFER = jsonSchema<{ text: string; rationale: string }>({
-  type: "object",
-  properties: {
-    text: { type: "string", description: "The value itself, exactly as it would be entered." },
-    rationale: { type: "string", description: "One short sentence naming what in the field or the form it rests on." },
-  },
-  required: ["text", "rationale"],
-  additionalProperties: false,
-});
 
 interface CandidateInput {
   field: FieldBrief;
@@ -80,14 +66,23 @@ interface CandidateInput {
  */
 const candidate = defineTask<CandidateInput, { text: string; rationale: string }>({
   name: "candidates",
-  instructions: CANDIDATES,
+  instructions: "You suggest values for a form field. Each value must be complete and ready to enter as-is, in the language of the form.",
   prompt: ({ field, value, existing, list }) =>
     `${brief(field)}\n${
       list
         ? `Current items: ${existing.length ? existing.join(", ") : "(none)"}\nSuggest NEW items, not already present.`
         : `Current value: ${value || "(empty)"}\nSuggest alternatives to replace it${value ? ", different from it" : ""}.`
     }`,
-  output: () => OFFER,
+  output: () =>
+    jsonSchema<{ text: string; rationale: string }>({
+      type: "object",
+      properties: {
+        text: { type: "string", description: "The value itself, exactly as it would be entered." },
+        rationale: { type: "string", description: "One short sentence naming what in the field or the form it rests on." },
+      },
+      required: ["text", "rationale"],
+      additionalProperties: false,
+    }),
   target: ({ value, list }) => (list ? { add: "" } : { replace: [0, value.length] }),
 });
 

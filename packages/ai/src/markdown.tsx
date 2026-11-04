@@ -60,9 +60,6 @@ const SAFE: NonNullable<StreamdownProps["rehypePlugins"]> = [
   [(defaultRehypePlugins.harden as [never])[0], { allowedImagePrefixes: [], allowedLinkPrefixes: ["*"], allowDataImages: false }],
 ];
 
-/** `MessageText`'s cascade, so the two components keep the same rhythm. See its docblock. */
-const STAGGER = 18;
-
 export const MessageMarkdown = (props: MessageMarkdownProps) => {
   const { children, streaming = false, className, slot, ...rest } = props;
 
@@ -78,7 +75,8 @@ export const MessageMarkdown = (props: MessageMarkdownProps) => {
       data-slot={slot ?? "message-markdown"}
     >
       <Streamdown
-        animated={streaming ? { sep: "word", stagger: STAGGER } : false}
+        // `MessageText`'s cascade, so the two components keep the same rhythm. See its docblock.
+        animated={streaming ? { sep: "word", stagger: 18 } : false}
         // Streamdown's own caret, rather than the `<span>` `MessageText` draws: it belongs at the
         // end of the last *rendered* block, which only the renderer knows — a caret appended by us
         // would sit after a table rather than inside the paragraph the model is still writing.

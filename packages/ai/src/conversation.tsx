@@ -19,9 +19,6 @@ const useCtx = (part: string) => {
   return c;
 };
 
-/** A scroll position is fractional and rarely lands on the end exactly; this is the allowance. */
-const AT_END = 24;
-
 /**
  * The transcript's scroll container, and the pin is the whole component.
  *
@@ -52,7 +49,8 @@ export const Conversation = (props: React.ComponentProps<typeof ark.div>) => {
     if (!viewport) return;
 
     const sync = () => {
-      const atEnd = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= AT_END;
+      // A scroll position is fractional and rarely lands on the end exactly; 24 px is the allowance.
+      const atEnd = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= 24;
       pinnedRef.current = atEnd;
       setPinned(atEnd);
     };

@@ -19,14 +19,6 @@ const Ctx = React.createContext<{ streaming: boolean; seconds: number | null; te
   text: "",
 });
 
-/**
- * How long the thinking is left on screen after it stops. AI Elements' `AUTO_CLOSE_DELAY`, and the
- * reason is the last sentence: closing on the instant the stream ends takes the end of the thought
- * away from the reader who was reading it.
- */
-const LINGER = 1000;
-const MS_IN_S = 1000;
-
 export interface ReasoningProps extends Omit<React.ComponentProps<typeof Collapsible>, "part"> {
   /** The reasoning as the AI SDK streams it: its text, and whether it is still arriving. */
   part: ReasoningUIPart;
@@ -76,7 +68,7 @@ export const Reasoning = (props: ReasoningProps) => {
       return;
     }
     if (startedAt.current === null) return;
-    setSeconds(Math.max(1, Math.ceil((Date.now() - startedAt.current) / MS_IN_S)));
+    setSeconds(Math.max(1, Math.ceil((Date.now() - startedAt.current) / 1000)));
     startedAt.current = null;
   }, [streaming]);
 
@@ -88,9 +80,10 @@ export const Reasoning = (props: ReasoningProps) => {
       setSelfOpen(true);
       return;
     }
-    // It lingers. Closing on the instant the last token lands snatches the end of the thought away
-    // from somebody mid-sentence, and this is the one beat that makes the fold readable.
-    const timer = setTimeout(() => setSelfOpen(false), LINGER);
+    // It lingers a second, AI Elements' `AUTO_CLOSE_DELAY`. Closing on the instant the last token
+    // lands snatches the end of the thought away from somebody mid-sentence, and this is the one beat
+    // that makes the fold readable.
+    const timer = setTimeout(() => setSelfOpen(false), 1000);
     return () => clearTimeout(timer);
   }, [streaming]);
 

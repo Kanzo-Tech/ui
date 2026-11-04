@@ -5,10 +5,8 @@
 import type { AssistEvent } from "./engine.js";
 import type { Proposal } from "./task/index.js";
 
-/** Below this there is not enough text to continue, so nothing is asked. */
-export const MIN_CONTINUE_LENGTH = 4;
-
-export const askable = (value: string) => value.trim().length >= MIN_CONTINUE_LENGTH;
+/** Below four characters there is not enough text to continue, so nothing is asked. */
+export const askable = (value: string) => value.trim().length >= 4;
 
 /** A continuation offered at `at`, as the Task's proposal of the text it inserts there. */
 export const continuationAt = (value: string, at: number): Proposal<string> => ({

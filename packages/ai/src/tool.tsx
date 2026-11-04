@@ -58,8 +58,6 @@ const mark = (look: Look) =>
     <Spinner className="text-info-foreground" />
   );
 
-const PANEL = "min-w-0 overflow-x-auto rounded-lg bg-muted px-3 py-2 text-xs [&_code]:font-mono";
-
 const Ctx = React.createContext<{ part: ToolPart; look: Look } | null>(null);
 const useCall = (name: string) => {
   const call = React.useContext(Ctx);
@@ -168,7 +166,7 @@ function Io(props: { label: string; failed?: boolean; slot: string; children: Re
       <Eyebrow className="mb-1.5" slot="tool-label">
         {props.label}
       </Eyebrow>
-      <ark.div className={cn(PANEL, props.failed && "bg-destructive/7")} data-slot="tool-panel">
+      <ark.div className={cn("min-w-0 overflow-x-auto rounded-lg bg-muted px-3 py-2 text-xs [&_code]:font-mono", props.failed && "bg-destructive/7")} data-slot="tool-panel">
         {props.children}
       </ark.div>
     </ark.div>

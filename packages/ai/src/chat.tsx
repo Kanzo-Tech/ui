@@ -5,7 +5,7 @@ import * as React from "react";
 import { getToolName, isToolUIPart, type UIMessage } from "ai";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { cn, DiagnosticList, Problem, type ProblemProps, Skeleton, Suggestion, Suggestions } from "@kanzo-tech/ui";
-import { PILLS } from "./pills.js";
+import { pendingPills } from "./pills.js";
 import { Conversation, ConversationContent, ConversationScrollButton } from "./conversation.js";
 import { MessageMarkdown } from "./markdown.js";
 import { Message, MessageContent, MessageList } from "./message.js";
@@ -151,7 +151,7 @@ export function Chat<M extends UIMessage, V = string>(props: ChatProps<M, V>) {
       <ChatSkeleton
         className={className}
         empty={empty}
-        proposals={proposals !== undefined || proposing ? PILLS : 0}
+        proposals={proposals !== undefined || proposing ? pendingPills : 0}
         translations={translations}
       />
     );
@@ -194,7 +194,7 @@ export function Chat<M extends UIMessage, V = string>(props: ChatProps<M, V>) {
         (proposals !== undefined || proposing) && (
           <Suggestions
             className="min-h-7 w-full justify-center"
-            pending={proposing ? PILLS - (proposals?.length ?? 0) : 0}
+            pending={proposing ? pendingPills - (proposals?.length ?? 0) : 0}
           >
             {proposals?.map((p) => {
               const sent = message(p.value);
@@ -246,7 +246,7 @@ export function Chat<M extends UIMessage, V = string>(props: ChatProps<M, V>) {
                   }
                   if (isToolUIPart(part)) {
                     const draw = tools[getToolName(part)];
-                    const stopped = !streaming && RUNNING.has(part.state);
+                    const stopped = !streaming && running.has(part.state);
                     return (
                       <Tool key={key} part={part} stopped={stopped}>
                         <ToolHeader />
@@ -302,7 +302,7 @@ export function Chat<M extends UIMessage, V = string>(props: ChatProps<M, V>) {
 }
 
 /** The states of a call still working; one left in them once the answer stopped never settles. */
-const RUNNING = new Set<ToolPart["state"]>(["input-streaming", "input-available", "approval-responded"]);
+const running = new Set<ToolPart["state"]>(["input-streaming", "input-available", "approval-responded"]);
 
 interface ChatFrameProps extends React.ComponentProps<typeof ark.div> {
   /** Between the transcript and the composer: the questions to start from, while there are any. */
@@ -356,7 +356,7 @@ export interface ChatSkeletonProps extends React.ComponentProps<typeof ark.div> 
  * the chat replaces it.
  */
 export function ChatSkeleton(props: ChatSkeletonProps) {
-  const { empty, proposals = PILLS, translations, slot, ...rest } = props;
+  const { empty, proposals = pendingPills, translations, slot, ...rest } = props;
   const t = { ...ENGLISH, ...translations };
   return (
     <ChatFrame

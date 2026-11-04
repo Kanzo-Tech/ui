@@ -123,9 +123,7 @@ export const PromptInputToolbar = (props: React.ComponentProps<typeof InputGroup
   );
 };
 
-const SEND = { icon: <SendIcon />, label: "Send" };
-
-const STOP = {
+const stop = {
   // The stop block inside the spinner it is stopping. A bare square changes only the glyph, and
   // at a glance across a panel that reads as the same idle button; the motion is what says the
   // answer is still arriving. `aria-hidden` on both — the accessible name already changed to
@@ -144,9 +142,9 @@ const STOP = {
  * button: both are an answer that can be stopped.
  */
 const SUBMIT: Record<ChatStatus, { icon: React.ReactNode; label: string }> = {
-  ready: SEND,
-  submitted: STOP,
-  streaming: STOP,
+  ready: { icon: <SendIcon />, label: "Send" },
+  submitted: stop,
+  streaming: stop,
   error: { icon: <RefreshCcwIcon />, label: "Retry" },
 };
 
