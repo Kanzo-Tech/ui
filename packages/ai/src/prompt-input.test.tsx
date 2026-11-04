@@ -74,6 +74,16 @@ describe("PromptInput", () => {
     expect(screen.getByRole("button", { name: "Retry" })).not.toBeNull();
   });
 
+  it("takes its names from translations", () => {
+    const words = { send: "Enviar", stop: "Detener", retry: "Reintentar" };
+    const { rerender } = render(<PromptInputSubmit translations={words} />);
+    expect(screen.getByRole("button", { name: "Enviar" })).not.toBeNull();
+    rerender(<PromptInputSubmit status="streaming" translations={words} />);
+    expect(screen.getByRole("button", { name: "Detener" })).not.toBeNull();
+    rerender(<PromptInputSubmit status="error" translations={words} />);
+    expect(screen.getByRole("button", { name: "Reintentar" })).not.toBeNull();
+  });
+
   it("does not rename a button that already says what it does", () => {
     render(
       <PromptInput onSubmit={submitHandler()}>

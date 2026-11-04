@@ -53,8 +53,6 @@ export interface GraphCanvasProps extends React.ComponentProps<typeof ark.div> {
   translations?: Partial<GraphCanvasTranslations>;
 }
 
-const WASH = "color-mix(in oklab, var(--primary) 17%, transparent)";
-
 /**
  * Where an overlay the renderer places every frame starts: the canvas's top-left corner, written as
  * a style beside the `transform` `overlays.ts` writes, because both are cosmos.gl's screen
@@ -250,7 +248,7 @@ export function GraphCanvas({ children, className, slot, translations, ...rest }
                   height={Math.abs(drag.to[1] - drag.from[1])}
                   strokeDasharray="4 3"
                   strokeWidth={1}
-                  style={{ fill: WASH }}
+                  style={{ fill: "var(--selection)" }}
                   width={Math.abs(drag.to[0] - drag.from[0])}
                   x={Math.min(drag.from[0], drag.to[0])}
                   y={Math.min(drag.from[1], drag.to[1])}
@@ -261,7 +259,7 @@ export function GraphCanvas({ children, className, slot, translations, ...rest }
                     className="stroke-primary"
                     points={drag.path.map(([x, y]) => `${x},${y}`).join(" ")}
                     strokeWidth={1}
-                    style={{ fill: WASH }}
+                    style={{ fill: "var(--selection)" }}
                   />
                 )
               )}

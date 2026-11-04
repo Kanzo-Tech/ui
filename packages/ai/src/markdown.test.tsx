@@ -11,7 +11,7 @@ describe("MessageMarkdown", () => {
    * The wrapper renders no element of its own — `data-slot` is handed to `Streamdown` and lands
    * only because it spreads what it does not consume. That is a fact about a dependency rather
    * than about this file, so it is asserted rather than assumed: the part is the one thing a
-   * consumer selects on, and `MessageText` next to it answers to `[data-slot=message-text]`.
+   * consumer selects on.
    */
   it("names itself, and `slot` renames it", () => {
     const { container, rerender } = render(<MessageMarkdown>A line.</MessageMarkdown>);
@@ -31,7 +31,7 @@ describe("MessageMarkdown", () => {
   });
 
   /**
-   * The whole reason this is not `MessageText`. Mid-stream `**bo` is not bold yet, and a parser that
+   * The whole reason this is not plain text. Mid-stream `**bo` is not bold yet, and a parser that
    * renders it honestly flickers literal asterisks into place as the answer completes.
    */
   it("closes an unterminated emphasis while streaming, and leaves it alone when static", () => {

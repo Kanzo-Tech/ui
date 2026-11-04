@@ -134,6 +134,8 @@ const data = {
   // authoring tool showing you what a theme *looks like* has to follow the same chain the cascade
   // follows, and the alternative was a second copy of it typed into the studio.
   fallbacks: catalogue.fallbacks,
+  // The editor's inks, every one any theme authors, so `CONTRAST_PAIRS` grades them without a copy.
+  syntax: [...new Set(THEMES.flatMap((t) => [...t.declarations.keys()].filter((n) => n.startsWith("--syntax-"))))],
 };
 const JSON_OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "theme-data.json");
 writeFileSync(JSON_OUT, JSON.stringify(data, null, 2));

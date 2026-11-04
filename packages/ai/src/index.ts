@@ -33,7 +33,7 @@ export { Conversation, ConversationContent, ConversationScrollButton } from "./c
 export { Message, MessageContent, MessageList } from "./message.js";
 export type { MessageProps } from "./message.js";
 export { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "./tool.js";
-export type { ToolPart } from "./tool.js";
+export type { ToolPart, ToolTranslations } from "./tool.js";
 export { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning.js";
 export type { ReasoningProps } from "./reasoning.js";
 export {
@@ -43,7 +43,7 @@ export {
   PromptInputTextarea,
   PromptInputToolbar,
 } from "./prompt-input.js";
-export type { PromptInputSubmitProps } from "./prompt-input.js";
+export type { PromptInputSubmitProps, PromptInputSubmitTranslations } from "./prompt-input.js";
 
 // The parts a conversation whose turns the host decides is drawn with, beyond the transcript's: work
 // under way, said; a model in the page, as it loads; and a point in the transcript the host can go

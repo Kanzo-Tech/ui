@@ -621,8 +621,8 @@ export interface PreferencesSectionsProps {
   translations?: Partial<PreferencesTranslations>;
 }
 
-/** The two declared preferences the theme picker draws as one control. */
-const PICKER = new Set(["appearance", "themeByAppearance"]);
+/** The two declared preferences the theme picker draws as one control, by their keys in the core's declaration. */
+const PICKER = new Set<string>(["appearance", "themeByAppearance"] satisfies CorePrefKey[]);
 
 function PreferencesSections({ namespace, translations }: PreferencesSectionsProps = {}) {
   const { corePrefs, sectionPrefs } = useKanzoTheme();

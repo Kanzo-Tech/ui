@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { catalogue } from "../../../theme/scripts/catalogue.mjs";
 import {
-  CHART_CAPACITY_PROPERTY,
   CHART_SLOTS,
   categoricalCapacity,
   categoricalColor,
@@ -113,7 +112,7 @@ describe("categoricalCapacity", () => {
   const withProperty = (value: string | null) => {
     const original = globalThis.getComputedStyle;
     globalThis.getComputedStyle = (() => ({
-      getPropertyValue: (name: string) => (name === CHART_CAPACITY_PROPERTY ? (value ?? "") : ""),
+      getPropertyValue: (name: string) => (name === "--chart-capacity" ? (value ?? "") : ""),
     })) as unknown as typeof globalThis.getComputedStyle;
     try {
       return categoricalCapacity({} as Element);

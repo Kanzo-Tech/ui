@@ -5,7 +5,7 @@ import type { ChartConfig } from "./chart-config.js";
  * Past this many rows a chart's text alternative is a summary, not a table: a table of 4,000 bars is
  * not one anyone reads. A decision, not a measurement (`/docs/design/analytics`).
  */
-export const ALT_ROWS = 50;
+const ALT_ROWS = 50;
 
 /** What a vgplot mark holds once its query has answered, as far as the alternative reads it. */
 export interface AlternativeMark {

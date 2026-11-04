@@ -72,7 +72,7 @@ export const SHAPE_INDEX: Record<Shape, number> = {
  * doi:10.1145/3290605.3300899) measured 16 shapes across 6 mark sizes from 6 to 50 px and found
  * shape discrimination *robust* to size: the only significant variation is at 6 px, and it is 4.5
  * accuracy points against 50 px. The conclusion survived the argument that was given for it, which
- * is the most dangerous shape a comment can have — see `FORM_OBLIGATIONS` in `./obligations.ts` for what
+ * is the most dangerous shape a comment can have — see `check()` in `./obligations.ts` for what
  * the floor actually protects.
  */
 export const SHAPE_ORDER: Shape[] = ["circle", "square", "triangle", "diamond"];

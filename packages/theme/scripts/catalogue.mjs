@@ -97,7 +97,7 @@ function readCatalogue() {
     const [head, ...rest] = value.match(/--[a-z0-9-]+/g);
     if (rest.length) fallbacks[head] = rest;
   }
-  return { themes, tokens, root: merged(":root", "@theme static"), bridge, fallbacks };
+  return { themes, tokens, root: merged(":root", ":where(:root, [data-theme])", "@theme static"), bridge, fallbacks };
 }
 
 export const catalogue = readCatalogue();

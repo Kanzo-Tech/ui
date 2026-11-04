@@ -145,5 +145,15 @@
     "--sidebar-foreground": [
       "--muted-foreground"
     ]
-  }
+  },
+  "syntax": [
+    "--syntax-keyword",
+    "--syntax-string",
+    "--syntax-number",
+    "--syntax-function",
+    "--syntax-variable",
+    "--syntax-property",
+    "--syntax-type",
+    "--syntax-annotation"
+  ]
 }

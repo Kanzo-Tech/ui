@@ -79,8 +79,9 @@ const HEIGHT_ONLY = /(?<![\w-])(?:h|min-h)-(?:\d+(?:\.\d+)?|\[\d+px\])(?![\w-])/
 
 describe("control height", () => {
   it("is one formula per size, over the field unit", () => {
+    // `sm` is the theme's floor, `calc(var(--size-field) * 7)` in `tokens.css`.
     expect(controlSizes).toEqual({
-      sm: "[--size:calc(var(--size-field)*7)]",
+      sm: "[--size:var(--size-control-min)]",
       md: "[--size:calc(var(--size-field)*8)]",
       lg: "[--size:calc(var(--size-field)*9)]",
     });
