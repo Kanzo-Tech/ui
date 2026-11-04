@@ -16,7 +16,7 @@ import { useQueryRows } from "@kanzo-tech/ui/analytics";
 
 ```tsx
 function Schema() {
-  const columns = useQueryRows<{ column_name: string }>("DESCRIBE telemetry");
+  const columns = useQueryRows<{ column_name: string }>("DESCRIBE sightings");
   return columns.map((c) => <Badge key={c.column_name}>{c.column_name}</Badge>);
 }
 

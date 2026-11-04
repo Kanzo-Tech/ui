@@ -16,9 +16,9 @@ import {
 import { MosaicDemo } from "../charts/mosaic-demo";
 
 const CONFIG: ChartConfig = {
-  ok: { label: "OK", color: "var(--chart-1)" },
-  slow: { label: "Slow", color: "var(--chart-3)" },
-  error: { label: "Error", color: "var(--chart-5)" },
+  confirmed: { label: "Confirmed", color: "var(--chart-2)" },
+  disputed: { label: "Disputed", color: "var(--chart-4)" },
+  hoax: { label: "Hoax", color: "var(--destructive)" },
 };
 
 // A part of our own rather than a fork of `ChartLegend`, which is the whole point of the context:
@@ -28,7 +28,7 @@ const CONFIG: ChartConfig = {
 function StatusKey() {
   const { color, config, formatNumber } = useChartContext();
   const { row } = useChartQuery({
-    query: (filter) => Query.from("telemetry").select({ n: count() }).where(filter),
+    query: (filter) => Query.from("sightings").select({ n: count() }).where(filter),
   });
 
   return (
@@ -37,14 +37,14 @@ function StatusKey() {
         {Object.entries(config).map(([key, series]) => (
           <li className="flex items-center gap-2 text-xs" key={key}>
             <Swatch color={color(key) ?? "transparent"} />
-            <span className="w-10">{series.label}</span>
+            <span className="w-16">{series.label}</span>
             <code className="text-muted-foreground">{color(key)}</code>
           </li>
         ))}
       </ul>
       <p className="text-muted-foreground text-xs tabular-nums">
         <Show fallback={<>Counting…</>} when={row !== undefined}>
-          {formatNumber(Number(row?.n ?? 0))} requests in view — click a bar to filter
+          {formatNumber(Number(row?.n ?? 0))} sightings in view — click a bar to filter
         </Show>
       </p>
     </div>
@@ -60,13 +60,13 @@ export default function Example() {
           height={150}
           margin={{ top: 20, right: 8, bottom: 24, left: 40 }}
           numberFormat={{ maximumFractionDigits: 0 }}
-          relation="telemetry"
+          relation="sightings"
         >
-          <ChartBarY fill="status" x="status" y={count()} />
+          <ChartBarY fill="verdict" x="verdict" y={count()} />
           <ChartToggleX />
           <ChartHighlight />
           <ChartAxisX label={null} />
-          <ChartAxisY grid label="requests" />
+          <ChartAxisY grid label="sightings" />
           <StatusKey />
         </ChartRoot>
       </div>

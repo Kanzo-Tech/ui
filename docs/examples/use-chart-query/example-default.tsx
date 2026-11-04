@@ -22,11 +22,11 @@ import { MosaicDemo } from "../charts/mosaic-demo";
 function Readout() {
   const shown = useChartQuery({
     query: (filter) =>
-      Query.from("telemetry").select({ n: count(), ms: avg("latency") }).where(filter),
+      Query.from("sightings").select({ n: count(), leagues: avg("leagues") }).where(filter),
   });
   const all = useChartQuery({
     filterBy: null,
-    query: () => Query.from("telemetry").select({ n: count() }),
+    query: () => Query.from("sightings").select({ n: count() }),
   });
 
   return (
@@ -35,8 +35,8 @@ function Readout() {
         <span className="font-medium text-foreground">
           {Number(shown.row?.n ?? 0).toLocaleString()}
         </span>{" "}
-        of {Number(all.row?.n ?? 0).toLocaleString()} requests · mean{" "}
-        {Math.round(Number(shown.row?.ms ?? 0))} ms
+        of {Number(all.row?.n ?? 0).toLocaleString()} sightings · mean{" "}
+        {Number(shown.row?.leagues ?? 0).toFixed(1)} leagues out
       </Show>
     </p>
   );
@@ -50,12 +50,12 @@ export default function Example() {
         <ChartRoot
           height={140}
           margin={{ top: 4, right: 12, bottom: 28, left: 76 }}
-          relation="telemetry"
+          relation="sightings"
         >
           <ChartBarX fill="var(--primary)" sort={{ y: "-x" }} tip x={count()} y="region" />
           <ChartToggleY />
           <ChartHighlight />
-          <ChartAxisX grid label="requests" />
+          <ChartAxisX grid label="sightings" />
           <ChartAxisY label={null} />
         </ChartRoot>
       </div>
