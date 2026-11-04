@@ -170,7 +170,9 @@ Its widths are variables set through the provider's `style`: `--sidebar-width` (
 `--sidebar-width-icon` (3rem) and the sheet's `--sidebar-width-mobile` (18rem).
 
 ```tsx
-<SidebarProvider style={{ "--sidebar-width-mobile": "20rem" } as React.CSSProperties}>
+<SidebarProvider
+  style={{ "--sidebar-width-mobile": "20rem" } as React.CSSProperties}
+>
 ```
 
 Read the state anywhere below the provider:
