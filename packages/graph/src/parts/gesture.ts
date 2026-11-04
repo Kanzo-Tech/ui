@@ -71,7 +71,8 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
   const [drag, setDrag] = useState<Drag | null>(null);
   const [preview, setPreview] = useState<number | null>(null);
   const [shift, setShift] = useState(false);
-  const measured = useRef(0);
+  const measured = useRef(Number.NEGATIVE_INFINITY);
+  const pending = useRef<{ shape: Drag; timer: ReturnType<typeof setTimeout> } | null>(null);
 
   const hitTest = useCallback(
     (shape: Drag): number[] => {
@@ -96,16 +97,35 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
   );
 
   // Both hit tests are a GPU pass followed by a synchronous `readPixels`, so running one per
-  // pointer event would stall the frame the gesture is being drawn into.
+  // pointer event would stall the frame the gesture is being drawn into. A shape that arrives inside
+  // the window is measured when it closes, so the count always ends on the shape the pointer stopped at.
   const measure = useCallback(
     (shape: Drag) => {
-      const now = performance.now();
-      if (now - measured.current < MEASURE_MS) return;
-      measured.current = now;
-      setPreview(hitTest(shape).length);
+      const now = (latest: Drag) => {
+        measured.current = performance.now();
+        setPreview(hitTest(latest).length);
+      };
+      const wait = MEASURE_MS - (performance.now() - measured.current);
+      if (wait <= 0) return now(shape);
+      if (pending.current) {
+        pending.current.shape = shape;
+        return;
+      }
+      const timer = setTimeout(() => {
+        const last = pending.current;
+        pending.current = null;
+        if (last) now(last.shape);
+      }, wait);
+      pending.current = { shape, timer };
     },
     [hitTest],
   );
+
+  const settle = useCallback(() => {
+    if (pending.current) clearTimeout(pending.current.timer);
+    pending.current = null;
+  }, []);
+  useEffect(() => settle, [settle]);
 
   // Escape is the way out of everything, in layers: it abandons a drag in progress, then drops the
   // tool, then clears the canvas's own pick — another place's clause is let go at its chip. And a
@@ -117,6 +137,7 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
     const down = (event: KeyboardEvent) => {
       if (event.key === "Shift") setShift(true);
       if (event.key !== "Escape") return;
+      settle();
       setPreview(null);
       if (dragging) setDrag(null);
       else if (tool) setTool(null);
@@ -134,7 +155,7 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
       window.removeEventListener("keyup", up);
       window.removeEventListener("blur", blur);
     };
-  }, [commit, dragging, setTool, tool]);
+  }, [commit, dragging, settle, setTool, tool]);
 
   /** Screen coordinates inside the canvas — the space every cosmos.gl hit test speaks. */
   const at = (event: React.PointerEvent): Point => {
@@ -143,6 +164,7 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
   };
 
   const finish = (shape: Drag | null, event: React.PointerEvent) => {
+    settle();
     setDrag(null);
     setPreview(null);
     if (!shape) return;
@@ -192,6 +214,7 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
       },
       onPointerUp: (event) => finish(drag, event),
       onPointerCancel: () => {
+        settle();
         setDrag(null);
         setPreview(null);
       },
