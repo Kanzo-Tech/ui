@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
+import { REPO } from "./guard-corpus";
 
 /**
  * A page may not name a custom property nothing declares.
@@ -48,9 +48,6 @@ import { describe, expect, it } from "vitest";
  *   reason. The rule holds while our names and theirs agree, and nothing here would report it if
  *   they stopped.
  */
-
-const SRC = dirname(fileURLToPath(import.meta.url));
-const REPO = resolve(SRC, "../../..");
 
 /** Generated or installed. A corpus that includes build output cannot tell whose name it is reading. */
 const EXCLUDED = ["node_modules", ".next", "dist", ".claude", ".turbo"];

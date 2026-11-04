@@ -15,7 +15,7 @@
  * instead; one that lives inside another control's border (an input inside a group) is the group's
  * height less its border, and is written that way in `input-group.tsx`.
  *
- * `control-size.test.ts` fails when a recipe listed there stops using these.
+ * `control-height.test.ts` fails when a recipe listed there stops using these.
  */
 export const controlSizes = {
   sm: "[--size:var(--size-control-min)]",

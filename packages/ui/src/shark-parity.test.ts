@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   useCombobox as useArkCombobox,
@@ -12,6 +12,7 @@ import {
 import { useTourContext as useArkTourContext } from "@ark-ui/react/tour";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
+import { REPO } from "./guard-corpus";
 import * as UI from "./index";
 import {
   ADDED,
@@ -111,7 +112,6 @@ import {
  */
 
 const SRC = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(SRC, "../../..");
 
 /**
  * The reference's address, pinned here as well as in the snapshot and in the refresh script.
@@ -123,8 +123,8 @@ const ROOT = resolve(SRC, "../../..");
  * refuses to write a snapshot that disagrees; this line is the second half of that, so a snapshot
  * regenerated against a moved repository cannot land without an edit here.
  */
-const REPO = "sharkui-inc/shark-ui";
-const SOURCE = `https://raw.githubusercontent.com/${REPO}/main/registry/react/components`;
+const SHARK = "sharkui-inc/shark-ui";
+const SOURCE = `https://raw.githubusercontent.com/${SHARK}/main/registry/react/components`;
 
 /**
  * Six months. Long enough that nobody meets it in the course of ordinary work, short enough that a
@@ -257,7 +257,7 @@ describe("the Shark UI surface", () => {
     }
 
     // And the address, which is the part that went stale unnoticed for as long as it did.
-    expect(snapshot.repo, "the snapshot was taken from a repository this file does not pin").toBe(REPO);
+    expect(snapshot.repo, "the snapshot was taken from a repository this file does not pin").toBe(SHARK);
     expect(snapshot.source).toBe(SOURCE);
     expect(snapshot.commit).toMatch(/^[0-9a-f]{40}$/);
 
@@ -408,7 +408,7 @@ describe("the declared divergences", () => {
     }
     expect(cited.size, "no citations found — the matcher has stopped seeing them").toBeGreaterThan(10);
     const dangling = [...cited].filter(
-      (path) => !existsSync(join(ROOT, path)) && !existsSync(join(SRC, path)),
+      (path) => !existsSync(join(REPO, path)) && !existsSync(join(SRC, path)),
     );
     expect(dangling, "cited and not on disk").toEqual([]);
   });
