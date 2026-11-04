@@ -1,7 +1,10 @@
 import { Slider } from "@kanzo-tech/ui";
 
+// A vertical slider fills its container's height, so the container is what sets it.
 export default function Example() {
   return (
-    <Slider className="h-48" defaultValue={[40]} orientation="vertical" />
+    <div className="h-48">
+      <Slider defaultValue={[40]} orientation="vertical" />
+    </div>
   );
 }
