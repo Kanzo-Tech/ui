@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
 	Button,
 	Resizable,
@@ -160,6 +160,42 @@ function ArchiveShell() {
 	const ActiveBody = PANEL_BODY[active];
 	const activeLabel = PANELS.find((p) => p.id === active)?.label ?? "";
 	const MainRegion = view === "graph" ? ArchiveCanvas : SightingsRegion;
+	const { isMobile } = useSidebar();
+	// A phone lands on the view; `isMobile` settles after mount, so this cannot be the initial state.
+	useEffect(() => {
+		if (isMobile) setPanelOpen(false);
+	}, [isMobile]);
+
+	const dock = (
+		<ShellAside
+			aria-label={`${activeLabel} panel`}
+			// Over the view on a phone, `z-10` like the Format aside: the graph toolbar is `z-10` too.
+			className="z-10 size-full min-h-0 border-s-0 bg-card"
+			overlay={isMobile}
+			side="end"
+		>
+			<div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-3">
+				<span className="font-medium text-sm">{activeLabel}</span>
+				<div className="ms-auto flex items-center gap-1">
+					{/* No "Run": the orders panel publishes into the crossfilter as each order is focused,
+						    so the graph is already showing the answer. A button promising to apply
+						    what is applied is a worse lie than no button. */}
+					<Button
+						aria-label="Close panel"
+						className="-me-1"
+						onClick={() => setPanelOpen(false)}
+						size="icon-sm"
+						variant="ghost"
+					>
+						<XIcon />
+					</Button>
+				</div>
+			</div>
+			<div className="min-h-0 flex-1">
+				<ActiveBody />
+			</div>
+		</ShellAside>
+	);
 
 	return (
 		<>
@@ -190,7 +226,16 @@ function ArchiveShell() {
 			</ScreenHeader>
 
 			<ShellBody className="min-w-0">
-				<Show fallback={<MainRegion />} when={panelOpen}>
+				{/* A phone has no width to split, so there the dock draws over the view. */}
+				<Show
+					fallback={
+						<>
+							<MainRegion />
+							<Show when={panelOpen}>{dock}</Show>
+						</>
+					}
+					when={panelOpen && !isMobile}
+				>
 					<Resizable
 						className="min-h-0"
 						defaultSize={[72, 28]}
@@ -210,32 +255,7 @@ function ArchiveShell() {
 							className="flex min-h-0 min-w-0 flex-col"
 							id="dock"
 						>
-							<ShellAside
-								aria-label={`${activeLabel} panel`}
-								className="size-full min-h-0 border-s-0 bg-card"
-								side="end"
-							>
-								<div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-3">
-									<span className="font-medium text-sm">{activeLabel}</span>
-									<div className="ms-auto flex items-center gap-1">
-										{/* No "Run": the orders panel publishes into the crossfilter as each order is focused,
-											    so the graph is already showing the answer. A button promising to apply
-											    what is applied is a worse lie than no button. */}
-										<Button
-											aria-label="Close panel"
-											className="-me-1"
-											onClick={() => setPanelOpen(false)}
-											size="icon-sm"
-											variant="ghost"
-										>
-											<XIcon />
-										</Button>
-									</div>
-								</div>
-								<div className="min-h-0 flex-1">
-									<ActiveBody />
-								</div>
-							</ShellAside>
+							{dock}
 						</ResizablePanel>
 					</Resizable>
 				</Show>

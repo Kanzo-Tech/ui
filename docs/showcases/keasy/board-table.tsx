@@ -187,8 +187,12 @@ export function BoardTable() {
 
   return (
     <DataTableRoot table={table}>
-      <DataTableToolbar id="tour-board-toolbar">
-        <DataTableSearch column="title" placeholder="Search contracts…" />
+      <DataTableToolbar className="flex-wrap" id="tour-board-toolbar">
+        <DataTableSearch
+          className="max-w-none sm:max-w-xs"
+          column="title"
+          placeholder="Search contracts…"
+        />
         <DataTableFacetFilter column="status" label="State" items={STATUS_ITEMS} />
         <DataTableFacetFilter column="region" label="Region" />
         <DataTableViewOptions className="ms-auto" />
