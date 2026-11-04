@@ -1,3 +1,6 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { placementFrom, timelineFrom } from "./core/channels";
 import { DEFAULT_LOOK, lookFrom, type Look } from "./render/graph-looks";
@@ -124,5 +127,20 @@ describe("where the points come from", () => {
 
   it("reads a cleared column as unbound", () => {
     expect(placementFrom({ placement: "map", "x-by": "lon", "y-by": "" })).toEqual({ x: "lon" });
+  });
+});
+
+describe("the tokens", () => {
+  it("declares only tokens the canvas reads", () => {
+    // `point-ring-hover` was declared, documented and read by nothing; a theme setting it changed no
+    // pixel. A read is the token's custom property or its declaration, in a module that is not a test.
+    const src = dirname(fileURLToPath(import.meta.url));
+    const modules = (readdirSync(src, { recursive: true }) as string[])
+      .filter((name) => /\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name) && name !== "section.ts")
+      .map((name) => readFileSync(join(src, name), "utf8"));
+    for (const name of Object.keys(GRAPH_SECTION.tokens)) {
+      const read = modules.some((text) => text.includes(`--graph-${name}`) || text.includes(`tokens.${name}`));
+      expect(read, `"${name}" is declared and nothing reads it`).toBe(true);
+    }
   });
 });
