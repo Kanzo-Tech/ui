@@ -58,7 +58,7 @@ import {
   TabsTrigger,
   TourTrigger,
 } from "@kanzo-tech/ui";
-import { ArchiveIcon, CalendarClockIcon, CompassIcon, PlusIcon } from "lucide-react";
+import { ArchiveIcon, CalendarClockIcon, CompassIcon, WorkflowIcon } from "lucide-react";
 import { BoardTable } from "./board-table";
 import { ACTIVITY, KPIS, ROUTES, SETUP, STANDING } from "./data";
 import { ScreenHeader } from "./header";
@@ -88,9 +88,9 @@ export function Dashboard() {
                 </Button>
               </TourTrigger>
               <Button asChild size="sm">
-                <a href={ROUTES.newJob}>
-                  <PlusIcon />
-                  New job
+                <a href={ROUTES.discover}>
+                  <WorkflowIcon />
+                  Discover
                 </a>
               </Button>
             </SectionActions>

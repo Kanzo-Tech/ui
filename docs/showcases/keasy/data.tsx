@@ -1,4 +1,4 @@
-import { DatabaseIcon, HomeIcon, WorkflowIcon } from "lucide-react";
+import { HomeIcon, WorkflowIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { INSTANCES as HALL_INSTANCES } from "@/example/nav";
 import { initialsOf, membersOf, member, VIEWER } from "@/example/people";
@@ -41,22 +41,15 @@ export interface NavItem {
   icon: ReactNode;
 }
 
-/**
- * keasy's routes, as hashes: the showcase is one page, and `isActivePath` prefix-matches every
- * `href` against the hash it is on, so Discover lights Graphs.
- */
+/** keasy's routes, as hashes: the showcase is one page. */
 export const ROUTES = {
   dashboard: "#/",
-  graphs: "#/graphs",
-  newJob: "#/graphs/new",
-  connections: "#/connections",
   discover: "#/graphs/archive/discover",
 } as const;
 
 export const NAV: NavItem[] = [
   { title: "Dashboard", href: ROUTES.dashboard, icon: <HomeIcon /> },
-  { title: "Graphs", href: ROUTES.graphs, icon: <WorkflowIcon /> },
-  { title: "Connections", href: ROUTES.connections, icon: <DatabaseIcon /> },
+  { title: "Discover", href: ROUTES.discover, icon: <WorkflowIcon /> },
 ];
 
 /** The tenant switcher's rows are the five halls, already shaped the way `Instance` wants them. */

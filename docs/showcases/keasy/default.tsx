@@ -3,7 +3,6 @@
 import { type ComponentType, useState, useSyncExternalStore } from "react";
 import {
   AvatarFallback,
-  isActivePath,
   Menu,
   MenuContent,
   MenuGroup,
@@ -55,11 +54,9 @@ import {
   UserIcon,
 } from "lucide-react";
 import { initialsOf } from "@/example/people";
-import { Connections } from "./connections";
 import { Dashboard } from "./dashboard";
 import { INSTANCES, NAV, ROUTES, USER } from "./data";
 import { Discover } from "./discover";
-import { NewJob, Studio } from "./studio";
 
 const TOUR_STEPS: TourStepType[] = [
   {
@@ -107,9 +104,6 @@ const TOUR_STEPS: TourStepType[] = [
 /** The screen each route draws inside the frame. A path nothing names opens the dashboard. */
 const SCREENS: Record<string, ComponentType> = {
   [ROUTES.dashboard]: Dashboard,
-  [ROUTES.graphs]: Studio,
-  [ROUTES.newJob]: NewJob,
-  [ROUTES.connections]: Connections,
   [ROUTES.discover]: Discover,
 };
 
@@ -128,12 +122,11 @@ function usePath() {
 }
 
 /**
- * keasy, the product: a collapsing rail with Dashboard, Graphs and Connections, and the screens it
- * leads to. Graphs is the studio a graph is written in; Discover is that graph read back, which
- * collapses the rail while it is shown.
+ * keasy, the product: a collapsing rail with Dashboard and Discover. Discover is the archive graph
+ * read back, full screen with no rail; its trail is the way back.
  *
  * `SidebarProvider` is the viewport frame, and every screen draws its header INSIDE
- * `SidebarInset`, to the inline end of the fixed rail. Each screen owns the page's one `<main>`.
+ * `SidebarInset`. Each screen owns the page's one `<main>`.
  */
 export function KeasyShowcase() {
   const path = usePath();
@@ -144,7 +137,9 @@ export function KeasyShowcase() {
       <SidebarProvider className="h-dvh min-h-0 overflow-hidden">
         {/* The rail is its own component because its switcher, nav and footer all read
             `useSidebar()`, and that context is only readable BELOW the provider. */}
-        <Rail path={path} />
+        <Show when={path !== ROUTES.discover}>
+          <Rail path={path} />
+        </Show>
         <SidebarInset className="overflow-hidden">
           <Screen />
         </SidebarInset>
@@ -163,7 +158,7 @@ export function KeasyShowcase() {
       {/* App-wide preferences only: the graph's looks live in Discover's dock, beside the canvas
           they change. */}
       <PreferencesRoot hotkey="p">
-        {/* Raised clear of the status strips Graphs and Discover close with. */}
+        {/* Raised clear of the status strip Discover closes with. */}
         <PreferencesTrigger className="bottom-12" />
         <PreferencesPanel>
           <PreferencesSections namespace="theme" />
@@ -267,8 +262,7 @@ function Rail({ path }: { path: string }) {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
-                    // The dashboard is the root: every path starts with it, so only an exact match lights it.
-                    isActive={item.href === ROUTES.dashboard ? path === item.href : isActivePath(path, item.href)}
+                    isActive={path === item.href}
                     tooltip={item.title}
                   >
                     {/* `asChild` is the routing seam: a framework's own `Link` goes here. */}

@@ -14,7 +14,6 @@ import {
 	ShellFooter,
 	ShellMain,
 	Show,
-	SidebarIntent,
 	Skeleton,
 	ToggleGroup,
 	ToggleGroupItem,
@@ -29,7 +28,6 @@ import {
 	ShieldCheckIcon,
 	XIcon,
 } from "lucide-react";
-import { ROUTES } from "./data";
 import { ScreenHeader } from "./header";
 import { GraphCanvas, GraphLegend, GraphToolbar, useGraphState } from "@kanzo-tech/graph";
 import { TileEditorAside, useTileEditorOpen } from "@kanzo-tech/ui/analytics";
@@ -45,16 +43,16 @@ import {
 /**
  * Discover: the archive graph read back, at full width and end-to-end in one vocabulary. The whole
  * point is the mapping: it is an IDE-docked layout, not a floating overlay, so every region is one
- * of ours. It draws inside the frame's `SidebarInset`, with the rail collapsed while it is shown:
+ * of ours. It draws inside the frame's `SidebarInset`, full screen with no rail:
  *
- *   ShellHeader     trail (Dashboard › Graphs › The archive › Discover) + view switcher
+ *   ShellHeader     trail (Dashboard › Discover) + view switcher
  *   ShellBody       Resizable: ShellMain view  ⟷  docked ShellAside inspector, and
  *                   the Format aside at the end edge while a dashboard tile is edited
  *   ShellFooter     status bar: node/edge count at start, panel-tab icons at end
  *
  * The dock is drag-resizable, and resizing is composed rather than a prop: the main region and
  * the aside are the two panels of a `Resizable` (our Ark Splitter wrapper), so the drag, keyboard
- * resize and ARIA all come from the machine. The rail stays OUTSIDE the splitter.
+ * resize and ARIA all come from the machine.
  *
  * Two orthogonal switches, which is the IDE shape: the **header** picks what `ShellMain` shows
  * (Graph · Sightings), the **footer strip**'s `ShellDockSwitcher` picks which inspector the dock
@@ -165,17 +163,8 @@ function ArchiveShell() {
 
 	return (
 		<>
-			{/* Discovery is judged at full width: the rail collapses while it is shown, and the
-			    person's own preference returns when they leave. */}
-			<SidebarIntent collapsed />
-			{/* The trail is the way back: the archive is the graph the studio writes. */}
-			<ScreenHeader
-				crumbs={[
-					{ label: "Graphs", href: ROUTES.graphs },
-					{ label: "The archive", href: ROUTES.graphs },
-					{ label: "Discover" },
-				]}
-			>
+			{/* Full screen with no rail: the trail is the way back. */}
+			<ScreenHeader crumbs={[{ label: "Discover" }]} rail={false}>
 				{/* Switching to Sightings closes the dock: a dashboard is judged at full width, and the
 				    inspector has nothing to inspect there. Reopen it from the footer strip. */}
 				<ToggleGroup

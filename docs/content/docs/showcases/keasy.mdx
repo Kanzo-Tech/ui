@@ -1,19 +1,18 @@
 ---
 title: keasy
-description: One product behind one rail — a dashboard, the studio a graph is written in, its connections, and Discover, where the graph is read back.
+description: One product — a dashboard behind a rail, and Discover, full screen, where the graph is read back.
 full: true
 ---
 
 <PreviewIframe name="keasy" title="keasy showcase" className="h-[860px]" />
 
-keasy is Kanzo's product, and this is its screens rebuilt on the library: a collapsing rail with
-**Dashboard**, **Graphs** and **Connections**, Settings behind the user menu, the studio a graph is
-written in, and **Discover**, where the graph it builds is explored. They are one showcase because
-they are one product: one frame, one tenant, one viewer, and screens that link to each other.
+keasy is Kanzo's product, and this is two of its screens rebuilt on the library: **Dashboard**,
+behind a collapsing rail with Settings in the user menu, and **Discover**, where a graph is
+explored, full screen. They are one showcase because they are one product: one frame, one tenant,
+one viewer, and screens that link to each other.
 
-The route is the hash, the way keasy's are paths: `#/`, `#/graphs`, `#/graphs/new`, `#/connections`
-and `#/graphs/archive/discover`. A link — in the rail, in a trail, on a screen — is all navigation
-needs, and `isActivePath` lights the rail from the same string, so Discover lights **Graphs**.
+The route is the hash, the way keasy's are paths: `#/` and `#/graphs/archive/discover`. A link — in
+the rail, in a trail, on a screen — is all navigation needs.
 `/view/showcases/keasy#/graphs/archive/discover` opens on Discover.
 
 ## The frame
@@ -27,8 +26,9 @@ The sidebar arrangements the library does not ship as composites are written out
 workspace switcher, the nav with its active-path and mobile-close policy, the user footer, the
 breadcrumb trail. That hand-composition **is** the documentation: an arrangement does not have to
 become a component, and here you can read the whole of it. The header is the same on every screen:
-the trigger, the trail from Dashboard, the screen's own controls, then search and notifications. On a
-phone the trail keeps its last two crumbs, because the parent is the way back.
+the trigger where there is a rail, the trail from Dashboard, the screen's own controls, then search
+and notifications. On a phone the trail keeps its last two crumbs, because the parent is the way
+back.
 
 - <kbd>⌘</kbd>+<kbd>B</kbd> collapses the rail to icons; the switcher and user rows fall back to
   bare avatars and the header does not shift under it.
@@ -49,121 +49,11 @@ survive the rail collapsing to icons, is a different question — and the one a 
 rows in the table and the `ActionBar` rises with the count; **Take the tour** runs a four-step
 `Tour` over the rail, the KPI row and the table toolbar.
 
-## Graphs
-
-The screen where the product's central artefact gets written. Here that artefact is a
-[fossil](https://github.com/Kanzo-Tech/fossil-lang) program — declare prefixes, bind a source, map it —
-but the shape is generic: a code surface with what it references beside it, then a settings page,
-then a receipt.
-
-It is the library's first real consumer of `CodeEditor`'s `extensions` slot. The component is
-domain-free by design — a CodeMirror lifecycle core, the Kanzo token theme, and a compartment the
-caller fills — so the language lives in the showcase: a `StreamParser` whose token names land on the
-`--syntax-*` palette, a `linter()`, and an `@`-completion over the org's connections. That is
-the whole answer to "how do I put my language in this editor", and it is about 200 lines.
-
-**New job** on the dashboard opens `#/graphs/new`, which asks how to build it; **Studio** opens the
-editor. Worth exercising in the frame:
-
-- **Drag `@aemet` from the rail onto the dashed socket** in line 11. The socket lights up under the
-  pointer and the drop writes `"@aemet/daily-2026.csv"` — the path that was already there survives.
-  Clicking the socket does the same thing through the editor's own completion popover, and
-  <kbd>Enter</kbd> on it works too: a drop is a pointer-only gesture, so it is never the only route.
-- Pick **A program with problems** from the toolbar. Three squiggles appear, the badge turns red, and
-  **Create job** goes disabled — one analysis, read in three places.
-- Walk the steps. **Editor** is the program and the rail of connections, **Configure** the
-  settings, **Summary** the graph the program will emit — read back out of the mappings, not
-  restated from the form. The icon at the end of the status strip closes the rail, and it only
-  appears on Editor, because that is the only page with one.
-- Double-click the job's name in the toolbar to rename it in place (`Editable`, composed with its
-  pencil/submit/cancel `EditableControl`): the trail's leaf follows it, and the status strip says
-  the draft saved itself.
-- **Discover**, at the header's end, opens the graph read back.
-
-### The socket
-
-A socket is a real token in the document — `@?` — not a widget floating over nothing. The program
-stays plain fossil text a compiler could read, the analyser has an opinion about it (an unwired
-source is an error, so **Create** stays shut), and the dashed target is only a view decoration.
-
-It carries two ranges, and that is the whole design. What you SEE is the entire
-`"@?/daily-2026.csv"`, so you drop a *source* rather than a prefix and the line has one texture
-instead of three. What gets REWRITTEN is just the two characters, so a path someone already typed
-survives the drop.
-
-Neither [Ark](https://ark-ui.com) nor [Shark](https://shark.vini.one/docs/components) ships a
-drag-and-drop primitive — checked, and their `FileUpload` dropzones read `dataTransfer.files`, which
-is a different problem. So this is the HTML5 API used directly, in about forty lines, with no state
-machine to wrap. It stays in the showcase: one call site is not the two admission rule 2 asks for.
-
-### What it changes from the original
-
-This is a rebuild of keasy's graph editor, and three of the original's decisions are not carried over.
-
-**The original's wizard hides the program.** Each step returns a different tree, so by the time you
-are choosing an output destination the `source @stations/…` that motivated it is off screen. Here it
-is pages of one job, and the connections stay beside the program that references them.
-
-**The original's validation never reaches the chrome.** Its diagnostics live inside the editor's LSP
-and nothing else can see them — its `validating` flag is declared and never set, its "Validating…"
-branch unreachable, and the only gate on submission is "is the text non-empty". You can create a
-job the editor has marked red.
-
-**Several of the original's pieces are hand-rolled over parts that already exist.** The step indicator, the field
-frame and a radio card written as a bordered `<label>` are `Steps`, `Field` and `RadioGroupCard`.
-
-The "coming soon" marker is the exception, and it is the more interesting one: this screen composes
-it here, out of `Float` and `Badge` over a `relative` box, rather than taking
-[`Gated`](/docs/layout/gated). The two options it marks are radios, and `Gated` makes what it holds
-`inert`, which takes it out of the accessibility tree — the radio group would lose an option rather
-than announce it as unavailable. A `disabled` radio already says that, so all the marker adds is
-the reason, pinned beside it.
-
-### Three pages
-
-**`Steps` spans the toolbar because each step is a whole page.** A full-width `Steps` band over a
-single editor page would span the screen while governing one column, promising to command the
-editor and not doing it — the same reason Discover's dock explains in writing that its switcher is
-a deselectable `ToggleGroup` and not `Tabs`.
-
-**The rail holds connections and nothing else.** A rail is for what ACCOMPANIES the thing you are
-editing; settings you visit once and leave are a page. Only the Editor page has a rail, which is
-why the dock switcher in the status strip appears there and nowhere else.
-
-**The toolbar is ONE row of the page, under the app's header**, which is where keasy keeps it: the
-header carries the trigger, the trail and the door to Discover, as every screen carries its own
-controls there, and no primary actions. The toolbar is the job's: the name as an `Editable`, the
-steps centred in their own grid column, and one secondary split button. `Create job` sits on the Summary page, beside what it creates.
-The trail's leaf is the name as text, never the rename control: a trail is the part that may
-truncate, and a control that truncates loses what it edits.
-
-**Configure is a settings page, not a form.** A narrow column of `Card`s would be three controls
-with a great deal of nothing either side. A card around a single control is chrome standing in for
-content. So it takes the shape
-a settings page actually has: what the setting is on the left, the control on the right, a rule
-between sections. The destination shows the path it resolves to rather than the rule for building
-it.
-
-**Summary shows what comes OUT.** Restating the form — name, run mode, destination, DCAT, sources,
-three of which you have just typed and one of which is in the toolbar — would make it a receipt,
-not a review. It reads the mappings: each class, the
-source it is minted from, the subject template, and every predicate with where its value comes
-from.
-
-Nothing hijacks <kbd>⌘</kbd>+<kbd>S</kbd> either. The draft saves itself and the status strip says
-so, which is a truer thing for a status strip to say than a shortcut announced in a permanent
-segment of the toolbar.
-
-## Connections
-
-What a program can reference as `@name`: the same connections the studio's rail drags into the
-editor, as a page — each with its kind, its URL, and whether a graph may be written there.
-
 ## Discover
 
 The other shape a shell takes: no page, no scroll, a canvas that fills whatever is left. Discover
-collapses the rail while it is shown (`SidebarIntent`), and the person's own preference returns when
-they leave; its trail is the way back to the graph. Here the graph is the Amber Hall's
+draws no rail at all, so the frame is the canvas's; its trail, **Dashboard › Discover**, is the way
+back. Here the graph is the Amber Hall's
 **archive** — 536 closed contracts, the 938 field reports filed against them, and
 the members, beasts, tags and regions they share. 1,543 vertices, 4,280 edges, drawn on the GPU.
 
@@ -253,12 +143,6 @@ docs/showcases/keasy/
 ├── data.tsx              — the routes, the nav, one hall's instances, KPIs and activity, all derived
 ├── dashboard.tsx         — Dashboard
 ├── board-table.tsx       — its table, built from the /table parts (selection, facets, view options)
-├── studio.tsx            — Graphs: the toolbar, the three pages, the status strip
-├── studio-panels.tsx     — the connections rail, the configure form, the summary
-├── studio-data.tsx       — one org's connections and a few programs to open
-├── connection-slots.ts   — the socket: decoration, drag payload, drop handling
-├── fossil-lang.ts        — the language: StreamParser, linter, @-completion
-├── connections.tsx       — Connections
 ├── discover.tsx          — Discover: header, splitter, footer strip, the canvas's parts placed
 ├── graph-view.tsx        — the GraphRoot composition, each look's channels, and the dock panels
 ├── graph-data.ts         — the archive as rows; what the graph is compiled FROM, not read from
@@ -269,7 +153,7 @@ docs/showcases/keasy/
 └── sightings-charts.tsx  — a `Dashboard` over the world's sightings, from a hand-written spec
 ```
 
-Three subpaths beyond `@kanzo-tech/ui` and `@kanzo-tech/graph`: `@kanzo-tech/ui/table` for the board,
-`@kanzo-tech/ui/editor` for the studio, and `@kanzo-tech/ui/analytics` for Discover. The Sightings
+Two subpaths beyond `@kanzo-tech/ui` and `@kanzo-tech/graph`: `@kanzo-tech/ui/table` for the board
+and `@kanzo-tech/ui/analytics` for Discover. The Sightings
 dashboard loads client-only, behind `ssr: false`, because evaluating vgplot during the RSC prerender
 is a TDZ.

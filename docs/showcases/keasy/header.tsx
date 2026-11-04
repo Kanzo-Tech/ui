@@ -28,16 +28,26 @@ export interface Crumb {
 }
 
 /**
- * Every screen's header: the rail's trigger, the trail from Dashboard, and the screen's own
- * controls at the end, before the search and the notifications every screen shares.
+ * Every screen's header: the rail's trigger where there is a rail, the trail from Dashboard, and the
+ * screen's own controls at the end, before the search and the notifications every screen shares.
  */
-export function ScreenHeader({ crumbs, children }: { crumbs: Crumb[]; children?: ReactNode }) {
+export function ScreenHeader({
+  crumbs,
+  rail = true,
+  children,
+}: {
+  crumbs: Crumb[];
+  rail?: boolean;
+  children?: ReactNode;
+}) {
   const trail: Crumb[] = [{ label: "Dashboard", href: ROUTES.dashboard }, ...crumbs];
 
   return (
     <ShellHeader className="h-12 min-w-0 flex-row items-center gap-2 px-3">
-      <SidebarTrigger />
-      <Separator className="h-4" orientation="vertical" />
+      <Show when={rail}>
+        <SidebarTrigger />
+        <Separator className="h-4" orientation="vertical" />
+      </Show>
 
       {/* A fixed-height strip has no second row, so the list does not wrap: the trail yields and
           its leaf truncates, because it is the part you can still infer from the page. */}

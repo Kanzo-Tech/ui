@@ -11,8 +11,8 @@ import { SettingsShowcase } from "@/showcases/settings/default";
  * nothing, so it gets its own page and the docs embed that page in an iframe.
  */
 const SHOWCASES = {
-  // One product's screens behind one rail: the dashboard, the graph studio, its connections and
-  // Discover. Its route is the hash, so `#/graphs/archive/discover` opens on a screen.
+  // One product's screens: the dashboard behind a rail, and Discover full screen. Its route is the
+  // hash, so `#/graphs/archive/discover` opens on a screen.
   keasy: KeasyShowcase,
   // The preference sections on both surfaces: a settings page, and the drawer its trigger opens.
   // The drawer is Portal-ed and `position: fixed`, so it can only be shown honestly in its own
