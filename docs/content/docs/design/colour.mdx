@@ -92,12 +92,19 @@ and ring and `#52b770` (0.140, hue 151) as its first series; the neon stays as `
 where the day side keeps it too. The allowance is there because a fill at the day side's chroma on a
 near-black ground reads greyer than the same fill on white.
 
+**Reversed for `kanzo` on 2026-11-04, by name.** The brand is the neon on kanzo.tech's own dark
+pages and reads as itself only that way, so `kanzo-dark` takes `#1ae973` as its fill and ring again
+and says so in its header; its first series stays `#52b770` under the rule. Two greens a step apart
+were the cost the first time — the neon was `--success`, 1.56:1 from `#5cb572` — so success moves to
+the brand's mid green `#0f8c42`, 2.67:1 from the fill, with its inks from `inkFor` and `pageInk`.
+
 **What would reverse it:** a family whose identity *is* a saturated colour at night — a brand that
 is neon on its own dark site and reads as itself only that way. Then that family declares its night
-side louder in its header, and the guard learns the exception by name.
+side louder in its header, and the guard learns the exception by name, as `kanzo-dark --primary` is.
+And for kanzo: the brand's dark pages leaving the neon.
 
 *Held by* `packages/theme/src/themes.test.ts`, "carries a family's brand at night at no more chroma
-than by day, give or take 0.05".
+than by day, give or take 0.05, unless it says so by name".
 
 ## The obvious ink is computed in the form, not in the page
 
@@ -330,7 +337,7 @@ the library is `rem`, so compact scales everything by 0.875.
 | `Button size="xs"` (`h-6`) | 24.0 px | **21.0 px** | WCAG 2.5.8 AA: **24×24** |
 | `Button size="sm"` (`h-7`) | 28.0 px | 24.5 px | same |
 | `Input size="sm"` (`h-7`) | 28.0 px | 24.5 px | same |
-| `--kanzo-font-size-xs` (0.625rem) | 10.0 px | **8.75 px** | none in WCAG, and no house bar either |
+| `--kanzo-font-size-small` (0.6875rem) | 11.0 px | **9.63 px** | none in WCAG; the house floor is 11 px at the default root |
 
 The smallest button is exactly *at* the bar at default density, which is the tell that nobody chose 24 —
 it fell out of `h-6` and the default root, and the density axis then moved it without anything noticing.

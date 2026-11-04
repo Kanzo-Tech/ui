@@ -1,6 +1,6 @@
 ---
 title: Gated
-description: A region shown but not yet usable — dimmed, out of reach, and announced by the reason pinned to its corner.
+description: A region shown but not yet usable — out of reach, marked with a lock, and announced by the reason pinned to its corner.
 ---
 
 <ComponentPreview componentName="gated" />
@@ -22,8 +22,8 @@ import { GatedRoot, GatedContent, GatedBadge } from "@kanzo-tech/ui";
 
 ```text
 GatedRoot        (role="group", positioned, described by the badge)
-├── GatedContent (inert and muted)
-└── GatedBadge   (a Badge in a Float, pinned to a corner)
+├── GatedContent (inert, at full contrast)
+└── GatedBadge   (a lock and a label in a Badge, in a Float, pinned to a corner)
 ```
 
 ## What a screen reader hears
@@ -36,6 +36,14 @@ content. Nothing inside it can name or describe anything.
 So the badge is the only readable part, and the root is a `group` described by it. Name the group
 after the feature with `aria-label` — the visible title is inside the inert subtree — and a screen
 reader announces *"Search the archive, group, Coming soon"* where the region was.
+
+## What a sighted reader sees
+
+The content is drawn as it is, not faded. Dimming it to 64% took muted text to about 3.2:1, under
+the 4.5:1 body text owes, and a region nobody can read is a poor preview of a feature. The gate is
+marked instead by `GatedBadge`: a lock and your words, at `Badge`'s `sm` size so the label is
+the same `text-xs` as every other badge. The lock is decoration and hidden from assistive technology;
+the words are what describes the group.
 
 ## Where not to use it
 
@@ -58,8 +66,8 @@ content and leave the badge where it was.
 | --- | --- | --- |
 | `placement` | `"top-start" \| "top-center" \| "top-end" \| "middle-start" \| "middle-center" \| "middle-end" \| "bottom-start" \| "bottom-center" \| "bottom-end"` | `"top-end"` |
 
-Every other prop is `Badge`'s, with `size="xs"` and `variant="secondary"` as the defaults; its
-props are exported as `GatedBadgeProps`. Its `id` is the one the root's `aria-describedby` names,
+Every other prop is `Badge`'s, with `size="sm"` and `variant="secondary"` as the defaults, and the
+children follow a `LockIcon` it always draws. Its props are exported as `GatedBadgeProps`. Its `id` is the one the root's `aria-describedby` names,
 so leave it to the root.
 
 ### Other parts

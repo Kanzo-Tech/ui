@@ -1,8 +1,9 @@
 /* @family kanzo
    @label Kanzo Dark
 
-   The brand at night: near-black green, mist ink, a green fill at the weight the day's deep green
-   carries, and the neon kept for success, as by day.
+   The brand at night: near-black green, mist ink and the neon as the fill, as kanzo.tech wears it
+   in the dark. Louder than the day side by name (/docs/design/colour), so success takes the
+   brand's mid green to stay apart from it.
    The dark default: `:root.dark:not([data-theme])` paints a first visit whose OS is dark before any
    theme is chosen (themes.test.ts, "leaves no dark document painted by a light theme"). */
 :root.dark:not([data-theme]), [data-theme="kanzo-dark"] {
@@ -15,13 +16,13 @@
   --popover: #101712;
   --muted: #121a14;
   --muted-foreground: #a3b2a6;
-  --primary: #5cb572;
-  --primary-foreground: #002b0b;
+  --primary: #1ae973;
+  --primary-foreground: #001305;
   --secondary: #18221a;
   --accent: #1d281f;
   --border: #27342a;
   --input: #5f6e63;
-  --ring: #5cb572;
+  --ring: #1ae973;
   --field: #070b08;
   --faint: #8a998d;
 
@@ -32,9 +33,9 @@
   --info: #2e90fa;
   --info-content: #010715;
   --info-foreground: #7fb8f5;
-  --success: #1ae973;
-  --success-content: #001305;
-  --success-foreground: #8deda3;
+  --success: #0f8c42;
+  --success-content: #000701;
+  --success-foreground: #76b382;
   --warning: #fdb022;
   --warning-content: #160b00;
   --warning-foreground: #f6ca85;

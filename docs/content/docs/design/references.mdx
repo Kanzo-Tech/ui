@@ -90,8 +90,8 @@ reference itself does not consume. The rule is not being satisfied by some consu
 is being **overruled**, on the narrow ground that a shared vocabulary is the thing being bought and a
 vocabulary with holes is not one.
 
-**`usePinInput` is the exception, and it is a different kind of absence.** Shark has no pin-input
-component at all — it solves that problem with `input-otp.tsx`, which exports no hook. The name was
+**A file Shark does not have is a different kind of absence.** Shark solves one-time codes with
+`input-otp.tsx`, which exports no hook, and has no pin-input component at all. A name there was
 never the reference's, so parity neither grants it nor refuses it, and it falls back to the house
 rule. `ListboxContext` and the three `ColorPicker*` parts are the plain case instead: Shark's files
 export the neighbours and not these. The other direction is not empty either — `ADDED`, in

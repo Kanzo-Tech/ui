@@ -58,7 +58,7 @@ describe("MenuContextTrigger", () => {
     await screen.findByRole("menu");
 
     expect(document.querySelector("[data-slot=menu-content]")).not.toBeNull();
-    expect(document.querySelector("[data-slot=menu-shortcut]")).not.toBeNull();
+    expect(document.querySelector("[data-slot=menu-shortcut]")?.className).not.toMatch(/\btracking-/);
     expect(document.querySelector("[data-slot^=context-menu]")).toBeNull();
   });
 

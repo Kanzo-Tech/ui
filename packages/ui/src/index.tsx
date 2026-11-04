@@ -236,7 +236,6 @@ export * from "./simples/native-select.js";
 export * from "./simples/number-input.js";
 export * from "./simples/pagination.js";
 export * from "./simples/password-input.js";
-export * from "./simples/pin-input.js";
 export * from "./simples/popover.js";
 export * from "./simples/progress.js";
 export * from "./simples/prose.js";

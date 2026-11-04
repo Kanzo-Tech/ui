@@ -262,7 +262,6 @@ The table is the reference; the examples below are the copies.
 | `NumberInput` | `value: string` | `onValueChange` | `{ value: string, valueAsNumber: number }` |
 | `Slider` | `value: number[]` | `onValueChange` | `{ value: number[] }` |
 | `DatePicker` | `value: DateValue[]` | `onValueChange` | `{ value: DateValue[], valueAsString: string[] }` |
-| `PinInput` | `value: string[]` | `onValueChange` | `{ value: string[], valueAsString: string }` |
 | `Rating` | `value: number` | `onValueChange` | `{ value: number }` |
 | `TagsInput` | `value: string[]` | `onValueChange` | `{ value: string[] }` |
 | `FileUpload` | `acceptedFiles: File[]` | **`onFileChange`** | `{ acceptedFiles, rejectedFiles }` |
@@ -272,7 +271,7 @@ The table is the reference; the examples below are the copies.
 **The exceptions to "everything reads `Field`".** Most Ark machines pull `invalid`, `disabled`,
 `readOnly`, `required` and the label id out of `Field`'s context, which is why `invalid` on the
 root is enough — `Input`, `Textarea`, `NativeSelect`, `Select`, `Combobox`, `Checkbox`, `Switch`,
-`NumberInput`, `PinInput`, `Rating`, `TagsInput`, `FileUpload` and `ColorPicker` all do.
+`NumberInput`, `Rating`, `TagsInput`, `FileUpload` and `ColorPicker` all do.
 
 `RadioGroup`, `Slider` and `DatePicker` **do not**. For those, pass `invalid` to the control as well as to the `Field`; it is the one place the
 house rule needs a second line, and it is a gap in Ark, not a choice of ours.
@@ -402,14 +401,6 @@ application that hydrates a saved date installs it directly. Wrap the parse in a
 one unparseable row must not take down the form. The full shape is on
 [Date Picker](/docs/forms/dates#an-iso-string-in-and-out).
 </Callout>
-
-### PinInput
-
-One string per cell, so the value is a `string[]`. `details.valueAsString` is the joined form if
-you would rather keep a single string in state — pick one and stay with it, because
-`value` expects the array either way.
-
-<ComponentPreview componentName="form/tanstack" fileName="example-pin-input" hasMaxHeight={false} showBorders={false} />
 
 ### Rating
 

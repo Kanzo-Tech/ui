@@ -87,13 +87,19 @@ export function DetailTable(props: DetailTableProps) {
                   key={column}
                 >
                   <Button
-                    className={cn("-mx-2 gap-1", numeric && "flex-row-reverse")}
+                    className={cn("group/sort -mx-2 gap-1", numeric && "flex-row-reverse")}
                     onClick={() => cycle(column)}
                     size="sm"
                     variant="ghost"
                   >
                     {column}
-                    <Icon className={cn("size-3.5", sort?.column !== column && "text-muted-foreground")} />
+                    <Icon
+                      className={cn(
+                        "size-3.5",
+                        sort?.column !== column &&
+                          "text-muted-foreground opacity-0 transition-opacity group-hover/sort:opacity-100 group-focus-visible/sort:opacity-100",
+                      )}
+                    />
                   </Button>
                 </TableHead>
               );

@@ -113,18 +113,16 @@ describe("Diagnostic", () => {
   });
 
   /**
-   * **`Alert`'s surface, which is the reference's.** This wore a `border-s-2` rail in the family's
-   * colour over a neutral wash — a card with a bar down one edge, a shape that appears nowhere in
-   * Shark UI and nowhere else in this library. The wash at `-a3` and the whole outline at `-a6`
-   * are `Alert`'s exact steps, and a diagnostic is the same thing `Alert` is: a message with a
-   * severity.
+   * The surface is neutral whatever the variant: a list of findings washed in red read as one red
+   * block. The severity colour is the icon's and the badge's, asserted below.
    */
-  it("wears the variant the way an Alert does, not as a coloured rail", () => {
+  it("keeps the card neutral and leaves the colour to the icon and the badge", () => {
     renderOne({ variant: "warning" });
 
     const root = screen.getByRole("listitem");
-    expect(root.className).toContain("bg-warning/7");
-    expect(root.className).toContain("border-warning/30");
+    expect(root.className).toContain("bg-card");
+    expect(root.className).toContain("border");
+    expect(root.className).not.toMatch(/warning|destructive|info/);
     expect(root.className).not.toContain("border-s-2");
   });
 

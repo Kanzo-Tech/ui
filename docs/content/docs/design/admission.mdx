@@ -69,15 +69,17 @@ is about an *export*.
 
 So this rule has no worked example of its own left standing, and that is the honest state of it. What
 it governs is every name that is ours alone, where the reference is silent — `SuggestItem` and
-`usePinInput` are the two decided that way, and a reader looking for a case to copy should take one
-of those rather than the track.
+`PinInput` are the two decided that way, and a reader looking for a case to copy should take one
+of those rather than the track. `PinInput` was Ark's pin-input machine in our recipe, with no call
+site in any product; Shark has no pin-input file to grant it — its answer is `input-otp` — so it
+left the barrel with its parts and its hook, and a form that needs a code composes Ark's directly.
 
 **What would reverse it: a second independent call site.** One carve-out, which is not a reversal:
 [the reference governs the surface](/docs/design/references), so the names Shark's registry exports
 ship without a call site of their own.
 
 *Held by* `packages/ui/src/index.test.ts`, the pinned set and the tombstones, `!SuggestItem` and
-`!usePinInput` — the two names this rule decided where the reference is silent.
+`!PinInput` — the two names this rule decided where the reference is silent.
 
 ## A layout tree is children, never an attribute
 
@@ -105,8 +107,8 @@ want the ergonomics of a list.
 
 ## One dashboard number, one compound
 
-A headline figure is the [`Stat`](/docs/data-display/stat) family — `StatRoot`, a `Card` carrying a
-status family, and `StatIndicator`, `StatLabel`, `StatValue`, `StatDelta`, `StatTrend` and
+A headline figure is the [`Stat`](/docs/data-display/stat) family — `StatRoot`, a `Card`, and
+`StatIndicator`, `StatLabel`, `StatValue`, `StatDelta`, `StatTrend` and
 `StatDescription` inside it. There is no second form for the plain case and no props convenience
 over the parts.
 
@@ -114,22 +116,26 @@ There were two, and they were one idea drawn twice. `StatTile` took `label`, `va
 `trend` as props and shipped in the barrel; `MetricCard` was a `Card` with a status tint, a whole-card link, a
 skeleton and an icon disc, and lived in a showcase. The first was closed, so the first host that
 wanted a link or a status on a dashboard copied the second. Every part either had was
-already the other's missing piece: the link was `Card`'s `asChild`, the tint a data attribute, the
-delta and the sparkline were `StatTile`'s own. The collapse invented nothing, which is how you tell
+already the other's missing piece: the link was `Card`'s `asChild`, the delta and the sparkline
+were `StatTile`'s own. The tint and the disc came across too, and went later: a KPI is type, not a
+tile, so `StatIndicator` is a plain muted icon and the figure is tabular, and the root has no
+`variant` for an indicator to read. The collapse invented nothing, which is how you tell
 two components that were one.
 
 **The parts own the vocabulary; the host owns the policy.** `StatValue` renders what it is given —
 [`FormatNumber`](/docs/data-display/format) with `notation="compact"` is the dashboard reading, and
 the threshold at which a count should compact is a decision about the reader, not about the tile.
 `StatDelta` is the exception that proves it: its sign *is* its meaning, so it formats its own
-magnitude, and the one policy it cannot infer — whether a rise is good — is `goodWhenUp`. The status
-vocabulary is the five families `Badge`, `Alert` and `Status` already spell as `variant`, not a
-sixth.
+magnitude, and the one policy it cannot infer — whether a rise is good — is `goodWhenUp`. Colour on
+a stat is the delta's, where a sign and an icon back it; a status that is not a change is a `Badge`
+or an `Alert` beside the figure, not a wash on it.
 
 **What would reverse it:** a stat whose arrangement a caller cannot reach through the parts — a
 region that must render and that no host ever reorders — which is the condition
 [a layout tree](#a-layout-tree-is-children-never-an-attribute) sets for a props form, and which
-`StatTile` never met: its one host outside the repo needed exactly the arrangement it withheld.
+`StatTile` never met: its one host outside the repo needed exactly the arrangement it withheld. The
+status colour comes back the day a dashboard host needs a figure's state legible at a glance and a
+`Badge` beside it does not carry it — a measured reading, not a preference for colour.
 
 *Held by* `packages/ui/src/simples/stat.test.tsx`, "becomes the anchor under asChild, so a linked
 tile is one link and not a link around a card"; `packages/ui/src/index.test.ts`, `!StatTile` and
@@ -203,9 +209,9 @@ EmptyRoot rather than a part of its own".
 
 ## A role written out four times is a part: `Eyebrow`
 
-[`Eyebrow`](/docs/data-display/eyebrow) is the small, muted, uppercase line that names a block from
-above it, and it is the one piece of type in the library besides `Prose`. `Prose` says the position
-it is an exception to: components style their own text, and the `Heading` and `Text` atoms went
+[`Eyebrow`](/docs/data-display/eyebrow) is the small, muted line that names a block from above it,
+and it is the one piece of type in the library besides `Prose`. `Prose` says the position it is an
+exception to: components style their own text, and the `Heading` and `Text` atoms went
 because they were a scale of knobs with no consumer.
 
 This is neither. It was the same five utilities typed out by hand four times — `LABEL` in
@@ -224,10 +230,14 @@ decides.
 print are *eyebrow* and Material's *overline*. The second is also Tailwind's `overline`, a text
 decoration, which a class list beside it would read as. **One size, `text-xs`.** `Preferences` is set
 at the IDE tier's 11px throughout, so it passes that size through `className` rather than the part
-growing a `size` for one panel.
+growing a `size` for one panel. **Normal case, no tracking.** It was uppercase and tracked, and
+small capitals set in a run of labels read as shouting chrome rather than as names; the weight and
+the muted ink already rank it under the block it heads, and the caller's own casing survives.
 
 **What would reverse it:** a second fixed size with two call sites of its own, which is a `size`
-variant; or the call sites dwindling to one, which is the inline string again. A request for a weight
+variant; or the call sites dwindling to one, which is the inline string again. The case comes back
+uppercase only if a call site's heading stops reading as a heading at this weight and ink — measured
+on that panel, not asked for in general. A request for a weight
 or a colour is the `Text` atom coming back, and is refused on the same grounds it went.
 
 *Held by* `packages/ui/src/simples/eyebrow.test.tsx`, "lands on the element it heads under asChild,
@@ -266,8 +276,10 @@ available yet, so it had a second call site outside the showcases.
 
 That is the naming rule's own test passed, not waived: the parts are more capable than the
 composition, because the root is a `group` the badge describes and the caller names, so the reason
-is announced where the region was. The muted treatment is `opacity-64`, `disabled`'s own, and the
-`pointer-events-none` the showcase carried is dropped because `inert` already hit-tests that way.
+is announced where the region was. The content is not dimmed: `opacity-64`, `disabled`'s own, took
+muted text inside it to about 3.2:1, so the gate is marked by a lock and the badge's words at `sm`
+instead, and the text keeps its contrast. The `pointer-events-none` the showcase carried is dropped
+because `inert` already hit-tests that way.
 No `data-gated`: nothing selects on it, and `data-slot="gated"` already marks the root for a
 caller.
 
@@ -277,7 +289,8 @@ announced as unavailable.
 
 **What would reverse it:** a browser exposing inert content to assistive tech after all, which puts
 the gate back to being an attribute; or a gate whose reason cannot be a badge — a sentence, a link —
-which would want the reason as its own part rather than a `Badge` with an id.
+which would want the reason as its own part rather than a `Badge` with an id. The fade comes back
+only with a treatment that keeps the content's text at 4.5:1, which `opacity` cannot.
 
 *Held by* `packages/ui/src/layouts/gated.test.tsx`, "names the group after the feature and describes
 it with the badge"; `packages/ui/src/index.test.ts`, "drops the pre-arrangements over parts that

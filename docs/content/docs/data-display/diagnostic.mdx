@@ -92,24 +92,19 @@ Everything else belongs in `DiagnosticContent`: the long form of the message, an
     …
 ```
 
-It reaches the card and the badge on one transport:
-
-- **Colour is the recipe's**, applied to the root like any other variant in this library — not
-  `data-variant` read back through `group-data-` lines, which would repaint by hand the soft
-  variants `Badge` already ships.
-- **The icon and the badge's own variant** come from the root through context, because no selector
-  can produce an element and `Badge` takes its variant as a prop. `DiagnosticSeverity` draws the
-  glyph; the word beside it is yours.
+It reaches the icon and the badge through context, because no selector can produce an element and
+`Badge` takes its variant as a prop. `DiagnosticSeverity` draws the glyph; the word beside it is
+yours.
 
 `data-variant` is also written on the root. It is a **styling hook for a consumer**, the same one
 every component here offers, and nothing inside reads it.
 
-The card wears its variant the way an [`Alert`](/docs/overlays/alert) does — the wash at 7% of the
-family (`bg-warning/7`), the whole outline at 30% (`border-warning/30`), the glyph at the family. A
-diagnostic *is* what an `Alert` is, a message with a severity, so it takes the same surface rather
-than a second one. There is no coloured inline-start edge: that shape appears nowhere in Shark UI
-or elsewhere in this library. The badge on the header is a real `Badge` wearing the root's variant,
-not its recipe respelled.
+The card itself is neutral whatever the variant — `bg-card` and the plain `border`. The severity
+colour lives on the icon and the badge and nowhere else, so a list of six destructive findings reads
+as six findings rather than one red block, and the colour that is there still means something.
+There is no coloured inline-start edge either: that shape appears nowhere in Shark UI or elsewhere
+in this library. The badge on the header is a real `Badge` wearing the root's variant, not its
+recipe respelled.
 
 ## Frames
 

@@ -77,13 +77,12 @@ export const OBLIGATIONS: readonly Obligation[] = [
     threshold: null,
     holds: ">=",
     unit: "CSS px",
-    against: "not established — WCAG sets no minimum type size, and this repo has set none either",
+    against: "the house floor, 11px at the default root (2026-11-04); WCAG sets no minimum type size",
     reason:
-      "Real and not gradeable, and saying so beats inventing a bar. `--kanzo-font-size-xs` is " +
-      "0.625rem, which is 10px at the default root and 8.75px at compact. What would close it: a " +
-      "house floor with a reason. The honest anchor already exists in the source — the IDE tier " +
-      "justifies `--kanzo-font-size-base` as 13px, 'below Tailwind text-xs', which means the scale " +
-      "was designed against a floor nobody wrote down. Writing that floor down is the work.",
+      "Not graded, because density is meant to shrink it. `--kanzo-font-size-small` is 0.6875rem, " +
+      "11px at the default root and 9.63px at compact, and the scale emits nothing smaller: the " +
+      "10px step was deleted with its last reader, Badge `xs`. The floor sits two steps below the " +
+      "IDE tier's 13px base. What would close it: a guard that no recipe sets type below the token.",
   },
 ];
 

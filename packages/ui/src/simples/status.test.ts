@@ -65,7 +65,7 @@ function pair(
 ) {
   const classes = statusVariants({ variant }).split(/\s+/);
   const pick = (prefix: string) => {
-    // Token-backed utilities only: the base also carries `text-[10px]`, an arbitrary value that
+    // Token-backed utilities only: the base also carries `text-[length:…]`, a font size that
     // names no colour. A `dark:` prefix still wins on a dark theme — the class has stopped flipping
     // tokens but is still how a recipe spells "on the dark side".
     const named = (c: string) => new RegExp(`^${prefix}[a-z][a-z-]*$`).test(c);

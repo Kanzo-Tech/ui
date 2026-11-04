@@ -7,7 +7,7 @@ export const statusVariants = tv({
   base: [
     "shrink-0 rounded-full",
     "flex items-center justify-center",
-    "font-medium text-[10px]",
+    "font-medium text-[length:var(--kanzo-font-size-small)]",
     "ring-2 ring-background",
   ],
   variants: {

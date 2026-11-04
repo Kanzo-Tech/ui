@@ -424,11 +424,13 @@ describe("@kanzo-tech/ui public surface", () => {
     ]) {
       expect(surface[name], name).toBeUndefined();
     }
-    // `usePinInput` is the one absence parity cannot argue either way: Shark has no `pin-input`
-    // component at all — it solves the same problem with `input-otp.tsx`, which exports no hook.
-    // So this name was never the reference's, and it goes back to needing a caller of its own.
-    expect(surface.usePinInput).toBeUndefined();
-    expect(UI.PinInput).toBeTypeOf("function");
+    // `PinInput` is the absence parity cannot argue either way: Shark has no `pin-input` component
+    // at all — it solves the same problem with `input-otp.tsx`, which exports no hook. So none of
+    // these names was ever the reference's, and with no call site in any product, admission rule 2
+    // removed the component, its parts and its hook. Ark's `PinInput` is the one to compose.
+    for (const name of ["PinInput", "PinInputLabel", "PinInputControl", "PinInputInput", "usePinInput"]) {
+      expect(surface[name], name).toBeUndefined();
+    }
     // Ours, not Shark's, and each has a consumer inside the library — the test the aliases above
     // could never pass and no longer have to.
     expect(UI.useSidebar).toBeTypeOf("function");
@@ -561,8 +563,8 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.statusVariants).toBeTypeOf("function");
     // Everything else stays internal, and the reason is the same rule read the other way: Shark's
     // registry exports no recipe under any of these names. For `Empty*`, `Link`, `Section*`,
-    // `Shell*`, `Swatch` and `PinInput` it has no file at all; for `float`, `button-group`, `number-input`
-    // and `sidebar` it has one that keeps its own recipe local. Silence returns the question to the
+    // `Shell*` and `Swatch` it has no file at all; for `float`, `button-group`, `number-input` and
+    // `sidebar` it has one that keeps its own recipe local. Silence returns the question to the
     // house rules.
     const surface = UI as Record<string, unknown>;
     for (const name of [
@@ -571,7 +573,6 @@ describe("@kanzo-tech/ui public surface", () => {
       "floatVariants",
       "linkVariants",
       "numberInputControlVariants",
-      "pinInputInputVariants",
       "sectionBodyVariants",
       "sectionHeaderVariants",
       "sectionTitleVariants",
