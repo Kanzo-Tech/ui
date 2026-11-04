@@ -4,10 +4,11 @@ The repository rules are in `../CLAUDE.md`. What follows is true only here.
 
 - **`--webpack`, always.** Both `dev` and `build` pass it. vgplot trips a temporal-dead-zone error
   under Turbopack, so charts do not mount without it. Do not "modernise" the scripts.
-- **`@source "../../packages/ui/src/**/*.{ts,tsx}"` in `app/global.css` is load-bearing.** This
-  sheet loads *after* the library's, so without it the docs sheet has `.hidden` but not the
-  `md:*` utilities that undo it, and the desktop sidebar computes `display: none` at every width.
-  The comment above the line has the full cascade argument. Do not remove it.
+- **`app/global.css` is a consumer's sheet, and its order is load-bearing.** It imports the
+  published `tailwind.css` entries and never `@source`s `packages/*/src`, so the site exercises
+  what ships. fumadocs' sheets go *before* the library's: fumadocs declares its own
+  `@variant dark`, and the last declaration in one build wins. The comment at the top of the file
+  has the argument. Do not reorder it.
 - **One engine per page.** `MosaicProvider` registers the engine's coordinator as vgplot's active
   one and that setter is process-wide, so a second coordinator on a page leaves the first set of
   charts empty. `engine()` is already one per document: ask it, never build a `Coordinator`, and
