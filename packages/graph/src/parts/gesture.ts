@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
 import type { Graph } from "@cosmos.gl/graph";
+import { useHotkey } from "@kanzo-tech/ui";
 import type { VertexSelection, VertexSelectionSource, Tool, VertexId } from "../core/types";
 
 /**
@@ -128,20 +129,28 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
   useEffect(() => settle, [settle]);
 
   // Escape is the way out of everything, in layers: it abandons a drag in progress, then drops the
-  // tool, then clears the canvas's own pick — another place's clause is let go at its chip. And a
-  // window that loses focus never delivers the Shift keyup, which would leave the canvas unable to pan. The layer is read from `dragging`, not from inside a
-  // `setDrag` updater: React may run an updater while it renders the canvas, and `setTool` and
-  // `commit` write the store every other part reads, which is a setState in another's render.
+  // tool, then clears the canvas's own pick — another place's clause is let go at its chip. The layer
+  // is read from `dragging`, not from inside a `setDrag` updater: React may run an updater while it
+  // renders the canvas, and `setTool` and `commit` write the store every other part reads, which is a
+  // setState in another's render. It only observes, so a dismissable layer still gets the key.
   const dragging = drag !== null;
-  useEffect(() => {
-    const down = (event: KeyboardEvent) => {
-      if (event.key === "Shift") setShift(true);
-      if (event.key !== "Escape") return;
+  useHotkey(
+    "Escape",
+    () => {
       settle();
       setPreview(null);
       if (dragging) setDrag(null);
       else if (tool) setTool(null);
       else commit(null, "node", "", false);
+    },
+    { preventDefault: false },
+  );
+
+  // Not `useHotkey`: holding Shift is a state, so it needs the keyup and the blur — a window that
+  // loses focus never delivers the keyup, which would leave the canvas unable to pan.
+  useEffect(() => {
+    const down = (event: KeyboardEvent) => {
+      if (event.key === "Shift") setShift(true);
     };
     const up = (event: KeyboardEvent) => {
       if (event.key === "Shift") setShift(false);
@@ -155,7 +164,7 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
       window.removeEventListener("keyup", up);
       window.removeEventListener("blur", blur);
     };
-  }, [commit, dragging, settle, setTool, tool]);
+  }, []);
 
   /** Screen coordinates inside the canvas — the space every cosmos.gl hit test speaks. */
   const at = (event: React.PointerEvent): Point => {
