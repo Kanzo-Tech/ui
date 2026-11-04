@@ -15,12 +15,11 @@
 // `ColumnDef[]` is built at RUNTIME: the columns come out of a SHACL shape the reader is editing in
 // the next pane, so the table is redefined as they type. Nothing else here proves that works.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   Badge,
   Button,
   ButtonGroup,
-  ButtonGroupText,
   cn,
   DataList,
   DataListItem,
@@ -41,6 +40,10 @@ import {
   ImageCropperImage,
   ImageCropperSelection,
   Input,
+  Menu,
+  MenuContent,
+  MenuItem,
+  MenuTrigger,
   NativeSelect,
   NativeSelectOption,
   ScrollArea,
@@ -58,6 +61,7 @@ import {
   Show,
   Spinner,
   Status,
+  useLocale,
 } from "@kanzo-tech/ui";
 // TanStack-backed: the `/table` subpath, never the root barrel.
 import {
@@ -77,11 +81,13 @@ import { StreamLanguage } from "@codemirror/language";
 import { turtle } from "@codemirror/legacy-modes/mode/turtle";
 import { CodeEditor } from "@kanzo-tech/ui/editor";
 import {
+  ChevronDownIcon,
   CropIcon,
   DownloadIcon,
   FileCode2Icon,
   ImageIcon,
   PlusIcon,
+  RotateCcwIcon,
   ScanTextIcon,
   SquareIcon,
   UploadIcon,
@@ -90,6 +96,7 @@ import { toCsv, csvName } from "./csv";
 import {
   blankRow,
   recorded,
+  recordedEvents,
   SAMPLE,
   type Crop,
   type ExtractEvent,
@@ -127,6 +134,53 @@ type MetaMap = Record<string, Record<string, CellMeta>>;
  *  "check this". 0.75 leaves the two the run is genuinely unsure about — a beast under a mug at
  *  0.61 and a surname that admits two spellings at 0.63 — and nothing else. */
 const UNSURE = 0.75;
+
+/** The cell holds the XSD lexical form (`3.2`); the reader sees and types their locale's
+ *  separator. The CSV writes its own, for the spreadsheet's locale — see `csv.ts`. */
+function useDecimal() {
+  const { locale } = useLocale();
+  return useMemo(() => {
+    const sep =
+      new Intl.NumberFormat(locale).formatToParts(1.5).find((p) => p.type === "decimal")?.value ??
+      ".";
+    return {
+      show: (value: string) => value.replace(".", sep),
+      read: (value: string) => value.replace(sep, "."),
+    };
+  }, [locale]);
+}
+
+type Crops = Record<string, { shot: string; crop: Crop }>;
+
+/** One event folded into each of the three pieces of state it touches. Pure, so a live stream and
+ *  the first visit's sample go through the same code. */
+const fold = {
+  rows: (rows: Row[], event: ExtractEvent): Row[] =>
+    event.kind === "row"
+      ? rows.some((r) => r.id === event.rowId)
+        ? rows
+        : [...rows, { id: event.rowId, cells: {} }]
+      : rows.map((r) =>
+          r.id === event.rowId ? { ...r, cells: { ...r.cells, [event.key]: event.value } } : r,
+        ),
+  meta: (meta: MetaMap, event: ExtractEvent): MetaMap =>
+    event.kind === "row"
+      ? meta
+      : {
+          ...meta,
+          [event.rowId]: {
+            ...meta[event.rowId],
+            [event.key]: { confidence: event.confidence, note: event.note },
+          },
+        },
+  crops: (crops: Crops, event: ExtractEvent, kept: ReadonlySet<string>): Crops =>
+    event.kind === "row" && !kept.has(event.rowId)
+      ? { ...crops, [event.rowId]: { shot: event.shot, crop: event.crop } }
+      : crops,
+};
+
+/** A first visit opens on the sample already read, so the screen shows what it is for. */
+const SAMPLE_RUN = recordedEvents(SAMPLE.id);
 
 // ── The paper ────────────────────────────────────────────────────────────────
 
@@ -367,7 +421,9 @@ function Cell({
 }) {
   const issues = ledger.issuesAt(row.id, column.key);
   const cellMeta = ledger.metaAt(row.id, column.key);
-  const value = row.cells[column.key] ?? "";
+  const decimal = useDecimal();
+  const stored = row.cells[column.key] ?? "";
+  const value = column.type === "decimal" ? decimal.show(stored) : stored;
   const invalid = issues.length > 0;
   /** A finding is drawn where the reader has been; the badge is how they ask for the rest. */
   const revealed = ledger.touched(row.id, column.key);
@@ -416,7 +472,13 @@ function Cell({
             unsure && unsureMark,
           )}
           data-unread={value ? undefined : true}
-          onChange={(e) => ledger.edit(row.id, column.key, e.target.value)}
+          onChange={(e) =>
+            ledger.edit(
+              row.id,
+              column.key,
+              column.type === "decimal" ? decimal.read(e.target.value) : e.target.value,
+            )
+          }
           placeholder={invalid ? "—" : ""}
           value={value}
         />
@@ -452,6 +514,16 @@ function Cell({
  */
 function ledgerColumns(columns: Column[]): ColumnDef<Row>[] {
   const numeric = (column: Column) => column.type === "decimal" || column.type === "integer";
+  // A closed vocabulary is as wide as its longest word plus the chevron; a number or a date is as
+  // wide as its digits. Free text is left unsized, so it takes what is left.
+  const width = (column: Column) =>
+    column.options
+      ? Math.max(...column.options.map((o) => o.length)) * 9 + 64
+      : numeric(column)
+        ? 88
+        : column.type === "date"
+          ? 124
+          : undefined;
 
   return [
     {
@@ -476,6 +548,7 @@ function ledgerColumns(columns: Column[]): ColumnDef<Row>[] {
     },
     ...columns.map<ColumnDef<Row>>((column) => ({
       id: column.key,
+      ...(width(column) ? { size: width(column) } : {}),
       accessorFn: (row) => row.cells[column.key] ?? "",
       // `sortableHeader` rather than a bare label, and it earns its place on a ledger under
       // review: sorting by a column is how a reviewer gathers the empty cells of one field
@@ -509,13 +582,32 @@ function ledgerColumns(columns: Column[]): ColumnDef<Row>[] {
 
 // ── The showcase ─────────────────────────────────────────────────────────────
 
+/** Below Tailwind's `md`. No sidebar here, so the breakpoint is this screen's own query (`/docs/hooks/use-is-mobile`). */
+const PHONE = "(width < 48rem)";
+
+function useIsPhone() {
+  return useSyncExternalStore(
+    (change) => {
+      const query = window.matchMedia(PHONE);
+      query.addEventListener("change", change);
+      return () => query.removeEventListener("change", change);
+    },
+    () => window.matchMedia(PHONE).matches,
+    () => false,
+  );
+}
+
 export function FieldNotesShowcase() {
+  const isMobile = useIsPhone();
+  const decimal = useDecimal();
   const [ledger, setLedger] = useState<Ledger | null>(null);
   const [boot, setBoot] = useState<string | null>(null);
-  const [shots, setShots] = useState<Shot[]>([]);
-  const [rows, setRows] = useState<Row[]>([]);
-  const [meta, setMeta] = useState<MetaMap>({});
-  const [crops, setCrops] = useState<Record<string, { shot: string; crop: Crop }>>({});
+  const [shots, setShots] = useState<Shot[]>([SAMPLE]);
+  const [rows, setRows] = useState<Row[]>(() => SAMPLE_RUN.reduce(fold.rows, []));
+  const [meta, setMeta] = useState<MetaMap>(() => SAMPLE_RUN.reduce(fold.meta, {}));
+  const [crops, setCrops] = useState<Crops>(() =>
+    SAMPLE_RUN.reduce<Crops>((c, e) => fold.crops(c, e, new Set()), {}),
+  );
   const [source, setSource] = useState("recorded");
   /** The visitor's own key. Read once on mount — `localStorage` is not there during the server
    *  render, and a value read at the top would be a hydration mismatch on the very first paint. */
@@ -699,29 +791,9 @@ export function FieldNotesShowcase() {
   }, [rows, selected, table]);
 
   const apply = useCallback((event: ExtractEvent) => {
-    if (event.kind === "row") {
-      setCrops((prev) =>
-        handDrawn.current.has(event.rowId)
-          ? prev
-          : { ...prev, [event.rowId]: { shot: event.shot, crop: event.crop } },
-      );
-      setRows((prev) =>
-        prev.some((r) => r.id === event.rowId) ? prev : [...prev, { id: event.rowId, cells: {} }],
-      );
-      return;
-    }
-    setRows((prev) =>
-      prev.map((r) =>
-        r.id === event.rowId ? { ...r, cells: { ...r.cells, [event.key]: event.value } } : r,
-      ),
-    );
-    setMeta((prev) => ({
-      ...prev,
-      [event.rowId]: {
-        ...prev[event.rowId],
-        [event.key]: { confidence: event.confidence, note: event.note },
-      },
-    }));
+    setCrops((prev) => fold.crops(prev, event, handDrawn.current));
+    setRows((prev) => fold.rows(prev, event));
+    setMeta((prev) => fold.meta(prev, event));
   }, []);
 
   const extractor: Extractor = useMemo(
@@ -769,6 +841,29 @@ export function FieldNotesShowcase() {
 
   useEffect(() => () => inflight.current?.abort(), []);
 
+  /** Back to the dropzone: everything on screen goes, the reader's boxes included. */
+  const clear = useCallback(() => {
+    stop();
+    handDrawn.current.clear();
+    setShots([]);
+    setRows([]);
+    setMeta({});
+    setCrops({});
+    setTouched(new Set());
+    setMarking(null);
+    setFailure(null);
+    table.resetRowSelection();
+  }, [stop, table]);
+
+  // A phone has one pane's width: it lands on the ledger, and the slip opens over it.
+  useEffect(() => {
+    if (!isMobile) return;
+    setSlipOpen(false);
+    setShapeOpen(false);
+  }, [isMobile]);
+  /** Whether the last press in the ledger landed on a control, which a row click cannot tell. */
+  const pressedControl = useRef(false);
+
   const onFiles = useCallback((files: File[]) => {
     setShots(
       files.map((file, i) => ({
@@ -808,7 +903,10 @@ export function FieldNotesShowcase() {
       */}
       <ShellHeader>
         <div className="flex h-11 items-center gap-2.5 px-3 text-xs">
-          <ScanTextIcon aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+          <ScanTextIcon
+            aria-hidden
+            className="size-3.5 shrink-0 text-muted-foreground max-md:hidden"
+          />
           <h1 className="shrink-0 font-heading font-medium text-sm">Field notes</h1>
 
           {/* Without a key there is no choice to make, and a two-option control that can only land
@@ -820,7 +918,7 @@ export function FieldNotesShowcase() {
               back here, where the verbs are. */}
           <Show fallback={null} when={Boolean(apiKey)}>
             <SegmentGroup
-              className="ms-auto shrink-0"
+              className="ms-auto shrink-0 max-md:hidden"
               onValueChange={(d) => setSource(d.value ?? "recorded")}
               value={source}
             >
@@ -880,6 +978,7 @@ export function FieldNotesShowcase() {
             <Show
               fallback={
                 <Button
+                  aria-label={rows.length ? "Extract again" : "Extract"}
                   className="gap-1.5"
                   // Nothing to read is a different state from nothing to read it WITH, and both
                   // are off: no shape parsed, or no photograph on screen. The run used to fall
@@ -898,53 +997,62 @@ export function FieldNotesShowcase() {
                   }
                 >
                   <ScanTextIcon />
-                  {rows.length ? "Extract again" : "Extract"}
+                  <span className="max-md:hidden">{rows.length ? "Extract again" : "Extract"}</span>
                 </Button>
               }
               when={streaming}
             >
-              <Button className="gap-1.5" onClick={stop} size="sm" variant="outline">
+              <Button
+                aria-label="Stop"
+                className="gap-1.5"
+                onClick={stop}
+                size="sm"
+                variant="outline"
+              >
                 <SquareIcon />
-                Stop
+                <span className="max-md:hidden">Stop</span>
               </Button>
             </Show>
 
-            <ButtonGroup aria-label="The sheet">
-              {/* Two options, both on screen. «Export» named a category of operation and then hid
-                  half of what it could do behind a caret — and the two are not a default and an
-                  afterthought: the sheet is what a bookkeeper wants and the graph is what the next
-                  system wants, and neither is a variant of the other. So the group says the verb
-                  once and offers the two nouns, which is what `ButtonGroupText` is for. */}
-              <ButtonGroupText>
-                <DownloadIcon aria-hidden />
-                Download
-              </ButtonGroupText>
-              <DownloadTrigger
-                asChild
-                data={csv}
-                fileName={csvName(columns, rows)}
-                mimeType="text/csv"
-              >
-                <Button disabled={!rows.length} size="sm" title="The sheet, for Excel" variant="outline">
-                  CSV
-                </Button>
-              </DownloadTrigger>
-              <DownloadTrigger
-                asChild
-                data={turtle}
-                fileName={csvName(columns, rows).replace(/\.csv$/, ".ttl")}
-                mimeType="text/turtle"
-              >
+            {/* One verb, two nouns: the sheet is what a bookkeeper wants and the graph is what the
+                next system wants. */}
+            <Menu>
+              <MenuTrigger asChild>
                 <Button
+                  aria-label="Download"
+                  className="gap-1.5"
                   disabled={!rows.length}
                   size="sm"
-                  title="The same rows as a graph"
                   variant="outline"
                 >
-                  Turtle
+                  <DownloadIcon />
+                  <span className="max-md:hidden">Download</span>
+                  <ChevronDownIcon className="max-md:hidden" />
                 </Button>
-              </DownloadTrigger>
-            </ButtonGroup>
+              </MenuTrigger>
+              <MenuContent className="min-w-56">
+                <MenuItem asChild value="csv">
+                  <DownloadTrigger
+                    data={csv}
+                    fileName={csvName(columns, rows)}
+                    mimeType="text/csv"
+                  >
+                    CSV
+                    <span className="ms-auto text-muted-foreground text-xs">The sheet, for Excel</span>
+                  </DownloadTrigger>
+                </MenuItem>
+                <MenuItem asChild value="turtle">
+                  <DownloadTrigger
+                    data={turtle}
+                    fileName={csvName(columns, rows).replace(/\.csv$/, ".ttl")}
+                    mimeType="text/turtle"
+                  >
+                    Turtle
+                    <span className="ms-auto text-muted-foreground text-xs">The rows as a graph</span>
+                  </DownloadTrigger>
+                </MenuItem>
+              </MenuContent>
+            </Menu>
           </div>
         </div>
       </ShellHeader>
@@ -953,8 +1061,12 @@ export function FieldNotesShowcase() {
         <PanelRail
           label="Panels"
           onValueChange={(value) => {
-            setShapeOpen(value.includes("shape"));
-            setSlipOpen(value.includes("slip"));
+            // One pane at a time on a phone: the one just pressed.
+            const open = isMobile
+              ? value.filter((v) => !(v === "shape" ? shapeOpen : slipOpen))
+              : value;
+            setShapeOpen(open.includes("shape"));
+            setSlipOpen(open.includes("slip"));
           }}
           panels={[
             { icon: FileCode2Icon, label: "The shape", value: "shape" },
@@ -963,16 +1075,20 @@ export function FieldNotesShowcase() {
           value={[...(shapeOpen ? ["shape"] : []), ...(slipOpen ? ["slip"] : [])]}
         />
 
-        <div className="flex min-w-0 flex-1">
+        <div className="relative flex min-w-0 flex-1">
           {/* The same mechanism Discover's dock uses in the keasy showcase — there is no `Workspace` component in the library, only
               `Resizable` over Shell regions. Keyed on the open set so the panel model re-inits
               cleanly. Logical throughout: start/end, never left/right. */}
           {(() => {
-            const columnIds = [
-              ...(shapeOpen ? (["shape"] as const) : []),
-              "table",
-              ...(slipOpen ? (["slip"] as const) : []),
-            ] as ("shape" | "table" | "slip")[];
+            const columnIds = (
+              isMobile
+                ? ["table"]
+                : [
+                    ...(shapeOpen ? (["shape"] as const) : []),
+                    "table",
+                    ...(slipOpen ? (["slip"] as const) : []),
+                  ]
+            ) as ("shape" | "table" | "slip")[];
 
             const tableMain = (
               <ShellMain className="min-w-0 bg-background p-0">
@@ -1020,18 +1136,21 @@ export function FieldNotesShowcase() {
                   <Show fallback={<PhotoTray shots={shots} />} when={rows.length > 0}>
                     <DataTableRoot table={table}>
                       <div className="flex h-full min-h-0 flex-col">
-                        <DataTableToolbar className="h-9 shrink-0 border-b px-3 py-0">
+                        <DataTableToolbar className="h-9 shrink-0 border-b px-3 py-0 max-md:px-2">
                           {/* The global filter, not a column's: a reviewer holding a piece of
                               paper searches for whatever is written on it — a slip number, a
                               hunter's name — and does not know which column it will land in. */}
-                          <DataTableSearch className="h-7 w-48" placeholder="Find a slip…" />
+                          <DataTableSearch
+                            className="h-7 w-48 max-md:w-auto max-md:min-w-0 max-md:flex-1"
+                            placeholder="Find a slip…"
+                          />
                           {/* One per closed vocabulary the shape declares, and none if it declares
                               none. `sh:in` is the option list. */}
                           {columns
                             .filter((column) => column.options)
                             .map((column) => (
                               <DataTableFacetFilter
-                                className="h-7"
+                                className="h-7 max-md:hidden"
                                 column={column.key}
                                 key={column.key}
                                 label={column.label}
@@ -1059,15 +1178,25 @@ export function FieldNotesShowcase() {
                               reaches the table, and nothing here has to agree with the badge about
                               which cells they are. */}
                           <DataTableContent<Row>
+                            onClickCapture={(e) => {
+                              pressedControl.current = Boolean(
+                                (e.target as Element).closest("input, select, button"),
+                              );
+                            }}
                             className={cn(
                               "rounded-none border-0 [&_td]:p-0 [&_td]:align-middle",
+                              // A phone scrolls the ledger sideways rather than cutting every value.
+                              "max-md:min-w-[60rem]",
                               marking === "unread" &&
                                 "[&_td:has([data-unread])]:bg-warning/7 [&_td:has([data-unread])]:ring-1 [&_td:has([data-unread])]:ring-warning/30 [&_td:has([data-unread])]:ring-inset",
                               marking === "violations" &&
                                 "[&_td:has([aria-invalid=true])]:bg-destructive/7 [&_td:has([aria-invalid=true])]:ring-1 [&_td:has([aria-invalid=true])]:ring-destructive/30 [&_td:has([aria-invalid=true])]:ring-inset",
                             )}
                             empty="Nothing read yet."
-                            onRowClick={(row) => table.setRowSelection({ [row.id]: true })}
+                            onRowClick={(row) => {
+                              table.setRowSelection({ [row.id]: true });
+                              if (isMobile && !pressedControl.current) setSlipOpen(true);
+                            }}
                             stickyHeader
                           />
 
@@ -1096,6 +1225,10 @@ export function FieldNotesShowcase() {
                               <PlusIcon />
                               Row by hand
                             </Button>
+                            <Button onClick={clear} size="sm" variant="ghost">
+                              <RotateCcwIcon />
+                              Start over
+                            </Button>
                             <Show when={streaming}>
                               <span className="flex items-center gap-2 text-muted-foreground text-xs">
                                 <Spinner className="size-3" />
@@ -1117,10 +1250,12 @@ export function FieldNotesShowcase() {
                 return (
                   <ShellAside
                     aria-label="The shape"
-                    className="min-h-0 flex-1 border-e-0 bg-card"
+                    className="z-10 min-h-0 flex-1 border-e-0 bg-card"
+                    overlay={isMobile}
                     side="start"
                   >
                     <PaneHeader
+                      onClose={isMobile ? () => setShapeOpen(false) : undefined}
                       icon={FileCode2Icon}
                       title="The shape"
                       tone={shapeError ? "destructive" : "success"}
@@ -1134,7 +1269,7 @@ export function FieldNotesShowcase() {
                           reader types into the editor below. */}
                       <NativeSelect
                         aria-label="Example shape"
-                        className="w-44 shrink-0"
+                        className="w-44 shrink-0 max-md:w-auto max-md:min-w-0 max-md:shrink"
                         onChange={(e) => {
                           const picked = SHAPES.find((sh) => sh.id === e.target.value);
                           if (picked) setShapeText(picked.source);
@@ -1175,10 +1310,12 @@ export function FieldNotesShowcase() {
               return (
                 <ShellAside
                   aria-label="The slip"
-                  className="min-h-0 flex-1 border-s-0 bg-card"
+                  className="z-10 min-h-0 flex-1 border-s-0 bg-card"
+                  overlay={isMobile}
                   side="end"
                 >
                   <PaneHeader
+                    onClose={isMobile ? () => setSlipOpen(false) : undefined}
                     icon={ImageIcon}
                     title="The slip"
                     tone={
@@ -1254,7 +1391,9 @@ export function FieldNotesShowcase() {
                             {columns.map((column) => {
                               const cellIssues = issuesAt(selectedRow.id, column.key);
                               const cellMeta = meta[selectedRow.id]?.[column.key];
-                              const value = selectedRow.cells[column.key] ?? "";
+                              const stored = selectedRow.cells[column.key] ?? "";
+                              const value =
+                                column.type === "decimal" ? decimal.show(stored) : stored;
                               const unsure =
                                 Boolean(value) && (cellMeta?.confidence ?? 1) < UNSURE;
                               return (
@@ -1310,6 +1449,7 @@ export function FieldNotesShowcase() {
             };
 
             return (
+              <>
               <WorkspaceColumns
                 columns={columnIds.map((id) => ({
                   id,
@@ -1324,6 +1464,9 @@ export function FieldNotesShowcase() {
                       : [34, 66]
                 }
               />
+                <Show when={isMobile && shapeOpen}>{columnNode("shape")}</Show>
+                <Show when={isMobile && slipOpen}>{columnNode("slip")}</Show>
+              </>
             );
           })()}
         </div>
@@ -1351,11 +1494,12 @@ export function FieldNotesShowcase() {
             something you can press. Here it is what it is: small, quiet, at the far end of the
             strip that already says how many rows and how many photographs. */}
         <Show when={!apiKey}>
+          <Separator className="h-3" orientation="vertical" />
           <span
-            className="ms-auto shrink-0 text-[0.625rem] text-muted-foreground/64 uppercase tracking-[0.2em]"
+            className="shrink-0"
             title="A recorded run of a real extraction, replayed. Paste your Anthropic key in Preferences to run the model live."
           >
-            demo run
+            Demo run
           </span>
         </Show>
       </ShellFooter>

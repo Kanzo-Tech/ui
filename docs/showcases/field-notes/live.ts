@@ -153,7 +153,7 @@ Rules:
 - A value you cannot read goes back empty, with a note saying why (covered, cut off, blurred,
   never written). Never infer it and never invent it: a human reviews these, and an empty cell
   costs one glance while an invented one costs a reconciliation.
-- Dates in ISO (2026-08-10). Decimals with a comma, the way the hall's press writes them.
+- Dates in ISO (2026-08-10). Decimals with a point (3.2), whatever separator the paper uses.
 - \`confidence\` from 0 to 1, honest: print reads better than handwriting.
 - Notes in English; the values themselves exactly as the paper has them.`;
 
