@@ -125,3 +125,22 @@
   --color-fd-card: var(--sidebar, var(--popover, var(--card)));
   --color-fd-muted-foreground: var(--sidebar-foreground, var(--muted-foreground));
 }
+
+/*
+ * ── Reading pages: five sizes ──────────────────────────────────────────────────────────────────
+ *
+ * 32 title, 24 section, 20 subsection, 16 body, 14 everything small — tables, captions, the page
+ * actions and code. fumadocs' typography sets code at 13px, its heading code at 21 and 18, and the
+ * codeblock at 0.8125rem; with a 12px badge and an 18px description that was nine sizes on a page.
+ * Code goes to 14px in px, not rem, so `lib/preview-height.mjs`'s line box does not move with
+ * density; inside a heading it takes the heading's size.
+ */
+#nd-page .prose :where(code):not(:where(pre code, .not-prose *)) {
+  font-size: 14px;
+}
+#nd-page .prose :where(h1, h2, h3, h4):not(:where(.not-prose *)) code {
+  font-size: 1em;
+}
+#nd-page figure.shiki pre {
+  font-size: 14px;
+}

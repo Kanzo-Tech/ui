@@ -21,7 +21,7 @@ engine.
 Two fields, a schema, and a submit. Nothing is red until you try to save; after that, errors
 follow you as you type.
 
-<ComponentPreview componentName="form/tanstack" fileName="example-demo" hasMaxHeight={false} showBorders={false} />
+<ComponentPreview componentName="form/tanstack" fileName="example-demo" hasMaxHeight={false} />
 
 ## Approach
 
@@ -281,21 +281,21 @@ house rule needs a second line, and it is a gap in Ark, not a choice of ours.
 
 The straightforward case, and the one you will write most: a real `<input>`, so a real DOM event.
 
-<ComponentPreview componentName="form/tanstack" fileName="example-input" hasMaxHeight={false} showBorders={false} />
+<ComponentPreview componentName="form/tanstack" fileName="example-input" hasMaxHeight={false} />
 
 ### Textarea
 
 Identical to `Input`. Both are Ark `Field` parts, so they inherit their `id`, `aria-describedby`
 and `aria-invalid` from the `Field` root with no props from you.
 
-<ComponentPreview componentName="form/tanstack" fileName="example-textarea" hasMaxHeight={false} showBorders={false} />
+<ComponentPreview componentName="form/tanstack" fileName="example-textarea" hasMaxHeight={false} />
 
 ### NativeSelect
 
 Also a real element — a `<select>` — so also `event.target.value`. Keep `""` as the placeholder
 option's value and let the schema reject it; `z.enum` gives the message.
 
-<ComponentPreview componentName="form/tanstack" fileName="example-native-select" hasMaxHeight={false} showBorders={false} />
+<ComponentPreview componentName="form/tanstack" fileName="example-native-select" hasMaxHeight={false} />
 
 ### Select
 
@@ -306,7 +306,7 @@ way out.
 It also has no blur to hook: the listbox is a portal, so focus never leaves the way it does on an
 input. Close is the equivalent moment, which is what `onOpenChange` gives you.
 
-<ComponentPreview componentName="form/tanstack" fileName="example-select" hasMaxHeight={false} showBorders={false} />
+<ComponentPreview componentName="form/tanstack" fileName="example-select" hasMaxHeight={false} />
 
 ### Combobox
 
@@ -316,7 +316,7 @@ form value and the control value are the same `string[]` with no unwrapping at a
 
 `ComboboxInput` is a real input, so `onBlur={field.handleBlur}` works here.
 
-<ComponentPreview componentName="form/tanstack" fileName="example-combobox" hasMaxHeight={false} showBorders={false} />
+<ComponentPreview componentName="form/tanstack" fileName="example-combobox" hasMaxHeight={false} />
 
 ### Checkbox
 
@@ -330,7 +330,7 @@ not a details object. Every other Ark control on this page takes an object.
 The group's items each get their own `Field orientation="horizontal"` so each checkbox is bound to
 its own label; the outer `Field` carries the group's `invalid` and its `FieldError`.
 
-<ComponentPreview componentName="form/tanstack" fileName="example-checkbox" hasMaxHeight={false} showBorders={false} />
+<ComponentPreview componentName="form/tanstack" fileName="example-checkbox" hasMaxHeight={false} />
 
 ### RadioGroup
 
@@ -342,7 +342,7 @@ to the `Field` for the error text, once to the `RadioGroup` for the control's ow
 between the group and its name, and `FieldLabel` would point its `htmlFor` at a control that is
 not there.
 
-<ComponentPreview componentName="form/tanstack" fileName="example-radio-group" hasMaxHeight={false} showBorders={false} />
+<ComponentPreview componentName="form/tanstack" fileName="example-radio-group" hasMaxHeight={false} />
 
 ### Radio cards
 
@@ -350,7 +350,7 @@ The same machine and the same wiring, with `RadioGroupCard` for the items — so
 and its `?? ""` are unchanged from above, and `columns` is what lays the cards out. It takes
 `invalid` directly, and `FieldLegend` inside a `FieldSet` gives the group its heading.
 
-<ComponentPreview componentName="form/tanstack" fileName="example-radio-cards" hasMaxHeight={false} showBorders={false} />
+<ComponentPreview componentName="form/tanstack" fileName="example-radio-cards" hasMaxHeight={false} />
 
 ### Switch
 
@@ -358,7 +358,7 @@ and its `?? ""` are unchanged from above, and `columns` is what lays the cards o
 wiring: a horizontal `Field` with the label, description and error inside `FieldContent`, and the
 switch as the last child.
 
-<ComponentPreview componentName="form/tanstack" fileName="example-switch" hasMaxHeight={false} showBorders={false} />
+<ComponentPreview componentName="form/tanstack" fileName="example-switch" hasMaxHeight={false} />
 
 ### NumberInput
 
@@ -372,7 +372,7 @@ not typecheck. `schema.parse(value)` in `onSubmit` gives you the typed payload.
 
 `onBlur` goes on `NumberInputInput`, not on the root.
 
-<ComponentPreview componentName="form/tanstack" fileName="example-number-input" hasMaxHeight={false} showBorders={false} />
+<ComponentPreview componentName="form/tanstack" fileName="example-number-input" hasMaxHeight={false} />
 
 ### Slider
 
@@ -383,7 +383,7 @@ The second control that ignores `Field` context, and the one where that matters 
 has no invalid styling of its own, so the only signals are the label colour and the `FieldError`.
 Put anything the user has to read in the error, not in the track.
 
-<ComponentPreview componentName="form/tanstack" fileName="example-slider" hasMaxHeight={false} showBorders={false} />
+<ComponentPreview componentName="form/tanstack" fileName="example-slider" hasMaxHeight={false} />
 
 ### DatePicker
 
@@ -391,7 +391,7 @@ The only control whose value is not a string, a number or an array of either: `v
 `DateValue[]`. Your form field stays a plain ISO string, and the seam is one line, because
 `onValueChange` hands you both representations at once.
 
-<ComponentPreview componentName="form/tanstack" fileName="example-date-field" hasMaxHeight={false} showBorders={false} />
+<ComponentPreview componentName="form/tanstack" fileName="example-date-field" hasMaxHeight={false} />
 
 <Callout type="warn">
 **Writing back costs more than reading out.** `details.valueAsString[0]` gets you the string for
@@ -407,14 +407,14 @@ one unparseable row must not take down the form. The full shape is on
 A plain number, and `0` means "not rated" — so `z.number().min(1, …)` is the "you have to pick
 one" rule.
 
-<ComponentPreview componentName="form/tanstack" fileName="example-rating" hasMaxHeight={false} showBorders={false} />
+<ComponentPreview componentName="form/tanstack" fileName="example-rating" hasMaxHeight={false} />
 
 ### TagsInput
 
 `{ value: string[] }`. `max` on the control stops the user adding a sixth tag, and `.max(5)` in the
 schema says why — keep both: the control prevents, the schema explains.
 
-<ComponentPreview componentName="form/tanstack" fileName="example-tags-input" hasMaxHeight={false} showBorders={false} />
+<ComponentPreview componentName="form/tanstack" fileName="example-tags-input" hasMaxHeight={false} />
 
 ### FileUpload
 
@@ -425,7 +425,7 @@ it is the one to sync from rather than `onFileAccept`.
 The form value is `File[]`, so validate the count and let the control's own `accept` / `maxFiles`
 do the per-file work.
 
-<ComponentPreview componentName="form/tanstack" fileName="example-file-upload" hasMaxHeight={false} showBorders={false} />
+<ComponentPreview componentName="form/tanstack" fileName="example-file-upload" hasMaxHeight={false} />
 
 ### ColorPicker
 
@@ -434,7 +434,7 @@ format, which defaults to `rgba` — ask `details.value.toString("hex")` if hex 
 Second, the value you send in: our wrapper parses it on every render, so it has to stay a valid
 colour. Default it to a real colour, never `""`.
 
-<ComponentPreview componentName="form/tanstack" fileName="example-color-picker" hasMaxHeight={false} showBorders={false} />
+<ComponentPreview componentName="form/tanstack" fileName="example-color-picker" hasMaxHeight={false} />
 
 ### A complex form
 
@@ -442,7 +442,7 @@ Grouped `FieldSet`s, three kinds of choice control, a party array with two sub-f
 form-level `Alert` for a server error, and a submit button that reports its own state through
 `form.Subscribe`.
 
-<ComponentPreview componentName="form/tanstack" fileName="example-complex" hasMaxHeight={false} showBorders={false} />
+<ComponentPreview componentName="form/tanstack" fileName="example-complex" hasMaxHeight={false} />
 
 ## Resetting
 
@@ -465,7 +465,7 @@ upload preview) is yours to clear alongside it.
 `mode="array"` on a `form.Field` turns it into the list's owner: it re-renders when rows are added
 or removed, and it carries the errors that belong to the list rather than to any row.
 
-<ComponentPreview componentName="form/tanstack" fileName="example-array-emails" hasMaxHeight={false} showBorders={false} />
+<ComponentPreview componentName="form/tanstack" fileName="example-array-emails" hasMaxHeight={false} />
 
 ### Structure
 
