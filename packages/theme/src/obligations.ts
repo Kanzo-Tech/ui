@@ -82,7 +82,8 @@ export const OBLIGATIONS: readonly Obligation[] = [
       "Not graded, because density is meant to shrink it. `--kanzo-font-size-small` is 0.6875rem, " +
       "11px at the default root and 9.63px at compact, and the scale emits nothing smaller: the " +
       "10px step was deleted with its last reader, Badge `xs`. The floor sits two steps below the " +
-      "IDE tier's 13px base. What would close it: a guard that no recipe sets type below the token.",
+      "IDE tier's 13px base. No recipe sets type below the token, held at the default root by " +
+      "`packages/ui/src/type-floor.test.ts`; what stays ungraded is the compact figure, by design.",
   },
 ];
 

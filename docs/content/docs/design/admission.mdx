@@ -244,6 +244,29 @@ or a colour is the `Text` atom coming back, and is refused on the same grounds i
 and a part keeps its own slot"; `packages/ui/src/composites/Preferences.tsx`, `PREF_HEADING`;
 `packages/ai/src/tool.tsx`, `Eyebrow`.
 
+## A label is set in its caller's case, untracked
+
+No recipe sets its text in capitals, and no class string pairs `uppercase` with tracking wider than
+normal. `Eyebrow` was `uppercase tracking-wide` and `MenuShortcut` was `tracking-widest`; small capitals
+spaced out across a run of labels read as shouting chrome rather than as names, and the weight and the
+muted ink already rank a label under what it heads.
+
+**Bare `uppercase` goes too, because nothing in the library needed it.** Counted before the guard was
+written, across `ui`, `ai` and `graph`: no `uppercase` at all once `Eyebrow` lost its own. The two
+plausible uses are a key cap and a code token, and both are the text as written — `Kbd` shows `Esc` because
+the caller wrote `Esc`. A transform there overrides what the caller wrote, which is what the `Eyebrow`
+decision above refused. A showcase is outside the rule: the field-notes slip is a hand press's tracked
+capitals, and that is its subject.
+
+**What would reverse it:** the `Eyebrow` clause above — a call site whose heading stops reading as a
+heading at this weight and ink, measured on that panel — which brings the case back for that part and
+edits the guard to name it. A part whose content the library itself generates in a case the reader expects
+to see in capitals is the other, and it is a named exception, not the rule lifted. Tracking on its own
+(`MenuShortcut` had no capitals) is not this rule; its own test holds that one.
+
+*Held by* `packages/ui/src/no-tracked-capitals.test.ts`, "no class string sets a label in tracked
+capitals" and "no recipe transforms its caller's text to capitals"; `packages/ui/src/simples/menu.test.tsx`.
+
 ## A status with a measure carries its bar: `Working`'s `value`
 
 `@kanzo-tech/ai`'s `Working` draws `@kanzo-tech/ui`'s `Progress` under its words when it is given a
@@ -283,9 +306,9 @@ because `inert` already hit-tests that way.
 No `data-gated`: nothing selects on it, and `data-slot="gated"` already marks the root for a
 caller.
 
-A `disabled` control is not gated. The keasy studio's two *Coming soon* radios stay a `Float` and a
-`Badge` beside a `disabled` card, because an inert radio would leave its group rather than be
-announced as unavailable.
+A `disabled` control is not gated: a *Coming soon* radio is a `Float` and a `Badge` beside a
+`disabled` card, because an inert radio would leave its group rather than be announced as
+unavailable.
 
 **What would reverse it:** a browser exposing inert content to assistive tech after all, which puts
 the gate back to being an attribute; or a gate whose reason cannot be a badge — a sentence, a link —

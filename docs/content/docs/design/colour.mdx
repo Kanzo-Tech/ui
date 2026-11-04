@@ -374,7 +374,8 @@ fixed nothing measured here.
 **What would close it**, in the order the bars are worth having: a target-size obligation over every
 interactive recipe at every density, checkable in jsdom against the compiled stylesheet, which is the one
 with a real external standard behind it; a minimum type size, which needs a house bar with a reason
-because WCAG sets none; or a floor on the axis itself, the cheapest of the three, declaring a minimum root
+because WCAG sets none — that one now exists at the default root, in the next section, and the compact
+figure stays ungraded; or a floor on the axis itself, the cheapest of the three, declaring a minimum root
 font-size the density axis may emit.
 
 **What would reverse it:** the target-size bar turning out not to be density's to grade — the measurement
@@ -382,6 +383,32 @@ above already moved it halfway.
 
 *Held by* `packages/theme/src/obligations.test.ts`, "fails exactly the one it is known to fail, and no
 other"; `packages/theme/src/obligations.ts`, `OBLIGATIONS`.
+
+## Nothing is set below 11px at the default root
+
+The smallest type a recipe writes is `--kanzo-font-size-small`, 0.6875rem: **11px at the default root**,
+two steps under the IDE tier's 13px base. No arbitrary size goes under it (`text-[10px]`, a `0.625rem`, a
+`fontSize` in a style object or a CodeMirror theme), no named step does (Tailwind ships nothing under
+`text-xs`, so a `text-2xs` resolves only if a theme declares one), and the scale declares no step under it.
+
+WCAG sets no minimum, so the number is the house's. The design pass of 2026-11-04 found three things under
+it — `Badge size="xs"` and `Status`'s words at 10px, and a 10px step of the scale whose only
+reader was the badge — and the guard, on its first run, found the two the pass had missed: the graph's
+node labels and its count chip, both `text-[10px]`. All five are at the token now, or deleted.
+
+**The floor is at the default root, and density is allowed under it.** Every size is a `rem`, so compact
+sets the same step at 9.63px. That is the axis doing what a reader asked of it; the table above keeps the
+compact figure as an ungraded `x-height` obligation rather than a bar the library fails.
+
+**What would reverse it:** a reading at 11px that measures illegible in the face and the weight this
+library ships, which raises the floor; or a role whose content is not read but glanced at — a tick label
+on a dense axis, a minimap — measured legible below it, which is a named exception in the guard with that
+measurement beside it, not a lower floor. A density preference that should not go under 11px is the
+third bar above (a floor on the axis), and a different rule.
+
+*Held by* `packages/ui/src/type-floor.test.ts`, "no recipe or class in the corpus sets type below 11px",
+"no type step the theme declares is under 11px" and "would catch a size under the floor however it was
+spelled".
 
 ## A preference is contributed the way a token is
 
