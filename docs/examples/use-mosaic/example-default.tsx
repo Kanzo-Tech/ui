@@ -45,15 +45,15 @@ function Panel() {
       </ButtonGroup>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-        <ChartRoot height={150} margin={MARGIN} relation="telemetry">
-          <ChartRectY fill="var(--muted-foreground)" filterBy={null} opacity={0.3} x={bin("latency")} y={count()} />
-          <ChartRectY fill="var(--primary)" x={bin("latency")} y={count()} />
+        <ChartRoot height={150} margin={MARGIN} relation="sightings">
+          <ChartRectY fill="var(--muted-foreground)" filterBy={null} opacity={0.3} x={bin("leagues")} y={count()} />
+          <ChartRectY fill="var(--primary)" x={bin("leagues")} y={count()} />
           <ChartIntervalX />
-          <ChartAxisX label="latency (ms) — drag to brush" />
+          <ChartAxisX label="leagues from the road — drag to brush" />
           <ChartAxisY label={null} />
         </ChartRoot>
 
-        <ChartRoot height={150} margin={MARGIN} relation="telemetry">
+        <ChartRoot height={150} margin={MARGIN} relation="sightings">
           <ChartBarY fill="var(--muted-foreground)" filterBy={null} opacity={0.3} x="region" y={count()} />
           <ChartBarY fill="var(--primary)" x="region" y={count()} />
           <ChartToggleX />

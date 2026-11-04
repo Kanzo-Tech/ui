@@ -297,6 +297,7 @@
   "slider/example-marker-labels": 160,
   "slider/example-markers": 160,
   "slider/example-range": 160,
+  "slider/example-vertical": 240,
   "slider/example-with-label": 160,
   "spinner/example-default": 196,
   "stat/example-default": 162,
@@ -362,7 +363,7 @@
   "use-kanzo-theme/example-default": 170,
   "use-kanzo-theme/example-theme-notice": 160,
   "use-mosaic/example-default": 246,
-  "use-query-rows/example-default": 208,
+  "use-query-rows/example-default": 304,
   "use-theme-tick/example-default": 212,
   "use-tour-context/example-default": 166,
   "use-tour-context/example-resume": 160

@@ -19,7 +19,7 @@ The `/analytics` peers are [optional](/docs/installation) — nothing installs t
 
 ```tsx
 const { row } = useChartQuery({
-  query: (filter) => Query.from("telemetry").select({ n: count() }).where(filter),
+  query: (filter) => Query.from("sightings").select({ n: count() }).where(filter),
 });
 ```
 
