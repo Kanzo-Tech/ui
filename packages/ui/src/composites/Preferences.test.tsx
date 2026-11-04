@@ -543,6 +543,41 @@ describe("what a declaration says beyond its kind", () => {
     expect(screen.getByRole("status").textContent).toBe("all");
   });
 
+  it("names only a long scale's ends, and reads the chosen stop beside the title and on the thumb", async () => {
+    const LONG: SectionManifest = {
+      namespace: "graph",
+      prefs: {
+        labels: {
+          kind: "choice",
+          ordered: true,
+          label: "Labels",
+          default: "hovered",
+          doc: "how many points carry their title",
+          options: [
+            { value: "none", label: "None" },
+            { value: "hovered", label: "Hovered" },
+            { value: "top", label: "Top" },
+            { value: "visible", label: "Visible" },
+            { value: "all", label: "All" },
+          ],
+        },
+      },
+    };
+    render(
+      <KanzoThemeProvider sections={[LONG]} storage={null}>
+        <PreferencesSections namespace="graph" />
+      </KanzoThemeProvider>,
+    );
+    expect([...document.querySelectorAll("[data-slot=slider-marker]")].map((m) => m.textContent)).toEqual(["None", "", "", "", "All"]);
+    const thumb = document.querySelector<HTMLElement>("[data-slot=slider-thumb]");
+    expect(thumb?.getAttribute("aria-valuetext")).toBe("Hovered");
+    expect(screen.getByText("Hovered").getAttribute("aria-hidden")).toBe("true");
+    thumb?.focus();
+    await userEvent.setup().keyboard("{ArrowRight}");
+    expect(thumb?.getAttribute("aria-valuetext")).toBe("Top");
+    expect(screen.getByText("Top")).toBeTruthy();
+  });
+
   it("hands a control of your own the same value and setter the part uses", async () => {
     const user = userEvent.setup();
     function Own() {

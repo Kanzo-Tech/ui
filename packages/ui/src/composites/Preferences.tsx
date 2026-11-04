@@ -316,6 +316,8 @@ function PrefField({ label, children }: { label: React.ReactNode; children: Reac
  * read as three ranks once they share a grid.
  */
 const PREF_HEADING = "mb-2 block text-[length:var(--kanzo-font-size-small)]!";
+/** A scale names every stop up to this many; past it, only its ends and the chosen one. */
+const SCALE_NAMED = 3;
 
 /**
  * A titled GROUP of options — the container `PrefField` cannot be.
@@ -519,11 +521,17 @@ function Pref({ name, translations }: PrefProps) {
   if (!Array.isArray(decl.options)) return <PrefSelect label={title} none={t.none} onChange={setValue} options={options} value={value} />;
   if (decl.ordered) {
     // A scale is the range arm over the options' positions: the same Slider, its markers the
-    // options' names, and the stored value the option's, never its index.
+    // options' names, and the stored value the option's, never its index. Past three stops the
+    // names collide at a panel's width, so only the ends are named and the chosen one is read
+    // beside the title — and by the thumb, which otherwise announced an index.
+    const at = Math.max(0, options.findIndex((o) => o.value === value));
+    const named = options.length <= SCALE_NAMED;
+    const last = options.length - 1;
     return (
       <Slider
-        markerLabels={options.map((o) => o.label)}
-        max={options.length - 1}
+        getAriaValueText={(d) => options[d.value]?.label ?? String(d.value)}
+        markerLabels={options.map((o, i) => (named || i === 0 || i === last ? o.label : ""))}
+        max={last}
         min={0}
         onValueChange={(d) => {
           const option = options[d.value[0] ?? 0];
@@ -531,11 +539,18 @@ function Pref({ name, translations }: PrefProps) {
         }}
         showMarkers
         step={1}
-        value={[Math.max(0, options.findIndex((o) => o.value === value))]}
+        value={[at]}
       >
-        <Eyebrow asChild>
-          <SliderLabel className={PREF_HEADING}>{title}</SliderLabel>
-        </Eyebrow>
+        <div className={cn(PREF_HEADING, "flex items-baseline gap-2")}>
+          <Eyebrow asChild>
+            <SliderLabel>{title}</SliderLabel>
+          </Eyebrow>
+          {!named && (
+            <span aria-hidden className="ms-auto text-muted-foreground">
+              {options[at]?.label}
+            </span>
+          )}
+        </div>
       </Slider>
     );
   }

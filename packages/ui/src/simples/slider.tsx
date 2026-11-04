@@ -83,7 +83,8 @@ export const Slider = (props: SliderProps) => {
       className={cn(
         "flex flex-col gap-3",
         "data-[orientation=horizontal]:w-full",
-        "data-[orientation=vertical]:h-full",
+        // A plain utility, not a `data-*` variant, so a consumer's own `h-*` replaces it.
+        rest.orientation === "vertical" && "h-full",
         className
       )}
       defaultValue={defaultValue}
