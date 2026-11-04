@@ -1,7 +1,7 @@
 "use client";
 
 import { ark } from "@ark-ui/react/factory";
-import { categoricalCapacity, cn, Show, useThemeTick } from "@kanzo-tech/ui";
+import { categoricalCapacity, cn, Show, useLocale, useThemeTick } from "@kanzo-tech/ui";
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { tv } from "tailwind-variants";
 import { nameOf } from "../core/categories";
@@ -52,8 +52,6 @@ export interface GraphCanvasProps extends React.ComponentProps<typeof ark.div> {
   children?: ReactNode;
   translations?: Partial<GraphCanvasTranslations>;
 }
-
-const WASH = "color-mix(in oklab, var(--primary) 17%, transparent)";
 
 /**
  * Where an overlay the renderer places every frame starts: the canvas's top-left corner, written as
@@ -120,6 +118,8 @@ export function GraphCanvas({ children, className, slot, translations, ...rest }
   const themeTick = useThemeTick();
   const overlays = useOverlays({ getGraph, theme: themeTick });
   const summaryId = `${id}-summary`;
+  const { locale } = useLocale();
+  const figure = useMemo(() => new Intl.NumberFormat(locale), [locale]);
   const drawn = useGraphState((s) => s.drawn);
   const matching = useGraphState((s) => s.matching);
   const { heard, onKeyDown } = useKeyboard(t.focused);
@@ -248,7 +248,7 @@ export function GraphCanvas({ children, className, slot, translations, ...rest }
                   height={Math.abs(drag.to[1] - drag.from[1])}
                   strokeDasharray="4 3"
                   strokeWidth={1}
-                  style={{ fill: WASH }}
+                  style={{ fill: "var(--selection)" }}
                   width={Math.abs(drag.to[0] - drag.from[0])}
                   x={Math.min(drag.from[0], drag.to[0])}
                   y={Math.min(drag.from[1], drag.to[1])}
@@ -259,7 +259,7 @@ export function GraphCanvas({ children, className, slot, translations, ...rest }
                     className="stroke-primary"
                     points={drag.path.map(([x, y]) => `${x},${y}`).join(" ")}
                     strokeWidth={1}
-                    style={{ fill: WASH }}
+                    style={{ fill: "var(--selection)" }}
                   />
                 )
               )}
@@ -278,7 +278,7 @@ export function GraphCanvas({ children, className, slot, translations, ...rest }
         </p>
       </Show>
       <p className="sr-only" id={summaryId}>
-        {drawn ? t.summary(drawn.vertices.toLocaleString(), drawn.edges.toLocaleString(), matching === null ? null : matching.toLocaleString()) : ""}
+        {drawn ? t.summary(figure.format(drawn.vertices), figure.format(drawn.edges), matching === null ? null : figure.format(matching)) : ""}
       </p>
       <div aria-live="polite" className="sr-only" role="status">
         {heard}

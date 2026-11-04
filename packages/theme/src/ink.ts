@@ -125,6 +125,9 @@ export function contrast(a: string, b: string): number {
 /** The floor {@link inkFor} will not knowingly return below — WCAG AA for body text. */
 export const AA = 4.5;
 
+/** WCAG 2.2 SC 1.4.11: a UI component's boundary or a graphical object against what it must be told from. */
+export const NON_TEXT_CONTRAST = 3;
+
 /**
  * The hue kept, the chroma at a fifth, the lightness pulled toward one end.
  *

@@ -11,7 +11,8 @@ description: A boolean that tracks whether the viewport is below the md breakpoi
 const isMobile = useIsMobile();
 ```
 
-One media query — `(max-width: 767px)` — kept in React state and updated on change. It is what
+One media query — `(width < var(--breakpoint-md))`, Tailwind's `md` read off the page — kept in
+React state and updated on change. It is what
 decides whether the sidebar is a rail or a `Sheet` drawer, and it is the only viewport hook in
 the library.
 
@@ -25,8 +26,7 @@ the example above reads:
 const { isMobile } = useSidebar();
 ```
 
-It stays off the barrel on purpose: it has one consumer, and its 768px is the sidebar's own
-breakpoint rather than a viewport question the library answers for you. A name needs a second call
+It stays off the barrel on purpose: it has one consumer, and its breakpoint is the sidebar's own rather than a viewport question the library answers for you. A name needs a second call
 site outside the component that owns it ([admission](/docs/design/admission)), and a caller who wants
 the viewport asks `useSidebar` or writes the media query for the breakpoint *they* mean.
 </Callout>
@@ -65,7 +65,8 @@ Takes no arguments.
 
 | Type | What it is |
 | --- | --- |
-| `boolean` | `true` while the viewport is narrower than 768px; `false` otherwise, including before mount |
+| `boolean` | `true` while the viewport is narrower than `--breakpoint-md`; `false` otherwise, including before mount |
 
-The breakpoint is a module constant (`MOBILE_BREAKPOINT = 768`) and matches Tailwind's `md`, so a
-`md:` class and this hook always agree. It is not configurable.
+The breakpoint is not a figure of the hook's: it reads `--breakpoint-md` from `<html>` once mounted,
+so a `md:` class and this hook always agree — a theme that moves `md` moves both. It is 48rem unless
+the host's `@theme` says otherwise.

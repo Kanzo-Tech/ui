@@ -1,7 +1,9 @@
 import themeDataJson from "../theme-data.json" with { type: "json" };
+import { catalogue } from "../scripts/catalogue.mjs";
+import { gradeObligations, type Obligation, type ObligationCheck } from "./grading.js";
 
-/**
- * What the density axis owes — the third section's obligations, in the graph section's shape.
+/*
+ * What the density axis owes — the third section's obligations.
  *
  * Density sets the root font-size the whole `rem` scale resolves against, so it is a **multiplier
  * on every size the component layer declares**. That is what makes it a section rather than a
@@ -20,17 +22,6 @@ import themeDataJson from "../theme-data.json" with { type: "json" };
  * broke it first. The obligation is stated here because this is where the multiplier lives and
  * where the axis can be graded; the fix for a specific failure may well belong in `ui`.
  */
-export interface Obligation {
-  id: string;
-  subject: string;
-  measured: number | null;
-  threshold: number | null;
-  holds: ">=" | "<=" | "<";
-  unit: string;
-  against: string;
-  reason: string;
-}
-
 /** Root font-size per density, read from the generated table rather than re-typed. */
 const DENSITIES: Record<string, string> = themeDataJson.densities;
 
@@ -45,15 +36,18 @@ const px = (v: string) => (Number.parseFloat(v) / 100) * BROWSER_ROOT_PX;
 const minRoot = Math.min(...Object.values(DENSITIES).map(px));
 
 /**
- * The library's smallest interactive height, in `rem`, at the smallest density.
- *
- * `Button size="xs"` is `h-6` — 1.5rem. Written here as the rem figure and multiplied by the axis,
- * because the axis is what this file can grade; the 1.5 is `@kanzo-tech/ui`'s to change and a test
- * there is what would catch it moving.
+ * The smallest control, in `rem`, in the theme that makes it smallest: `--size-control-min`, a
+ * multiple of `--size-field`, read off `tokens.css` and each theme so neither number is copied.
  */
-const SMALLEST_CONTROL_REM = 1.5;
+const SMALLEST_CONTROL_REM = Math.min(
+  ...catalogue.themes.map((theme) => {
+    const read = (name: string) => theme.declarations.get(name) ?? catalogue.root.get(name) ?? "";
+    const multiple = /^calc\(var\(--size-field\)\s*\*\s*([\d.]+)\)$/.exec(read("--size-control-min"))?.[1];
+    return Number(multiple) * Number.parseFloat(read("--size-field"));
+  }),
+);
 
-export const OBLIGATIONS: readonly Obligation[] = [
+const OBLIGATIONS: readonly Obligation[] = [
   {
     id: "target-size",
     subject: "the smallest interactive control, at the smallest density",
@@ -64,11 +58,9 @@ export const OBLIGATIONS: readonly Obligation[] = [
     against: "WCAG 2.5.8 Target Size (Minimum), AA",
     reason:
       "Every size in the library is `rem`, so the density axis multiplies every target. The " +
-      "smallest control is `Button size=\"xs\"` at 1.5rem, which is exactly 24px at the default " +
-      "root and 21px at compact. Measured over the app-shell, workspace and metadata-form " +
-      "showcases at compact, **no `size=\"xs\"` button failed**: every undersized target was saved " +
-      "by 2.5.8's spacing exception. The eleven genuine failures were a hand-rolled 1.25rem list " +
-      "row, and they fail at the default density too — see the docblock above on ownership.",
+      "smallest control is `--size-control-min`, `sm`'s 1.75rem: 28px at the default root and " +
+      "24.5px at compact. What failed in the showcases at compact was a hand-rolled 1.25rem list " +
+      "row, which fails at the default density too — see the docblock above on ownership.",
   },
   {
     id: "x-height",
@@ -87,30 +79,7 @@ export const OBLIGATIONS: readonly Obligation[] = [
   },
 ];
 
-export interface Check extends Obligation {
-  measured: number;
-  threshold: number;
-  ok: boolean;
-}
-
-/**
- * Grade every obligation carrying a number.
- *
- * Ungradeable rows are skipped rather than defaulted to passing, for the same reason the graph's
- * are: a bar nobody established cannot be cleared, and reporting one green is how a guard comes to
- * test a corpus of zero.
- */
-export function check(): Check[] {
-  return OBLIGATIONS.filter(
-    (o): o is Obligation & { measured: number; threshold: number } =>
-      o.measured !== null && o.threshold !== null,
-  ).map((o) => ({
-    ...o,
-    ok:
-      o.holds === ">="
-        ? o.measured >= o.threshold
-        : o.holds === "<="
-          ? o.measured <= o.threshold
-          : o.measured < o.threshold,
-  }));
+/** Every density obligation, graded — including the one nobody can grade yet. */
+export function check(): ObligationCheck[] {
+  return gradeObligations(OBLIGATIONS);
 }

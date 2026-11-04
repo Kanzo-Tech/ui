@@ -1,4 +1,5 @@
 import { clauseInterval, Selection } from "@kanzo-tech/mosaic";
+import { LocaleProvider } from "@kanzo-tech/ui";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { attach, refusal, settle, type Attached } from "../../test/corpus";
@@ -626,6 +627,21 @@ describe("GraphCanvas", () => {
       expect(canvas.tabIndex).toBe(0);
       const description = document.getElementById(canvas.getAttribute("aria-describedby") ?? "");
       expect(description?.textContent).toMatch(/^20 vertices and 20 links drawn\. Arrow keys move/);
+    });
+
+    it("counts what is drawn in the page's locale, not the browser's", async () => {
+      const corpus = await attach();
+      render(
+        <LocaleProvider locale="ar-EG">
+          <GraphRoot {...over(corpus)} onFailure={() => {}}>
+            <GraphCanvas />
+          </GraphRoot>
+        </LocaleProvider>,
+      );
+      await ready(corpus);
+      const canvas = screen.getByRole("application");
+      const description = document.getElementById(canvas.getAttribute("aria-describedby") ?? "");
+      expect(description?.textContent).toMatch(/^٢٠ vertices and ٢٠ links drawn\./);
     });
 
     it("takes the host's name and words", async () => {

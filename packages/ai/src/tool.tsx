@@ -21,19 +21,33 @@ import {
 export type ToolPart = ToolUIPart | DynamicToolUIPart;
 type State = ToolPart["state"];
 
+/** Every word `Tool` draws for a call's state, by the AI SDK's state, and `stopped`. English by default. */
+export type ToolTranslations = Record<State | "stopped", string>;
+
+const ENGLISH: ToolTranslations = {
+  "input-streaming": "Preparing",
+  "input-available": "Running",
+  "approval-requested": "Awaiting approval",
+  "approval-responded": "Running",
+  "output-available": "Done",
+  "output-error": "Failed",
+  "output-denied": "Denied",
+  stopped: "Stopped",
+};
+
 /**
  * The AI SDK's own states, drawn — not mapped onto a vocabulary of ours. Four tones are all a
  * reader needs to tell apart (waiting, working, done, failed); the label says which of the SDK's
  * seven it is.
  */
-const LOOK: Record<State, { tone: BadgeVariant; label: string; settled: boolean; failed: boolean }> = {
-  "input-streaming": { tone: "info", label: "Preparing", settled: false, failed: false },
-  "input-available": { tone: "info", label: "Running", settled: false, failed: false },
-  "approval-requested": { tone: "outline", label: "Awaiting approval", settled: false, failed: false },
-  "approval-responded": { tone: "info", label: "Running", settled: false, failed: false },
-  "output-available": { tone: "success", label: "Done", settled: true, failed: false },
-  "output-error": { tone: "destructive", label: "Failed", settled: true, failed: true },
-  "output-denied": { tone: "destructive", label: "Denied", settled: true, failed: true },
+const LOOK: Record<State, Look> = {
+  "input-streaming": { tone: "info", working: true, settled: false, failed: false },
+  "input-available": { tone: "info", working: true, settled: false, failed: false },
+  "approval-requested": { tone: "outline", working: false, settled: false, failed: false },
+  "approval-responded": { tone: "info", working: true, settled: false, failed: false },
+  "output-available": { tone: "success", working: false, settled: true, failed: false },
+  "output-error": { tone: "destructive", working: false, settled: true, failed: true },
+  "output-denied": { tone: "destructive", working: false, settled: true, failed: true },
 };
 
 /**
@@ -41,9 +55,17 @@ const LOOK: Record<State, { tone: BadgeVariant; label: string; settled: boolean;
  * AI SDK has no state for it and leaves the part where it was, so it is drawn from `stopped` — neutral,
  * and still, because nothing is running.
  */
-const STOPPED: Look = { tone: "outline", label: "Stopped", settled: false, failed: false };
+const STOPPED: Look = { tone: "outline", working: false, settled: false, failed: false };
 
-type Look = (typeof LOOK)[State];
+interface Look {
+  tone: BadgeVariant;
+  working: boolean;
+  settled: boolean;
+  failed: boolean;
+}
+
+/** Whether a call in `state` is still working: one left in it once the answer stopped never settles. */
+export const working = (state: State) => LOOK[state].working;
 
 const mark = (look: Look) =>
   look === STOPPED ? (
@@ -52,15 +74,15 @@ const mark = (look: Look) =>
     <CircleXIcon className="text-destructive-foreground" />
   ) : look.settled ? (
     <CircleCheckIcon className="text-success-foreground" />
-  ) : look.tone === "outline" ? (
-    <CircleDashedIcon className="text-muted-foreground" />
-  ) : (
+  ) : look.working ? (
     <Spinner className="text-info-foreground" />
+  ) : (
+    <CircleDashedIcon className="text-muted-foreground" />
   );
 
 const PANEL = "min-w-0 overflow-x-auto rounded-lg bg-muted px-3 py-2 text-xs [&_code]:font-mono";
 
-const Ctx = React.createContext<{ part: ToolPart; look: Look } | null>(null);
+const Ctx = React.createContext<{ part: ToolPart; look: Look; label: string } | null>(null);
 const useCall = (name: string) => {
   const call = React.useContext(Ctx);
   if (!call) throw new Error(`${name} must render inside <Tool>`);
@@ -77,9 +99,17 @@ const useCall = (name: string) => {
  *
  * `stopped` says the call will never settle; `Chat` derives it, since the part alone cannot say so.
  */
-export function Tool(props: Omit<React.ComponentProps<typeof ark.div>, "part"> & { part: ToolPart; stopped?: boolean }) {
-  const { part, stopped = false, className, children, slot, ...rest } = props;
-  const look = stopped && !LOOK[part.state].settled ? STOPPED : LOOK[part.state];
+export function Tool(
+  props: Omit<React.ComponentProps<typeof ark.div>, "part"> & {
+    part: ToolPart;
+    stopped?: boolean;
+    translations?: Partial<ToolTranslations>;
+  },
+) {
+  const { part, stopped = false, translations, className, children, slot, ...rest } = props;
+  const t = { ...ENGLISH, ...translations };
+  const halted = stopped && !LOOK[part.state].settled;
+  const look = halted ? STOPPED : LOOK[part.state];
   const [open, setOpen] = React.useState(look.settled);
   const touched = React.useRef(false);
   const wasSettled = React.useRef(look.settled);
@@ -90,7 +120,7 @@ export function Tool(props: Omit<React.ComponentProps<typeof ark.div>, "part"> &
   }, [look.settled]);
 
   return (
-    <Ctx.Provider value={{ part, look }}>
+    <Ctx.Provider value={{ part, look, label: halted ? t.stopped : t[part.state] }}>
       <ark.div
         className={cn("group/tool w-full overflow-hidden rounded-xl border bg-card shadow-xs/5", className)}
         data-failed={look.failed || undefined}
@@ -125,7 +155,7 @@ export function Tool(props: Omit<React.ComponentProps<typeof ark.div>, "part"> &
 /** The tool's name, its state as a pill, and the chevron the whole row toggles. */
 export function ToolHeader(props: React.ComponentProps<typeof CollapsibleTrigger>) {
   const { className, children, slot, ...rest } = props;
-  const { part, look } = useCall("ToolHeader");
+  const { part, look, label } = useCall("ToolHeader");
 
   return (
     <CollapsibleTrigger
@@ -144,7 +174,7 @@ export function ToolHeader(props: React.ComponentProps<typeof CollapsibleTrigger
       </span>
       <Badge data-state={part.state} pill size="sm" slot="tool-badge" variant={look.tone}>
         {mark(look)}
-        {look.label}
+        {label}
       </Badge>
       <CollapsibleIndicator className="shrink-0 text-muted-foreground" />
     </CollapsibleTrigger>

@@ -40,15 +40,16 @@ Every word a component draws is a prop on it, with an English default and no cat
 | [`ComboboxEmpty`](/docs/forms/combobox) | its children |
 | [`LanguagePicker`](/docs/forms/language-picker) | `translations` |
 | [`AssistProvider`](/docs/ai/assist) (`@kanzo-tech/ai`) | `translations` — every word an assisted field draws or announces |
-| [`Chat`](/docs/ai/chat) (`@kanzo-tech/ai`) | `translations` — the composer's placeholder and the error's announcement |
+| [`Chat`](/docs/ai/chat) (`@kanzo-tech/ai`) | `translations` — the composer's placeholder, the error's announcement, and its submit button's and tool calls' words |
+| [`PromptInputSubmit`](/docs/ai/chat) (`@kanzo-tech/ai`) | `translations` — `send`, `stop`, `retry` |
+| [`Tool`](/docs/ai/chat) (`@kanzo-tech/ai`) | `translations` — a label per AI SDK tool state, and `stopped` |
 | [`CheckpointTrigger`](/docs/ai/guided#checkpoint) (`@kanzo-tech/ai`) | `translations` — `restore` |
 | [`FieldRequiredIndicator`](/docs/forms/field) | `fallback` |
 | [`Questionnaire`](/docs/forms/questionnaire) | `translations` — the progress line, the actions row's name, the four buttons and its questions' `unanswered` |
 | [`Question`](/docs/forms/question) | `translations` — `unanswered`, the error's sentence |
 
-`Chat` is short of that today, and it is a defect rather than a decision: the composer's button names
-(*Send*, *Stop*, *Retry*), the reasoning fold's *Thinking…* and the tool frame's state labels are
-English, and `ChatTranslations` does not reach them yet.
+`Chat` is short of that today, and it is a defect rather than a decision: the reasoning fold's
+*Thinking…* is English, and `ChatTranslations` does not reach it yet.
 
 The host owns the words because it is the only place that knows the language, the register and the
 product's own vocabulary — and because a catalogue inside a library is one more thing a product has
