@@ -7,7 +7,8 @@ import type { GraphCommands, Motion, VertexId } from "../core/types";
 import { resolveLook, type Look } from "./graph-looks";
 import { appearance, forces, paint } from "./graph-model";
 import { resolveSim, type Sim } from "./graph-sim";
-import { createCamera, FIT_DURATION, glide } from "./camera";
+import { createCamera, FIT_DURATION, FIT_PADDING, glide } from "./camera";
+import { CELL } from "./label-limits";
 import { nearest } from "./direction";
 import { planChange, planFrame, type Dirty, type Seen } from "./frame";
 import { decayFor, highlighted, LINKS_WHILE_RUNNING, placedByData, simulating } from "./motion";
@@ -116,6 +117,8 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       randomSeed: "kanzo-discovery",
       pixelRatio: window.devicePixelRatio || 1,
       enableDrag: true,
+      // Set, not defaulted: the labels count the view's sample in these cells (`cellsIn`).
+      pointSamplingDistance: CELL,
       hoveredPointCursor: "pointer",
       attribution: "",
       onSimulationStart: () => store.report("running"),
@@ -350,7 +353,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       if (visible === null || !greyedOf(store.getSnapshot())) return camera.fit();
       camera.take();
       const vertices = visible.filter((id) => id < size());
-      if (vertices.length > 0) graph.fitViewByPointIndices(vertices, glide(FIT_DURATION), 0.25);
+      if (vertices.length > 0) graph.fitViewByPointIndices(vertices, glide(FIT_DURATION), FIT_PADDING);
     },
     clear,
     toward(from, direction) {

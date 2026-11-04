@@ -1128,8 +1128,11 @@ are ours. The translation functions keep only what is *derived*: the greyout fro
 colours, the background's alpha, the resolution of a token. None of them renames anything.
 
 **Defaults stay ours where they were measured or tuned.** Each doc string gives Cosmograph's default
-beside ours, so a reader can compare. `fitViewPadding` is one value, where today there are three
-(0.18, 0.3 and a literal 0.25). Locate becomes a private multiple of it.
+beside ours, so a reader can compare. `fitViewPadding` is `FIT_PADDING`, 0.18. It is
+already the one margin for every fit: the whole graph, its corners, and Frame over a filter, which
+used a literal 0.25 until 2026-11-04. Locate keeps its own wider margin, `LOCATE_PADDING` 0.3, and
+it stays private. It frames one vertex's neighbourhood in its context, not a set the reader asked to
+see whole.
 
 **What it costs: the graph and `@kanzo-tech/ui`'s charts now name the same idea differently.** A
 chart's `fill` and `r` are the graph's `pointColorBy` and `pointSizeBy`, so a host binding one column
@@ -1179,7 +1182,7 @@ dependency and its code is never opened.
 | `sim.cluster` | `simulationCluster` | prop |
 | `TOP_LABELS` (150, a constant) | `showTopLabelsLimit`, default 150; Cosmograph's is 30 | prop |
 | `VISIBLE_LABELS` (100, a constant) | `showDynamicLabelsLimit`, default 100; Cosmograph's is 30 | prop |
-| `FIT_PADDING`, `LOCATE_PADDING`, the literal 0.25 | `fitViewPadding`, one value; Cosmograph's is 0.1 | prop |
+| `FIT_PADDING` (0.18, a constant) | `fitViewPadding`, default 0.18; Cosmograph's is 0.1 | prop |
 | `GraphSearch`'s `limit` | `suggestionsLimit` | part prop |
 | `x-by`, `y-by` | `pointXBy`, `pointYBy` | pref |
 | `cluster-by` | `pointClusterBy` | pref |
@@ -1200,8 +1203,8 @@ dependency and its code is never opened.
 | `isColour`, `forces()`, the renaming in `appearance()` and `placementFrom` | gone | internal |
 
 That is 48 rows. `pointSamplingDistance` is not in the table because it is not a prop. It is set
-explicitly from the labels' `CELL` so that the sample the labels count stays the sample cosmos.gl
-draws. Today it relies on the engine's default happening to be the same 100.
+explicitly from the labels' `CELL` (`render/label-limits.ts`), so the sample the labels count is
+the sample cosmos.gl draws, rather than a default that happens to match.
 
 `timelineBy` is a coinage. Cosmograph's word is the Timeline's `accessor`, which is a widget prop
 and not a graph setting. It follows `…By` because it names the column the timeline under the graph

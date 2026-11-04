@@ -7,23 +7,17 @@ import type { VertexId } from "../core/types";
 import { useGraphContext } from "../react/graph-root";
 import { useGraphState } from "../react/use-graph-state";
 import type { LabelLevel } from "../render/graph-looks";
+import { CELL, TOP_LABELS, VISIBLE_LABELS } from "../render/label-limits";
 
 /**
  * **Which points carry a label, and their text** — Cosmograph's label model, where no level is an
  * unbounded set: `showTopLabelsLimit`, `showDynamicLabelsLimit`, and culling by overlap.
  *
- * Top's and Visible's budgets are Cosmograph 2.5's own defaults, 150 and 100, read from its
- * `config/defaults.js` (its JSDoc says 30 for both; the code is what runs). All has no count of its
+ * Top's and Visible's budgets are `label-limits.ts`'s, and they are ours. All has no count of its
  * own: it is every point of the view's sample, and the sample is bounded by the screen — one point
  * per `CELL` square, so a view holds at most `cellsIn` of them whatever the graph's size. A level
  * that once meant *every vertex* sorted, mounted, tracked and read the title of 327k of them.
  */
-const TOP_LABELS = 150;
-const VISIBLE_LABELS = 100;
-
-/** cosmos.gl's `pointSamplingDistance` default, which the renderer does not override. */
-const CELL = 100;
-
 /** How long the camera has to be still before the view is sampled again. */
 const REST = 160;
 

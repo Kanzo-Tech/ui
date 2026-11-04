@@ -349,8 +349,8 @@ the chart is `aria-busy` while its query runs; the window the clause holds is tw
 `TimelineHarness` brushes in data through the `x` scale Plot puts on the chart's output, and plays.
 
 *Held by* `packages/ui/src/charts/chart-timeline.test.tsx` ("reads a brushed range as the edges it
-spans, in axis order — the frames play shows"; "has nothing to play without a range, as
-Cosmograph's has not"; "is 50 ms a bar on 60 bars or more, and slower on fewer, so a sweep takes as
+spans, in axis order — the frames play shows"; "has nothing to play without a range, so
+Play never sweeps a range nobody chose"; "is 50 ms a bar on 60 bars or more, and slower on fewer, so a sweep takes as
 long"; "is 500 ms at least under prefers-reduced-motion"; "reserves the band's height and draws nothing in it — no Play, no ticks — until the bars are
 drawn"; a brushed window sticks to the nearest edges, at least one bar
 wide; a year reads as its integer, on the axis too),
