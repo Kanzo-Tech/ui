@@ -4,7 +4,7 @@ import { count } from "@kanzo-tech/mosaic";
 import {
   ChartAxisX,
   ChartAxisY,
-  ChartBarY,
+  ChartBarX,
   ChartHighlight,
   ChartLegend,
   ChartRoot,
@@ -28,16 +28,18 @@ const config = {
 
 const ORDER = ["confirmed", "disputed", "hoax"];
 
+const MARGIN = { top: 4, right: 16, bottom: 32, left: 88 };
+
 export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
-        <ChartRoot config={config} height={240} relation="sightings">
-          <ChartBarY fill="verdict" order={ORDER} tip x="region" y={count()} />
+        <ChartRoot config={config} height={240} margin={MARGIN} relation="sightings">
+          <ChartBarX fill="verdict" order={ORDER} tip x={count()} y="region" />
           <ChartToggleColor />
           <ChartHighlight />
-          <ChartAxisX label={null} />
-          <ChartAxisY grid label="sightings" />
+          <ChartAxisX grid label="sightings" />
+          <ChartAxisY label={null} />
           <ChartLegend />
         </ChartRoot>
       </div>

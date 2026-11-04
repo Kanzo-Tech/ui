@@ -5,12 +5,12 @@ import { Selection, count } from "@kanzo-tech/mosaic";
 import {
   ChartAxisX,
   ChartAxisY,
-  ChartBarY,
+  ChartBarX,
   ChartHighlight,
   ChartLineY,
   ChartRectY,
   ChartRoot,
-  ChartToggleX,
+  ChartToggleY,
   bin,
 } from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
@@ -27,12 +27,12 @@ export default function Example() {
   return (
     <MosaicDemo>
       <div className="grid w-full max-w-2xl grid-cols-1 gap-5 sm:grid-cols-2">
-        <ChartRoot height={140} relation="sightings">
-          <ChartBarY fill="var(--primary)" filterBy={null} x="region" y={count()} />
-          <ChartToggleX as={picked} />
+        <ChartRoot height={140} margin={{ left: 88 }} relation="sightings">
+          <ChartBarX fill="var(--primary)" filterBy={null} x={count()} y="region" />
+          <ChartToggleY as={picked} />
           <ChartHighlight by={picked} />
-          <ChartAxisX label="click a region" tickRotate={30} />
-          <ChartAxisY grid label={null} />
+          <ChartAxisX grid label="sightings — click a region" />
+          <ChartAxisY label={null} />
         </ChartRoot>
 
         <ChartRoot height={140} relation="sightings">

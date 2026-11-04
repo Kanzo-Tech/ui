@@ -4,8 +4,8 @@ import { count } from "@kanzo-tech/mosaic";
 import {
   ChartAxisX,
   ChartAxisY,
-  ChartBarY,
-  ChartFacetX,
+  ChartBarX,
+  ChartFacetY,
   ChartHighlight,
   ChartLegend,
   ChartRoot,
@@ -14,8 +14,8 @@ import {
 } from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
-// Grouped bars are faceted bars: `fx` splits the plot into one panel per region, `x` puts the
-// series side by side inside each panel. The inner x axis is redundant with the legend, so it goes.
+// Grouped bars are faceted bars: `fy` splits the plot into one row per region, `y` puts the series
+// side by side inside each row. The inner y axis is redundant with the legend, so it goes.
 
 const config = {
   confirmed: { label: "Confirmed", color: "var(--chart-2)" },
@@ -27,13 +27,19 @@ export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
-        <ChartRoot config={config} facetMargin={{ left: 8, right: 8 }} height={240} relation="sightings">
-          <ChartBarY fill="verdict" fx="region" tip x="verdict" y={count()} />
+        <ChartRoot
+          config={config}
+          facetMargin={{ top: 4, bottom: 4 }}
+          height={300}
+          margin={{ top: 4, right: 16, bottom: 32, left: 96 }}
+          relation="sightings"
+        >
+          <ChartBarX fill="verdict" fy="region" tip x={count()} y="verdict" />
           <ChartToggleColor />
           <ChartHighlight />
-          <ChartAxisX anchor={null} label={null} />
-          <ChartAxisY grid label="sightings" />
-          <ChartFacetX label={null} />
+          <ChartAxisX grid label="sightings" />
+          <ChartAxisY anchor={null} label={null} />
+          <ChartFacetY anchor="left" label={null} />
           <ChartLegend />
         </ChartRoot>
       </div>
