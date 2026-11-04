@@ -1,6 +1,6 @@
 ---
 title: Settings
-description: The same preference sections on both surfaces — a settings page with a sub-sidebar, and the floating drawer its trigger opens.
+description: The same preference sections on both surfaces — a settings page reached from the app's own rail, and the floating drawer its trigger opens.
 full: true
 ---
 
@@ -19,7 +19,7 @@ are one registry and one resolution, and the library favours neither.
 ## The layout adapts itself, and the page does not tell it to
 
 The theme section lays its cards on an **auto-fill grid**, so it fits two to a row inside the 384px
-drawer and more in this pane, with nothing passed down to say so.
+drawer and as many as this pane's reading width allows, with nothing passed down to say so.
 
 That is deliberate rather than convenient. The question a section asks is how much room *it* was
 given, never how big the window is — a page handing it a layout prop would be the surface deciding
@@ -27,8 +27,8 @@ for the section again, which is exactly what the mechanism exists to stop.
 
 ## What the cards do that a drawn card cannot
 
-GitHub's Appearance page is the shape this borrows: grouped menu, one scrolling pane, appearance
-first, a card per side with an `Active` pill and no verb on it — **pressing the card is the whole
+GitHub's Appearance page is the shape this borrows: one scrolling pane, appearance first, a card
+per side with an `Active` pill and no verb on it — **pressing the card is the whole
 gesture**. The semantics are borrowed too: GitHub pairs a day theme with a night theme because
 its themes are single-mode, and [so are ours](/docs/theming) — a card per side says which theme
 each side wears.
@@ -36,8 +36,8 @@ each side wears.
 Their cards are drawn assets. Ours are the real cascade answering: each card sets `[data-theme]`,
 so with the page in dark the **Light** card still resolves the light theme. Both themes are on screen at once, and what you see is what selecting it will do.
 
-That is also why the page needs no appearance toggle in its chrome. It has no chrome to put one in,
-and it does not need one: the two states are on screen at full size and both are pressable.
+That is also why the page needs no appearance toggle in its header: the two states are on screen
+at full size and both are pressable.
 
 ## The abstractions this page is made of
 
@@ -49,12 +49,11 @@ were already yours:
 | What | Which parts | Whose decision it is |
 | --- | --- | --- |
 | The preferences themselves, and what the installed packages add | `PreferencesSections` | The library's, and the host's at registration time. The identical export the [drawer](/docs/layout/preferences) renders. Radius and the faces are the theme's, so nothing here offers them. |
-| The page | `SidebarProvider`, `Sidebar`, `SidebarInset`, `ShellMain`, `SectionRoot`, `SectionHeader` | Yours. A settings area is layout, and layout is where a product differs most. |
-| The settings menu | `ItemGroup`, `Item` with a `Button` inside each row | Yours. Shark ships no settings-nav component and this needs none — a compact list of rows with a media slot and a title is `Item`, and a **pressable row is a button inside the item**, never the item merged with one, or `role="listitem"` lands on the control and it stops being announced as one. |
+| The page | `SidebarProvider`, `Sidebar`, `SidebarInset`, `ShellHeader` with `SidebarTrigger`, `ShellMain`, `SectionRoot`, `SectionHeader`, `SectionBody` | Yours. A settings area is layout, and layout is where a product differs most. |
+| The settings menu | `SidebarMenuSub` under the rail's Settings entry | Yours. One level of navigation: the sections are sub-items of the place they belong to, so the pane follows the rail directly instead of sitting behind a second column. |
 
-Deliberately **not** the sidebar parts for that menu, though `SidebarMenuSub` exists: those carry a
-rail's context and a rail's collapse behaviour, so a settings menu built from them would fold away
-with the product's rail beside it. The rail is a rail; this is a column of a page.
+The menu folds away with the rail, and that is the point of putting it there: ⌘B collapses one
+navigation, not one of two, and on a phone the header's trigger brings back the whole of it.
 
 A product with a couple of screens should take the [drawer](/docs/layout/preferences) instead and be
 done, over the same theme, with the same components.
@@ -66,6 +65,6 @@ the moment a section knows which surface it is on, a product with both has two o
 The showcase adds no component, which is the admission rule working as intended: a new component is
 the last rung, not the first. One `<main>`, owned by `ShellMain`.
 
-Nothing in the nav navigates — the rows are buttons where a product would put links (`Button asChild`
-around your router's own), because a router would be a second thing to read in a file that
-demonstrates one.
+Nothing in the nav navigates — the rows are bare anchors where a product would hand
+`SidebarMenuSubButton` its router's own link, because a router would be a second thing to read in a
+file that demonstrates one.
