@@ -43,7 +43,7 @@ below has been run at the size it claims.
 **The plan, to run in a real browser with a GPU, not SwiftShader** (the grid's measurement says why: a
 software rasteriser never reached a first frame at 200,000). The graph is generated in DuckDB itself
 with the catalog relations the reader expects, because fossil's executor panics in DataFusion's
-memory pool at a million ([benchmarks](/docs/graph/benchmarks#build-the-graphs-first)); the figures
+memory pool at a million; the figures
 are written beside the claim, one run is a rumour, and the criteria are fixed before the runs.
 
 | Measure | At | Criterion, set before the run |
@@ -54,7 +54,7 @@ are written beside the claim, one run is a rumour, and the criteria are fixed be
 | A pick of 10,000, 100,000 and 500,000 ids | by literal list, and by [the table](#a-pick-does-not-ship-its-ids) | the point at which the literal list costs, which sets `K` |
 | A tab hidden during the load | 200,000 | the load finishes without the tab being shown |
 
-`measureLoad` and `measureGreyout` join `measureViewer` in `graph-bench`, and the unit tests keep a
+The runs live with the graph benchmarks, outside this repository, and the unit tests keep a
 graph above 20 vertices: one of 100,000 through the real reader and a node DuckDB, so the `float64`
 to `Float32` conversion and the `ORDER BY key` plan are exercised, and the guard is tested with a
 catalog whose counts say 2²⁴ + 1 without building the rows. *Not yet held:* all of it.

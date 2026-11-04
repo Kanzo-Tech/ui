@@ -46,7 +46,7 @@ export interface ComponentPreviewProps {
   /** File basename, no extension. */
   fileName?: string;
   /**
-   * Render the example whole: no frame padding, no centring, no fixed height, no guides.
+   * Render the example whole: no frame padding, no centring, no fixed height.
    *
    * Per example, not per group. Two slugs need it — `shell` and `sidebar` — and both sit in
    * groups whose other pages are single elements, so there is no group rule to derive it from.
@@ -54,8 +54,6 @@ export interface ComponentPreviewProps {
   fullBleed?: boolean;
   /** Cap the frame. Off, the panes take whatever their content needs. */
   hasMaxHeight?: boolean;
-  /** The dashed padding guides around the preview. */
-  showBorders?: boolean;
 }
 
 /**
@@ -70,11 +68,9 @@ export interface ComponentPreviewProps {
 export const ComponentPreview = async (props: ComponentPreviewProps) => {
   const { componentName, fileName = "example-default" } = props;
 
-  // A shell cannot be judged inside a centred box with dashed padding guides — that frame is
-  // built for a button.
+  // A shell cannot be judged inside a centred, padded box — that frame is built for a button.
   const fullBleed = props.fullBleed ?? false;
   const hasMaxHeight = props.hasMaxHeight ?? !fullBleed;
-  const showBorders = props.showBorders ?? !fullBleed;
 
   const Example = await import(`../examples/${componentName}/${fileName}.tsx`);
   if (!Example.default) {
@@ -99,7 +95,6 @@ export const ComponentPreview = async (props: ComponentPreviewProps) => {
       fullBleed={fullBleed}
       height={height}
       measureKey={hasMaxHeight ? key : undefined}
-      showBorders={showBorders}
       source={
         <ServerCodeBlock
           code={shown}

@@ -6,10 +6,7 @@ import { cn } from "../lib/cn";
 import { Card } from "./card";
 import { Skeleton } from "./skeleton";
 
-export interface StatRootProps extends React.ComponentProps<typeof Card> {
-  /** The status family, written to `data-variant` and read by `StatIndicator`. */
-  variant?: "default" | "success" | "info" | "warning" | "destructive";
-}
+export type StatRootProps = React.ComponentProps<typeof Card>;
 
 /**
  * One dashboard number. A `Card`, so `asChild` makes the anchor *be* the tile — one tab stop, and
@@ -17,25 +14,25 @@ export interface StatRootProps extends React.ComponentProps<typeof Card> {
  * prop, so they cannot disagree with what was rendered.
  */
 export const StatRoot = (props: StatRootProps) => {
-  const { variant = "default", className, slot, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <Card
       className={cn(
-        "group/stat [--space:--spacing(4)] px-(--space)",
+        "[--space:--spacing(4)] px-(--space)",
         // Indicator and label share the first row; the value and the trend share the second.
         "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-0 gap-y-1",
         "outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring",
         "[a&]:hover:border-primary/40",
         className
       )}
-      data-variant={variant}
       {...rest}
       slot={slot ?? "stat-root"}
     />
   );
 };
 
+/** A plain muted icon before the label. A KPI is type, not a tile: no disc, no status wash. */
 export const StatIndicator = (props: React.ComponentProps<typeof ark.div>) => {
   const { className, slot, ...rest } = props;
 
@@ -43,13 +40,7 @@ export const StatIndicator = (props: React.ComponentProps<typeof ark.div>) => {
     <ark.div
       aria-hidden
       className={cn(
-        "col-start-1 me-2 shrink-0 rounded-full p-1.5 [&_svg]:size-3.5",
-        // The soft status pair `Badge` measured: step-11 ink on a 7% wash.
-        "bg-muted text-muted-foreground",
-        "group-data-[variant=success]/stat:bg-success/7 group-data-[variant=success]/stat:text-success-foreground",
-        "group-data-[variant=info]/stat:bg-info/7 group-data-[variant=info]/stat:text-info-foreground",
-        "group-data-[variant=warning]/stat:bg-warning/7 group-data-[variant=warning]/stat:text-warning-foreground",
-        "group-data-[variant=destructive]/stat:bg-destructive/7 group-data-[variant=destructive]/stat:text-destructive-foreground",
+        "col-start-1 me-2 shrink-0 text-muted-foreground [&_svg]:size-4",
         className
       )}
       {...rest}
@@ -81,7 +72,7 @@ export interface StatValueProps extends React.ComponentProps<typeof ark.div> {
 
 /**
  * The figure, as the host formats it — `FormatNumber` with `notation="compact"` is the dashboard
- * reading. Proportional figures on purpose: a lone headline number is not a column to align.
+ * reading. Tabular figures, so a row of stats and a refreshing number keep their width.
  */
 export const StatValue = (props: StatValueProps) => {
   const { loading = false, className, children, slot, ...rest } = props;
@@ -90,7 +81,7 @@ export const StatValue = (props: StatValueProps) => {
     <ark.div
       aria-busy={loading || undefined}
       className={cn(
-        "col-start-1 col-end-3 pt-2 font-semibold text-2xl text-foreground leading-none tracking-tight",
+        "col-start-1 col-end-3 pt-2 font-semibold text-2xl text-foreground tabular-nums leading-none tracking-tight",
         className
       )}
       {...rest}

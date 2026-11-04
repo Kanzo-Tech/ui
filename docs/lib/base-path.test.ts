@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
  * in this repository: the build passes, the page renders, and the thing at the end of the URL is a
  * 404 nobody sees. It bit three times in one afternoon before this file existed:
  *
- * · `showcases/workspace/graph-state.tsx` held `"/corpus/archive"` — the graph canvas stayed empty.
+ * · the archive showcase's `graph-state.tsx` held `"/corpus/archive"` — the graph canvas stayed empty.
  * · `components/preview-iframe.tsx` held `"/view/showcases/<name>"` — EVERY showcase embed on the
  *   site pointed at the organisation's root instead, so every one of them was a 404 in a box.
  * · three image-cropper examples and one showcase held `"/example/<file>.svg"` — a broken image and
@@ -26,8 +26,8 @@ import { describe, expect, it } from "vitest";
  *
  * - **It does not read `href`.** `Link href="/docs"` is correct and common — Next prefixes it — and
  *   `<a href="/docs">` is a defect, and the two are indistinguishable without resolving what the
- *   component is. `BreadcrumbLink` is `ark.a` and was exactly that defect in
- *   `showcases/graph-bench/default.tsx`; it is fixed, and nothing here would have caught it. If
+ *   component is. `BreadcrumbLink` is `ark.a` and was exactly that defect in a showcase; it was
+ *   fixed, and nothing here would have caught it. If
  *   this rule is ever worth extending, that is the direction and it needs a real parse.
  * - **Only literals.** A path assembled at runtime, or read from a data file, is invisible.
  * - **It cannot tell you the prefix is RIGHT**, only that the value is not a bare literal. A call

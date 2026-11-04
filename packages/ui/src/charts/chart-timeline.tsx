@@ -7,6 +7,7 @@ import { bin } from "./chart-bin.js";
 import { PauseIcon, PlayIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../lib/cn.js";
+import { useLocale } from "../simples/locale.js";
 import * as vg from "@uwdata/vgplot";
 import { ChartAxisY } from "./chart-axes.js";
 import { ChartIntervalX } from "./chart-interactors.js";
@@ -55,15 +56,16 @@ const REDUCED_TICK_MS = 500;
  * The axis as Cosmograph draws it: a thin rule at each tick through the band's height — up through
  * the labels' row as the axis's tick, down through the bars as the grid — and its label to the right
  * of it at the top, small and muted. Plot's own axis attributes cannot anchor a label beside its
- * tick, so it is the `axisX` mark. Module-scoped: a new array rebuilds the plot.
+ * tick, so it is the `axisX` mark. One array per locale, memoised by the caller: a new array rebuilds
+ * the plot.
  */
-const AXIS = [
+const axisFor = (locale: string) => [
   vg.gridX({ strokeOpacity: 0.2, ticks: 5 }),
   vg.axisX({
     anchor: "top",
     ticks: 5,
     tickSize: MARGIN.top,
-    tickFormat: topLabel,
+    tickFormat: (v: unknown, i: number, ticks: ArrayLike<unknown>) => topLabel(v, i, ticks, locale),
     textAnchor: "start",
     dx: 3,
     dy: MARGIN.top,
@@ -105,6 +107,8 @@ export function ChartTimeline({
   className,
 }: ChartTimelineProps) {
   const bars = bin(field, { steps: BARS });
+  const { locale } = useLocale();
+  const axis = useMemo(() => axisFor(locale), [locale]);
   const read = useRelation(relation);
   const key = chartTableKey(read.table);
   // The rows that have a time: one without has no bar to stand in, and a bucket of NULLs is no
@@ -120,7 +124,7 @@ export function ChartTimeline({
     <ChartRoot
       aria-keyshortcuts={playable ? "Space" : undefined}
       aria-label={title}
-      attributes={AXIS}
+      attributes={axis}
       // The band's height is held from the first render, and the band shows — Play with the bars —
       // once the plot has drawn them: nothing half-built, and no Play over an empty band.
       className={cn("flex-row items-stretch gap-0 opacity-0 motion-safe:transition-opacity data-drawn:opacity-100 outline-none focus-visible:ring-[3px] focus-visible:ring-ring", className)}
@@ -156,6 +160,7 @@ export function ChartTimeline({
  * its chip reads the frame. The range is the interval's value and stays where it was brushed.
  */
 function TimelineWindow({ playable }: { playable: boolean }) {
+  const { locale } = useLocale();
   const { selection: as, plot } = useChartContext();
   const [range, setRange] = useState<readonly unknown[] | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -227,7 +232,7 @@ function TimelineWindow({ playable }: { playable: boolean }) {
     const at = state.current.frame;
     if (why === "gone" || !interval?.value || at === null) return;
     const { edges, from } = rangeOf(brushedBy(interval))!;
-    setSaid(`${why === "end" ? "Ended" : "Paused"} at ${readWindow([edges[from], edges[at]])}`);
+    setSaid(`${why === "end" ? "Ended" : "Paused"} at ${readWindow([edges[from], edges[at]], locale)}`);
   };
   transport.current.play = () => {
     if (state.current.running) return;
@@ -369,8 +374,8 @@ function TimelineWindow({ playable }: { playable: boolean }) {
         </span>
       ) : null}
       {/* Read, not drawn: the bars take the width, and the chip already reads the window. */}
-      <div aria-label="Window" aria-valuetext={shown ? readWindow(shown) : undefined} className="sr-only" ref={anchor} role="group">
-        {shown ? readWindow(shown) : null}
+      <div aria-label="Window" aria-valuetext={shown ? readWindow(shown, locale) : undefined} className="sr-only" ref={anchor} role="group">
+        {shown ? readWindow(shown, locale) : null}
       </div>
       <div aria-label="Timeline" className="sr-only" role="status">
         {said}
@@ -514,13 +519,13 @@ function moveWindow(interval: Interval1D, window: readonly [unknown, unknown]) {
   interval.selection.update(interval.clause(window));
 }
 
-const DAY = new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
-const MONTH = new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", timeZone: "UTC" });
+const DAY: Intl.DateTimeFormatOptions = { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" };
+const MONTH: Intl.DateTimeFormatOptions = { year: "numeric", month: "short", timeZone: "UTC" };
 
 /** *1950 – 1960*: a year as its integer, a date as a day. */
-export function readWindow(window: readonly unknown[]): string {
+export function readWindow(window: readonly unknown[], locale?: string): string {
   const [from, to] = window.map((v) =>
-    v instanceof Date ? DAY.format(v) : typeof v === "number" ? String(Math.round(v)) : String(v),
+    v instanceof Date ? v.toLocaleDateString(locale, DAY) : typeof v === "number" ? String(Math.round(v)) : String(v),
   );
   return `${from} – ${to}`;
 }
@@ -529,13 +534,13 @@ export function readWindow(window: readonly unknown[]): string {
  * A tick label at the top of the band: as `tickLabel`, and none for the last tick, which sits at the
  * axis's end with no room to its right for a label that starts there.
  */
-function topLabel(v: unknown, i: number, ticks: ArrayLike<unknown>): string {
-  return i === ticks.length - 1 ? "" : tickLabel(v);
+function topLabel(v: unknown, i: number, ticks: ArrayLike<unknown>, locale?: string): string {
+  return i === ticks.length - 1 ? "" : tickLabel(v, locale);
 }
 
 /** An axis tick: a year as its integer, never *1,900*, and a date by the coarsest unit it starts. */
-export function tickLabel(v: unknown): string {
+export function tickLabel(v: unknown, locale?: string): string {
   if (!(v instanceof Date)) return String(v);
   if (v.getUTCMonth() === 0 && v.getUTCDate() === 1) return String(v.getUTCFullYear());
-  return (v.getUTCDate() === 1 ? MONTH : DAY).format(v);
+  return v.toLocaleDateString(locale, v.getUTCDate() === 1 ? MONTH : DAY);
 }

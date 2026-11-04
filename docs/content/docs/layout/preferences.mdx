@@ -4,14 +4,13 @@ description: Every preference a person may change — the theme for each side, t
 ---
 
 {/* An iframe, not a ComponentPreview. The panel is Portal-ed and `position: fixed`, so in a
-    framed preview box it escapes to the viewport and lands on top of this page. Rendering the
-    sections loose in a div avoids that and shows the controls but not the component: no trigger,
-    no drawer, none of the behaviour. */}
-<PreviewIframe className="h-[42rem]" name="preferences" title="Preferences" />
+    framed preview box it escapes to the viewport and lands on top of this page. */}
+<PreviewIframe className="h-[42rem]" name="settings" title="Settings" />
 
-The panel opens on arrival so there is something to look at. Toggle the trigger in the corner
-to see the rest of it: the drawer is **non-modal**, so the form behind it stays usable while
-the theme changes live.
+The [settings showcase](/docs/showcases/settings): a settings page that renders the sections, and
+the trigger in the corner that opens the same sections as the drawer. The drawer is **non-modal**, so
+the page behind it stays usable while the theme changes live, and its first preference,
+**Sidebar side**, is the product's own and moves the rail.
 
 ## What is a preference, and what is not
 
@@ -185,9 +184,7 @@ tenant and passes through verbatim.
 
 `PreferencesPanel` renders `PreferencesSections` when given no children. Pass children to compose
 your own, and the pinned Reset · Done footer stays. A product can lead with its **own** preferences
-and then place the library's:
-
-<PreviewIframe className="h-[42rem]" name="preferences-extended" source="preferences/extended" title="Extended preferences" />
+and then place the library's. The drawer above is composed this way:
 
 ```tsx
 <PreferencesRoot hotkey="t">
@@ -238,7 +235,7 @@ sections dropped in:
 </ShellMain>
 ```
 
-The [settings showcase](/docs/showcases/settings) is that page finished. A section is never separated
+The showcase at the top of this page is that page finished. A section is never separated
 from the next by a rule, in either surface: the heading is the separation.
 
 ## ThemePreview

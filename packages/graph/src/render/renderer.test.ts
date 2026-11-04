@@ -10,7 +10,7 @@ import { greyoutOpacity, type Rgb } from "./greyout";
 
 /**
  * The renderer's frame, against a cosmos.gl that records what it is told. What this cannot prove is
- * that cosmos.gl draws what it was given — the browser does, and `/docs/graph/benchmarks` measures it.
+ * that cosmos.gl draws what it was given — only the browser does.
  */
 
 const calls: string[] = [];

@@ -99,7 +99,7 @@ export default function Example() {
       </Sidebar>
 
       {/* SidebarInset is a neutral offset column and carries no landmark — a real page puts a
-          ShellMain in here, as the app-shell showcase does. This preview renders inside the docs
+          ShellMain in here, as the keasy showcase does. This preview renders inside the docs
           page's own <main>, so adding a second one would be a conformance error. Left
           deliberately empty: the region is here so you can see what the navigation navigates. */}
       <SidebarInset className="bg-muted/24">

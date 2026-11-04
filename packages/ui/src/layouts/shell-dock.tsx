@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "../simples/tooltip.js";
 
 /**
  * A single-select toggle group is a `radiogroup`, and WAI-ARIA 1.2 requires that role's accessible
- * name. No default is right for every dock — *Panels* misnames a dock of one, the studio's *Sources* —
+ * name. No default is right for every dock — *Panels* misnames a dock of one, such as *Sources* —
  * so the type asks for exactly one of `aria-label` / `aria-labelledby`, as `ButtonGroup`'s does.
  */
 type Labelled =

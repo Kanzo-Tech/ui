@@ -8,7 +8,7 @@
 import { ark } from "@ark-ui/react/factory";
 import { ArrowUpRightIcon, CircleAlertIcon, InfoIcon, TriangleAlertIcon } from "lucide-react";
 import React from "react";
-import { tv, type VariantProps } from "tailwind-variants";
+import { tv } from "tailwind-variants";
 import { cn } from "../lib/cn";
 import { Badge } from "./badge";
 import {
@@ -64,42 +64,11 @@ export const DiagnosticList = (props: React.ComponentProps<typeof ark.ul>) => {
   );
 };
 
-const diagnosticVariants = tv({
-  base: [
-    "group/diagnostic",
-    "w-full",
-    "rounded-xl border",
-    "text-card-foreground text-sm",
-  ],
-  variants: {
-    /**
-     * **The reference's surface, not a coloured rail.**
-     *
-     * This used to be `border-s-2` in the family's colour over a neutral `bg-foreground/14` — a card with
-     * a bar down one edge, which is a shape that appears nowhere in Shark UI and nowhere else in
-     * this library. It is the generic callout, and it is what made a diagnostic read as machine
-     * furniture rather than as one of these components.
-     *
-     * `Alert` is the surface a message with a severity has here, and these are its exact steps:
-     * the wash at `-a3`, the whole outline at `-a6`, the glyph at the family. It stacks — the
-     * reference stacks alerts, and the argument that six of them would read as decoration was made
-     * about the rail, not about this.
-     */
-    variant: {
-      destructive: ["bg-destructive/7", "border-destructive/30"],
-      warning: ["bg-warning/7", "border-warning/30"],
-      info: ["bg-info/7", "border-info/30"],
-    },
-  },
-  defaultVariants: {
-    variant: "destructive",
-  },
-});
-
 // `asChild` is consumed here — the element is the `<li>` — so it is not a prop a caller may pass.
-export interface DiagnosticProps
-  extends Omit<React.ComponentProps<typeof Collapsible>, "asChild">,
-    VariantProps<typeof diagnosticVariants> {}
+export interface DiagnosticProps extends Omit<React.ComponentProps<typeof Collapsible>, "asChild"> {
+  /** @default "destructive" */
+  variant?: Variant;
+}
 
 /**
  * One diagnostic, collapsed to its header until it is opened. Open state, animation and the
@@ -107,7 +76,9 @@ export interface DiagnosticProps
  * pass through unchanged — the machine's root is handed to the `<li>` through `asChild`, which is
  * how a diagnostic is a real item of `DiagnosticList`'s `<ul>` and a collapsible at the same time.
  *
- * `variant` is written once, here. Repeating it as a prop on the badge is how the two drift.
+ * `variant` is written once, here. Repeating it as a prop on the badge is how the two drift. The
+ * surface is a neutral card whatever the variant: the colour is the icon's and the badge's, so a
+ * list of six destructive findings reads as six findings rather than a red block.
  */
 export const Diagnostic = (props: DiagnosticProps) => {
   const { variant = "destructive", className, children, slot, ...rest } = props;
@@ -116,7 +87,10 @@ export const Diagnostic = (props: DiagnosticProps) => {
     <VariantContext.Provider value={variant}>
       <Collapsible {...rest} asChild>
         <ark.li
-          className={cn(diagnosticVariants({ variant }), className)}
+          className={cn(
+            "group/diagnostic w-full rounded-xl border bg-card text-card-foreground text-sm",
+            className
+          )}
           data-slot={slot ?? "diagnostic"}
           data-variant={variant}
         >
@@ -133,8 +107,8 @@ export const Diagnostic = (props: DiagnosticProps) => {
  *
  * The argument for nowrap was real: a header that wraps turns a list of six into six different
  * shapes, and the message that overflows is the one `DiagnosticDescription` repeats in full once the
- * row is open. What it did not survive is a narrow column. Measured on the `metadata-form` showcase,
- * whose findings panel is 24 % of the workspace: **a 143 px header, with the title 0 px wide and
+ * row is open. What it did not survive is a narrow column. Measured on a form's findings panel
+ * at 24 % of the workspace: **a 143 px header, with the title 0 px wide and
  * starting at x=215** — 72 px past its own right edge. The severity, the source and the trigger are
  * all `shrink-0`, so they take the width and `DiagnosticTitle`'s `flex-1` shrinks to nothing. Not
  * truncated with an ellipsis: gone, and the row said only *This field is required.* three times over
@@ -314,7 +288,7 @@ const diagnosticFrameVariants = tv({
     // row drops a tier, and the file loses the weight that marks an authored position.
     //
     // The tier is `--muted-foreground` and not `--faint`, which is what a dimmed thing usually
-    // reaches for here: `--faint` is solved against the page, and a diagnostic is a wash over it.
+    // reaches for here: `--faint` is solved against the page, and a diagnostic sits on a card.
     // Every dimmed part below reads the same way.
     secondary: {
       true: ["text-muted-foreground", "[&_[data-slot=diagnostic-frame-file]]:font-normal"],

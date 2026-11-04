@@ -1,6 +1,7 @@
-import type { ColumnDef, Row } from "@tanstack/react-table";
-import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import type { ColumnDef, Row, Table } from "@tanstack/react-table";
+import { act, render, renderHook, screen } from "@testing-library/react";
+import { Suspense, use } from "react";
+import { describe, expect, it, vi } from "vitest";
 import { facetFilterFn, useDataTable } from "./use-data-table.js";
 
 interface Item {
@@ -87,6 +88,55 @@ describe("useDataTable", () => {
     const after = result.current.getState().columnFilters;
     rerender();
     expect(result.current.getState().columnFilters).toBe(after);
+  });
+  // The mount a page gets: the row models are first computed by children that render after a
+  // yield, once the table's registration microtask has already run.
+  it("keeps the initial page and warns of nothing while it mounts", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    let resume!: () => void;
+    const pause = new Promise<void>((resolve) => (resume = resolve));
+
+    function Rows({ table }: { table: Table<Item> }) {
+      use(pause);
+      return <p>{table.getRowModel().rows[0]?.original.name}</p>;
+    }
+    function Mounting() {
+      const table = useDataTable({ columns, data, initialPage: 1, pageSize: 10 });
+      table.getCoreRowModel();
+      return (
+        <Suspense fallback={null}>
+          <Rows table={table} />
+        </Suspense>
+      );
+    }
+
+    await act(async () => {
+      render(<Mounting />);
+    });
+    await act(async () => resume());
+
+    expect(error).not.toHaveBeenCalled();
+    expect(screen.getByText("Row 10")).toBeTruthy();
+    error.mockRestore();
+  });
+
+  it("returns to the first page when a filter or the sort changes", async () => {
+    const { result } = renderHook(() => {
+      const table = useDataTable({ columns, data, initialPage: 2, pageSize: 10 });
+      table.getRowModel();
+      return table;
+    });
+
+    await act(async () => result.current.getColumn("status")?.setFilterValue(["active"]));
+    expect(result.current.getState().pagination.pageIndex).toBe(0);
+
+    act(() => result.current.setPageIndex(1));
+    await act(async () => result.current.getColumn("name")?.toggleSorting(true));
+    expect(result.current.getState().pagination.pageIndex).toBe(0);
+
+    act(() => result.current.setPageIndex(1));
+    await act(async () => result.current.setGlobalFilter("Row"));
+    expect(result.current.getState().pagination.pageIndex).toBe(0);
   });
 });
 

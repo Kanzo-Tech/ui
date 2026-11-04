@@ -46,7 +46,7 @@ jobs:
       - name: Serve the docs
         run: |
           pnpm --filter @kanzo-tech/docs start > "$RUNNER_TEMP/next.log" 2>&1 &
-          for _ in $(seq 60); do curl -sf http://localhost:3100/view/showcases/workspace > /dev/null && exit 0; sleep 1; done
+          for _ in $(seq 60); do curl -sf http://localhost:3100/view/showcases/keasy > /dev/null && exit 0; sleep 1; done
           cat "$RUNNER_TEMP/next.log"; exit 1
       - run: pnpm --filter @kanzo-tech/testing test:e2e
         env:

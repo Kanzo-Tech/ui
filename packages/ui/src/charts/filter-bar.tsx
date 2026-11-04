@@ -9,6 +9,7 @@ import { FunnelXIcon, XIcon } from "lucide-react";
 import { cn } from "../lib/cn.js";
 import { Badge } from "../simples/badge.js";
 import { Button } from "../simples/button.js";
+import { useLocale } from "../simples/locale.js";
 import { ScrollArea } from "../simples/scroll-area.js";
 import { Separator } from "../simples/separator.js";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../simples/tooltip.js";
@@ -189,6 +190,7 @@ function Readout({ table, relation, rowNoun }: { table: TableExpr; relation: Rel
   const all = useChartQuery({ deps: [key], filterBy: null, query: () => Query.from(table).select({ n: count() }) });
   const rows = Number(shown.row?.n ?? 0);
   const total = Number(all.row?.n ?? 0);
+  const { locale } = useLocale();
   return (
     <span
       aria-busy={all.rows === null || shown.rows === null || undefined}
@@ -199,8 +201,8 @@ function Readout({ table, relation, rowNoun }: { table: TableExpr; relation: Rel
       {all.rows === null
         ? "Counting…"
         : rows === total
-          ? `${total.toLocaleString()} ${rowNoun}`
-          : `${rows.toLocaleString()} of ${total.toLocaleString()} ${rowNoun}`}
+          ? `${total.toLocaleString(locale)} ${rowNoun}`
+          : `${rows.toLocaleString(locale)} of ${total.toLocaleString(locale)} ${rowNoun}`}
     </span>
   );
 }
