@@ -132,6 +132,13 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.useDebouncedCommit).toBeTypeOf("function");
   });
 
+  it("exposes useHotkey, the one window key listener, for a sibling package's keys", () => {
+    // `@kanzo-tech/graph`'s Escape went through a `keydown` of its own and so disagreed with every
+    // other key here: it fired while a field had focus. A part outside `ui` registering its key
+    // through the same hook is what keeps the typing rule one rule.
+    expect(UI.useHotkey).toBeTypeOf("function");
+  });
+
   it("exposes the one facet-filter surface, on the root barrel", () => {
     // Both consumers sit on subpaths that must not import each other — `/table` would pull in
     // Mosaic, `/analytics` would pull in TanStack. FacetFilter is presentational, so the root
