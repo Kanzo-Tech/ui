@@ -69,11 +69,20 @@ function chain<T>(set: Dispatch<SetStateAction<T>>, next?: OnChangeFn<T>): OnCha
  * page index → re-render → new identity → an infinite loop that hard-freezes the tab. React
  * never reports it, because the cycle runs through the table's own `onStateChange` rather
  * than a setState during render, so there is no "maximum update depth" error to catch.
+ *
+ * TanStack's own `autoResetPageIndex` is off, and a change of filter, global filter or sort
+ * returns to the first page from its handler instead. TanStack's version arms itself in a
+ * microtask after the first row model is computed and resets from the next one, so a child that
+ * first reads a row model after a render yield resets the page before the table has mounted:
+ * React warns about the update and `initialPage` is lost. `autoResetPageIndex: false` keeps the
+ * page across every change; it defaults to on unless `manualPagination`, as in TanStack, and a
+ * new `data` keeps the page either way.
  */
 export function useDataTable<TData, TValue = unknown>(
   options: UseDataTableOptions<TData, TValue>,
 ): Table<TData> {
   const {
+    autoResetPageIndex = !options.manualPagination,
     columns,
     data,
     initialColumnFilters = [],
@@ -101,7 +110,15 @@ export function useDataTable<TData, TValue = unknown>(
   const [globalFilter, setGlobalFilter] = useState<string>(initialGlobalFilter);
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: initialPage, pageSize });
 
-  return useReactTable({
+  const firstPage = <T>(set: Dispatch<SetStateAction<T>>, next?: OnChangeFn<T>): OnChangeFn<T> => {
+    const feed = chain(set, next);
+    return (updater) => {
+      feed(updater);
+      if (autoResetPageIndex) table.resetPageIndex();
+    };
+  };
+
+  const table = useReactTable({
     getCoreRowModel: getCoreRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
@@ -109,14 +126,15 @@ export function useDataTable<TData, TValue = unknown>(
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     ...rest,
+    autoResetPageIndex: false,
     columns,
     data,
-    onColumnFiltersChange: chain(setColumnFilters, onColumnFiltersChange),
+    onColumnFiltersChange: firstPage(setColumnFilters, onColumnFiltersChange),
     onColumnVisibilityChange: chain(setColumnVisibility, onColumnVisibilityChange),
-    onGlobalFilterChange: chain(setGlobalFilter, onGlobalFilterChange),
+    onGlobalFilterChange: firstPage(setGlobalFilter, onGlobalFilterChange),
     onPaginationChange: chain(setPagination, onPaginationChange),
     onRowSelectionChange: chain(setRowSelection, onRowSelectionChange),
-    onSortingChange: chain(setSorting, onSortingChange),
+    onSortingChange: firstPage(setSorting, onSortingChange),
     state: {
       columnFilters,
       columnVisibility,
@@ -127,6 +145,7 @@ export function useDataTable<TData, TValue = unknown>(
       ...stateOverride,
     },
   });
+  return table;
 }
 
 /**
