@@ -10,17 +10,33 @@ import {
   PaginationItem,
   PaginationNextTrigger,
   PaginationPrevTrigger,
+  type PaginationTranslations,
   usePagination,
 } from "../simples/pagination.js";
 import { useDataTableContext } from "./data-table-root.js";
 
+/** The words around the pages, and `Pagination`'s own, which pass through to it. */
+export interface DataTablePaginationTranslations extends PaginationTranslations {
+  /** The selection count, against the filtered rows. */
+  selected: (count: number, total: number) => string;
+  /** The page-size selector's label, and its accessible name. */
+  rowsPerPage: string;
+}
+
+const ENGLISH: Pick<DataTablePaginationTranslations, "selected" | "rowsPerPage"> = {
+  selected: (count, total) => `${count} of ${total} row(s) selected.`,
+  rowsPerPage: "Rows per page",
+};
+
 export interface DataTablePaginationProps extends React.ComponentProps<typeof ark.div> {
   /** Offer a rows-per-page selector with these sizes. Omitted = no selector. */
   pageSizes?: number[];
+  translations?: Partial<DataTablePaginationTranslations>;
 }
 
 export const DataTablePagination = (props: DataTablePaginationProps) => {
-  const { pageSizes, className, slot, ...rest } = props;
+  const { pageSizes, translations, className, slot, ...rest } = props;
+  const t = { ...ENGLISH, ...translations };
   const table = useDataTableContext();
 
   const { pageIndex, pageSize } = table.getState().pagination;
@@ -38,16 +54,16 @@ export const DataTablePagination = (props: DataTablePaginationProps) => {
     >
       {selected > 0 && (
         <span className="text-muted-foreground text-sm" data-slot="data-table-selected-count">
-          {selected} of {table.getFilteredRowModel().rows.length} row(s) selected.
+          {t.selected(selected, table.getFilteredRowModel().rows.length)}
         </span>
       )}
 
       <div className="ms-auto flex items-center gap-3">
         {pageSizes && (
           <div className="flex items-center gap-2">
-            <span className="text-muted-foreground text-sm">Rows per page</span>
+            <span className="text-muted-foreground text-sm">{t.rowsPerPage}</span>
             <NativeSelect
-              aria-label="Rows per page"
+              aria-label={t.rowsPerPage}
               onChange={(event) => table.setPageSize(Number(event.target.value))}
               size="sm"
               value={pageSize}
@@ -68,6 +84,7 @@ export const DataTablePagination = (props: DataTablePaginationProps) => {
             onPageChange={(details) => table.setPageIndex(details.page - 1)}
             page={pageIndex + 1}
             pageSize={pageSize}
+            translations={translations}
           >
             <PaginationPrevTrigger />
             <DataTablePages />

@@ -60,6 +60,17 @@ describe("actionsColumn", () => {
     expect(screen.getByRole("columnheader", { name: "Actions" })).toBeTruthy();
   });
 
+  it("takes its header text as translations", () => {
+    const column = actionsColumn<Item>({
+      label: (row) => row.original.name,
+      menu: () => null,
+      translations: { headerLabel: "Acciones" },
+    });
+    render(<Harness column={column} />);
+
+    expect(screen.getByRole("columnheader", { name: "Acciones" })).toBeTruthy();
+  });
+
   it("opens the menu without activating the row, and runs the chosen item", async () => {
     const user = userEvent.setup();
     const onRowClick = vi.fn();

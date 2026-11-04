@@ -39,12 +39,14 @@ describe("selectColumn", () => {
     expect(root("Select row 2")).toBeTruthy();
   });
 
-  it("takes custom labels", () => {
+  it("takes its labels as translations", () => {
     render(
       <Harness
         column={selectColumn<Item>({
-          headerLabel: "Select every dataset",
-          rowLabel: (row) => `Select ${row.original.name}`,
+          translations: {
+            headerLabel: "Select every dataset",
+            rowLabel: (row) => `Select ${row.original.name}`,
+          },
         })}
       />,
     );

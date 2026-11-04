@@ -35,7 +35,7 @@ const data: Dataset[] = [
 ];
 
 const columns: ColumnDef<Dataset>[] = [
-  selectColumn<Dataset>({ rowLabel: (row) => `Select ${row.original.name}` }),
+  selectColumn<Dataset>({ translations: { rowLabel: (row) => `Select ${row.original.name}` } }),
   { accessorKey: "name", header: "Dataset" },
   { accessorKey: "records", header: "Records" },
   { accessorKey: "owner", header: "Owner" },
