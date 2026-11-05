@@ -1,8 +1,9 @@
+import { stubCoordinator, type Row } from "../../test/coordinator";
 import { engineOver } from "../../test/engine";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { clausePoint, QueryError, Selection, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
+import { clausePoint, Selection } from "@uwdata/mosaic-core";
 import { asTableRef } from "@uwdata/mosaic-sql";
 import { ChartFilter, ChartSearch, ChartSlider } from "./chart-inputs.js";
 import { MosaicProvider, useMosaic } from "./mosaic-provider.js";
@@ -14,61 +15,9 @@ function Page({ into }: { into: (selection: Selection) => void }) {
 }
 
 
-/**
- * jsdom has no DuckDB, so the coordinator is a double: it plays the moves a real one makes against
- * a client — register, answer `query()`, re-ask when the client's `filterBy` moves, forget on
- * disconnect — and returns fixed rows. The re-ask mirrors `updateSelection`: a client that the
- * active clause exempts (cross-filtering) gets `undefined` for a predicate and is left alone.
- */
-type Row = Record<string, unknown>;
-
 // One more jsdom gap on top of `@kanzo-tech/testing/jsdom`: zag's select scrolls its content on open.
 if (typeof Element.prototype.scrollTo !== "function") {
   Element.prototype.scrollTo = () => {};
-}
-
-function stubCoordinator(answer: (sql: string) => Row[]) {
-  const connected = new Set<MosaicClient>();
-  const queries: string[] = [];
-  const listeners = new Map<MosaicClient, () => void>();
-  const coordinator = {
-    connect(client: MosaicClient) {
-      connected.add(client);
-      client.coordinator = coordinator as unknown as Coordinator;
-      client.initialize();
-      const selection = client.filterBy;
-      if (!selection) return;
-      const rerun = () => {
-        const filter = selection.predicate(client);
-        if (!filter) return;
-        coordinator.requestQuery(client, client.query(filter));
-      };
-      selection.addEventListener("value", rerun);
-      listeners.set(client, rerun);
-    },
-    disconnect(client: MosaicClient) {
-      connected.delete(client);
-      const rerun = listeners.get(client);
-      if (rerun) client.filterBy?.removeEventListener("value", rerun);
-      listeners.delete(client);
-      client.coordinator = null;
-    },
-    requestQuery(client: MosaicClient, query: unknown) {
-      if (query == null) return Promise.resolve();
-      const sql = String(query);
-      queries.push(sql);
-      // As `Coordinator.updateClient` does: a rejected query goes to the client's `queryError`,
-      // wrapped in a `QueryError` holding it as `cause` — which the client unwraps for the host.
-      return Promise.resolve()
-        .then(() => answer(sql))
-        .then(
-          (rows) => client.queryResult(rows).update(),
-          (error: unknown) => client.queryError(new QueryError(error, sql)),
-        );
-    },
-    clear() {},
-  };
-  return { coordinator: coordinator as unknown as Coordinator, connected, queries };
 }
 
 const HOSTS: Row[] = [{ value: "alpha" }, { value: "beta" }, { value: "gamma" }];

@@ -1,8 +1,8 @@
-import { answerOf, engineOver } from "../../test/engine";
+import { FIELDS, stubCoordinator } from "../../test/coordinator";
+import { engineOver } from "../../test/engine";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
 import { describe, expect, it, vi } from "vitest";
 import { Dashboard } from "./dashboard.js";
 import { FilterBar } from "./filter-bar.js";
@@ -19,32 +19,6 @@ vi.mock("./tile-editor.js", async (original) => {
   editorLoads.count++;
   return original();
 });
-
-/**
- * A coordinator over nothing: `SUMMARIZE` answers two fields, and every client's query answers no
- * rows. What is under test is the dashboard's editing, not its data.
- */
-function stubCoordinator(): Coordinator {
-  const coordinator = {
-    query: async (sql: string) =>
-      sql.startsWith("SUMMARIZE")
-        ? answerOf([
-            { column_name: "region", column_type: "VARCHAR", approx_unique: 4, min: "a", max: "d", count: 10 },
-            { column_name: "bounty", column_type: "DOUBLE", approx_unique: 9, min: 1, max: 9, count: 10 },
-          ])
-        : [],
-    connect(client: MosaicClient) {
-      client.coordinator = coordinator as unknown as Coordinator;
-      client.initialize();
-    },
-    disconnect(client: MosaicClient) {
-      client.coordinator = null;
-    },
-    requestQuery: (client: MosaicClient) => Promise.resolve().then(() => client.queryResult([]).update()),
-    clear() {},
-  };
-  return coordinator as unknown as Coordinator;
-}
 
 const SPEC: DashboardSpec = {
   filters: [],
@@ -65,7 +39,7 @@ function Aside() {
 
 function draw(props: { value?: DashboardSpec; onChange?: (spec: DashboardSpec | undefined) => void }) {
   return render(
-    <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
+    <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator(undefined, FIELDS).coordinator)}>
       <Dashboard relation="sightings" {...props} />
       <Aside />
     </MosaicProvider></QueryClientProvider>,
@@ -195,7 +169,7 @@ describe("the tile editor in the page's aside", () => {
 
   it("offers no editing on a page without a TileEditorAside", async () => {
     render(
-      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
+      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator(undefined, FIELDS).coordinator)}>
         <Dashboard onChange={vi.fn()} relation="sightings" value={SPEC} />
       </MosaicProvider></QueryClientProvider>,
     );
@@ -214,7 +188,7 @@ describe("Reset to automatic", () => {
     expect(onChange).toHaveBeenCalledWith(undefined);
 
     rerender(
-      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
+      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator(undefined, FIELDS).coordinator)}>
         <Dashboard onChange={onChange} relation="sightings" />
         <Aside />
       </MosaicProvider></QueryClientProvider>,
@@ -228,7 +202,7 @@ describe("Dashboard's filters", () => {
   it("are drawn in the page's FilterBar", async () => {
     const user = userEvent.setup();
     render(
-      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
+      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator(undefined, FIELDS).coordinator)}>
         <FilterBar />
         <Dashboard onChange={() => {}} relation="sightings" value={{ ...SPEC, filters: [{ field: "region" }] }} />
         <Aside />
@@ -244,7 +218,7 @@ describe("Dashboard's filters", () => {
   it("are drawn from a dashboard under MosaicClients that is off as when it is shown: control, remove, Add a filter", async () => {
     const user = userEvent.setup();
     render(
-      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
+      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator(undefined, FIELDS).coordinator)}>
         <FilterBar />
         <MosaicClients enabled={false}>
           <Dashboard onChange={() => {}} relation="sightings" value={{ ...SPEC, filters: [{ field: "region" }] }} />
