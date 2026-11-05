@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
 import { clauseField, clauseLabel, type TableExpr, count, Query, type Selection, type SelectionClause } from "@kanzo-tech/mosaic";
@@ -17,16 +17,20 @@ import { chartTableKey } from "./chart-spec.js";
 import { useBarSlot, useMosaic, useRelation, type BarHeld } from "./mosaic-provider.js";
 import { useChartQuery } from "./use-chart-query.js";
 
-/** The live clause list of a selection, re-read on every published value. */
+/**
+ * The live clause list of a selection, re-read on every published value. Mosaic emits a new array
+ * with each value, so the array is the snapshot: the same reference until the clauses change.
+ */
 export function useClauses(selection: Selection): readonly SelectionClause[] {
-  const [clauses, setClauses] = useState<readonly SelectionClause[]>([]);
-  useEffect(() => {
-    const sync = () => setClauses([...selection.clauses]);
-    sync();
-    selection.addEventListener("value", sync);
-    return () => selection.removeEventListener("value", sync);
-  }, [selection]);
-  return clauses;
+  const subscribe = useCallback(
+    (changed: () => void) => {
+      selection.addEventListener("value", changed);
+      return () => selection.removeEventListener("value", changed);
+    },
+    [selection],
+  );
+  const read = () => selection.clauses;
+  return useSyncExternalStore(subscribe, read, read);
 }
 
 const isHeld = (held: readonly BarHeld[], clause: SelectionClause) => {
