@@ -98,7 +98,7 @@ export type { ChartQueryOptions, ChartQueryResult, ChartQueryRow } from "./chart
 // The page's one row of filters: every clause as a chip that retracts it where it is held, a slot a
 // dashboard draws its filters in, the readout and Clear.
 export { FilterBar, useClauses } from "./charts/filter-bar.js";
-export type { FilterBarProps } from "./charts/filter-bar.js";
+export type { FilterBarProps, FilterBarTranslations } from "./charts/filter-bar.js";
 
 // The mini BI kit: a relation's fields from what its data says of them, and a dashboard as serializable data —
 // filters drawn in the page's `FilterBar` and tiles (figures, charts, tables), each chosen and edited from those fields.

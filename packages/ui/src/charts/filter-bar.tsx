@@ -33,6 +33,34 @@ export function useClauses(selection: Selection): readonly SelectionClause[] {
   return useSyncExternalStore(subscribe, read, read);
 }
 
+/** The words the bar draws, for a product that is not in English. Counts arrive formatted for the locale. */
+export interface FilterBarTranslations {
+  /** The bar's accessible name. */
+  filters: string;
+  /** In the row while there is no filter. */
+  none: string;
+  /** The verb that retracts every clause on the page: its accessible name and tooltip. */
+  clear: string;
+  /** A chip's remove button, given the chip's label. */
+  remove: (label: string) => string;
+  /** The readout while the total is being counted. */
+  counting: string;
+  /** The readout when every row is kept, given the total and `rowNoun`. */
+  all: (total: string, rowNoun: string) => string;
+  /** The readout when filters keep some, given what they keep, the total and `rowNoun`. */
+  kept: (rows: string, total: string, rowNoun: string) => string;
+}
+
+const ENGLISH: FilterBarTranslations = {
+  filters: "Filters",
+  none: "No filters",
+  clear: "Clear every filter",
+  remove: (label) => `Remove ${label}`,
+  counting: "Counting…",
+  all: (total, rowNoun) => `${total} ${rowNoun}`,
+  kept: (rows, total, rowNoun) => `${rows} of ${total} ${rowNoun}`,
+};
+
 const isHeld = (held: readonly BarHeld[], clause: SelectionClause) => {
   const field = clauseField(clause);
   return field !== null && held.some((h) => h.fields.includes(field) && (h.relation === null || sameRelation(relationOf(clause), h.relation)));
@@ -48,6 +76,7 @@ export interface FilterBarProps extends React.ComponentProps<typeof ark.section>
   rowNoun?: string;
   /** Trailing controls, pinned at the end after *Clear every filter*. */
   children?: ReactNode;
+  translations?: Partial<FilterBarTranslations>;
 }
 
 /**
@@ -73,7 +102,8 @@ export interface FilterBarProps extends React.ComponentProps<typeof ark.section>
  * that open their control, and *Add a filter* among the verbs; the bar leaves those clauses to them.
  */
 export function FilterBar(props: FilterBarProps) {
-  const { relation, rowNoun = "rows", children, className, slot, ...rest } = props;
+  const { relation, rowNoun = "rows", children, translations, className, slot, ...rest } = props;
+  const t = { ...ENGLISH, ...translations };
   const { selection } = useMosaic();
   const read = useRelation(relation);
   const { held, place, placeActions } = useBarSlot();
@@ -94,14 +124,14 @@ export function FilterBar(props: FilterBarProps) {
 
   return (
     <ark.section
-      aria-label="Filters"
+      aria-label={t.filters}
       className={cn("flex min-w-0 items-center gap-2", className)}
       {...rest}
       data-slot={slot ?? "filter-bar"}
     >
       {read.table !== undefined && relation !== undefined ? (
         <>
-          <Readout relation={read.relation} rowNoun={rowNoun} table={read.table} />
+          <Readout relation={read.relation} rowNoun={rowNoun} t={t} table={read.table} />
           <Separator className="h-4" orientation="vertical" />
         </>
       ) : null}
@@ -112,7 +142,7 @@ export function FilterBar(props: FilterBarProps) {
             <Badge className="gap-1 ps-2 pe-1" key={key} size="sm" variant="secondary">
               {label}
               <button
-                aria-label={`Remove ${label}`}
+                aria-label={t.remove(label)}
                 className="rounded-sm p-0.5 hover:bg-muted-foreground/20"
                 onClick={remove}
                 type="button"
@@ -125,7 +155,7 @@ export function FilterBar(props: FilterBarProps) {
           {keyed.length === 0 ? (
             // Shown while the slot is empty too; a selector, because only the DOM knows what a part drew there.
             <span className="hidden text-muted-foreground text-xs [[data-slot=filter-bar-slot]:empty+&]:inline">
-              No filters
+              {t.none}
             </span>
           ) : null}
         </ark.div>
@@ -137,7 +167,7 @@ export function FilterBar(props: FilterBarProps) {
           <TooltipTrigger asChild>
             {/* Disabled rather than gone, so nothing beside it moves when the first filter lands. */}
             <Button
-              aria-label="Clear every filter"
+              aria-label={t.clear}
               disabled={clauses.length === 0}
               onClick={() => selection.reset()}
               size="icon-sm"
@@ -146,7 +176,7 @@ export function FilterBar(props: FilterBarProps) {
               <FunnelXIcon />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Clear every filter</TooltipContent>
+          <TooltipContent>{t.clear}</TooltipContent>
         </Tooltip>
         {children}
       </ark.div>
@@ -182,7 +212,7 @@ function useRevealAdded() {
   return ref;
 }
 
-function Readout({ table, relation, rowNoun }: { table: TableExpr; relation: RelationRef | null; rowNoun: string }) {
+function Readout({ table, relation, rowNoun, t }: { table: TableExpr; relation: RelationRef | null; rowNoun: string; t: FilterBarTranslations }) {
   const key = chartTableKey(table);
   const shown = useChartQuery({ deps: [key], relation, query: (filter) => Query.from(table).select({ n: count() }).where(filter) });
   const all = useChartQuery({ deps: [key], filterBy: null, query: () => Query.from(table).select({ n: count() }) });
@@ -197,10 +227,10 @@ function Readout({ table, relation, rowNoun }: { table: TableExpr; relation: Rel
       role="status"
     >
       {all.rows === null
-        ? "Counting…"
+        ? t.counting
         : rows === total
-          ? `${total.toLocaleString(locale)} ${rowNoun}`
-          : `${rows.toLocaleString(locale)} of ${total.toLocaleString(locale)} ${rowNoun}`}
+          ? t.all(total.toLocaleString(locale), rowNoun)
+          : t.kept(rows.toLocaleString(locale), total.toLocaleString(locale), rowNoun)}
     </span>
   );
 }
