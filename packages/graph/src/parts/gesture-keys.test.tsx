@@ -5,7 +5,7 @@ import { useGesture } from "./gesture";
 function mount() {
   const setTool = vi.fn();
   const commit = vi.fn();
-  renderHook(() => useGesture({ getGraph: () => null, getSelection: () => null, commit, setTool, tool: "lasso" }));
+  renderHook(() => useGesture({ getFiltered: () => null, getGraph: () => null, getSelection: () => null, commit, setTool, tool: "lasso" }));
   return { commit, setTool };
 }
 

@@ -41,7 +41,7 @@ export function cursorChip(drag: Drag | null): React.CSSProperties {
 export interface GraphSelectionGesture {
   /** The gesture being drawn, for the overlay to render. */
   drag: Drag | null;
-  /** How many nodes it holds right now, so the number lands before the mouse does. */
+  /** How many nodes it holds right now that the page's other clauses keep — what a release would keep — so the number lands before the mouse does. */
   preview: number | null;
   /** The tool actually in force: the chosen one, or the marquee Shift is lending. */
   active: Tool;
@@ -57,6 +57,8 @@ export interface GraphSelectionOptions {
   getGraph: () => Graph | null;
   /** The canvas's own clause, for the modifiers to add to or take from. */
   getSelection: () => VertexSelection | null;
+  /** What the page's other clauses keep, `1` per kept vertex; `null` when they keep everything. */
+  getFiltered: () => Uint8Array | null;
   commit: (vertices: Set<VertexId> | null, source: VertexSelectionSource, label: string, excludes: boolean) => void;
   tool: Tool;
   setTool: (tool: Tool) => void;
@@ -68,7 +70,7 @@ const NAME: Record<"rect" | "lasso", { source: VertexSelectionSource; label: str
 };
 
 export function useGesture(options: GraphSelectionOptions): GraphSelectionGesture {
-  const { commit, getGraph, getSelection, setTool, tool } = options;
+  const { commit, getFiltered, getGraph, getSelection, setTool, tool } = options;
   const [drag, setDrag] = useState<Drag | null>(null);
   const [preview, setPreview] = useState<number | null>(null);
   const [shift, setShift] = useState(false);
@@ -104,7 +106,10 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
     (shape: Drag) => {
       const now = (latest: Drag) => {
         measured.current = performance.now();
-        setPreview(hitTest(latest).length);
+        // What the release would keep: the caught points the page's other clauses also keep.
+        const filtered = getFiltered();
+        const caught = hitTest(latest);
+        setPreview(filtered ? caught.filter((id) => filtered[id] === 1).length : caught.length);
       };
       const wait = MEASURE_MS - (performance.now() - measured.current);
       if (wait <= 0) return now(shape);
@@ -119,7 +124,7 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
       }, wait);
       pending.current = { shape, timer };
     },
-    [hitTest],
+    [getFiltered, hitTest],
   );
 
   const settle = useCallback(() => {
