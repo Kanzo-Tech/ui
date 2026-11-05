@@ -1,4 +1,5 @@
-import { answerOf, engineOver } from "../test/engine";
+import { FIELDS, stubCoordinator } from "../test/coordinator";
+import { engineOver } from "../test/engine";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   ChartHarness,
@@ -11,7 +12,7 @@ import {
 } from "@kanzo-tech/testing";
 import { dom } from "@kanzo-tech/testing/dom";
 import { act, render } from "@testing-library/react";
-import { clausePoint, Selection, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
+import { clausePoint, Selection } from "@uwdata/mosaic-core";
 import { InfoIcon, MessageCircleIcon } from "lucide-react";
 import { useState } from "react";
 import { describe, expect, expectTypeOf, it } from "vitest";
@@ -51,39 +52,12 @@ function Page({ into }: { into: (selection: Selection) => void }) {
  * needs a layout or a drawn plot (a brush, a pick) is held by the suite in `packages/testing/e2e`.
  */
 
-/**
- * A coordinator over ten sightings: `SUMMARIZE` answers two fields, a count answers ten rows, or four
- * when the query has a filter, and every other query answers that one row too.
- */
-function stubCoordinator(): Coordinator {
-  const coordinator = {
-    query: async (sql: string) =>
-      sql.startsWith("SUMMARIZE")
-        ? answerOf([
-            { column_name: "region", column_type: "VARCHAR", approx_unique: 4, min: "a", max: "d", count: 10 },
-            { column_name: "bounty", column_type: "DOUBLE", approx_unique: 9, min: 1, max: 9, count: 10 },
-          ])
-        : [],
-    // What the real coordinator's filter groups do: a client queries again when what it filters by moves.
-    connect(client: MosaicClient) {
-      client.coordinator = coordinator as unknown as Coordinator;
-      client.filterBy?.addEventListener("value", () => {
-        client.requestQuery();
-      });
-      client.initialize();
-    },
-    disconnect(client: MosaicClient) {
-      client.coordinator = null;
-    },
-    requestQuery: (client: MosaicClient, query: unknown) =>
-      Promise.resolve().then(() => {
-        const n = String(query ?? "").includes("WHERE") ? 4 : 10;
-        client.queryResult([{ n, value: n }]).update();
-      }),
-    clear() {},
-  };
-  return coordinator as unknown as Coordinator;
-}
+/** Ten sightings, or four when the query has a filter. */
+const sightings = () =>
+  stubCoordinator((sql) => {
+    const n = sql.includes("WHERE") ? 4 : 10;
+    return [{ n, value: n }];
+  }, FIELDS).coordinator;
 
 const saltmere = () => clausePoint("region", "Saltmere", { source: { reset() {} } });
 
@@ -92,7 +66,7 @@ describe("FilterBarHarness", () => {
     const env = dom();
     let crossfilter!: Selection;
     render(
-      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
+      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(sightings())}>
         <Page into={(s) => (crossfilter = s)} />
         <FilterBar rowNoun="sightings" relation="sightings" />
       </MosaicProvider></QueryClientProvider>,
@@ -115,7 +89,7 @@ describe("FilterBarHarness", () => {
     const env = dom();
     const spec: DashboardSpec = { filters: [{ field: "bounty" }], tiles: [] };
     render(
-      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
+      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(sightings())}>
         <FilterBar />
         <Dashboard relation="sightings" value={spec} />
       </MosaicProvider></QueryClientProvider>,
@@ -137,7 +111,7 @@ describe("DashboardHarness", () => {
       ],
     };
     render(
-      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
+      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(sightings())}>
         <Dashboard relation="sightings" value={spec} />
       </MosaicProvider></QueryClientProvider>,
     );
@@ -152,7 +126,7 @@ describe("ChartHarness", () => {
   it("finds a chart as a figure by its title, and busy until it has drawn", async () => {
     const env = dom();
     const { unmount } = render(
-      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
+      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(sightings())}>
         <ChartRoot aria-label="Count by region" relation="sightings">
           <ChartBarY x="region" y="n" />
         </ChartRoot>
