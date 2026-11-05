@@ -3,7 +3,7 @@ import { dom } from "@kanzo-tech/testing/dom";
 import { act, render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { attach, settle } from "../../test/corpus";
-import { GraphRoot } from "../react/graph-root";
+import { GraphRoot } from "./graph-root";
 import { GraphCanvas } from "./graph-canvas";
 import { GraphCounts } from "./graph-counts";
 

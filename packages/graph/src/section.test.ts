@@ -3,7 +3,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { placementFrom, timelineFrom } from "./core/channels";
-import { DEFAULT_LOOK, lookFrom, type Look } from "./render/graph-looks";
+import type { Look } from "./core/types";
+import { DEFAULT_LOOK, lookFrom } from "./render/graph-looks";
 import { DEFAULT_SIM, simFrom } from "./render/graph-sim";
 import { GRAPH_SECTION } from "./section";
 

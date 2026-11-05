@@ -2,10 +2,11 @@ import { act, render, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { attach, settle } from "../../test/corpus";
 import { isProblem } from "@kanzo-tech/kernel";
-import { GraphCanvas } from "../parts/graph-canvas";
-import { GraphRoot, useGraphContext } from "./graph-root";
-import { internalsOf, useGraph } from "./use-graph";
-import { useGraphState } from "./use-graph-state";
+import { GraphCanvas } from "./graph-canvas";
+import { GraphRoot } from "./graph-root";
+import { useGraphContext } from "../react/use-graph-context";
+import { internalsOf, useGraph } from "../react/use-graph";
+import { useGraphState } from "../react/use-graph-state";
 
 /**
  * The adapter: the store's lifetime in React, and the renderer's in the element. jsdom has no WebGL,

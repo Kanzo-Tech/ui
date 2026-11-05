@@ -8,7 +8,7 @@ import { nameOf } from "../core/categories";
 import type { Encoding } from "../core/load";
 import type { GraphOptions } from "../core/state";
 import type { VertexId } from "../core/types";
-import { useGraphContext } from "../react/graph-root";
+import { useGraphContext } from "../react/use-graph-context";
 import { internalsOf } from "../react/use-graph";
 import { useGraphSnapshot, useGraphState } from "../react/use-graph-state";
 import { resolveLook } from "../render/graph-looks";

@@ -2,7 +2,7 @@
 
 import { useRef, useSyncExternalStore } from "react";
 import type { GraphSnapshot, GraphState } from "../core/store";
-import { useGraphContext } from "./graph-root";
+import { useGraphContext } from "./use-graph-context";
 
 /**
  * **A slice of the graph's state, and a render only when that slice moves** — TanStack Store's

@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
@@ -9,11 +9,13 @@ import { describe, expect, it } from "vitest";
  * GraphAr graph `attachGraph` attached as a catalog, with SQL through the page's coordinator, and
  * imports nothing of graphar's or fossil's; every statement is built from mosaic-sql's nodes, in the two modules that read rows, and none
  * is written in a string; no module past the size a named reference is the shape of; and a core that
- * knows nothing of React or cosmos.gl.
+ * knows nothing of React or cosmos.gl; and imports that point down, core → render → react → parts.
  *
  * What it cannot prove: a query assembled from fragments no one of which looks like SQL, or a value
- * reached through a re-export under another name. It reads literals and import declarations, and
- * nothing else.
+ * reached through a re-export under another name. It reads literals and import and export
+ * declarations, and `import()` calls with a literal specifier, and nothing else: a `require`, or a
+ * specifier computed at runtime, is not seen. Tests are exempt from the layer order, and so is
+ * `index.ts`, the barrel, which exports every layer.
  */
 
 const SRC = dirname(fileURLToPath(import.meta.url));
@@ -91,5 +93,51 @@ describe("the graph's layers", () => {
       visit(parse(name, text));
     }
     expect(offenders).toEqual([]);
+  });
+});
+
+/**
+ * The layer of a module, bottom first. `section.ts` is the `./section` entry's manifest and sits with
+ * `render/`: it states the label budgets `render/label-limits.ts` holds, and the builders in
+ * `render/` parse what it declares.
+ */
+const LAYERS = ["core", "render", "react", "parts"] as const;
+const layerOf = (name: string): number =>
+  name.replace(/\.tsx?$/, "") === "section" ? 1 : LAYERS.indexOf(name.split("/")[0] as (typeof LAYERS)[number]);
+
+describe("the graph's import direction", () => {
+  const ranked = modules.filter((m) => m.name !== "index.ts");
+
+  it("places every module but the barrel in a layer", () => {
+    expect(ranked.filter((m) => layerOf(m.name) < 0).map((m) => m.name)).toEqual([]);
+    for (const layer of LAYERS) expect(ranked.some((m) => m.name.startsWith(`${layer}/`)), `${layer}/ holds no module`).toBe(true);
+  });
+
+  it("imports nothing from a layer above its own", () => {
+    const offenders: string[] = [];
+    let downward = 0;
+    for (const { name, text } of ranked) {
+      const own = layerOf(name);
+      const check = (from: string) => {
+        if (from === "@kanzo-tech/graph" || from.startsWith("@kanzo-tech/graph/")) offenders.push(`${name}: imports its own package by name`);
+        if (!from.startsWith(".")) return;
+        const layer = layerOf(relative(SRC, join(SRC, dirname(name), from)));
+        if (layer > own) offenders.push(`${name}: imports ${from}, from ${LAYERS[layer]}/ above ${LAYERS[own]}/`);
+        else if (layer < own) downward++;
+      };
+      const visit = (node: ts.Node): void => {
+        const declaration = ts.isImportDeclaration(node) || ts.isExportDeclaration(node);
+        if (declaration && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) check(node.moduleSpecifier.text);
+        if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+          const [arg] = node.arguments;
+          if (arg && ts.isStringLiteralLike(arg)) check(arg.text);
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(parse(name, text));
+    }
+    expect(offenders, "a lower layer reaches up, `import type` included").toEqual([]);
+    // The walk resolves specifiers, so it is not passing because it resolved none.
+    expect(downward).toBeGreaterThan(20);
   });
 });

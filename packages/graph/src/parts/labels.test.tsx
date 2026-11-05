@@ -2,9 +2,10 @@ import { act, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { attach, grow, settle } from "../../test/corpus";
 import { readTitles } from "../core/source";
-import { GraphRoot, useGraphContext } from "../react/graph-root";
+import { GraphRoot } from "./graph-root";
+import { useGraphContext } from "../react/use-graph-context";
 import { internalsOf } from "../react/use-graph";
-import type { LabelLevel } from "../render/graph-looks";
+import type { LabelLevel } from "../core/types";
 import { GraphCanvas } from "./graph-canvas";
 import { cellsIn } from "./labels";
 

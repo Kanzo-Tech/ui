@@ -1,3 +1,4 @@
+import type { Sim } from "../core/types";
 import { GRAPH_SECTION } from "../section";
 
 /**
@@ -12,17 +13,6 @@ import { GRAPH_SECTION } from "../section";
  * the manifest: `tokens` are the colours a document may move, `prefs` are what the person on the
  * screen decides, and somebody tuning a layout until it settles is deciding.
  */
-
-/** Force coefficients, handed straight to the GPU simulation. */
-export interface Sim {
-  gravity: number;
-  repulsion: number;
-  linkSpring: number;
-  linkDistance: number;
-  friction: number;
-  /** Pull toward the centre of the vertex's cluster, when a column is bound to `cluster`. Zero lets the links decide alone. */
-  cluster: number;
-}
 
 /**
  * Coefficients that settle a few-hundred-node graph into something readable.
