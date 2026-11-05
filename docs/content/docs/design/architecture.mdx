@@ -58,7 +58,13 @@ written against the manifest and not from memory.
 whose members all import one another. Then the layers are not layers, and the guard becomes an
 allow-list of edges with no table above it. Until then the ladder costs one field per manifest.
 
-No test holds this yet; the package-layers guard, below, is to be added.
+The guard reads the table above and the sibling edges off this page, not from `kanzo.layers`, which
+no manifest carries yet; a module's layer is its entry's where the table names one, and its package's
+otherwise.
+
+*Held by* `packages/ui/src/package-layers.test.ts`, "imports only from a lower layer or a named
+sibling edge", "declares in each manifest only siblings of a lower layer or a named edge, and every
+sibling its source imports", "keeps ui off every package philosophy names".
 
 ## The kernel holds what four packages each wrote
 
@@ -326,13 +332,13 @@ value classified as nobody's, which moves it to the first kind, not to an export
 All are specified in [`guards/`](#repo-wide-guards-live-in-a-workspace-of-their-own), over
 `SHIPPED` from `guard-corpus.ts`, never copied into a second package — or, where the rule is decided
 by reading one file, as a local lint rule: `one-deadline` and `no-ambient` are that kind. Each says
-what it cannot prove. None exists
-yet, so no *Held by* line cites one by title, and `documented-evidence.test.ts` will not accept a
+what it cannot prove. Only `package-layers.test.ts` exists, in `packages/ui/src` until `guards/` does;
+no *Held by* line cites another by title, and `documented-evidence.test.ts` will not accept a
 citation until it is a real `it()`.
 
 | Guard | Asserts | Cannot prove |
 | --- | --- | --- |
-| `package-layers.test.ts` | the layer table is derived from `kanzo.layers`; every static import in a shipped `src/` is of a lower layer or a named sibling edge; `@kanzo-tech/ui` is imported from no layer below L3 | dynamic `import()` and type-only imports, as `optional-peers.test.ts` skips them; a re-export through a workspace alias |
+| `package-layers.test.ts` | the layer table is read off this page; every import in a shipped `src/`, `import type` included, is of a lower layer or a named sibling edge, and every manifest declares what its source imports; inside `graph` and `ui`, an import stays in its band or goes below it | an import whose specifier is computed at runtime; an entry the table does not name, held to its package's layer; a re-export through a workspace alias; `dist/` |
 | `entry-peers.test.ts` | the static closure of every `exports` entry reaches only the peers `kanzo.entryPeers` lists for it; replaces the root-only walk in `optional-peers.test.ts`, which is deleted when this lands | a peer reached only by a dynamic import |
 | `one-failure-model.test.ts` | every class extending the built-in Error in `SHIPPED` is the kernel's `Problem` or on a short allow-list, and the count of plain `new Error(` per file may not rise | a failure thrown by a dependency; a `Problem` built with a wrong code; that a plain error is a fault and not a condition |
 | `one-deadline.test.ts` | no `setTimeout(` whose callback aborts or rejects, outside the kernel | a wait built on `setInterval` or a promise race; fossil holds the same rule with a lint rule in its own repo |

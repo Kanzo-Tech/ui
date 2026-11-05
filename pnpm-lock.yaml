@@ -363,6 +363,9 @@ importers:
       '@kanzo-tech/kernel':
         specifier: workspace:^
         version: link:../kernel
+      '@kanzo-tech/theme':
+        specifier: workspace:^
+        version: link:../theme
       '@kanzo-tech/ui':
         specifier: workspace:*
         version: link:../ui
@@ -388,9 +391,6 @@ importers:
       '@kanzo-tech/testing':
         specifier: workspace:*
         version: link:../testing
-      '@kanzo-tech/theme':
-        specifier: workspace:^
-        version: link:../theme
       '@tanstack/react-query':
         specifier: ^5.104.0
         version: 5.104.2(react@19.2.7)
