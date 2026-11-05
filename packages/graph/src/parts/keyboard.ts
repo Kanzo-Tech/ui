@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { nameOf } from "../core/categories";
 import type { VertexId } from "../core/types";
-import { useGraphContext } from "../react/graph-root";
+import { useGraphContext } from "../react/use-graph-context";
 import { internalsOf } from "../react/use-graph";
 import { useGraphSnapshot, useGraphState } from "../react/use-graph-state";
 import { modified } from "./gesture";

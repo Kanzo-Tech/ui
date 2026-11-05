@@ -7,7 +7,8 @@ import type { JoinGraph, Relation } from "@kanzo-tech/relations";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { attach, settle, type Attached } from "../../test/corpus";
 import { readJoinGraph } from "@kanzo-tech/relations";
-import { GraphRoot, useGraphContext } from "../react/graph-root";
+import { GraphRoot } from "./graph-root";
+import { useGraphContext } from "../react/use-graph-context";
 import { internalsOf } from "../react/use-graph";
 import { GRAPH_SECTION } from "../section";
 

@@ -1,11 +1,9 @@
 import type { ClauseSource, MosaicClient, Selection } from "@kanzo-tech/mosaic";
 import type { Engine } from "@kanzo-tech/mosaic/engine";
-import type { LookPatch } from "../render/graph-looks";
-import type { Sim } from "../render/graph-sim";
 import type { Binding, Channels } from "./channels";
 import type { Encoding, Geometry } from "./load";
 import type { JoinGraph, MappingModel } from "@kanzo-tech/relations";
-import type { Motion, VertexSelection, VertexSelectionSource, Tool, VertexId } from "./types";
+import type { LookPatch, Motion, Sim, VertexSelection, VertexSelectionSource, Tool, VertexId } from "./types";
 
 export interface GraphOptions extends Channels {
   /**

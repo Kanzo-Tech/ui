@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { KanzoThemeProvider, PreferencesSections, usePref } from "@kanzo-tech/ui";
 import { describe, expect, it } from "vitest";
 import { attach, settle, type Attached } from "../../test/corpus";
-import { GraphRoot } from "../react/graph-root";
+import { GraphRoot } from "./graph-root";
 import { useGraphPrefs } from "../react/use-graph-prefs";
 import { GRAPH_SECTION } from "../section";
 import type { MappingModel } from "@kanzo-tech/relations";

@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { greyedOf } from "../core/kept";
 import type { Motion } from "../core/types";
-import { useGraphContext } from "../react/graph-root";
+import { useGraphContext } from "../react/use-graph-context";
 import { tv } from "tailwind-variants";
 import { placedByData } from "../render/motion";
 import { useGraphState } from "../react/use-graph-state";

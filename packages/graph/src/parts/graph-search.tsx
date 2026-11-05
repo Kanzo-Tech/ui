@@ -35,7 +35,7 @@ import { nameOf } from "../core/categories";
 import { bindingOf } from "../core/channels";
 import { localName, matchingIds, parseQuery, searchVertices, tableOf, vertexTypes, type Found, type VertexQuery } from "../core/source";
 import { internalsOf } from "../react/use-graph";
-import { useGraphContext } from "../react/graph-root";
+import { useGraphContext } from "../react/use-graph-context";
 import { usePick } from "../react/use-pick";
 import { useGraphSnapshot, useGraphState } from "../react/use-graph-state";
 import { scaleOf } from "../render/graph-model";

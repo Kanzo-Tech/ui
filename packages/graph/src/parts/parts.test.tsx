@@ -3,7 +3,8 @@ import { LocaleProvider } from "@kanzo-tech/ui";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { attach, refusal, settle, type Attached } from "../../test/corpus";
-import { GraphRoot, useGraphContext } from "../react/graph-root";
+import { GraphRoot } from "./graph-root";
+import { useGraphContext } from "../react/use-graph-context";
 import { internalsOf, type GraphApi } from "../react/use-graph";
 import { usePick } from "../react/use-pick";
 import { GraphCanvas } from "./graph-canvas";
@@ -14,7 +15,7 @@ import { GraphSearch } from "./graph-search";
 import { GraphStatus } from "./graph-status";
 import { GraphToolbar } from "./graph-toolbar";
 import { useOverlays } from "./overlays";
-import type { LabelLevel } from "../render/graph-looks";
+import type { LabelLevel } from "../core/types";
 
 vi.mock("./overlays", async (actual) => {
   const module = await actual<typeof import("./overlays")>();
