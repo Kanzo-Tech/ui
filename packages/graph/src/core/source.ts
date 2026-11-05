@@ -1,4 +1,5 @@
-import { Query, and, asTableRef, cast, count, eq, float64, isIn, length, literal, not, sql, sum, clauseColumns, type ExprNode, type FilterExpr } from "@kanzo-tech/mosaic";
+import type { Table } from "@kanzo-tech/kernel";
+import { Query, and, asTableRef, cast, count, eq, float64, isIn, length, literal, not, numbers, rowsOf, sql, sum, clauseColumns, type ExprNode, type FilterExpr } from "@kanzo-tech/mosaic";
 import { type Engine } from "@kanzo-tech/mosaic/engine";
 import type { JoinColumn, JoinGraph, JoinType } from "@kanzo-tech/relations";
 
@@ -58,12 +59,6 @@ export const localName = (identity: string) => /[^#/]+(?=[#/]*$)/.exec(identity)
 /** A relation of the attached graph: `"<from>"."<table>"`. `asTableRef` answers `undefined` only for no input. */
 export const relation = (from: string, table: string): ExprNode => asTableRef([from, table])!;
 
-/** One column of an answer, by name, as its own array. */
-export interface Answer {
-  readonly numRows: number;
-  getChild(name: string): { toArray(): ArrayLike<unknown>; get(index: number): unknown } | null;
-}
-
 /** What a read handed no signal waits on: one that never aborts. */
 const UNSTOPPED = new AbortController().signal;
 
@@ -71,11 +66,9 @@ const UNSTOPPED = new AbortController().signal;
  * Run `query` on the engine, in columns. An abort while it waits its turn means it is never sent;
  * while it runs, the engine interrupts it; either way the call rejects with the signal's reason.
  */
-export function ask(engine: Engine, query: Query, signal: AbortSignal = UNSTOPPED): Promise<Answer> {
+export function ask(engine: Engine, query: Query, signal: AbortSignal = UNSTOPPED): Promise<Table> {
   return engine.query(String(query), { signal });
 }
-
-const values = (answer: Answer, name: string): ArrayLike<unknown> => answer.getChild(name)?.toArray() ?? [];
 
 /**
  * Each table's rows of `select`, in the key's order — the table's slice of every buffer. A table
@@ -86,7 +79,7 @@ export async function readColumns(
   graph: JoinGraph,
   select: readonly string[],
   signal?: AbortSignal,
-): Promise<{ table: JoinType; answer: Answer }[]> {
+): Promise<{ table: JoinType; answer: Table }[]> {
   return Promise.all(
     vertexTypes(graph).map(async (table) => {
       const projection = Object.fromEntries(select.map((c) => [c, columnNamed(table, c) ? c : literal(null)]));
@@ -110,7 +103,8 @@ export async function readLinks(engine: Engine, graph: JoinGraph, signal?: Abort
   const links = new Float32Array(2 * answers.reduce((sum, a) => sum + a.numRows, 0));
   let at = 0;
   for (const answer of answers) {
-    const [src, dst] = [values(answer, "src"), values(answer, "dst")];
+    // Every edge of the graph, so the columns are read as the typed arrays Arrow holds, not as rows.
+    const [src, dst] = [answer.getChild("src")?.toArray() ?? [], answer.getChild("dst")?.toArray() ?? []];
     for (let e = 0; e < answer.numRows; e++) {
       links[at++] = src[e] as number;
       links[at++] = dst[e] as number;
@@ -145,8 +139,9 @@ export async function readVertex(engine: Engine, from: string, graph: JoinGraph,
     Query.select(names).from(relation(from, table.name)).where(eq(VERTEX_INDEX, literal(vertex - firstOf(table)))),
     signal,
   );
-  if (answer.numRows === 0) return null;
-  return { vertex, table: table.name, fields: names.map((name) => ({ name, value: answer.getChild(name)?.get(0) ?? null })) };
+  const [row] = rowsOf(answer);
+  if (!row) return null;
+  return { vertex, table: table.name, fields: names.map((name) => ({ name, value: row[name] ?? null })) };
 }
 
 /** The text of a few vertices, by id — a label's, a hover card's. One statement per table they fall in. */
@@ -173,8 +168,7 @@ export async function readTitles(
           .where(isIn(VERTEX_INDEX, ids.map((id) => literal(id - firstOf(table))))),
         signal,
       );
-      const [id, texts] = [values(answer, "id"), values(answer, "text")];
-      for (let i = 0; i < answer.numRows; i++) found.set(firstOf(table) + (id[i] as number), String(texts[i] ?? ""));
+      for (const { id, text } of rowsOf(answer)) found.set(firstOf(table) + Number(id), String(text ?? ""));
     }),
   );
   return found;
@@ -302,17 +296,17 @@ export async function searchVertices(
       .limit(limit),
     signal,
   );
-  const [id, text, key, type, inside] = ["id", "text", "key", "type", "inside"].map((name) => values(answer, name));
-  const [per, total, all] = ["per", "total", "all"].map((name) => values(answer, name));
+  const rows = rowsOf(answer);
   const byType = new Map<string, number>();
-  const matches = Array.from({ length: answer.numRows }, (_, i) => i)
-    .filter((i) => inside?.[i])
-    .map((i) => {
-      byType.set(String(type?.[i]), Number(per?.[i]));
-      return { id: id?.[i] as number, text: String(text?.[i] ?? ""), key: String(key?.[i] ?? ""), type: String(type?.[i]) };
+  const matches = rows
+    .filter((row) => row.inside)
+    .map((row) => {
+      byType.set(String(row.type), Number(row.per));
+      return { id: Number(row.id), text: String(row.text ?? ""), key: String(row.key ?? ""), type: String(row.type) };
     });
-  if (answer.numRows === 0) return { matches, total: 0, byType, outside: 0 };
-  return { matches, total: Number(total?.[0]), byType, outside: Number(all?.[0]) - Number(total?.[0]) };
+  const [first] = rows;
+  if (!first) return { matches, total: 0, byType, outside: 0 };
+  return { matches, total: Number(first.total), byType, outside: Number(first.all) - Number(first.total) };
 }
 
 /** Every vertex `query` keeps inside `subset`, by id — what a search adds to the subset. */
@@ -325,7 +319,7 @@ export async function matchingIds(
 ): Promise<number[]> {
   const union = matching(graph, query, title, subset);
   if (union === null) return [];
-  return Array.from(values(await ask(engine, Query.select("id").from(union).where("inside"), signal), "id") as ArrayLike<number>);
+  return numbers(await ask(engine, Query.select("id").from(union).where("inside"), signal), "id");
 }
 
 /** The name every vertex as one relation goes by: the union type of the graph's `JoinGraph`, and what the canvas reads. */

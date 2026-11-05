@@ -1,6 +1,7 @@
 import { MosaicClient, type ClauseSource, Query, cast, clauseAntiJoin, clauseSemiJoin, float64, literal, queryFailure, type FilterExpr, type Selection } from "@kanzo-tech/mosaic";
 import { onRelation, type JoinGraph, type RelationClient } from "@kanzo-tech/relations";
-import { KEY, VERTICES, answers, clausesOf, vertexTypes, type Answer } from "./source";
+import type { Table } from "@kanzo-tech/kernel";
+import { KEY, VERTICES, answers, clausesOf, vertexTypes } from "./source";
 
 /**
  * **The graph as a client of the engine's coordinator** — one Mosaic client, like every chart beside
@@ -79,7 +80,9 @@ export class GraphClient extends MosaicClient implements RelationClient {
   }
 
   override queryResult(data: unknown): this {
-    const ids = ((data as Answer).getChild("id")?.toArray() ?? []) as ArrayLike<number | null>;
+    // Not `numbers`: `NOTHING`'s one null is the sentinel, which a coercion would read as vertex 0,
+    // and the survivors can be every vertex, read as the typed array Arrow holds.
+    const ids = ((data as Table).getChild("id")?.toArray() ?? []) as ArrayLike<number | null>;
     this.#kept(ids.length === 1 && ids[0] === null ? null : Float64Array.from(ids as ArrayLike<number>));
     return this;
   }
