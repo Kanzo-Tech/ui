@@ -8,6 +8,7 @@ import { ark } from "@ark-ui/react/factory";
 import { useListCollection } from "@ark-ui/react/collection";
 import { useFilter } from "@ark-ui/react/locale";
 import { cn } from "../lib/cn.js";
+import { useDebouncedCommit } from "../lib/use-debounced-commit.js";
 import {
   Combobox,
   ComboboxContent,
@@ -467,20 +468,6 @@ export function ChartSearch(props: ChartSearchProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemsKey, set]);
 
-  const [text, setText] = useState(defaultValue ?? "");
-  const published = useRef(defaultValue ?? "");
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    const external = selected ?? "";
-    if (external !== published.current) {
-      published.current = external;
-      setText(external);
-    }
-  }, [selected]);
-
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
-
   const primed = useRef(false);
   useEffect(() => {
     if (primed.current || !defaultValue) return;
@@ -488,16 +475,9 @@ export function ChartSearch(props: ChartSearchProps) {
     publish(defaultValue);
   }, [defaultValue, publish]);
 
-  const change = (next: string) => {
-    setText(next);
-    if (timer.current) clearTimeout(timer.current);
-    const send = () => {
-      published.current = next;
-      publish(next || undefined);
-    };
-    if (debounce > 0) timer.current = setTimeout(send, debounce);
-    else send();
-  };
+  const typed = useDebouncedCommit(selected ?? "", (next: string) => publish(next || undefined), debounce);
+  const text = typed.draft;
+  const change = debounce > 0 ? typed.change : typed.commit;
 
   return (
     <Field
