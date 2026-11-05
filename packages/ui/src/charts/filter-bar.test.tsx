@@ -126,6 +126,21 @@ describe("FilterBar", () => {
     expect(clear).toHaveProperty("disabled", true);
   });
 
+  it("draws its words from translations, over the English ones it leaves", async () => {
+    let page!: Selection;
+    render(
+      <MosaicProvider engine={engineOver(coordinator)}>
+        <Page into={(s) => (page = s)} />
+        <FilterBar translations={{ filters: "Filtros", clear: "Quitar todos", remove: (label) => `Quitar ${label}` }} />
+      </MosaicProvider>,
+    );
+    const bar = screen.getByRole("region", { name: "Filtros" });
+    expect(within(bar).getByRole("button", { name: "Quitar todos" })).toBeTruthy();
+    expect(within(bar).getByText("No filters")).toBeTruthy();
+    page.update(clausePoint("country", "Spain", { source: { reset() {} } }));
+    expect(await within(bar).findByRole("button", { name: "Quitar country Spain" })).toBeTruthy();
+  });
+
   it("draws what a part puts among its actions after the chips, before Clear every filter", async () => {
     let page!: Selection;
     render(

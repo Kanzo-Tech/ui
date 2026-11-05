@@ -90,6 +90,7 @@ export { avg, count, max, median, min, mode, quantile, stddev, sum } from "@uwda
  */
 export {
   clauseColumns,
+  clauseField,
   clauseAntiJoin,
   clauseSemiJoin,
   clauseParts,
