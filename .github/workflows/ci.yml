@@ -55,6 +55,8 @@ jobs:
         run: node docs/scripts/chat-frame.e2e.mjs
       - name: Navigation guard
         run: node docs/scripts/navigation-guard.e2e.mjs --engines chromium,firefox
+      - name: Preview frames
+        run: pnpm --filter @kanzo-tech/docs check:previews
 
   # The server halves. A realm that applies but puts the roles somewhere else is worth
   # nothing, so the auth job proves the claim contract on a live token — the same
