@@ -35,7 +35,7 @@ export default function Example() {
     <MosaicDemo>
       <div className="w-full max-w-xl">
         <ChartRoot config={config} height={240} margin={MARGIN} relation="sightings">
-          <ChartBarX fill="verdict" order={ORDER} tip x={count()} y="region" />
+          <ChartBarX fill="verdict" order={ORDER} x={count()} y="region" />
           <ChartToggleColor />
           <ChartHighlight />
           <ChartAxisX grid label="sightings" />

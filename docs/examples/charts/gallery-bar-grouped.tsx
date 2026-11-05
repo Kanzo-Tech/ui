@@ -34,7 +34,7 @@ export default function Example() {
           margin={{ top: 4, right: 16, bottom: 32, left: 96 }}
           relation="sightings"
         >
-          <ChartBarX fill="verdict" fy="region" tip x={count()} y="verdict" />
+          <ChartBarX fill="verdict" fy="region" x={count()} y="verdict" />
           <ChartToggleColor />
           <ChartHighlight />
           <ChartAxisX grid label="sightings" />

@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
+import type { ReactNode } from "react";
 import type { Selection } from "@uwdata/mosaic-core";
 import { asTableRef, verbatim } from "@uwdata/mosaic-sql";
 import { ChartAxisX, ChartAxisY, ChartFacetX, ChartFacetY } from "./chart-axes.js";
 import { ChartColorLegend } from "./chart-legend.js";
-import { ChartHighlight, ChartIntervalX, ChartPanZoom, ChartToggleX } from "./chart-interactors.js";
+import { ChartHighlight, ChartIntervalX, ChartPanZoom, ChartToggleColor, ChartToggleX } from "./chart-interactors.js";
 import { ChartBarY, ChartFrame, ChartGridY, ChartLineY, ChartRaw, ChartRuleY } from "./chart-marks.js";
 import {
   buildChartSpec,
   chartSpecSignature,
+  chartSpecWarnings,
   chartTableKey,
   compileChartSpec,
   type ChartAttributeDirective,
@@ -353,6 +355,19 @@ describe("chartSpecSignature", () => {
     // ordinary vgplot directives. The channel now lives in the mark name.
     const legends = spec.filter((d) => d.kind === "mark" && d.source === null);
     expect(legends.map((d) => (d as { mark: string }).mark)).toEqual(["colorLegend", "symbolLegend"]);
+  });
+});
+
+describe("chartSpecWarnings", () => {
+  it("warns when a toggle shares a plot with a tip, on any mark, and not when a brush does", () => {
+    const warns = (children: ReactNode) => chartSpecWarnings(compileChartSpec(children, context()));
+
+    expect(warns(<><ChartBarY tip x="host" y="n" /><ChartToggleX /></>)).toEqual([
+      expect.stringContaining("<ChartToggleX> shares a plot with a `tip` (on <ChartBarY>)"),
+    ]);
+    expect(warns(<><ChartBarY x="host" y="n" /><ChartToggleColor /><ChartLineY tip x="host" y="n" /></>)).toHaveLength(1);
+    expect(warns(<><ChartBarY x="host" y="n" /><ChartToggleX /></>)).toEqual([]);
+    expect(warns(<><ChartLineY tip x="t" y="n" /><ChartIntervalX /></>)).toEqual([]);
   });
 });
 

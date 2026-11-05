@@ -28,17 +28,21 @@ const config = {
 
 const failing = sum(sql`CASE WHEN verdict <> 'confirmed' THEN 1 ELSE 0 END`);
 
+// `x` is a band scale here, and a band axis draws every value it has: `ticks={12}` would still draw
+// 24 labels, which overlap on a phone. An explicit list is the thinning a band accepts.
+const HOURS = [0, 3, 6, 9, 12, 15, 18, 21];
+
 export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
         <ChartRoot height={260} relation="sightings">
-          <ChartBarY fill="var(--chart-1)" fillOpacity={avg("bounty")} tip x="hour" y={count()} />
+          <ChartBarY fill="var(--chart-1)" fillOpacity={avg("bounty")} x="hour" y={count()} />
           <ChartToggleX />
           <ChartHighlight />
           <ChartLineY stroke="var(--destructive)" strokeWidth={2} x="hour" y={failing} />
           <ChartDot fill="var(--destructive)" r={2.5} x="hour" y={failing} />
-          <ChartAxisX label="hour of day" ticks={12} />
+          <ChartAxisX label="hour of day" ticks={HOURS} />
           <ChartAxisY grid label="sightings" />
           <ChartLegend config={config} />
         </ChartRoot>

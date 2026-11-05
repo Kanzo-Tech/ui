@@ -29,7 +29,7 @@ export default function Example() {
     <MosaicDemo>
       <div className="w-full max-w-xl">
         <ChartRoot config={config} height={260} margin={{ top: 4, right: 16, bottom: 32, left: 88 }} relation="sightings">
-          <ChartWaffleX fill="verdict" order={ORDER} tip unit={5} x={count()} y="region" />
+          <ChartWaffleX fill="verdict" order={ORDER} unit={5} x={count()} y="region" />
           <ChartToggleColor />
           <ChartHighlight />
           <ChartAxisX grid label="sightings (1 cell = 5)" />
