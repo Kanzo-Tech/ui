@@ -14,7 +14,7 @@ import { MosaicDemo } from "./mosaic-demo";
 // Horizontal bars are `ChartBarX` with the roles swapped: the category on `y`, the measure on `x`.
 // The band axis moves with it, so the interactor is `ChartToggleY`.
 
-const MARGIN = { top: 4, right: 16, bottom: 32, left: 56 };
+const MARGIN = { top: 4, right: 16, bottom: 32, left: 64 };
 
 export default function Example() {
   return (
@@ -29,7 +29,7 @@ export default function Example() {
             x={count()}
             y="verdict"
           />
-          <ChartBarX fill="var(--primary)" sort={{ y: "-x" }} tip x={count()} y="verdict" />
+          <ChartBarX fill="var(--primary)" sort={{ y: "-x" }} x={count()} y="verdict" />
           <ChartToggleY />
           <ChartHighlight />
           <ChartAxisX grid label="sightings" />

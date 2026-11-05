@@ -28,7 +28,7 @@ export default function Example() {
       <div className="w-full max-w-xl">
         <ChartRoot height={220} margin={MARGIN} relation="sightings">
           <ChartBarX fill="var(--muted-foreground)" filterBy={null} opacity={0.3} sort={{ y: "-x" }} x={count()} y="region" />
-          <ChartBarX fill="var(--primary)" sort={{ y: "-x" }} tip x={count()} y="region" />
+          <ChartBarX fill="var(--primary)" sort={{ y: "-x" }} x={count()} y="region" />
           <ChartToggleY />
           <ChartHighlight />
           <ChartAxisX grid label="sightings" />

@@ -52,7 +52,7 @@ export default function Example() {
           margin={{ top: 4, right: 12, bottom: 28, left: 76 }}
           relation="sightings"
         >
-          <ChartBarX fill="var(--primary)" sort={{ y: "-x" }} tip x={count()} y="region" />
+          <ChartBarX fill="var(--primary)" sort={{ y: "-x" }} x={count()} y="region" />
           <ChartToggleY />
           <ChartHighlight />
           <ChartAxisX grid label="sightings" />

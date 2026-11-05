@@ -238,7 +238,7 @@ export interface ChartSpecWarningContext {
 /**
  * Combinations that fail at *runtime*, reported at build time.
  *
- * Both entries here are silent failures — the kind that costs an afternoon because nothing on
+ * Every entry here is a silent failure — the kind that costs an afternoon because nothing on
  * screen says anything is wrong.
  *
  * 1. An interval brush over a band scale throws `Unrecognized scale type: band` from Mosaic's
@@ -249,6 +249,10 @@ export interface ChartSpecWarningContext {
  *    clause naming a column this plot does not group by is a DuckDB binder error; the query dies
  *    and the plot silently keeps its previous render. The default `by` is the root's own selection
  *    and cannot hit this — only an explicit `by`/`as` naming a shared selection can.
+ * 3. A toggle on a plot where any mark has `tip`. Plot's pointer calls `stopImmediatePropagation()`
+ *    on every `pointerdown` while it points at something, from a listener on the same `<svg>` that
+ *    was registered before Mosaic's `Toggle` — so the click never reaches the toggle. Brushes are
+ *    unaffected: d3-brush listens on its own overlay, below the svg.
  */
 export function chartSpecWarnings(spec: ChartDirective[], context?: ChartSpecWarningContext): string[] {
   const warnings: string[] = [];
@@ -278,6 +282,19 @@ export function chartSpecWarnings(spec: ChartDirective[], context?: ChartSpecWar
             "column this plot does not group by, DuckDB answers \"must appear in the GROUP BY " +
             "clause\", the query dies and this plot silently keeps its previous render. Drop `by` " +
             "— the root's own selection only ever names columns this plot groups by.",
+        );
+      }
+      continue;
+    }
+
+    if (d.interactor === "toggleX" || d.interactor === "toggleY" || d.interactor === "toggleColor") {
+      const tipped = marks.find((m) => m.options.tip);
+      if (tipped) {
+        warnings.push(
+          `${component(d.interactor)} shares a plot with a \`tip\` (on ${component(tipped.mark)}). ` +
+            "Plot's tooltip claims every click on the plot while it is pointing and stops it there, " +
+            "so the toggle never hears it: nothing is picked, filtered or highlighted. Drop `tip` " +
+            "from this plot; the axes carry what it would.",
         );
       }
       continue;

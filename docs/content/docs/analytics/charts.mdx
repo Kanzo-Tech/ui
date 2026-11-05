@@ -69,7 +69,7 @@ would render them. Pass values down from the component that owns the `ChartRoot`
 
 ```tsx
 <ChartRoot relation="sightings" config={config} height={220}>
-  <ChartBarY x="host" y={count()} fill="host" tip />
+  <ChartBarY x="host" y={count()} fill="host" />
   <ChartRuleY at={0} />
   <ChartAxisX tickRotate={45} />
   <ChartAxisY grid />
@@ -88,7 +88,9 @@ Three rules cover the ordering:
 3. **Fragments and arrays flatten; `null` and `false` vanish.** Conditionals work, which is how you
    [swap an interactor](#swap-the-interactor) at runtime.
 
-There is no `ChartTip`: the tooltip is a mark option, so it is the `tip` prop on any mark.
+There is no `ChartTip`: the tooltip is a mark option, so it is the `tip` prop on any mark — on a
+plot with no toggle, because the tooltip swallows the toggle's click
+([pitfall](/docs/analytics/pitfalls#a-tip-on-picking-bars-swallows-the-pick)).
 
 <Callout type="warn">
 **A descriptor must be a direct child, not a child of one of your components.** The compiler walks
