@@ -78,9 +78,9 @@ because Plot sizes the plot, not the labels.
 
 ## Grouped bars
 
-Grouped bars are faceted bars. `fx` on the mark splits the plot into one panel per region and `x`
-lays the series out side by side inside each panel; `ChartFacetX` configures the resulting facet
-scale exactly as `ChartAxisX` configures the position scale.
+Grouped bars are faceted bars. `fy` on the mark splits the plot into one row per region and `y`
+lays the series out side by side inside each row; `ChartFacetY` configures the resulting facet
+scale exactly as `ChartAxisY` configures the position scale.
 
 <ComponentPreview componentName="charts" fileName="gallery-bar-grouped" />
 
@@ -149,7 +149,7 @@ a mean, and the quantile marks above for the shape of a distribution.
 ## Waffle
 
 A bar chart that counts out loud — one cell per `unit` rows. Mapping `fill` to a column stacks the
-cells by series inside each column, which is where a waffle earns its keep: parts of a whole,
+cells by series along each row, which is where a waffle earns its keep: parts of a whole,
 countable.
 
 <ComponentPreview componentName="charts" fileName="gallery-waffle" />
@@ -157,7 +157,7 @@ countable.
 ## Small multiples
 
 `fx` on any mark is the whole feature: one panel per distinct value, one shared pair of scales, so
-the four curves are genuinely comparable. The interval brush spans the panels and publishes one
+the three curves are genuinely comparable. The interval brush spans the panels and publishes one
 clause, as it would on a single plot.
 
 <ComponentPreview componentName="charts" fileName="gallery-small-multiples" />
