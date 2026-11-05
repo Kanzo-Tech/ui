@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
-import { clauseLabel, type TableExpr, count, Query, type Selection, type SelectionClause } from "@kanzo-tech/mosaic";
+import { clauseField, clauseLabel, type TableExpr, count, Query, type Selection, type SelectionClause } from "@kanzo-tech/mosaic";
 import { relationOf, sameRelation, type RelationExpr, type RelationRef } from "@kanzo-tech/relations";
 import { FunnelXIcon, XIcon } from "lucide-react";
 import { cn } from "../lib/cn.js";
@@ -27,12 +27,6 @@ export function useClauses(selection: Selection): readonly SelectionClause[] {
     return () => selection.removeEventListener("value", sync);
   }, [selection]);
   return clauses;
-}
-
-/** The one column a clause names, unquoted, or `null` for a clause over several or none. */
-export function clauseField(clause: SelectionClause): string | null {
-  const fields = clause.fields;
-  return fields?.length === 1 ? String(fields[0]).replace(/^"|"$/g, "") : null;
 }
 
 const isHeld = (held: readonly BarHeld[], clause: SelectionClause) => {
