@@ -3,8 +3,9 @@
 import { useMemo } from "react";
 import { useKanzoTheme } from "@kanzo-tech/ui";
 import { placementFrom, timelineFrom, type Placement } from "../core/channels";
-import { lookFrom, type Look } from "../render/graph-looks";
-import { simFrom, type Sim } from "../render/graph-sim";
+import type { Look, Sim } from "../core/types";
+import { lookFrom } from "../render/graph-looks";
+import { simFrom } from "../render/graph-sim";
 import { GRAPH_SECTION } from "../section";
 
 /**

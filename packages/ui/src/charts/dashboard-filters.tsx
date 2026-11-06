@@ -1,6 +1,6 @@
 "use client";
 
-import { clauseParts, type SelectionClause } from "@kanzo-tech/mosaic";
+import { clauseField, clauseParts, type SelectionClause } from "@kanzo-tech/mosaic";
 import { relationOf, sameRelation, type RelationExpr } from "@kanzo-tech/relations";
 import { useId } from "react";
 import {
@@ -21,7 +21,7 @@ import { ChartFilter, ChartSearch, ChartSlider } from "./chart-inputs.js";
 import { ChartTimeline } from "./chart-timeline.js";
 import { filterControl, type DashboardFilterControl, type DashboardFilterSpec } from "./dashboard-spec.js";
 import type { FieldStat } from "./field-stats.js";
-import { clauseField, useClauses } from "./filter-bar.js";
+import { useClauses } from "./filter-bar.js";
 import { InFilterBar, InFilterBarActions, useMosaic, useRelation } from "./mosaic-provider.js";
 
 export interface DashboardFiltersProps {

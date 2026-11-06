@@ -2,7 +2,7 @@
 
 import { asc, count, desc, Query } from "@kanzo-tech/mosaic";
 import type { RelationExpr } from "@kanzo-tech/relations";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
 import { ArrowDownIcon, ArrowUpIcon, ChevronsUpDownIcon } from "lucide-react";
@@ -14,6 +14,7 @@ import { Skeleton } from "../simples/skeleton.js";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../simples/table.js";
 import { chartTableKey } from "./chart-spec.js";
 import type { FieldStat } from "./field-stats.js";
+import { useClauses } from "./filter-bar.js";
 import { useMosaic, useRelation } from "./mosaic-provider.js";
 import { useChartQuery } from "./use-chart-query.js";
 
@@ -47,11 +48,12 @@ export function DetailTable(props: DetailTableProps) {
   const shown = columns.filter((name) => fields.some((f) => f.name === name));
 
   // A new selection is a new result: page one of it, not page seven of something smaller.
-  useEffect(() => {
-    const first = () => setPage(0);
-    selection.addEventListener("value", first);
-    return () => selection.removeEventListener("value", first);
-  }, [selection]);
+  const clauses = useClauses(selection);
+  const [seen, setSeen] = useState(clauses);
+  if (seen !== clauses) {
+    setSeen(clauses);
+    setPage(0);
+  }
 
   const total = useChartQuery({ deps: [key], relation: read.relation, query: (filter) => Query.from(table).select({ n: count() }).where(filter) });
   const { rows } = useChartQuery({

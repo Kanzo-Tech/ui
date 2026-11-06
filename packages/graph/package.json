@@ -45,6 +45,7 @@
   },
   "dependencies": {
     "@kanzo-tech/kernel": "workspace:^",
+    "@kanzo-tech/theme": "workspace:^",
     "tailwind-variants": "^3.2.2"
   },
   "devDependencies": {
@@ -54,7 +55,6 @@
     "@kanzo-tech/mosaic": "workspace:*",
     "@kanzo-tech/relations": "workspace:*",
     "@kanzo-tech/testing": "workspace:*",
-    "@kanzo-tech/theme": "workspace:^",
     "@tanstack/react-query": "^5.104.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",

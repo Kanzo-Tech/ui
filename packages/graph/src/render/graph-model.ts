@@ -3,8 +3,8 @@ import { CHART_SLOTS, categoricalCapacity, categoricalColor } from "@kanzo-tech/
 import { isColour, type Channels } from "../core/channels";
 import type { Encoding, Geometry } from "../core/load";
 import { resolveToken, toHex, type Rgba } from "./css-color";
-import { SHAPE_INDEX, SHAPE_ORDER, SHAPE_OTHER, type Look, type Shape } from "./graph-looks";
-import type { Sim } from "./graph-sim";
+import type { Look, Sim } from "../core/types";
+import { SHAPE_INDEX, SHAPE_ORDER, SHAPE_OTHER, type Shape } from "./graph-looks";
 import { greyoutOpacity, type Rgb } from "./greyout";
 
 /**

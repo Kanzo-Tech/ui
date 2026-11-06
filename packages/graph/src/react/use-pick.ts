@@ -6,7 +6,7 @@ import { publish } from "../core/client";
 import { clausesOf } from "../core/source";
 import { KEY } from "../core/source";
 import type { VertexId } from "../core/types";
-import { useGraphContext } from "./graph-root";
+import { useGraphContext } from "./use-graph-context";
 import { internalsOf } from "./use-graph";
 
 /** A place that picks vertices beside the canvas, and what it has picked. */

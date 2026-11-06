@@ -734,33 +734,36 @@ Each layer has a named reference whose shape it takes. A layer with no reference
 
 | layer | reference | owns | owns nothing of |
 |---|---|---|---|
-| **core** — the reads and the store | TanStack Query's `QueryObserver` | what is read, once, and the state a reader selects from | React, the DOM, cosmos.gl |
+| **core** — the reads and the store | TanStack Query's `QueryObserver` | what is read, once, the statements that read it, and the state a reader selects from | React, the DOM, cosmos.gl |
 | **client** — the bridge | Mosaic's `MosaicClient` | the crossfilter's predicate as surviving ids, and the clause the graph publishes | the coordinator's connection |
 | **render** | cosmos.gl's own buffer API | typed arrays → cosmos.gl, one upload per changed kind, one render per frame | what to read |
-| **adapter** | TanStack Query's core/adapter split; Ark's root/provider/context | the store's lifetime in React, and the context the parts read | how the graph loads |
-| **parts** | Ark's flat parts over one context | the canvas element, legend, toolbar, inspector | any product's policy |
+| **adapter** | TanStack Query's core/adapter split; TanStack Store's `useStore(store, selector)` for `useGraphState`; Ark's `use…Context` | the store's lifetime in React, and the context the parts read | how the graph loads |
+| **parts** | Ark's flat parts over one context, the root and its provider among them | the root, the canvas element, legend, toolbar, inspector | any product's policy |
 
-Every module stays under four hundred lines:
+Every module stays under four hundred lines, and every import points down the tree — core, render,
+react, parts — with `section.ts` beside `render/`, whose builders parse it:
 
 ```text
 packages/graph/src/
-├── core/                     no React; nothing here imports cosmos.gl
-│   ├── source.ts             the catalog's statements: structure, columns, links, a row, titles, search
+├── core/                     no React, no cosmos.gl, and no import from a layer above
+│   ├── source.ts             the catalog's statements, built from mosaic-sql's nodes: columns, links, a row, titles, search
 │   ├── client.ts             GraphClient — the crossfilter's survivors — and the clause the graph publishes
 │   ├── load.ts               answers → buffers by dense_id; the seeded start; the layout's square
 │   ├── channels.ts           Plot's bindings, and the columns they read
 │   ├── kept.ts               what the filter keeps and what is in full colour — one rule, both readings
 │   ├── store.ts              createGraph(options): subscribe · getSnapshot · setOptions
 │   ├── state.ts              the options, the state a host selects from, and the store's shape
-│   └── categories.ts         the categorical domain, fixed before the graph loads
+│   ├── types.ts              the vocabulary: a vertex, a tool, a selection, the commands, Look and Sim
+│   ├── categories.ts         the categorical domain, fixed before the graph loads
+│   └── reads · memo
 ├── render/
 │   ├── renderer.ts           cosmos.gl's lifetime: carries out what frame.ts plans
 │   ├── frame.ts              dirty flags by kind, and one frame's operations in order: one render, the layout after it
 │   ├── motion.ts             how long a layout cools, when it hides links, whether it runs, which links are in full colour
 │   ├── placement.ts · camera.ts   where bound positions sit in the square; who holds the camera
-│   └── graph-looks · graph-model · graph-sim · obligations · css-color · webgl
-├── react/                    use-graph · use-graph-state · graph-root · use-graph-prefs
-├── parts/                    the canvas, legend, counts, toolbar, inspector, search, looks; overlays · gesture · shape-glyph
+│   └── graph-looks · graph-model · graph-sim · obligations · direction · greyout · grid · label-limits · css-color · webgl
+├── react/                    use-graph · use-graph-context · use-graph-state · use-graph-prefs · use-pick
+├── parts/                    the root, canvas, legend, counts, status, toolbar, inspector, search, section; overlays · gesture · keyboard · labels · screen · shape-glyph
 ├── index.ts
 └── section.ts                the ./section entry
 ```
@@ -769,7 +772,8 @@ packages/graph/src/
 page names a better reference, or the behaviour is in the wrong layer.
 
 *Held by* `packages/graph/src/layers.test.ts`, "keeps every module under four hundred lines", "keeps
-the core free of React and of cosmos.gl".
+the core free of React and of cosmos.gl"; `packages/ui/src/package-layers.test.ts`, "imports from a
+package's own band or one below it".
 
 ## The renderer uploads once, and renders once a frame
 
@@ -808,7 +812,7 @@ from them and runs nothing", "drops what it kept when the geometry changes, and 
 the new one";
 `packages/graph/src/render/frame.test.ts`, "renders at most once, never before an upload, and starts
 the layout only after it";
-`packages/graph/src/react/graph-root.test.tsx`, "does not rebuild the renderer because a callback
+`packages/graph/src/parts/graph-root.test.tsx`, "does not rebuild the renderer because a callback
 changed identity".
 
 ## The React API is a store and an adapter
@@ -837,7 +841,7 @@ and without `useSyncExternalStore`.
 *Held by* `packages/graph/src/core/store.test.ts`, "keeps getSnapshot stable between notifications",
 "connects its client on the first subscriber and lets it go with the last, as StrictMode does twice",
 "is idle only once the graph is loaded and drawn, and has none without a corpus";
-`packages/graph/src/react/graph-root.test.tsx`, "does not reach setOptions on a render that changed
+`packages/graph/src/parts/graph-root.test.tsx`, "does not reach setOptions on a render that changed
 no prop", "keeps the api's identity across hovers, and re-renders a part only on the slice it
 selects"; `packages/graph/src/index.test.ts`, "is Ark's four: useGraph creates, GraphRoot provides,
 GraphRootProvider takes, useGraphContext reads".
@@ -1277,7 +1281,7 @@ legible at pixel sizes.
   of the two references wins is decided by which one carries more of the settings. Today that is
   Cosmograph's, by the table above.
 
-*Held by*, for the tree until this lands: `packages/graph/src/render/graph-looks.ts`, `Look`;
+*Held by*, for the tree until this lands: `packages/graph/src/core/types.ts`, `Look`;
 `packages/graph/src/core/channels.ts`, `Channels`, `bindingOf`;
 `packages/graph/src/render/obligations.ts`, `gradeComposition`; `packages/graph/src/core/store.test.ts`,
 "sizes by degree when r is unbound, and by the column when it is bound", "colours by vertex type

@@ -1,6 +1,7 @@
 import { gradeObligations, type Obligation, type ObligationCheck } from "@kanzo-tech/theme";
 import type { Channels } from "../core/channels";
-import { lookFrom, SHAPE_ORDER, SHAPE_OTHER, type Look } from "./graph-looks";
+import type { Look } from "../core/types";
+import { lookFrom, SHAPE_ORDER, SHAPE_OTHER } from "./graph-looks";
 
 /*
  * What the graph's geometry owes, as a report rather than as prose — the colour and density

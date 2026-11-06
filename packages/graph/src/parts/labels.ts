@@ -4,9 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { readTitles } from "../core/source";
 import type { Graph } from "@cosmos.gl/graph";
 import type { VertexId } from "../core/types";
-import { useGraphContext } from "../react/graph-root";
+import { useGraphContext } from "../react/use-graph-context";
 import { useGraphState } from "../react/use-graph-state";
-import type { LabelLevel } from "../render/graph-looks";
+import type { LabelLevel } from "../core/types";
 import { CELL, TOP_LABELS, VISIBLE_LABELS } from "../render/label-limits";
 
 /**
