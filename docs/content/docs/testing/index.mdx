@@ -206,7 +206,8 @@ and `localModel` fails as `llm/unavailable`, its own answer.
 
 `queryableConformance(make, options?)` returns the cases an engine, or a double of one, has to pass to
 be handed to anything that reads through DuckDB: a statement answers in columns (`numRows`,
-`schema.fields`, `getChild`) with SQL `NULL` read as `null`; a refusal rejects `engine/failed` and no
+`schema.fields`, `getChild`), each field `{ name, nullable, type: { typeId } }` as Arrow types it,
+with SQL `NULL` read as `null`; a refusal rejects `engine/failed` and no
 literal of the statement is on it; a signal aborted before the call rejects with its reason and the
 statement is never sent; a signal aborted during a long statement rejects with its reason and the
 connection answers the next statement within 200 ms; and an engine that dies rejects what it held,

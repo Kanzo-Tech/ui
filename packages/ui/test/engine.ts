@@ -33,13 +33,16 @@ export function engineOver(coordinator: Coordinator | object): Engine {
   return engine;
 }
 
+/** The Arrow type a value reads as (`Schema.fbs`): Int, FloatingPoint, Bool, else Utf8. */
+const typeOf = (value: unknown) => ({ typeId: typeof value === "bigint" ? 2 : typeof value === "number" ? 3 : typeof value === "boolean" ? 6 : 5 });
+
 /** An answer in columns, as `Engine.query` hands one back, holding `rows`. */
 export function answerOf(rows: readonly object[]) {
   const records = rows as readonly Record<string, unknown>[];
   const names = Object.keys(records[0] ?? {});
   return {
     numRows: records.length,
-    schema: { fields: names.map((name) => ({ name })) },
+    schema: { fields: names.map((name) => ({ name, nullable: true, type: typeOf(records[0]![name]) })) },
     getChild: (name: string) =>
       names.includes(name) ? { length: records.length, get: (i: number) => records[i]![name], toArray: () => records.map((r) => r[name]) } : null,
   };

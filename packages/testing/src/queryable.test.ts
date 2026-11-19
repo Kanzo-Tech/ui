@@ -8,7 +8,9 @@ import { queryableConformance, type Queryable, type QueryableTable } from "./que
  */
 const table = (columns: Record<string, unknown[]>): QueryableTable => ({
   numRows: Object.values(columns)[0]!.length,
-  schema: { fields: Object.keys(columns).map((name) => ({ name })) },
+  schema: {
+    fields: Object.entries(columns).map(([name, values]) => ({ name, nullable: true, type: { typeId: typeof values[0] === "string" ? 5 : 2 } })),
+  },
   getChild: (name) => {
     const values = columns[name];
     return values ? { length: values.length, get: (index) => values[index] } : null;
