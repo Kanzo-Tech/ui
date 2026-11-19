@@ -55,7 +55,7 @@ export default function Example() {
         </div>
 
         <ChartRoot height={140} margin={{ bottom: 28, left: 76, right: 12, top: 4 }} relation="sightings">
-          <ChartBarX fill="var(--primary)" sort={{ y: "-x" }} tip x={count()} y="region" />
+          <ChartBarX fill="var(--primary)" sort={{ y: "-x" }} x={count()} y="region" />
           <ChartToggleY />
           <ChartHighlight />
           <ChartAxisX grid label="sightings" />

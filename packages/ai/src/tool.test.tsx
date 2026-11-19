@@ -71,6 +71,14 @@ describe("Tool", () => {
     expect(badge().textContent).toContain("Done");
   });
 
+  it("takes its state labels from translations", () => {
+    const { rerender } = render(<Tool part={part("input-available")} translations={{ "input-available": "En curso" }} />);
+    const badge = () => document.querySelector("[data-slot=tool-badge]") as HTMLElement;
+    expect(badge().textContent).toBe("En curso");
+    rerender(<Tool part={part("input-available")} stopped translations={{ stopped: "Detenida" }} />);
+    expect(badge().textContent).toBe("Detenida");
+  });
+
   it("falls back to the default frame and a JSON tree when given nothing", async () => {
     render(<Tool part={part("output-available")} />);
     const tree = await waitFor(() => {

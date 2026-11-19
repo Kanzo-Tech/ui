@@ -15,10 +15,10 @@ function Readout() {
 
       <p className="max-w-xs text-center text-muted-foreground text-sm">
         <Show
-          fallback={<>The viewport is 768px or wider.</>}
+          fallback={<>The viewport is at the md breakpoint or wider.</>}
           when={isMobile}
         >
-          The viewport is under 768px.
+          The viewport is under the md breakpoint.
         </Show>{" "}
         Resize the browser window — not the preview frame — and this flips.
       </p>

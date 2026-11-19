@@ -98,7 +98,7 @@ function FamilyCard({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="font-mono text-muted-foreground text-xs">{family.family}</span>
+          <span className="font-mono text-muted-foreground text-sm">{family.family}</span>
           <Button
             className="ms-auto"
             disabled={worn}

@@ -1,6 +1,10 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { placementFrom, timelineFrom } from "./core/channels";
-import { DEFAULT_LOOK, lookFrom, type Look } from "./render/graph-looks";
+import type { Look } from "./core/types";
+import { DEFAULT_LOOK, lookFrom } from "./render/graph-looks";
 import { DEFAULT_SIM, simFrom } from "./render/graph-sim";
 import { GRAPH_SECTION } from "./section";
 
@@ -50,13 +54,8 @@ describe("the look axes", () => {
   });
 
   it("draws what a graph drew before any of this existed, when nothing is stored", () => {
-    // The defaults live in the manifest, in the reader, and in `useGraph`'s fallback. Three places,
-    // so this is the one thing that would catch them disagreeing.
     expect(lookFrom()).toEqual(ATLAS);
     expect(DEFAULT_LOOK).toEqual(ATLAS);
-    for (const [key, decl] of Object.entries(GRAPH_SECTION.prefs ?? {})) {
-      expect(lookFrom({ [key]: decl.default }), key).toEqual(ATLAS);
-    }
   });
 
   it("declines a value it did not offer, rather than reading it", () => {
@@ -68,14 +67,11 @@ describe("the look axes", () => {
     expect(lookFrom({ "additive-links": "yes" }).link.blend, "only `true` is on").toBe(false);
   });
 
-  it("simulates what a graph simulated before any of this existed", () => {
-    // `simFrom`'s half of the claim above. Its defaults are tuned for a few hundred nodes and a
-    // corpus two orders of magnitude larger wants other numbers, which reach a user as the tenant's
-    // starting point rather than as a different default.
-    expect(DEFAULT_SIM).toEqual(simFrom());
-    for (const [key, decl] of Object.entries(GRAPH_SECTION.prefs ?? {})) {
-      expect(simFrom({ [key]: decl.default }), key).toEqual(DEFAULT_SIM);
-    }
+  it("simulates what a graph simulated before any of this existed, when nothing is stored", () => {
+    const sim = { gravity: 0.14, repulsion: 1.1, linkSpring: 0.6, linkDistance: 18, friction: 0.86, cluster: 0.1 };
+    expect(simFrom()).toEqual(sim);
+    expect(DEFAULT_SIM).toEqual(sim);
+    expect(simFrom({ gravity: "not a number" })).toEqual(sim);
   });
 
   it("declares every axis a reader reads, and exactly one reader reads each", () => {
@@ -132,5 +128,20 @@ describe("where the points come from", () => {
 
   it("reads a cleared column as unbound", () => {
     expect(placementFrom({ placement: "map", "x-by": "lon", "y-by": "" })).toEqual({ x: "lon" });
+  });
+});
+
+describe("the tokens", () => {
+  it("declares only tokens the canvas reads", () => {
+    // `point-ring-hover` was declared, documented and read by nothing; a theme setting it changed no
+    // pixel. A read is the token's custom property or its declaration, in a module that is not a test.
+    const src = dirname(fileURLToPath(import.meta.url));
+    const modules = (readdirSync(src, { recursive: true }) as string[])
+      .filter((name) => /\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name) && name !== "section.ts")
+      .map((name) => readFileSync(join(src, name), "utf8"));
+    for (const name of Object.keys(GRAPH_SECTION.tokens)) {
+      const read = modules.some((text) => text.includes(`--graph-${name}`) || text.includes(`tokens.${name}`));
+      expect(read, `"${name}" is declared and nothing reads it`).toBe(true);
+    }
   });
 });

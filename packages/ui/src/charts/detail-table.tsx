@@ -2,17 +2,19 @@
 
 import { asc, count, desc, Query } from "@kanzo-tech/mosaic";
 import type { RelationExpr } from "@kanzo-tech/relations";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
 import { ArrowDownIcon, ArrowUpIcon, ChevronsUpDownIcon } from "lucide-react";
 import { cn } from "../lib/cn.js";
 import { Button } from "../simples/button.js";
+import { useLocale } from "../simples/locale.js";
 import { Pagination, PaginationNextTrigger, PaginationPrevTrigger } from "../simples/pagination.js";
 import { Skeleton } from "../simples/skeleton.js";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../simples/table.js";
 import { chartTableKey } from "./chart-spec.js";
 import type { FieldStat } from "./field-stats.js";
+import { useClauses } from "./filter-bar.js";
 import { useMosaic, useRelation } from "./mosaic-provider.js";
 import { useChartQuery } from "./use-chart-query.js";
 
@@ -37,6 +39,7 @@ type Sort = { column: string; desc: boolean } | null;
 export function DetailTable(props: DetailTableProps) {
   const { relation, fields, columns, pageSize = 25, className, slot, ...rest } = props;
   const { selection } = useMosaic();
+  const { locale } = useLocale();
   const read = useRelation(relation);
   const table = read.table!;
   const [page, setPage] = useState(0);
@@ -45,11 +48,12 @@ export function DetailTable(props: DetailTableProps) {
   const shown = columns.filter((name) => fields.some((f) => f.name === name));
 
   // A new selection is a new result: page one of it, not page seven of something smaller.
-  useEffect(() => {
-    const first = () => setPage(0);
-    selection.addEventListener("value", first);
-    return () => selection.removeEventListener("value", first);
-  }, [selection]);
+  const clauses = useClauses(selection);
+  const [seen, setSeen] = useState(clauses);
+  if (seen !== clauses) {
+    setSeen(clauses);
+    setPage(0);
+  }
 
   const total = useChartQuery({ deps: [key], relation: read.relation, query: (filter) => Query.from(table).select({ n: count() }).where(filter) });
   const { rows } = useChartQuery({
@@ -85,13 +89,19 @@ export function DetailTable(props: DetailTableProps) {
                   key={column}
                 >
                   <Button
-                    className={cn("-mx-2 gap-1", numeric && "flex-row-reverse")}
+                    className={cn("group/sort -mx-2 gap-1", numeric && "flex-row-reverse")}
                     onClick={() => cycle(column)}
                     size="sm"
                     variant="ghost"
                   >
                     {column}
-                    <Icon className={cn("size-3.5", sort?.column !== column && "text-muted-foreground")} />
+                    <Icon
+                      className={cn(
+                        "size-3.5",
+                        sort?.column !== column &&
+                          "text-muted-foreground opacity-0 transition-opacity group-hover/sort:opacity-100 group-focus-visible/sort:opacity-100",
+                      )}
+                    />
                   </Button>
                 </TableHead>
               );
@@ -131,7 +141,7 @@ export function DetailTable(props: DetailTableProps) {
         <span className="text-muted-foreground text-xs tabular-nums">
           {n === 0
             ? "0 rows"
-            : `${(page * pageSize + 1).toLocaleString()}–${Math.min(n, (page + 1) * pageSize).toLocaleString()} of ${n.toLocaleString()}`}
+            : `${(page * pageSize + 1).toLocaleString(locale)}–${Math.min(n, (page + 1) * pageSize).toLocaleString(locale)} of ${n.toLocaleString(locale)}`}
         </span>
         {n > pageSize ? (
           <Pagination
@@ -156,19 +166,20 @@ export function DetailTable(props: DetailTableProps) {
  * from the epoch in UTC with no zone, so they are read in UTC — a `DATE` read in the viewer's zone
  * is the day before for everyone west of Greenwich. Only an instant is shown in the viewer's zone.
  */
-export function formatTemporal(type: string, value: unknown): string {
+export function formatTemporal(type: string, value: unknown, locale?: string): string {
   const upper = type.toUpperCase();
   if (upper.startsWith("TIME") && !upper.startsWith("TIMESTAMP")) return String(value);
   const date = value instanceof Date ? value : new Date(typeof value === "bigint" ? Number(value) : (value as number));
   if (Number.isNaN(date.getTime())) return String(value);
-  if (upper === "DATE") return date.toLocaleDateString(undefined, { timeZone: "UTC" });
+  if (upper === "DATE") return date.toLocaleDateString(locale, { timeZone: "UTC" });
   const instant = upper === "TIMESTAMPTZ" || upper.includes("WITH TIME ZONE");
-  return date.toLocaleString(undefined, instant ? undefined : { timeZone: "UTC" });
+  return date.toLocaleString(locale, instant ? undefined : { timeZone: "UTC" });
 }
 
 function Cell({ field, value }: { field: FieldStat | undefined; value: unknown }) {
+  const { locale } = useLocale();
   if (value == null) return <span className="text-muted-foreground">—</span>;
-  if (field?.kind === "numeric") return <>{Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}</>;
-  if (field?.kind === "temporal") return <>{formatTemporal(field.type, value)}</>;
+  if (field?.kind === "numeric") return <>{Number(value).toLocaleString(locale, { maximumFractionDigits: 2 })}</>;
+  if (field?.kind === "temporal") return <>{formatTemporal(field.type, value, locale)}</>;
   return <>{String(value)}</>;
 }

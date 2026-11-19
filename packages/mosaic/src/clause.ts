@@ -134,10 +134,18 @@ export interface ClauseParts {
   value: string | null;
 }
 
+/** A field stringifies to its SQL identifier, quotes and all; the quoting is the database's. */
+const unquoted = (field: unknown) => String(field).replace(/^"|"$/g, "");
+
+/** The one column `clause` names, unquoted, or `null` for a clause over several or none. */
+export function clauseField(clause: SelectionClause): string | null {
+  const fields = clause.fields;
+  return fields?.length === 1 ? unquoted(fields[0]) : null;
+}
+
 /** The parts, and how one line joins them: a count reads `field · 3 selected`, a value `field 2 – 5`. */
 function read(clause: SelectionClause): ClauseParts & { joint: string } {
-  // A field stringifies to its SQL identifier, quotes and all; the quoting is the database's.
-  const field = clause.fields?.map((f) => String(f).replace(/^"|"$/g, "")).join(", ") ?? "filter";
+  const field = clause.fields?.map(unquoted).join(", ") ?? "filter";
   const value: unknown = clause.value;
   const counted = (n: number) => ({ value: `${n} selected`, joint: " · " });
   if (clause.meta?.type === "antijoin") {

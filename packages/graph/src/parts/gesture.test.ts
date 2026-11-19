@@ -2,7 +2,7 @@ import { Selection, clauseInterval } from "@kanzo-tech/mosaic";
 import { act, renderHook } from "@testing-library/react";
 import type React from "react";
 import { useState } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Graph } from "@cosmos.gl/graph";
 import { attach, settle } from "../../test/corpus";
 import { createGraph } from "../core/store";
@@ -33,6 +33,7 @@ async function searched() {
   const { result } = renderHook(() => {
     const [tool, setTool] = useState<Tool>("lasso");
     return useGesture({
+      getFiltered: () => store.getSnapshot().filtered,
       getGraph: () => graph,
       getSelection: () => store.getSnapshot().selection,
       commit: (vertices, source, label, excludes) => store.select(vertices ? [...vertices] : null, source, label, excludes),
@@ -59,7 +60,7 @@ async function searched() {
   };
   const escape = () => act(() => void window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
   const searchHolds = () => crossfilter.clauses.some((clause) => clause.source === search);
-  return { corpus, crossfilter, escape, lasso, result, search, searchHolds, store, pointer };
+  return { caught, corpus, crossfilter, escape, lasso, result, search, searchHolds, store, pointer };
 }
 
 describe("a modified gesture over a filtered page", () => {
@@ -109,6 +110,22 @@ describe("a modified gesture over a filtered page", () => {
     expect(store.getSnapshot().selection?.vertices).toEqual([4]);
   });
 
+  it("counts what the release would keep: the caught points the page's other clauses keep, not the canvas's old pick", async () => {
+    const { caught, pointer, result, store } = await searched();
+    store.select([1], "lasso", "Lasso");
+    caught.ids = Array.from({ length: 20 }, (_, id) => id);
+    vi.useFakeTimers();
+    try {
+      act(() => result.current.handlers.onPointerDown(pointer(0)));
+      act(() => result.current.handlers.onPointerMove(pointer(30)));
+      act(() => result.current.handlers.onPointerMove(pointer(60)));
+      act(() => void vi.advanceTimersByTime(100));
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(result.current.preview).toBe(KEPT.length);
+  });
+
   it("escapes a drag, then the tool, then the canvas's clause, and never retracts another source's clause", async () => {
     const { corpus, escape, pointer, result, searchHolds, store } = await searched();
     store.select([1, 2], "lasso", "Lasso");
@@ -127,5 +144,37 @@ describe("a modified gesture over a filtered page", () => {
     await settle(corpus);
     expect(searchHolds()).toBe(true);
     expect(store.getSnapshot().matching).toBe(KEPT.length);
+  });
+});
+
+describe("the running count", () => {
+  it("ends on the shape the pointer stopped at, even when it stopped inside the measuring window", () => {
+    const caught = { ids: [] as number[] };
+    const graph = { findPointsInRect: () => caught.ids, findPointsInPolygon: () => caught.ids } as unknown as Graph;
+    const { result } = renderHook(() =>
+      useGesture({ getFiltered: () => null, getGraph: () => graph, getSelection: () => null, commit: () => {}, setTool: () => {}, tool: "rect" }),
+    );
+    const pointer = (x: number) =>
+      ({
+        button: 0,
+        pointerId: 1,
+        clientX: x,
+        clientY: x,
+        currentTarget: { setPointerCapture() {}, getBoundingClientRect: () => ({ left: 0, top: 0 }) },
+      }) as unknown as React.PointerEvent;
+    vi.useFakeTimers();
+    try {
+      act(() => result.current.handlers.onPointerDown(pointer(0)));
+      caught.ids = [1];
+      act(() => result.current.handlers.onPointerMove(pointer(30)));
+      expect(result.current.preview).toBe(1);
+      caught.ids = [1, 2, 3];
+      act(() => result.current.handlers.onPointerMove(pointer(50)));
+      expect(result.current.preview).toBe(1);
+      act(() => void vi.advanceTimersByTime(100));
+      expect(result.current.preview).toBe(3);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

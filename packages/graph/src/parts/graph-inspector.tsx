@@ -23,7 +23,7 @@ import { nameOf } from "../core/categories";
 import { bindingOf } from "../core/channels";
 import { columnNamed, identityOf, localName, readVertex, tableOf, type VertexDetail } from "../core/source";
 import type { VertexId } from "../core/types";
-import { useGraphContext } from "../react/graph-root";
+import { useGraphContext } from "../react/use-graph-context";
 import { useGraphState } from "../react/use-graph-state";
 import { scaleOf } from "../render/graph-model";
 import { ShapeGlyph } from "./shape-glyph";

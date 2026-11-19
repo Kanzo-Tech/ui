@@ -7,7 +7,8 @@ A timeline is a brushable histogram of one temporal column, which filters the pa
 range and can play that range forward. `ChartTimeline` is the analytics part, and a timeline under a
 graph canvas is the same part over `vertices`, every vertex type as one relation, on the column the
 graph's `time-by` setting chooses. The reference is Cosmograph's
-`CosmographTimeline`, read from `@cosmograph/ui` and `@cosmograph/cosmograph` 2.5.1. This page is
+`CosmographTimeline`, read from its public documentation
+([`CosmographTimelineConfig`](https://cosmograph.app/docs-lib/api/interfaces/CosmographTimelineConfig/)). This page is
 why ours is shaped as it is.
 
 *Status: partly to be built.* The tree announces the window as a `group` carrying `aria-valuetext`,
@@ -31,7 +32,7 @@ under the pointer. A clip is an attribute, drawn in the same frame. The brush is
 because d3's grey fill over the window read as the part left out. *What would reverse it:* a Plot
 that redraws one mark in place; then the bars in front can be the window's own query again, and
 show its counts rather than its extent. Cosmograph's `Timeline` draws the same two
-layers (`highlightSelectedData`) and publishes `isBetween(column, range)` from a client of its own.
+layers ([`highlightSelectedData`](https://cosmograph.app/docs-lib/api/interfaces/CosmographTimelineConfig/#highlightselecteddata)).
 Ours is a `ChartRoot` of `ChartRectY` marks and a `ChartIntervalX`. The bins are SQL, through vgplot's
 `bin()`, which bins a temporal channel by date.
 
@@ -59,9 +60,10 @@ there is nothing to hand over and no place to keep.
 **It replaced the dashboard's private `Timeline`**, the filter control behind a temporal field's chip
 (`packages/ui/src/charts/dashboard-filters.tsx`), which drew the same marks with no playback and
 could not be placed anywhere else. The chip renders `ChartTimeline` now: one implementation, as the
-graph and the dashboard need the same part. **Cosmograph's binning was turned down**: it reads the
-whole column into the browser and bins it in JavaScript, 250 bars by default. Ours asks the
-coordinator for one row per bin, which a pre-aggregate can answer.
+graph and the dashboard need the same part. **Binning in the browser was turned down**: it needs the
+whole column on the client, and a column grows with the graph. Ours asks the coordinator for one row
+per bin, which a pre-aggregate can answer. Cosmograph draws 250 bars by default
+([`barCount`](https://cosmograph.app/docs-lib/api/interfaces/CosmographTimelineConfig/#barcount)); ours draws 60.
 
 **What would reverse it:** a temporal column whose bins cannot be a `GROUP BY` — a time with a
 timezone per row, read as wall-clock time. Then the bins are computed over the rows the client holds,
@@ -80,24 +82,21 @@ The brush stays drawn as the range's outline, the bars from its start to the fra
 the rest of the range is dimmed, and outside it is grey. A pause or the end shows the same, frozen.
 When nothing plays, the range is a plain window.
 
-**Cosmograph's moving window was built first and turned down.** Cosmograph's `Timeline` moves the
-selection itself a bar at a time, keeping its width, and clears it at the end
-(`@cosmograph/ui` 2.5.1, `modules/timeline/component.js`: `_animateSelection` and
-`stopAnimation`). Built that way here, it threw away the range the reader had chosen: the window left
+**Cosmograph's moving window was built first and turned down.** Cosmograph's `Timeline` animates by
+moving the selection brush itself, one movement every `animationSpeed` milliseconds
+([`animationSpeed`](https://cosmograph.app/docs-lib/api/interfaces/CosmographTimelineConfig/#animationspeed)). Built that way here, it threw away the range the reader had chosen: the window left
 the years it was brushed over, and a sweep from a narrow window over a large graph greyed almost
 everything. A reader who brushes 1980 – 1990 is asking to watch those years, so the range stays and
 the frame grows inside it. *What would reverse it:* readers who want a fixed-width window moving over
 time — a rolling year; then a second mode, Kepler's `free`, beside this one, chosen in the settings.
 
-**With no range, Play is disabled, as Cosmograph's is.** It is described, and its tooltip says why:
-*Brush a range to play*. Cosmograph disables its control without a selection
-(`_initAnimationControls` and the `disabled` class). The sweep from the axis's start that we tried
+**With no range, Play is disabled.** It is described, and its tooltip says why:
+*Brush a range to play*. The sweep from the axis's start that we tried
 instead played a range nobody chose.
 
 **At the end, it stops and keeps the whole range; the next Play starts over from its first bar.**
 That is Vizabi's rule, *go to start if we start from end point*, and what Observable's
-[Scrubber](https://observablehq.com/@mbostock/scrubber) does on the next press. Cosmograph clears the
-selection at the end, which reads as play undoing the reader's range, and Kepler loops forever, which
+[Scrubber](https://observablehq.com/@mbostock/scrubber) does on the next press. Kepler loops forever, which
 never lets a graph settle. *What would reverse it:* a reader who wants it to loop; then a loop
 setting, off by default.
 
@@ -125,8 +124,8 @@ under the query for whom even that is too much; then Play steps one bar per pres
 
 **One clause, and one chip, for the timeline's life.** Each frame is published through the
 interval's own clause, whose source is its place in the plot (above), so a frame, a drag, a stuck
-drag-end and a rebuild all replace the same clause. Cosmograph does the same with one
-`FilteringClient` per timeline publishing as `source: this`. Mosaic depends on it: a crossfilter
+drag-end and a rebuild all replace the same clause. Cosmograph's `Timeline` is likewise one
+filtering client, with an `id` that keeps it the same across remounts ([`id`](https://cosmograph.app/docs-lib/api/interfaces/CosmographTimelineConfig/#id)). Mosaic depends on it: a crossfilter
 selection drops queued values whose clause has the same source (`queueFilter`), so with one source a
 burst of steps collapses to the newest. While it plays the chip reads as it does paused, its text
 following the window, with no marker; its × stops play and lets the range go, as the page's
@@ -157,9 +156,9 @@ own timeline part took on the store, which made the rule one part's when it is e
 would reverse it:* a page whose charts are much slower than its graph; then the canvas shows first
 and the charts catch up, as a column chosen later does.
 
-**Play is a bare glyph at the band's left edge, muted until hovered, as Cosmograph's is.** Cosmograph
-draws a borderless icon, 20 – 30 px wide and half opaque, as a flex item left of its bars
-(`style.js`, `animationControl`). Ours is a solid 20 px glyph centred on the band, with 10 px on either
+**Play is a bare glyph at the band's left edge, muted until hovered.** Cosmograph's is opt-in,
+`showAnimationControls` off by default ([`showAnimationControls`](https://cosmograph.app/docs-lib/api/interfaces/CosmographTimelineConfig/#showanimationcontrols)); ours
+is on unless `playable` is false. Ours is a solid 20 px glyph centred on the band, with 10 px on either
 side, so the band's edge is as far from it as the bars are, with no box at all: no border, background or hover tint. It sits muted at 0.6 opacity, rises to
 the foreground at 1 on hover and focus, and to 0.2 when there is nothing to play. Keyboard focus
 outlines the glyph alone. It is a plain `button`, not `Button`, whose recipe is the box. It is named *Play time* or *Pause time*, the same words as its
@@ -200,9 +199,9 @@ a value, as `Slider` does. Then play writes the `Param`, and `ChartTimeline` sto
 ## Time is read from the schema, never guessed
 
 **A column is temporal when the graph says it is: a GraphAr `date` or `timestamp` column, or a
-number or a time whose datatype in the graph's mapping is a time.** Cosmograph instead samples 100
-values and calls a column of year-like integers a year. A count of rows, a price or an id in that
-range would be read as a date, and the schema already says which column is a time. GraphAr has no
+number or a time whose datatype in the graph's mapping is a time.** Cosmograph detects a timeline's
+`mode` from the data when none is set ([`mode`](https://cosmograph.app/docs-lib/api/interfaces/CosmographTimelineConfig/#mode)). A guess from the values reads a count
+of rows, a price or an id in a year's range as a date, and the schema already says which column is a time. GraphAr has no
 year type: the `xsd:gYear` a shape declared over an `int32` lives in the graph's RML mapping, which
 the host reads with rudof's `Mapping.model()` and hands the root as `mapping` — fossil's D4 — so the
 timeline offers a year once the mapping has arrived, and not before. Without one, a year is a number.
@@ -235,13 +234,13 @@ relations](/docs/design/crossfilter#one-selection-across-relations)). It names t
 so every client answers it, without a Binder error. The chip reads *date 1910 – 1940*: the clause
 itself, on the page's one selection.
 
-**A vertex without the column is outside every window, so it is greyed, as Cosmograph greys it.**
+**A vertex without the column is outside every window, so it is greyed.**
 The crossing was first an anti-join, `dense_id NOT IN (… WHERE NOT <the window>)`, which dropped only
 the dated rows the window leaves out and kept every type without the column whole. In keasy that read
 wrong: on SNB, a window over 30 birthdays left *340,163 of 341,661* vertices in colour, every post,
-place and tag among them, and it looked like a window that selected more than it should. Cosmograph's
-`Timeline` filters its points by `isBetween(column, range)`, and a point with no time answers false,
-so it is greyed with what the window leaves out. The semi-join is that rule over identity: only the
+place and tag among them, and it looked like a window that selected more than it should. A window is a range
+predicate, and a range predicate on a point with no time is `NULL`, which no `WHERE` keeps, so the
+point is greyed with what the window leaves out. The semi-join is that rule over identity: only the
 rows that have the column and fall in the window are kept, so the same window reads *30 of 341,661*.
 The edges follow by the rule that a link needs both its ends.
 
@@ -268,8 +267,9 @@ prop of the part again, and the setting is the default the root hands it.
 ## Filtered is greyed out, and playing does not change that
 
 **What the window leaves out is greyed out, and nothing is hidden.** What has no time is left out
-too. Cosmograph 2.5 does the same: it hands cosmos.gl `highlightedPointIndices` and
-`highlightedLinkIndices`, and the rest takes the greyout opacity. So there is no "hide" preference for playback. A graph that grows over time reads as points
+too. Cosmograph does the same: its configuration keeps cosmos.gl's `highlightedPointIndices` and
+`highlightedLinkIndices` to itself and offers `pointGreyoutOpacity` for the rest
+([`CosmographConfig`](https://cosmograph.app/docs-lib/api/interfaces/CosmographConfig/)). So there is no "hide" preference for playback. A graph that grows over time reads as points
 coming into colour against the shape of the whole.
 
 **What would reverse it:** readers who take the greyed-out points as present while it plays, often
@@ -290,7 +290,7 @@ its own `design/later/edge-properties`.
 
 **What would reverse it:** a graph that writes edge properties. Then an edge table lists its columns
 as a vertex table does, a link gets an index as a vertex does, and a clause over an edge column keeps
-the edges it matches and their endpoints — Cosmograph's rule, `endpointPointsOf`.
+the edges it matches and their endpoints.
 
 ## The window is two thumbs, and the bins are a table
 
@@ -349,8 +349,8 @@ the chart is `aria-busy` while its query runs; the window the clause holds is tw
 `TimelineHarness` brushes in data through the `x` scale Plot puts on the chart's output, and plays.
 
 *Held by* `packages/ui/src/charts/chart-timeline.test.tsx` ("reads a brushed range as the edges it
-spans, in axis order — the frames play shows"; "has nothing to play without a range, as
-Cosmograph's has not"; "is 50 ms a bar on 60 bars or more, and slower on fewer, so a sweep takes as
+spans, in axis order — the frames play shows"; "has nothing to play without a range, so
+Play never sweeps a range nobody chose"; "is 50 ms a bar on 60 bars or more, and slower on fewer, so a sweep takes as
 long"; "is 500 ms at least under prefers-reduced-motion"; "reserves the band's height and draws nothing in it — no Play, no ticks — until the bars are
 drawn"; a brushed window sticks to the nearest edges, at least one bar
 wide; a year reads as its integer, on the axis too),

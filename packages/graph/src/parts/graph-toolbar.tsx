@@ -14,10 +14,11 @@ import {
 } from "lucide-react";
 import { greyedOf } from "../core/kept";
 import type { Motion } from "../core/types";
-import { useGraphContext } from "../react/graph-root";
+import { useGraphContext } from "../react/use-graph-context";
 import { tv } from "tailwind-variants";
 import { placedByData } from "../render/motion";
 import { useGraphState } from "../react/use-graph-state";
+import { ZOOM } from "./keyboard";
 
 /** Every name and hint the toolbar's buttons and clusters carry. */
 export interface GraphToolbarTranslations {
@@ -80,8 +81,6 @@ const graphToolbar = tv({
     orientation: { horizontal: {}, vertical: { root: "flex-col items-end" } },
   },
 });
-
-const ZOOM = 1.4;
 
 /** One action per state, named for what it does. */
 const TRANSPORT: Record<Motion, { pause: boolean; label: "pause" | "resume" | "run" }> = {

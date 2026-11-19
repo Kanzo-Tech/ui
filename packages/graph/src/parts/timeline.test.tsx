@@ -11,7 +11,8 @@ import { attach, settle, type Attached } from "../../test/corpus";
 import { readJoinGraph } from "@kanzo-tech/relations";
 import { VERTICES, relation } from "../core/source";
 import { createGraph } from "../core/store";
-import { GraphRoot, useGraphContext } from "../react/graph-root";
+import { GraphRoot } from "./graph-root";
+import { useGraphContext } from "../react/use-graph-context";
 import { internalsOf } from "../react/use-graph";
 import { useGraphPrefs } from "../react/use-graph-prefs";
 import { useGraphState } from "../react/use-graph-state";
@@ -172,19 +173,6 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
         }
         unobserve() {}
         disconnect() {}
-      },
-    );
-    // The page's FilterBar scrolls its chips in zag's ScrollArea, which watches its viewport with
-    // IntersectionObserver; jsdom has none.
-    vi.stubGlobal(
-      "IntersectionObserver",
-      class {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-        takeRecords() {
-          return [];
-        }
       },
     );
     const computed = window.getComputedStyle.bind(window);

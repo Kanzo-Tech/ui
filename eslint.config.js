@@ -25,11 +25,10 @@ export default tseslint.config(
     },
   },
   {
-    // Node scripts — the theme generator, the Shark surface refresher, the benchmark runner, the
-    // corpus builders — run under Node, not the browser. Matched by extension rather than by
-    // directory: the glob was `**/scripts/*.mjs`, so the five under `docs/showcases/graph-bench/`
-    // were reported as 64 undefined `console`s. A `.mjs` in this repo is a Node script; there is
-    // no other kind.
+    // Node scripts — the theme generator, the Shark surface refresher, the corpus builders — run
+    // under Node, not the browser. Matched by extension rather than by directory: the glob was
+    // `**/scripts/*.mjs`, and the builders beside the showcases were reported as undefined
+    // `console`s. A `.mjs` in this repo is a Node script; there is no other kind.
     files: ["**/*.mjs"],
     languageOptions: {
       globals: {

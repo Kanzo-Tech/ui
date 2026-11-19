@@ -734,8 +734,24 @@ interface RelationColumn extends JoinColumn { of: string; candidateKey: boolean;
 | `relation` | as `ChartRoot`'s | — (no readout) |
 | `rowNoun` | `string` | `"rows"` |
 | `children` | `ReactNode` | — trailing controls, pinned last, after the readout |
+| `translations` | `Partial<FilterBarTranslations>` | English, below |
 
 Every other prop goes to the root `section` (`data-slot="filter-bar"`).
+
+`FilterBarTranslations`: `filters` (*Filters*, the bar's accessible name), `none` (*No filters*),
+`clear` (*Clear every filter*, the verb's name and tooltip), `remove(label)` (*Remove \{label\}*, a
+chip's ×), `counting` (*Counting…*), and the readout, given counts already formatted for the
+locale: `all(total, rowNoun)` (*\{total\} \{rowNoun\}*) and `kept(rows, total, rowNoun)` (*\{rows\}
+of \{total\} \{rowNoun\}*). `rowNoun` stays a prop: it names this page's rows, not a language's
+words.
+
+```tsx
+<FilterBar
+  relation="sightings"
+  rowNoun="avistamientos"
+  translations={{ filters: "Filtros", none: "Sin filtros", clear: "Quitar todos los filtros", kept: (rows, total, noun) => `${rows} de ${total} ${noun}` }}
+/>
+```
 
 `useClauses(selection: Selection): readonly SelectionClause[]`.
 
@@ -769,4 +785,4 @@ The spec's types — `DashboardSpec`, `Tile`, `TileKind`, `TileSpan`, `StatTile`
 and `Dashboards` with `parseDashboards` are exported and documented field by field on
 [Dashboard spec](/docs/analytics/dashboard-spec). The props types are exported as `DashboardProps`,
 `DashboardStatProps`, `ChartCardProps`, `DetailTableProps`, `TileEditorProps`,
-`RelationPickerProps` and `FilterBarProps`.
+`RelationPickerProps` and `FilterBarProps`, with `RelationPickerTranslations` and `FilterBarTranslations`.

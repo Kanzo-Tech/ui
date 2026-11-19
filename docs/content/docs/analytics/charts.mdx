@@ -69,7 +69,7 @@ would render them. Pass values down from the component that owns the `ChartRoot`
 
 ```tsx
 <ChartRoot relation="sightings" config={config} height={220}>
-  <ChartBarY x="host" y={count()} fill="host" tip />
+  <ChartBarY x="host" y={count()} fill="host" />
   <ChartRuleY at={0} />
   <ChartAxisX tickRotate={45} />
   <ChartAxisY grid />
@@ -88,7 +88,9 @@ Three rules cover the ordering:
 3. **Fragments and arrays flatten; `null` and `false` vanish.** Conditionals work, which is how you
    [swap an interactor](#swap-the-interactor) at runtime.
 
-There is no `ChartTip`: the tooltip is a mark option, so it is the `tip` prop on any mark.
+There is no `ChartTip`: the tooltip is a mark option, so it is the `tip` prop on any mark — on a
+plot with no toggle, because the tooltip swallows the toggle's click
+([pitfall](/docs/analytics/pitfalls#a-tip-on-picking-bars-swallows-the-pick)).
 
 <Callout type="warn">
 **A descriptor must be a direct child, not a child of one of your components.** The compiler walks
@@ -278,7 +280,7 @@ are in the [gallery](/docs/analytics/gallery).
 ### Categorical bars
 
 Group a string column, sort by descending count, click a bar to toggle that category. Give both
-layers the same `sort` (and `limit`, for a high-cardinality column) so they share one x domain. The
+layers the same `sort` (and `limit`, for a high-cardinality column) so they share one y domain. The
 `ChartHighlight` — no props — is what makes the clicked bar visible, and there is a reason it can
 be that terse: see [feedback on the chart that filters](#feedback-on-the-chart-that-filters).
 
@@ -863,7 +865,7 @@ reaches for is here.
 | Aggregates | `count` `sum` `avg` `min` `max` `median` `quantile` `stddev` `mode` |
 | Loaders | `loadObjects` `loadCSV` `loadJSON` `loadParquet` `loadSpatial` `loadExtension` |
 | The engine | `engine` `Engine` `Problem` `queryFailure` `numbers` `TableExpr` |
-| The clause rule, ours | `clauseSemiJoin` `clauseAntiJoin` `clauseColumns` `clauseParts` `clauseLabel` `ClauseParts` `SemiJoinMembers` `SemiJoinMetadata` `SemiJoinOptions` `AntiJoinMetadata` |
+| The clause rule, ours | `clauseSemiJoin` `clauseAntiJoin` `clauseColumns` `clauseField` `clauseParts` `clauseLabel` `ClauseParts` `SemiJoinMembers` `SemiJoinMetadata` `SemiJoinOptions` `AntiJoinMetadata` |
 | The page's crossfilter | `crossfilterOver` `JoinResolver` `JoinStep` `JoinField` `JoinMiss` `onRelation` `relationOf` `sameRelation` `readOf` `preaggregateOwnRelation` `relaySelection` `RelayOptions` `RelationClient` `RelationExpr` `RelationRef` `RelationMetadata` |
 | First draws | `holdFirstDraw` `firstDrawsPending` `onFirstDraws` |
 | Relations over a join graph | `Relation` `JoinGraph` `JoinEdge` `JoinType` `Hop` `RelationHop` `relationQuery` `relationKey` `relationHops` |

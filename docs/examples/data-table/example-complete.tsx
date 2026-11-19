@@ -27,7 +27,7 @@ const stateItems = QUEST_STATUSES.map((state) => ({ label: state.label, value: s
 // The two sortable columns opt out of hiding: `sortableHeader` is a render function, so the
 // View menu would have nothing but the column id to label them with.
 const columns: ColumnDef<Quest>[] = [
-  selectColumn<Quest>({ rowLabel: (row) => `Select ${row.original.title}` }),
+  selectColumn<Quest>({ translations: { rowLabel: (row) => `Select ${row.original.title}` } }),
   { accessorKey: "title", enableHiding: false, header: sortableHeader("Contract") },
   { accessorKey: "reward", enableHiding: false, header: sortableHeader("Reward") },
   { accessorKey: "region", filterFn: facetFilterFn, header: "Region" },

@@ -1,11 +1,9 @@
 import type { ClauseSource, MosaicClient, Selection } from "@kanzo-tech/mosaic";
 import type { Engine } from "@kanzo-tech/mosaic/engine";
-import type { LookPatch } from "../render/graph-looks";
-import type { Sim } from "../render/graph-sim";
 import type { Binding, Channels } from "./channels";
 import type { Encoding, Geometry } from "./load";
 import type { JoinGraph, MappingModel } from "@kanzo-tech/relations";
-import type { Motion, VertexSelection, VertexSelectionSource, Tool, VertexId } from "./types";
+import type { LookPatch, Motion, Sim, VertexSelection, VertexSelectionSource, Tool, VertexId } from "./types";
 
 export interface GraphOptions extends Channels {
   /**
@@ -156,6 +154,10 @@ export interface GraphSnapshot extends GraphState {
    * the rest, never hiding a vertex, and the counts, the legend, the toolbar and `frame()` act on it.
    */
   readonly kept: Uint8Array | null;
+  /** What the page's other clauses keep, before the canvas's own: what a gesture's count is measured against. */
+  readonly filtered: Uint8Array | null;
+  /** The links `kept` keeps, by index, `keptLinksOf`; `null` with `kept`. */
+  readonly keptLinks: number[] | null;
   /** What the search was last used to go to, newest first — for the root's life, never stored. */
   readonly recent: readonly { readonly vertex: VertexId; readonly text: string }[];
   /** What the last canvas left, or `null` before one has drawn this geometry. */
@@ -228,6 +230,8 @@ export const blank = (options: GraphOptions, binding: Binding): GraphSnapshot =>
   geometry: null,
   encoding: null,
   kept: null,
+  filtered: null,
+  keptLinks: null,
   recent: [],
   arrangement: null,
 });

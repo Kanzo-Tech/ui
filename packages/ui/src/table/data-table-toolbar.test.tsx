@@ -196,4 +196,16 @@ describe("DataTableViewOptions", () => {
     expect(screen.queryByRole("columnheader", { name: "Status" })).toBeNull();
     expect(screen.getByRole("columnheader", { name: "Name" })).toBeTruthy();
   });
+
+  it("draws its trigger and heading from its translations", async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness>
+        <DataTableViewOptions translations={{ label: "Vista", heading: "Columnas" }} />
+      </Harness>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Vista" }));
+    expect(await screen.findByText("Columnas")).toBeTruthy();
+  });
 });

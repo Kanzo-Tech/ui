@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
 import type { Graph } from "@cosmos.gl/graph";
+import { useHotkey } from "@kanzo-tech/ui";
 import type { VertexSelection, VertexSelectionSource, Tool, VertexId } from "../core/types";
 
 /**
@@ -40,7 +41,7 @@ export function cursorChip(drag: Drag | null): React.CSSProperties {
 export interface GraphSelectionGesture {
   /** The gesture being drawn, for the overlay to render. */
   drag: Drag | null;
-  /** How many nodes it holds right now, so the number lands before the mouse does. */
+  /** How many nodes it holds right now that the page's other clauses keep — what a release would keep — so the number lands before the mouse does. */
   preview: number | null;
   /** The tool actually in force: the chosen one, or the marquee Shift is lending. */
   active: Tool;
@@ -56,6 +57,8 @@ export interface GraphSelectionOptions {
   getGraph: () => Graph | null;
   /** The canvas's own clause, for the modifiers to add to or take from. */
   getSelection: () => VertexSelection | null;
+  /** What the page's other clauses keep, `1` per kept vertex; `null` when they keep everything. */
+  getFiltered: () => Uint8Array | null;
   commit: (vertices: Set<VertexId> | null, source: VertexSelectionSource, label: string, excludes: boolean) => void;
   tool: Tool;
   setTool: (tool: Tool) => void;
@@ -67,11 +70,12 @@ const NAME: Record<"rect" | "lasso", { source: VertexSelectionSource; label: str
 };
 
 export function useGesture(options: GraphSelectionOptions): GraphSelectionGesture {
-  const { commit, getGraph, getSelection, setTool, tool } = options;
+  const { commit, getFiltered, getGraph, getSelection, setTool, tool } = options;
   const [drag, setDrag] = useState<Drag | null>(null);
   const [preview, setPreview] = useState<number | null>(null);
   const [shift, setShift] = useState(false);
-  const measured = useRef(0);
+  const measured = useRef(Number.NEGATIVE_INFINITY);
+  const pending = useRef<{ shape: Drag; timer: ReturnType<typeof setTimeout> } | null>(null);
 
   const hitTest = useCallback(
     (shape: Drag): number[] => {
@@ -96,31 +100,62 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
   );
 
   // Both hit tests are a GPU pass followed by a synchronous `readPixels`, so running one per
-  // pointer event would stall the frame the gesture is being drawn into.
+  // pointer event would stall the frame the gesture is being drawn into. A shape that arrives inside
+  // the window is measured when it closes, so the count always ends on the shape the pointer stopped at.
   const measure = useCallback(
     (shape: Drag) => {
-      const now = performance.now();
-      if (now - measured.current < MEASURE_MS) return;
-      measured.current = now;
-      setPreview(hitTest(shape).length);
+      const now = (latest: Drag) => {
+        measured.current = performance.now();
+        // What the release would keep: the caught points the page's other clauses also keep.
+        const filtered = getFiltered();
+        const caught = hitTest(latest);
+        setPreview(filtered ? caught.filter((id) => filtered[id] === 1).length : caught.length);
+      };
+      const wait = MEASURE_MS - (performance.now() - measured.current);
+      if (wait <= 0) return now(shape);
+      if (pending.current) {
+        pending.current.shape = shape;
+        return;
+      }
+      const timer = setTimeout(() => {
+        const last = pending.current;
+        pending.current = null;
+        if (last) now(last.shape);
+      }, wait);
+      pending.current = { shape, timer };
     },
-    [hitTest],
+    [getFiltered, hitTest],
   );
 
+  const settle = useCallback(() => {
+    if (pending.current) clearTimeout(pending.current.timer);
+    pending.current = null;
+  }, []);
+  useEffect(() => settle, [settle]);
+
   // Escape is the way out of everything, in layers: it abandons a drag in progress, then drops the
-  // tool, then clears the canvas's own pick — another place's clause is let go at its chip. And a
-  // window that loses focus never delivers the Shift keyup, which would leave the canvas unable to pan. The layer is read from `dragging`, not from inside a
-  // `setDrag` updater: React may run an updater while it renders the canvas, and `setTool` and
-  // `commit` write the store every other part reads, which is a setState in another's render.
+  // tool, then clears the canvas's own pick — another place's clause is let go at its chip. The layer
+  // is read from `dragging`, not from inside a `setDrag` updater: React may run an updater while it
+  // renders the canvas, and `setTool` and `commit` write the store every other part reads, which is a
+  // setState in another's render. It only observes, so a dismissable layer still gets the key.
   const dragging = drag !== null;
-  useEffect(() => {
-    const down = (event: KeyboardEvent) => {
-      if (event.key === "Shift") setShift(true);
-      if (event.key !== "Escape") return;
+  useHotkey(
+    "Escape",
+    () => {
+      settle();
       setPreview(null);
       if (dragging) setDrag(null);
       else if (tool) setTool(null);
       else commit(null, "node", "", false);
+    },
+    { preventDefault: false },
+  );
+
+  // Not `useHotkey`: holding Shift is a state, so it needs the keyup and the blur — a window that
+  // loses focus never delivers the keyup, which would leave the canvas unable to pan.
+  useEffect(() => {
+    const down = (event: KeyboardEvent) => {
+      if (event.key === "Shift") setShift(true);
     };
     const up = (event: KeyboardEvent) => {
       if (event.key === "Shift") setShift(false);
@@ -134,7 +169,7 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
       window.removeEventListener("keyup", up);
       window.removeEventListener("blur", blur);
     };
-  }, [commit, dragging, setTool, tool]);
+  }, []);
 
   /** Screen coordinates inside the canvas — the space every cosmos.gl hit test speaks. */
   const at = (event: React.PointerEvent): Point => {
@@ -143,6 +178,7 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
   };
 
   const finish = (shape: Drag | null, event: React.PointerEvent) => {
+    settle();
     setDrag(null);
     setPreview(null);
     if (!shape) return;
@@ -192,6 +228,7 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
       },
       onPointerUp: (event) => finish(drag, event),
       onPointerCancel: () => {
+        settle();
         setDrag(null);
         setPreview(null);
       },

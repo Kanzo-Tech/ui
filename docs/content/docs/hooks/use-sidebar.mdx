@@ -76,7 +76,7 @@ is above it.
 | `setOpen` | `(open: boolean) => void` | Sets the rail state and writes the `sidebar_state` cookie |
 | `openMobile` | `boolean` | The mobile `Sheet` drawer's open state |
 | `setOpenMobile` | `(open: boolean) => void` | Sets the drawer state |
-| `isMobile` | `boolean` | Whether the viewport is below the `md` breakpoint (768px) |
+| `isMobile` | `boolean` | Whether the viewport is below the `md` breakpoint (`--breakpoint-md`) |
 | `toggleSidebar` | `() => void` | Toggles whichever of the two applies right now |
 
 `setOpen` also accepts an updater — `setOpen((value) => !value)` — but the context type declares

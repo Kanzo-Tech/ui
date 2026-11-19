@@ -7,7 +7,8 @@ export const FIT_DURATION = 420;
 /** A glide of `ms`, or none under `prefers-reduced-motion: reduce` (SC 2.3.3): the camera jumps. */
 export const glide = (ms: number): number =>
   typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : ms;
-const FIT_PADDING = 0.18;
+/** The margin a fit leaves, a share of the viewport: the whole graph, its corners, or what is not greyed. */
+export const FIT_PADDING = 0.18;
 /** How often a running layout re-frames the camera, and how long each re-frame glides. */
 const FOLLOW_EVERY = 900;
 const FOLLOW_DURATION = 700;

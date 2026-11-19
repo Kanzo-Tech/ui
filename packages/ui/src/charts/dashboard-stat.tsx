@@ -3,6 +3,7 @@
 import { type ExprValue, type TableExpr, Query } from "@kanzo-tech/mosaic";
 import type { RelationExpr, RelationRef } from "@kanzo-tech/relations";
 import type React from "react";
+import { useLocale } from "../simples/locale.js";
 import { StatDelta, StatLabel, StatRoot, StatTrend } from "../simples/stat.js";
 import { ChartStat } from "./chart-stat.js";
 import { chartTableKey } from "./chart-spec.js";
@@ -35,11 +36,12 @@ export function DashboardStat(props: DashboardStatProps) {
   const { relation, fields, stat, onEdit, actions, ...rest } = props;
   const header = Boolean(onEdit || actions);
   const share = stat.measure.op === "share";
+  const { locale } = useLocale();
   const format = share
-    ? (v: number) => `${v.toFixed(1)}%`
+    ? (v: number) => new Intl.NumberFormat(locale, { maximumFractionDigits: 1, minimumFractionDigits: 1, style: "percent" }).format(v / 100)
     : stat.measure.op === "count" || stat.measure.op === "distinct"
       ? undefined
-      : (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: 1, notation: Math.abs(v) >= 10_000 ? "compact" : "standard" });
+      : (v: number) => v.toLocaleString(locale, { maximumFractionDigits: 1, notation: Math.abs(v) >= 10_000 ? "compact" : "standard" });
   const trend = fields.find((f) => f.name === stat.trend);
   const tile = useTile(relation, stat, fields);
 

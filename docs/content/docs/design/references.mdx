@@ -90,8 +90,8 @@ reference itself does not consume. The rule is not being satisfied by some consu
 is being **overruled**, on the narrow ground that a shared vocabulary is the thing being bought and a
 vocabulary with holes is not one.
 
-**`usePinInput` is the exception, and it is a different kind of absence.** Shark has no pin-input
-component at all — it solves that problem with `input-otp.tsx`, which exports no hook. The name was
+**A file Shark does not have is a different kind of absence.** Shark solves one-time codes with
+`input-otp.tsx`, which exports no hook, and has no pin-input component at all. A name there was
 never the reference's, so parity neither grants it nor refuses it, and it falls back to the house
 rule. `ListboxContext` and the three `ColorPicker*` parts are the plain case instead: Shark's files
 export the neighbours and not these. The other direction is not empty either — `ADDED`, in
@@ -233,7 +233,8 @@ rebuilding one of the twelve by hand. **That is a low bar on purpose**, because 
 defensible and not principled.
 
 *Held by* `packages/ui/src/index.test.ts`, "adopts the Shark names Ark ships a part for, and declines
-the ones Shark composed", `!SkeletonText` — the seven presences and the twelve absences off one list;
+the ones Shark composed" — the presences, and the absences read off one list,
+`packages/ui/src/shark-parity.divergences.ts`'s `WITHHELD`, `!SkeletonText`;
 `packages/ui/src/shark-parity.test.ts`, "names the divergences nobody has decided yet", which pins what
 is still open.
 

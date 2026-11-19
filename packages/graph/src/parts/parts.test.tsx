@@ -1,8 +1,10 @@
 import { clauseInterval, Selection } from "@kanzo-tech/mosaic";
+import { LocaleProvider } from "@kanzo-tech/ui";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { attach, refusal, settle, type Attached } from "../../test/corpus";
-import { GraphRoot, useGraphContext } from "../react/graph-root";
+import { GraphRoot } from "./graph-root";
+import { useGraphContext } from "../react/use-graph-context";
 import { internalsOf, type GraphApi } from "../react/use-graph";
 import { usePick } from "../react/use-pick";
 import { GraphCanvas } from "./graph-canvas";
@@ -13,7 +15,7 @@ import { GraphSearch } from "./graph-search";
 import { GraphStatus } from "./graph-status";
 import { GraphToolbar } from "./graph-toolbar";
 import { useOverlays } from "./overlays";
-import type { LabelLevel } from "../render/graph-looks";
+import type { LabelLevel } from "../core/types";
 
 vi.mock("./overlays", async (actual) => {
   const module = await actual<typeof import("./overlays")>();
@@ -33,15 +35,6 @@ function Hold({ into }: { into: { api: GraphApi | null } }) {
 /** The root's two source props, for an attached corpus. */
 const over = (corpus: Attached) => ({ from: corpus.from, engine: corpus.engine });
 const ready = (corpus: Attached) => act(() => settle(corpus));
-const noResize = () =>
-  vi.stubGlobal(
-    "ResizeObserver",
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    },
-  );
 
 describe("GraphLegend", () => {
   it("draws the domain before the graph has loaded, named by the root", async () => {
@@ -413,13 +406,6 @@ describe("GraphInspector", () => {
 });
 
 describe("GraphSearch", () => {
-  beforeEach(() => {
-    noResize();
-    // zag finds an option by `CSS.escape`, which jsdom does not ship.
-    vi.stubGlobal("CSS", { escape: (value: string) => String(value).replace(/[^a-zA-Z0-9_-]/g, (c) => `\\${c}`) });
-  });
-  afterEach(() => vi.unstubAllGlobals());
-
   async function searching(onFailure = () => {}) {
     const corpus = await attach();
     const held: { api: GraphApi | null } = { api: null };
@@ -573,9 +559,6 @@ describe("GraphSearch", () => {
 });
 
 describe("GraphCanvas", () => {
-  beforeEach(noResize);
-  afterEach(() => vi.unstubAllGlobals());
-
   it("hands onFailure the thrown value when a label's read rejects", async () => {
     const corpus = await attach();
     const refused = refusal();
@@ -645,6 +628,21 @@ describe("GraphCanvas", () => {
       expect(canvas.tabIndex).toBe(0);
       const description = document.getElementById(canvas.getAttribute("aria-describedby") ?? "");
       expect(description?.textContent).toMatch(/^20 vertices and 20 links drawn\. Arrow keys move/);
+    });
+
+    it("counts what is drawn in the page's locale, not the browser's", async () => {
+      const corpus = await attach();
+      render(
+        <LocaleProvider locale="ar-EG">
+          <GraphRoot {...over(corpus)} onFailure={() => {}}>
+            <GraphCanvas />
+          </GraphRoot>
+        </LocaleProvider>,
+      );
+      await ready(corpus);
+      const canvas = screen.getByRole("application");
+      const description = document.getElementById(canvas.getAttribute("aria-describedby") ?? "");
+      expect(description?.textContent).toMatch(/^٢٠ vertices and ٢٠ links drawn\./);
     });
 
     it("takes the host's name and words", async () => {

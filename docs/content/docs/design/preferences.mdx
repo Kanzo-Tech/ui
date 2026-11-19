@@ -59,7 +59,7 @@ one".
 | --- | --- | --- |
 | `appearance` | **preference** | Ambient light and eyes. Its starting point is the OS's, see below. |
 | `themeByAppearance` | **preference, among the tenant's themes** | The *values* are identities the tenant published. The *choice* among them is the person's. The tenant controls the set (`themes`) and may withdraw the choice. |
-| `density` | **preference, and never the tenant's** | Screen size and eyesight. It is the one axis with a measured bar, WCAG 2.5.8 in `OBLIGATIONS`. |
+| `density` | **preference, and never the tenant's** | Screen size and eyesight. It is the one axis with a measured bar, WCAG 2.5.8 in `@kanzo-tech/theme`'s density obligations. |
 | radius | **theme** | It fails the first test. Every theme authors all three radii, and the generator edits them. |
 | sans, heading and mono faces | **theme** | They fail the first test. A face is the most recognisable part of a brand after its colour. |
 | shape knobs (`--size-field`, `--stroke`, `--relief`, `--noise`) | **theme** | They never were preferences. |

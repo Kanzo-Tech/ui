@@ -9,8 +9,8 @@ description: Why a page switches its side panels with one part, an activity bar 
 icon per panel, named by its tooltip and its accessible name, checked while its panel is open, and
 pressed again to collapse it.** It is a single-select `ToggleGroup`, so Ark makes the switcher a
 `radiogroup` and each icon a `radio` with `aria-checked` — not a toggle button with `aria-pressed`. The panel's own title says what it is in words. The reference is
-VS Code's activity bar. Keasy's Discover (Info · Ask · Rules · Settings) and its studio (Sources)
-draw the same part.
+VS Code's activity bar. Keasy's Discover (Info · Ask · Orders · Settings) draws it, and is the
+part's one call site.
 
 ```tsx
 <ShellDockSwitcher aria-label="Side panels" value={panel} onValueChange={setPanel}>
@@ -24,7 +24,8 @@ and the studio's `Toggle` with an icon and the word *Sources* in a status bar of
 learnt each, and a test found each differently.
 
 **What would reverse it:** a dock with panels a reader cannot tell apart by icon, as tested with
-readers. Then the item draws its label beside the icon everywhere, not in one page.
+readers. Then the item draws its label beside the icon everywhere, not in one page. Or no second
+dock arriving: the part has one call site, and admission rule 2 asks for two.
 
 *Held by* `packages/ui/src/layouts/shell.test.tsx`, "an item is named by its label, pressed while
 open, and collapses its panel when pressed again".
@@ -32,8 +33,8 @@ open, and collapses its panel when pressed again".
 ## The page names the switcher, and its panels keep their type
 
 **`ShellDockSwitcher` requires an accessible name and is generic over the page's panel id.** It is a
-`radiogroup`, whose name WAI-ARIA 1.2 requires, and the name it used to default to, *Panels*, misnamed
-the studio's dock of one, *Sources*: only the page knows what its panels are, so the type asks for
+`radiogroup`, whose name WAI-ARIA 1.2 requires, and the name it used to default to, *Panels*, misnames
+a dock of one, such as a *Sources* dock beside an editor: only the page knows what its panels are, so the type asks for
 `aria-label` or `aria-labelledby`, as `ButtonGroup`'s does. `value` and `onValueChange` are typed by
 the page's id, inferred from `value`, because a page that keeps its panel in a union had to narrow a
 `string` back to it — keasy's Discover with a `find` over its panels. The items stay `string`: a

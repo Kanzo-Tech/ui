@@ -1,26 +1,50 @@
+"use client";
+
 import {
   Pagination as ArkPagination,
   usePaginationContext,
 } from "@ark-ui/react/pagination";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import type React from "react";
+import { createContext, useContext } from "react";
 import { cn } from "../lib/cn";
 import { Button } from "./button";
 
 export const usePagination = usePaginationContext;
 
-export const Pagination = (
-  props: React.ComponentProps<typeof ArkPagination.Root>
-) => {
-  const { className, slot, ...rest } = props;
+/** Ark's own `translations`, and the ellipsis's, which Ark does not label. */
+export interface PaginationTranslations
+  extends NonNullable<React.ComponentProps<typeof ArkPagination.Root>["translations"]> {
+  ellipsisLabel?: string;
+}
+
+// Capitalised, where Ark's are not. The triggers draw no label of their own, so these reach them.
+const ENGLISH = {
+  rootLabel: "Pagination",
+  prevTriggerLabel: "Previous page",
+  nextTriggerLabel: "Next page",
+  ellipsisLabel: "More pages",
+};
+
+const EllipsisLabel = createContext(ENGLISH.ellipsisLabel);
+
+export interface PaginationProps extends React.ComponentProps<typeof ArkPagination.Root> {
+  translations?: PaginationTranslations;
+}
+
+export const Pagination = (props: PaginationProps) => {
+  const { className, slot, translations, ...rest } = props;
+  const t = { ...ENGLISH, ...translations };
 
   return (
-    <ArkPagination.Root
-      aria-label="Pagination"
-      className={cn("flex items-center gap-1", className)}
-      {...rest}
-      data-slot={slot ?? "pagination"}
-    />
+    <EllipsisLabel.Provider value={t.ellipsisLabel}>
+      <ArkPagination.Root
+        className={cn("flex items-center gap-1", className)}
+        {...rest}
+        translations={t}
+        data-slot={slot ?? "pagination"}
+      />
+    </EllipsisLabel.Provider>
   );
 };
 
@@ -29,7 +53,6 @@ export const PaginationPrevTrigger = (
 ) => (
   <ArkPagination.PrevTrigger asChild {...rest}>
     <Button
-      aria-label="Previous page"
       size="icon-md"
       slot={slot ?? "pagination-prev-trigger"}
       variant="ghost"
@@ -44,7 +67,6 @@ export const PaginationNextTrigger = (
 ) => (
   <ArkPagination.NextTrigger asChild {...rest}>
     <Button
-      aria-label="Next page"
       size="icon-md"
       slot={slot ?? "pagination-next-trigger"}
       variant="ghost"
@@ -84,6 +106,7 @@ export const PaginationEllipsis = (
   props: React.ComponentProps<typeof ArkPagination.Ellipsis>
 ) => {
   const { className, children, slot, ...rest } = props;
+  const label = useContext(EllipsisLabel);
 
   return (
     <ArkPagination.Ellipsis
@@ -98,7 +121,7 @@ export const PaginationEllipsis = (
       {children ?? (
         <>
           <span aria-hidden>&#8230;</span>
-          <span className="sr-only">More pages</span>
+          <span className="sr-only">{label}</span>
         </>
       )}
     </ArkPagination.Ellipsis>

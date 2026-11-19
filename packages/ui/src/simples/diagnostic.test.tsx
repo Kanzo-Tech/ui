@@ -113,18 +113,16 @@ describe("Diagnostic", () => {
   });
 
   /**
-   * **`Alert`'s surface, which is the reference's.** This wore a `border-s-2` rail in the family's
-   * colour over a neutral wash — a card with a bar down one edge, a shape that appears nowhere in
-   * Shark UI and nowhere else in this library. The wash at `-a3` and the whole outline at `-a6`
-   * are `Alert`'s exact steps, and a diagnostic is the same thing `Alert` is: a message with a
-   * severity.
+   * The surface is neutral whatever the variant: a list of findings washed in red read as one red
+   * block. The severity colour is the icon's and the badge's, asserted below.
    */
-  it("wears the variant the way an Alert does, not as a coloured rail", () => {
+  it("keeps the card neutral and leaves the colour to the icon and the badge", () => {
     renderOne({ variant: "warning" });
 
     const root = screen.getByRole("listitem");
-    expect(root.className).toContain("bg-warning/7");
-    expect(root.className).toContain("border-warning/30");
+    expect(root.className).toContain("bg-card");
+    expect(root.className).toContain("border");
+    expect(root.className).not.toMatch(/warning|destructive|info/);
     expect(root.className).not.toContain("border-s-2");
   });
 
@@ -134,7 +132,7 @@ describe("Diagnostic", () => {
    * A list of six aligns because the **title** is `basis-0` and `truncate`, not because the header
    * refuses to wrap: with `basis-0` nothing forces a break, so a header that fits is one line
    * either way. What `flex-nowrap` actually did was make the title 0 px wide in a narrow column —
-   * measured at 143 px on the metadata-form panel, the title starting 72 px past the header's own
+   * measured at 143 px on a form's findings panel, the title starting 72 px past the header's own
    * right edge. The two assertions below are the alignment rule; the wrap is what happens when
    * alignment is no longer possible.
    */

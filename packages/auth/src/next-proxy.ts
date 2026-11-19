@@ -1,6 +1,7 @@
 import { Problem, isProblem, within } from "@kanzo-tech/kernel";
 import type { Forwarded } from "./forwarded";
 import { tenantRequest, under, type Bound } from "./next-bound";
+import { withoutTrailingSlashes } from "./edge-url";
 import { problem } from "./problem";
 import { isSameSite } from "./same-site";
 
@@ -163,7 +164,7 @@ export function forward(instance: () => Promise<Bound>): ApiHandlers {
     const target = api.target(organization);
     if (target === undefined) return refuse(404);
     /** `https://api.test` has pathname `/`, and a prefix of `/` would double every separator. */
-    const prefix = target.pathname.replace(/\/$/, "");
+    const prefix = withoutTrailingSlashes(target.pathname);
 
     // Assigning `pathname` rather than composing a string: a path beginning `//` parsed as a *URL*
     // is protocol-relative and names another host, and `//evil.test/x` is a path a browser will

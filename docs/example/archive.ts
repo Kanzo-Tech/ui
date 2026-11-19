@@ -1,7 +1,7 @@
 // The archive — every contract the halls have closed, and the only fixture in the world big enough
 // to be a graph.
 //
-// The board is 44 contracts. The workspace showcase's graph is ~630 nodes, and it works because
+// The board is 44 contracts. Discover's graph in the keasy showcase is ~630 nodes, and it works because
 // keywords and publishers are *shared hubs*: a keyword belongs to many datasets, so lassoing a
 // cluster pulls in things you did not know were related. Forty-four contracts cannot do that.
 //

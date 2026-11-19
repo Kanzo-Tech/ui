@@ -34,9 +34,6 @@ import {
   PasswordInputGroup,
   PasswordInputInput,
   PasswordInputTrigger,
-  PinInput,
-  PinInputControl,
-  PinInputInput,
   RadioGroup,
   RadioGroupItem,
   SegmentGroup,
@@ -175,13 +172,6 @@ function Controls({ size }: { size: Size }) {
       <Button aria-label="Icon button" size={`icon-${size}`} variant="outline">
         <SearchIcon />
       </Button>
-      <PinInput>
-        <PinInputControl>
-          {[0, 1, 2].map((index) => (
-            <PinInputInput index={index} key={index} size={size} />
-          ))}
-        </PinInputControl>
-      </PinInput>
       <Textarea className="resize-none" placeholder="Textarea, minimum" rows={1} />
       <Switch>Switch</Switch>
       <Checkbox>Checkbox</Checkbox>

@@ -167,7 +167,6 @@ const LAYERS = [
   "ai/data/",
   "graph/",
   "graph/parts/",
-  "graph/react/",
   "ui/",
   "ui/charts/",
   "ui/composites/",

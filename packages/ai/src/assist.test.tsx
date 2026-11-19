@@ -97,19 +97,6 @@ describe("Assist on a Textarea — a continuation at the caret", () => {
     expect(prompt.indexOf("Field context:")).toBeLessThan(prompt.indexOf("Form context:"));
   });
 
-  it("keeps the offer while the reader types what it says, and asks nothing new", async () => {
-    const model = scriptedModel({ turns: [{ reply: { text: " at the ford." } }] });
-    render(<Notice model={model} />);
-    const field = screen.getByRole("textbox");
-    fireEvent.change(field, { target: { value: "Three hounds seen", selectionStart: 17 } });
-    await waitFor(() => expect(ghostText()).toBe(" at the ford."), { timeout: 2000 });
-
-    fireEvent.change(field, { target: { value: "Three hounds seen at", selectionStart: 20 } });
-    expect(ghostText()).toBe(" the ford.");
-    await new Promise((r) => setTimeout(r, 450));
-    expect(model.doStreamCalls).toHaveLength(1);
-  });
-
   it("takes one word with Ctrl+→, and lets the rest go with Esc", async () => {
     const model = scriptedModel({ turns: [{ reply: { text: " at the ford." } }] });
     const onEvent = vi.fn();

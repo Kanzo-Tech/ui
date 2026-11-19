@@ -1,3 +1,5 @@
+import { CELL, TOP_LABELS, VISIBLE_LABELS } from "./render/label-limits";
+
 /**
  * The manifest shape, re-declared structurally rather than imported from `@kanzo-tech/theme`.
  *
@@ -35,7 +37,7 @@ interface SectionManifest {
  * the edge layer and the dot grid lived in a `Display` one — with their own defaults and their own
  * hand-rolled sliders. One section, one storage shape, one resolution, one renderer.
  *
- * **The look's axes are Cosmograph's configuration, read as choices.** `edges` is `showLinks` and
+ * **The look's axes are Cosmograph's configuration, read as choices.** `edges` is `renderLinks` and
  * `curvedLinks`; `labels` is `showHoveredPointLabel`, `showTopLabels` and `showDynamicLabels` as one
  * ordered scale, because a reader asks *how much text*, not which of three switches.
  *
@@ -44,15 +46,16 @@ interface SectionManifest {
  * registering a type in the core, so a consumer who never installs this package pays nothing and
  * `packages/ui` gains no reference to the graph.
  *
- * ## Four colour tokens are gone, and the rule that removed them is the same one
+ * ## Five colour tokens are gone, and the rule that removed them is the same one
  *
  * A name is worth having when a theme would plausibly give it a value **different from the token it
  * comes out of**. If it can only ever repeat one, it is not a name, it is a use. Applied here:
  *
  * · `vignette` defaulted to `--background`, and the rim fades *toward the page* — any other value
  *   breaks it. It could never differ, so the canvas reads `--background` directly.
- * · `marquee-edge` and `point-ring-focus` both defaulted to `--primary`. A selection outline IS the
- *   brand; two names for "the brand, solid" is the duplication, not the flexibility.
+ * · `marquee-edge`, `point-ring-focus` and `point-ring-hover` all defaulted to `--primary`, and the
+ *   last was declared and never read. A selection outline IS the brand; three names for "the
+ *   brand, solid" is the duplication, not the flexibility.
  * · `marquee` was `(brand, alpha 5)` — a *dilution*, which is a derivation and not a name. It is
  *   `color-mix` where it is drawn.
  *
@@ -62,8 +65,8 @@ interface SectionManifest {
  * the half that had not been done.
  *
  * `grid` survives, and it is the only one that is arguable: a dot grid is decorative and drawn at a
- * different weight from a border, so a theme might plausibly want it fainter. If no theme ever does,
- * it goes too.
+ * different weight from a border, so a theme might plausibly want it fainter. The canvas reads it as
+ * `--graph-grid` over this default. If no theme ever sets it, it goes too.
  *
  * **A default is a CSS value now, not an object.** It was `{kind, ramp, step}` in three shapes, two
  * of which named a reference tier that no longer exists; `var(--input)` says the same thing with
@@ -76,10 +79,6 @@ export const GRAPH_SECTION = {
     grid: {
       default: "var(--input)",
       doc: "The dot grid behind the canvas. `--input`, not `--border`: a one-pixel dot in a border's colour is gone on a light page and in any video of it. Decorative, and WCAG 1.4.11 exempts a non-interactive separator by name.",
-    },
-    "point-ring-hover": {
-      default: "var(--primary)",
-      doc: "The ring drawn around a hovered point.",
     },
   },
   prefs: {
@@ -98,7 +97,7 @@ export const GRAPH_SECTION = {
       ordered: true,
       label: "Labels",
       default: "top",
-      doc: "Which points carry their title, each level adding to the last: the hovered and focused point; the 150 biggest; the 100 biggest in view; every point in view. In view is cosmos.gl's sample, one point per 100 px square, so no level labels more than the screen holds, whatever the graph's size. A label that would overlap a bigger point's is dropped.",
+      doc: `Which points carry their title, each level adding to the last: the hovered and focused point; the ${TOP_LABELS} biggest; the ${VISIBLE_LABELS} biggest in view; every point in view. In view is cosmos.gl's sample, one point per ${CELL} px square, so no level labels more than the screen holds, whatever the graph's size. A label that would overlap a bigger point's is dropped.`,
       options: [
         { value: "none", label: "None" },
         { value: "hovered", label: "Hovered" },

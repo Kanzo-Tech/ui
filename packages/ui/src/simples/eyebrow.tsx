@@ -3,7 +3,7 @@ import type React from "react";
 import { cn } from "../lib/cn";
 
 /**
- * Eyebrow — the small uppercase line that names a block from above it: *Parameters* over a tool's
+ * Eyebrow — the small muted line that names a block from above it: *Parameters* over a tool's
  * input, *Theme* over a picker, *How it fits together* over a list. The typographer's word for it,
  * and the one that does not collide with Tailwind's `overline`, which is a text decoration.
  *
@@ -20,7 +20,7 @@ export const Eyebrow = (props: React.ComponentProps<typeof ark.div>) => {
   const { className, slot, ...rest } = props;
   return (
     <ark.div
-      className={cn("font-medium text-muted-foreground text-xs uppercase tracking-wide", className)}
+      className={cn("font-medium text-muted-foreground text-xs", className)}
       {...rest}
       data-slot={slot ?? "eyebrow"}
     />

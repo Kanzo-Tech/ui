@@ -359,6 +359,21 @@ describe("Questionnaire", () => {
     expect(progress()).toBe("2");
   });
 
+  it("shows the step a parent controls, asks it before moving, and moves when the parent does", async () => {
+    const user = userEvent.setup();
+    const onStepChange = vi.fn();
+    const answers: QuestionnaireAnswers = { beast: "wyrm" };
+    const { rerender } = render(<Survey defaultAnswers={answers} onStepChange={onStepChange} step={0} />);
+
+    await user.click(button("Next"));
+    expect(onStepChange).toHaveBeenCalledWith(expect.objectContaining({ step: 1 }));
+    expect(asked()).toBe("What did you meet");
+
+    rerender(<Survey defaultAnswers={answers} onStepChange={onStepChange} step={2} />);
+    expect(asked()).toBe("Anything for the next party");
+    expect(progress()).toBe("3");
+  });
+
   it("reports every answer as it is made, so a parent can persist without submitting", async () => {
     const user = userEvent.setup();
     const onAnswersChange = vi.fn();

@@ -1,7 +1,7 @@
 import { Selection, clauseInterval, clausePoint, clausePoints, type SelectionClause } from "@uwdata/mosaic-core";
 import { Query, eq, isBetween, literal } from "@uwdata/mosaic-sql";
 import { describe, expect, it } from "vitest";
-import { clauseAntiJoin, clauseColumns, clauseLabel, clauseParts, clauseSemiJoin } from "./clause.js";
+import { clauseAntiJoin, clauseColumns, clauseField, clauseLabel, clauseParts, clauseSemiJoin } from "./clause.js";
 
 const source = { reset() {} };
 
@@ -88,5 +88,10 @@ describe("what a clause says", () => {
     expect(clauseParts(rule)).toEqual({ field: "Missing name", value: null });
     expect(clauseLabel(rule)).toBe("Missing name");
     expect(clauseLabel(clauseSemiJoin("dense_id", findings, { source }))).toBe("dense_id");
+  });
+
+  it("names the one column a clause filters, unquoted, and none for a clause over several", () => {
+    expect(clauseField(clausePoint("region", "Saltmere", { source }))).toBe("region");
+    expect(clauseField(clausePoints(["beast", "region"], [["harpy", "Saltmere"]], { source }))).toBeNull();
   });
 });

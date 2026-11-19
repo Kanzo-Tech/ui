@@ -75,7 +75,7 @@ zooms or pans. `status` is the data's life and `motion` the layout's — two axe
 without the other. At 200,000 vertices the viewer's p95 frame interval is 9.0 ms against 9.3 ms for
 cosmos.gl alone.
 
-The reference composition is the docs' workspace showcase: one `GraphRoot` around a shell with the
+The reference composition is Discover, in the docs' keasy showcase: one `GraphRoot` around a shell with the
 graph, a second main view and a dock of panels.
 
 ## The pieces

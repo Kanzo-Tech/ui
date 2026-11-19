@@ -12,7 +12,7 @@ import {
 } from "../src";
 
 /**
- * The harnesses over `docs/showcases/workspace` — the archive's graph, its dock and its Sightings
+ * The harnesses over Discover in `docs/showcases/keasy` — the archive's graph, its dock and its Sightings
  * dashboard — in Chromium, against a running docs server. This is where what jsdom cannot do is held:
  * a brush and a pick through a chart's own scales, a lasso through cosmos.gl's, and the frames a
  * camera draws.
@@ -21,7 +21,7 @@ import {
  */
 
 const ORIGIN = process.env.KANZO_DOCS_URL ?? "http://localhost:3100";
-const WORKSPACE = `${ORIGIN}/view/showcases/workspace`;
+const DISCOVER = `${ORIGIN}/view/showcases/keasy#/graphs/archive/discover`;
 
 let browser: Browser;
 let page: Page;
@@ -38,7 +38,7 @@ afterAll(async () => {
 beforeEach(async () => {
   page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
   env = await playwright(page, { timeout: 30_000 });
-  await page.goto(WORKSPACE);
+  await page.goto(DISCOVER);
 });
 
 // One page at a time: a page left open keeps its WebGL canvas and its DuckDB working beside the next.

@@ -11,7 +11,7 @@ export default function Example() {
       <AccordionItem value="terms">
         <AccordionItemTrigger>Terms</AccordionItemTrigger>
         <AccordionItemContent>
-          Grade 5 — a writ, which requires a hall&apos;s seal and a written heir. Posted
+          Grade 5 — a writ, which needs a hall&apos;s seal and a written heir. Posted
           by Ash &amp; Company, out of Ashfall Reach, and six days overdue.
         </AccordionItemContent>
       </AccordionItem>

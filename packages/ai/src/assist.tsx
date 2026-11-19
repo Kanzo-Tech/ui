@@ -6,7 +6,8 @@ import * as React from "react";
 import type { LanguageModel } from "ai";
 import { Button, ButtonGroup, cn, Kbd, Suggestion, Suggestions } from "@kanzo-tech/ui";
 import { AiMark } from "./ai-mark.js";
-import { type AssistEvent, MIN_CONTINUE_LENGTH, useCandidates, useContinuation } from "./engine.js";
+import { type AssistEvent, useCandidates, useContinuation } from "./engine.js";
+import { askable, nextWord } from "./offers.js";
 import { type FieldBrief, candidates, continuation } from "./proposals.js";
 import { PILLS } from "./pills.js";
 import type { Proposal } from "./task/index.js";
@@ -181,9 +182,6 @@ function mirror(el: Control, root: HTMLElement) {
 
 /** Room for the ✨ inside the control's box, so typed text never runs under it. */
 const MARK_ROOM = "2.25rem";
-
-/** Leading space plus the next word — what one press of the accept-a-word key takes. */
-const nextWord = (ghost: string) => /^\s*\S+/.exec(ghost)?.[0] ?? "";
 
 const merge =
   <E,>(...handlers: (((e: E) => void) | undefined)[]) =>
@@ -462,7 +460,7 @@ function TextAssist(props: Inner<string>) {
   const offering = multiline ? ghost.length > 0 : list.items.length > 0;
   const busy = (multiline ? completion.status : list.status) === "loading" && !offering;
   const reverting = before !== null && !offering;
-  const askable = !multiline || value.trim().length >= MIN_CONTINUE_LENGTH;
+  const canAsk = !multiline || askable(value);
 
   return (
     <ark.div
@@ -489,7 +487,7 @@ function TextAssist(props: Inner<string>) {
           ) : (
             <AiMark
               busy={busy}
-              disabled={!offering && !askable}
+              disabled={!offering && !canAsk}
               label={offering ? (multiline ? t.accept : t.others) : t.assist}
               offering={offering}
               onClick={multiline ? (offering ? accept : request) : list.press}

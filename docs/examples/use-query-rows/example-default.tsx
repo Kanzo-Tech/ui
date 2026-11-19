@@ -51,17 +51,17 @@ function Panel() {
   return (
     <div className="flex w-full max-w-xl flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <p className="font-medium text-muted-foreground text-xs">telemetry — columns</p>
+        <p className="font-medium text-muted-foreground text-xs">sightings — columns</p>
         <Suspense fallback={<Skeleton className="h-6 w-full" />}>
-          <Schema relation="telemetry" />
+          <Schema relation="sightings" />
         </Suspense>
       </div>
 
-      <ChartRoot height={170} relation="telemetry">
-        <ChartRectY fill="var(--muted-foreground)" filterBy={null} opacity={0.3} x={bin("latency")} y={count()} />
-        <ChartRectY fill="var(--primary)" x={bin("latency")} y={count()} />
+      <ChartRoot height={170} relation="sightings">
+        <ChartRectY fill="var(--muted-foreground)" filterBy={null} opacity={0.3} x={bin("leagues")} y={count()} />
+        <ChartRectY fill="var(--primary)" x={bin("leagues")} y={count()} />
         <ChartIntervalX />
-        <ChartAxisX label="latency (ms) — brush; the schema above does not move" />
+        <ChartAxisX label="leagues from the road — brush; the schema above does not move" />
         <ChartAxisY label={null} />
       </ChartRoot>
     </div>

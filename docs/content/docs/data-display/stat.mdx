@@ -1,6 +1,6 @@
 ---
 title: Stat
-description: One dashboard number — a label, the figure, a signed delta, a sparkline and a status, as a card you can make a link.
+description: One dashboard number — a label, the figure, a signed delta and a sparkline, as a card you can make a link.
 ---
 
 <ComponentPreview componentName="stat" />
@@ -48,7 +48,8 @@ the same one behind `Table` and `DataTableRoot`. When the number should come fro
 reader, so the part does not answer it. Pass a string when the figure carries a unit or a precision
 — `"284 ms"`, `"98.2%"`.
 
-The figure uses proportional digits on purpose: a lone headline number is not a column to align.
+The figure uses tabular digits, so a row of stats lines up and a number that refreshes keeps its
+width instead of nudging the trend beside it.
 
 ## Delta
 
@@ -76,14 +77,13 @@ is deliberately unlabelled and unaxised, and hidden from assistive technology �
 message, and a reader who needs the values needs a chart, not a tile. Fewer than two points draws
 nothing.
 
-## Status
+## The icon
 
-<ComponentPreview componentName="stat" fileName="example-status" />
-
-`variant` on the root takes the five status families `Badge`, `Alert` and `Status` share, and writes
-it to `data-variant`, where `StatIndicator` reads it. It is state, not content, so it lives on the
-root rather than in a context — no client boundary — and a theme change re-skins a whole row without
-touching a call site.
+`StatIndicator` is a plain muted icon before the label — no disc behind it and no status colour. A
+KPI is type, not a tile: the figure carries the reading, and a tinted circle beside every label is
+decoration a row of four repeats four times. When the number is good or bad news, say so with
+`StatDelta`, whose colour is backed by a sign and an icon; a status that is not a change belongs in
+a [`Badge`](/docs/data-display/badge) or an [`Alert`](/docs/overlays/alert).
 
 ## Loading
 
@@ -106,11 +106,7 @@ keys on the element being an anchor, so a tile that is not a link never pretends
 
 ### StatRoot
 
-| Prop | Type | Default |
-| --- | --- | --- |
-| `variant` | `"default" \| "success" \| "info" \| "warning" \| "destructive"` | `"default"` |
-
-Extends `Card`'s props — it renders `<article>`, and `asChild` swaps that for your element.
+`Card`'s props — it renders `<article>`, and `asChild` swaps that for your element.
 
 ### StatValue
 
@@ -136,8 +132,7 @@ Writes `data-direction` — `up`, `down` or `flat`.
 
 ### Other parts
 
-`StatIndicator` is a `div` for an icon, tinted by the root's `variant` and hidden from assistive
-technology. `StatLabel` is a `span` — sentence case, no trailing colon. `StatDescription` is a `p`.
+`StatIndicator` is a `div` for an icon, muted and hidden from assistive technology. `StatLabel` is a `span` — sentence case, no trailing colon. `StatDescription` is a `p`.
 Every part takes `asChild`.
 
 `StatRootProps`, `StatValueProps`, `StatDeltaProps` and `StatTrendProps` are exported, so a wrapper

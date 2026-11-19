@@ -1,6 +1,7 @@
+import { stubCoordinator } from "../../test/coordinator";
 import { engineOver } from "../../test/engine";
 import { render, screen, waitFor } from "@testing-library/react";
-import { clausePoint, QueryError, Selection, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
+import { clausePoint, Selection, type Coordinator } from "@uwdata/mosaic-core";
 import { verbatim } from "@uwdata/mosaic-sql";
 import { count } from "@uwdata/vgplot";
 import { describe, expect, it, vi } from "vitest";
@@ -13,53 +14,6 @@ function Page({ into }: { into: (selection: Selection) => void }) {
   return null;
 }
 
-
-/**
- * The same coordinator double the input tests use: it plays the moves a real one makes against a
- * client — connect, answer `query()`, re-ask when the client's `filterBy` moves — over fixed rows.
- * jsdom has no DuckDB, and the point of these two is precisely that they re-ask.
- */
-type Row = Record<string, unknown>;
-
-function stubCoordinator(answer: (sql: string) => Row[]) {
-  const listeners = new Map<MosaicClient, () => void>();
-  const queries: string[] = [];
-  const coordinator = {
-    connect(client: MosaicClient) {
-      client.coordinator = coordinator as unknown as Coordinator;
-      client.initialize();
-      const selection = client.filterBy;
-      if (!selection) return;
-      const rerun = () => {
-        const filter = selection.predicate(client);
-        if (!filter) return;
-        coordinator.requestQuery(client, client.query(filter));
-      };
-      selection.addEventListener("value", rerun);
-      listeners.set(client, rerun);
-    },
-    disconnect(client: MosaicClient) {
-      const rerun = listeners.get(client);
-      if (rerun) client.filterBy?.removeEventListener("value", rerun);
-      listeners.delete(client);
-      client.coordinator = null;
-    },
-    requestQuery(client: MosaicClient, query: unknown) {
-      if (query == null) return Promise.resolve();
-      queries.push(String(query));
-      // As `Coordinator.updateClient` does: a rejected query goes to the client's `queryError`,
-      // wrapped in a `QueryError` holding it as `cause` — which the client unwraps for the host.
-      return Promise.resolve()
-        .then(() => answer(String(query)))
-        .then(
-          (rows) => client.queryResult(rows).update(),
-          (error: unknown) => client.queryError(new QueryError(error, String(query))),
-        );
-    },
-    clear() {},
-  };
-  return { connected: listeners, coordinator: coordinator as unknown as Coordinator, queries };
-}
 
 /** The page selection of the last `wrap`. */
 let page!: Selection;

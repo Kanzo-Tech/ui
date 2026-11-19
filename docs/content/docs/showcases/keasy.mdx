@@ -1,0 +1,159 @@
+---
+title: keasy
+description: One product — a dashboard behind a rail, and Discover, full screen, where the graph is read back.
+full: true
+---
+
+<PreviewIframe name="keasy" title="keasy showcase" className="h-[860px]" />
+
+keasy is Kanzo's product, and this is two of its screens rebuilt on the library: **Dashboard**,
+behind a collapsing rail with Settings in the user menu, and **Discover**, where a graph is
+explored, full screen. They are one showcase because they are one product: one frame, one tenant,
+one viewer, and screens that link to each other.
+
+The route is the hash, the way keasy's are paths: `#/` and `#/graphs/archive/discover`. A link — in
+the rail, in a trail, on a screen — is all navigation needs.
+`/view/showcases/keasy#/graphs/archive/discover` opens on Discover.
+
+## The frame
+
+The layout is the canonical shadcn model, and it is the whole reason a fixed rail
+and a full-width header are mutually exclusive: `SidebarProvider` is the viewport frame, and every
+screen draws its `ShellHeader` **inside** `SidebarInset`, to the inline end of the rail — never
+spanning it. `SidebarInset` carries no landmark; each screen owns the page's single `<main>`.
+
+The sidebar arrangements the library does not ship as composites are written out by hand — the
+workspace switcher, the nav with its active-path and mobile-close policy, the user footer, the
+breadcrumb trail. That hand-composition **is** the documentation: an arrangement does not have to
+become a component, and here you can read the whole of it. The header is the same on every screen:
+the trigger where there is a rail, the trail from Dashboard, the screen's own controls, then search
+and notifications. On a phone the trail keeps its last two crumbs, because the parent is the way
+back.
+
+- <kbd>⌘</kbd>+<kbd>B</kbd> collapses the rail to icons; the switcher and user rows fall back to
+  bare avatars and the header does not shift under it.
+- <kbd>⌘</kbd>+<kbd>K</kbd> opens the `Command` palette; <kbd>P</kbd> opens the `Preferences`
+  drawer and re-themes every screen live. It holds only what is app-wide: the graph's looks live in
+  Discover's dock, beside the canvas they change.
+
+## Dashboard
+
+The screen the product opens on, not a component catalogue: something that summarises state (four
+`StatRoot`s), something actionable (the board table, with selection driving an `ActionBar`) and
+something navigable (a `Steps` checklist, an activity list of `Item`s, and an `inert`-gated preview
+of a feature that is not shipped yet).
+
+It exists because the pieces only prove themselves together. A stat looks fine in a 384px
+box; whether four of them sit correctly under a page header, beside a table whose toolbar has to
+survive the rail collapsing to icons, is a different question — and the one a consumer has. Tick
+rows in the table and the `ActionBar` rises with the count; **Take the tour** runs a four-step
+`Tour` over the rail, the KPI row and the table toolbar.
+
+## Discover
+
+The other shape a shell takes: no page, no scroll, a canvas that fills whatever is left. Discover
+draws no rail at all, so the frame is the canvas's; its trail, **Dashboard › Discover**, is the way
+back. Here the graph is the Amber Hall's
+**archive** — 536 closed contracts, the 938 field reports filed against them, and
+the members, beasts, tags and regions they share. 1,543 vertices, 4,280 edges, drawn on the GPU.
+
+`ShellMain` holds the canvas full-bleed and a `Resizable` docks a `ShellAside` beside it, so the
+inspector is a panel of a splitter rather than a floating overlay: the drag, the keyboard resize and
+the ARIA all come from the machine. Two orthogonal switches, which is the IDE shape — the header
+picks what the main region shows (**Graph** · **Sightings**), the footer strip's
+[`ShellDockSwitcher`](/docs/layout/shell#the-dock-switcher) picks which inspector the dock holds
+(Info · Ask · Orders · Settings) and collapses it when you click the active icon again, a state
+`Tabs` cannot express.
+
+### The reference composition
+
+This is the composition a product copies. One `GraphRoot` sits outside
+the shell, so the canvas, the inspector and every dock panel read one graph and one crossfilter. The
+canvas, the toolbar, the legend, the counts in the footer, the search and the inspector are
+[`@kanzo-tech/graph`](/docs/graph)'s parts, and the showcase writes none of them. What it writes is
+the product's: the channels the graph wears, the hall's name in the inspector, and the
+dock's panels — **Info** (the search and the inspector), **Ask** ([`@kanzo-tech/ai/data`](/docs/ai/data): `useAskChat` over a
+recorded model, each answer a dashboard tile read for real under the page's filter, drawn in an
+`AnswerCard` with *Filter the page to these rows*), **Orders** and **Settings** (`GraphSettings`: the graph's section,
+`PreferencesSections namespace="graph"`, above the gestures). fossil's
+`attach` attaches the graph as the catalog `archive`, and the graph and the
+[analytics subpath](/docs/analytics/charts)'s panels read it through the page's one engine —
+[Discovery workspace](/docs/graph/workspace) is the wiring.
+
+The archive carries no positions, so the layout runs on the GPU when it loads; the toolbar pauses
+and re-runs it. A look or a zoom costs no query. A lasso or a click publishes the reader's pick into
+the page's crossfilter as one `dense_id` clause, and every panel follows; a panel's filter greys
+out what it drops on the canvas.
+
+The canvas authors no colour: it draws in the page theme's categorical scale, so a theme from the
+[theme generator](/theme-generator) recolours it with everything else.
+
+### The standing orders
+
+The Orders panel holds the hall's own rule document — the same small language the board's copy is
+written in, over on [The Guild](/docs/the-guild) — parsed, compiled to SQL, and read against the
+archive:
+
+```text
+order "a contract is signed for" {
+  when    contract
+  require signed at least 1
+  else    violation "No warden's name on it."
+}
+```
+
+Each order becomes one `count(*) FILTER (WHERE …)`, and the whole report is one query. Focus an
+order and the ids that break it are published into the crossfilter, so the canvas lights up exactly
+those nodes. Drop your own `.orders` file on the panel and it reads that instead; anything it cannot
+compile is named rather than dropped, because otherwise you cannot tell "in order" from "never
+read".
+
+### Sightings
+
+The other main view is a [`Dashboard`](/docs/analytics/dashboard) over the world's own analytical
+relation, one row per reported sighting — the `boghound` met in the bestiary and as a hub on the
+canvas. Everything on it is one hand-written [spec](/docs/analytics/dashboard-spec) and the
+relation: a filter row, four tiles trending along the hour, a line, bars by hall coloured by the
+verdict's status scale, bounty by region split into panels, and a fit of distance against bounty
+over the rows, and the beasts as bars. The spec is written by hand because a showcase should look chosen; drop `value` and
+the same component draws the automatic dashboard from the relation's stats. Edit any card and the
+spec in state is what changed — the whole of what a host would persist. The editor draws in the
+page's Format aside at the body's end edge, shown while a tile is edited, the way draw.io's Format
+panel is.
+
+`sightings` has no date column, so the ordered axis is `hour`, and each tile's delta compares an
+hour with the one before. The view has its own `MosaicProvider`: it reads a different relation from
+the canvas, and [a part says which relation it reads](/docs/analytics/pitfalls#a-part-of-your-own-on-more-than-one-relation).
+It is nested in the graph's, and the page's slots are the outermost provider's, so the dashboard
+reaches the `TileEditorAside` the shell places beside `ShellMain`.
+
+Lasso a cluster and watch the toolbar count it. Find a contract in the Info search and the canvas
+frames it while the inspector reads its row. Switch the Look in the dock's Settings; Ink moves identity from
+colour to shape, and the legend's rows do not move. Focus an order. Then switch to **Sightings**: brush the hourly curve and every
+panel narrows with it, click a hall's bar and the chip under the filters says so, and open a card's
+editor to turn the line into an area.
+
+## Source
+
+```text
+docs/showcases/keasy/
+├── default.tsx           — the frame: the rail, the hash route, the tour and Preferences
+├── header.tsx            — every screen's header: trigger, trail, search, notifications
+├── command-palette.tsx   — the ⌘K palette behind the header's search button
+├── data.tsx              — the routes, the nav, one hall's instances, KPIs and activity, all derived
+├── dashboard.tsx         — Dashboard
+├── board-table.tsx       — its table, built from the /table parts (selection, facets, view options)
+├── discover.tsx          — Discover: header, splitter, footer strip, the canvas's parts placed
+├── graph-view.tsx        — the GraphRoot composition, each look's channels, and the dock panels
+├── graph-data.ts         — the archive as rows; what the graph is compiled FROM, not read from
+├── corpus/               — the mapping, the shape and the script that compile it with fossil
+├── duck.ts               — each view's relations, registered once in the page's one engine
+├── orders.ts             — the standing-orders language, compiled to SQL predicates
+├── order-builder.ts      — the same document, written back out
+└── sightings-charts.tsx  — a `Dashboard` over the world's sightings, from a hand-written spec
+```
+
+Two subpaths beyond `@kanzo-tech/ui` and `@kanzo-tech/graph`: `@kanzo-tech/ui/table` for the board
+and `@kanzo-tech/ui/analytics` for Discover. The Sightings
+dashboard loads client-only, behind `ssr: false`, because evaluating vgplot during the RSC prerender
+is a TDZ.

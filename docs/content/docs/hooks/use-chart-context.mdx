@@ -20,12 +20,12 @@ The `/analytics` peers are [optional](/docs/installation) — nothing installs t
 ```tsx
 function Total({ rows }: { rows: number }) {
   const { color, formatNumber } = useChartContext();
-  return <p style={{ color: color("error") }}>{formatNumber(rows)} requests</p>;
+  return <p style={{ color: color("hoax") }}>{formatNumber(rows)} sightings</p>;
 }
 ```
 
 It must be rendered **inside** a [`ChartRoot`](/docs/analytics/charts) — it throws otherwise.
-Use [`useChartContextOptional`](/docs/hooks/use-chart-context-context-optional) for a part that also has to work
+Use [`useChartContextOptional`](/docs/hooks/use-chart-context-optional) for a part that also has to work
 standalone.
 
 ## Why it exists
@@ -75,4 +75,4 @@ Takes no arguments. Throws `useChartContext must be used within a <ChartRoot>.` 
 | `table` | `TableExpr \| undefined` | what the marks read: the root's `relation`, compiled over the provider's `joins` |
 | `relation` | `RelationRef \| null` | the relation the page knows the chart by — what its clauses are published on |
 | `selection` | `Selection` | the page's one selection: what the marks filter by and the interactors publish into |
-| `engine` | `Engine` | for a part that queries alongside the plot — usually via [`useChartQuery`](/docs/hooks/use-chart-context-query) |
+| `engine` | `Engine` | for a part that queries alongside the plot — usually via [`useChartQuery`](/docs/hooks/use-chart-query) |

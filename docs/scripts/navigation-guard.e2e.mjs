@@ -20,11 +20,8 @@
 // the guard ignores; back and forward reach Next only after `navigate` has let them through.
 
 import { chromium, firefox, webkit } from "playwright";
+import { base, flag, launch, origin } from "./browser.mjs";
 
-const args = process.argv.slice(2);
-const flag = (n, d) => (args.indexOf(`--${n}`) >= 0 ? args[args.indexOf(`--${n}`) + 1] : d);
-const origin = flag("url", "http://localhost:3100");
-const base = flag("base", "");
 const FORM = `${base}/fixtures/navigation-guard`;
 const ELSEWHERE = `${FORM}/elsewhere`;
 
@@ -192,15 +189,17 @@ const ENGINES = Object.fromEntries(
   Object.entries({ chromium, firefox, webkit }).filter(([name]) => only.includes(name)),
 );
 let failed = 0;
+let ran = 0;
 
 for (const [name, engine] of Object.entries(ENGINES)) {
   let browser;
   try {
-    browser = await engine.launch();
+    browser = await launch(engine);
   } catch {
     console.log(`\n${name}: not installed, skipped`);
     continue;
   }
+  ran += 1;
   const version = browser.version();
   console.log(`\n${name} ${version}`);
   const probe = await browser.newPage();
@@ -227,4 +226,5 @@ for (const [name, engine] of Object.entries(ENGINES)) {
   await browser.close();
 }
 
-process.exit(failed ? 1 : 0);
+if (!ran) console.error("\nNo engine installed: nothing was measured.");
+process.exit(failed || !ran ? 1 : 0);

@@ -123,7 +123,16 @@ export const PromptInputToolbar = (props: React.ComponentProps<typeof InputGroup
   );
 };
 
-const SEND = { icon: <SendIcon />, label: "Send" };
+/** Every word `PromptInputSubmit` draws: its accessible name in each `ChatStatus`. English by default. */
+export interface PromptInputSubmitTranslations {
+  send: string;
+  stop: string;
+  retry: string;
+}
+
+const ENGLISH: PromptInputSubmitTranslations = { send: "Send", stop: "Stop", retry: "Retry" };
+
+const SEND = { icon: <SendIcon />, label: "send" } as const;
 
 const STOP = {
   // The stop block inside the spinner it is stopping. A bare square changes only the glyph, and
@@ -136,18 +145,18 @@ const STOP = {
       <SquareIcon aria-hidden className="size-2.5" />
     </span>
   ),
-  label: "Stop",
-};
+  label: "stop",
+} as const;
 
 /**
  * The AI SDK's `ChatStatus`, drawn. `submitted` (asked, nothing back yet) and `streaming` are one
  * button: both are an answer that can be stopped.
  */
-const SUBMIT: Record<ChatStatus, { icon: React.ReactNode; label: string }> = {
+const SUBMIT: Record<ChatStatus, { icon: React.ReactNode; label: keyof PromptInputSubmitTranslations }> = {
   ready: SEND,
   submitted: STOP,
   streaming: STOP,
-  error: { icon: <RefreshCcwIcon />, label: "Retry" },
+  error: { icon: <RefreshCcwIcon />, label: "retry" },
 };
 
 /**
@@ -181,6 +190,7 @@ const promptInputSubmitVariants = tv({
 export interface PromptInputSubmitProps
   extends React.ComponentProps<typeof InputGroupButton> {
   status?: ChatStatus;
+  translations?: Partial<PromptInputSubmitTranslations>;
 }
 
 export const PromptInputSubmit = (props: PromptInputSubmitProps) => {
@@ -192,15 +202,17 @@ export const PromptInputSubmit = (props: PromptInputSubmitProps) => {
     variant = "default",
     size = children === undefined ? "icon-sm" : "sm",
     slot,
+    translations,
     ...rest
   } = props;
   const { icon, label } = SUBMIT[status];
+  const t = { ...ENGLISH, ...translations };
 
   return (
     <InputGroupButton
       // Only where the button has no visible text of its own: a label over a legible one renames
       // it, which is worse than not having one.
-      aria-label={children === undefined ? label : undefined}
+      aria-label={children === undefined ? t[label] : undefined}
       className={cn(promptInputSubmitVariants({ status }), className)}
       data-status={status}
       size={size}

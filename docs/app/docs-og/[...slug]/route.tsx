@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
-import { generateOGImage } from "fumadocs-ui/og";
+import { ImageResponse } from "next/og";
+import { KanzoLogo } from "@/components/kanzo-logo";
 import { source } from "@/lib/source";
-import { siteName } from "@/lib/metadata";
 
 /**
  * Satori's built-in font has no arrows, so a single `⇄` sends the build out to a font CDN — which
@@ -20,11 +20,35 @@ export async function GET(_request: Request, props: { params: Promise<{ slug: st
   const page = source.getPage(slug.slice(0, -1));
   if (!page) notFound();
 
-  return generateOGImage({
-    title: forCard(page.data.title),
-    description: forCard(page.data.description),
-    site: siteName,
-  });
+  // kanzo.tech's own pairing: the mist ground, the deep green, the wordmark. Flat — a card is read
+  // at thumbnail size in a feed, and a gradient behind the title is the first thing to blur.
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          background: "#e0e7df",
+          color: "#004011",
+          display: "flex",
+          flexDirection: "column",
+          height: "100%",
+          justifyContent: "space-between",
+          padding: 72,
+          width: "100%",
+        }}
+      >
+        <KanzoLogo height={44} width={225} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          <div style={{ fontSize: 84, fontWeight: 600, letterSpacing: "-0.03em", lineHeight: 1 }}>
+            {forCard(page.data.title)}
+          </div>
+          <div style={{ color: "#333333", display: "flex", fontSize: 34, lineHeight: 1.35, maxWidth: 960 }}>
+            {forCard(page.data.description)}
+          </div>
+        </div>
+      </div>
+    ),
+    { height: 630, width: 1200 },
+  );
 }
 
 export function generateStaticParams() {

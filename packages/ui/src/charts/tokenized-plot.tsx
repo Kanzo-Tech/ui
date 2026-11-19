@@ -31,6 +31,10 @@ const RESIZE_SETTLE_MS = 140;
  * `text-foreground` on the host is load-bearing — Observable Plot draws axis ticks and labels
  * with `currentColor`, so inheriting the foreground token is what keeps the axes legible in both
  * light and dark without resolving a third colour.
+ *
+ * `[&>div]:flex-col` puts a vgplot legend (`ChartColorLegend`) under the plot. vgplot lays the svg
+ * and its legends out as a flex row, and the svg — drawn at the full measured width — then shrinks
+ * by the legend's width, scaling its text with it: 120px of swatches drew an 11px axis at 6.5px.
  */
 export function TokenizedPlot({ render, deps, className }: TokenizedPlotProps) {
   const container = useRef<HTMLDivElement>(null);
@@ -88,5 +92,5 @@ export function TokenizedPlot({ render, deps, className }: TokenizedPlotProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tick, width, ...deps]);
 
-  return <div ref={container} aria-hidden data-slot="chart" className={cn("w-full text-foreground", className)} />;
+  return <div ref={container} aria-hidden data-slot="chart" className={cn("w-full text-foreground [&>div]:flex-col", className)} />;
 }

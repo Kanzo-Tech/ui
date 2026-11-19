@@ -17,7 +17,7 @@ describe("rangeOf", () => {
     expect(rangeOf(brushed([200, 100]))).toMatchObject({ from: 10, to: 20 });
   });
 
-  it("has nothing to play without a range, as Cosmograph's has not", () => {
+  it("has nothing to play without a range, so Play never sweeps a range nobody chose", () => {
     expect(rangeOf(brushed(undefined))).toBeNull();
     expect(rangeOf({ scale, mark: { data: null }, value: [100, 200] })).toBeNull();
   });

@@ -26,7 +26,7 @@ export function maskOf(size: number, ids: Float64Array): Uint8Array {
  * it. `null` when no clause is set, which keeps everything. A pick of an id the geometry does not hold
  * is no vertex, and keeps nothing. `/docs/design/crossfilter#formal-semantics` defines it.
  *
- * A link is kept exactly when its two ends are, which is why there is no link mask beside it: the
+ * A link is kept exactly when its two ends are, `keptLinksOf`, so no clause is on links: the
  * timeline's window is a clause on vertex tables, so it arrives inside `filter`.
  */
 export function keptOf(size: number, filter: Uint8Array | null, pick: readonly VertexId[] | null, excludes = false): Uint8Array | null {
@@ -61,36 +61,44 @@ export function idsOf(kept: Uint8Array | null, positions: Float32Array | null = 
 export const greyedOf = ({ selection, matching, total }: Pick<GraphSnapshot, "selection" | "matching" | "total">): boolean =>
   matching !== null && (selection !== null || matching !== total);
 
+/** The links `kept` keeps, by index: those whose two ends it keeps. `null` for no mask, which keeps every link. */
+export function keptLinksOf(links: Geometry["links"], kept: Uint8Array | null): number[] | null {
+  if (kept === null) return null;
+  const ids: number[] = [];
+  for (let e = 0; e < links.length / 2; e++) if (kept[links[2 * e] as number] && kept[links[2 * e + 1] as number]) ids.push(e);
+  return ids;
+}
+
 /**
  * **What the loaded graph holds, counted once per geometry, encoding and filter**: per rank what is
  * drawn, placed and in the graph, and the links drawn, placed and loaded. A vertex is placed when
- * it has a position — always, under a layout; under bound positions, when it has both values.
+ * it has a position — always, under a layout; under bound positions, when it has both values. The
+ * links drawn are `keptLinks` with both ends placed.
  */
-export function drawnOf(geometry: Geometry, encoding: Encoding, mask: Uint8Array | null): Drawn {
+export function drawnOf(geometry: Pick<Geometry, "size" | "positions" | "links">, encoding: Pick<Encoding, "ranks" | "domain">, mask: Uint8Array | null, keptLinks: readonly number[] | null): Drawn {
   const tally = encoding.domain.map(() => 0);
   const placed = encoding.domain.map(() => 0);
   const totals = encoding.domain.map(() => 0);
-  const shown = new Uint8Array(geometry.size);
+  const at = new Uint8Array(geometry.size);
   let vertices = 0;
   for (let id = 0; id < geometry.size; id++) {
     const rank = encoding.ranks[id] as number;
     totals[rank] = (totals[rank] ?? 0) + 1;
     if (!placedAt(geometry.positions, id)) continue;
     placed[rank] = (placed[rank] ?? 0) + 1;
-    shown[id] = 2;
+    at[id] = 1;
     if (mask && !mask[id]) continue;
-    shown[id] = 1;
     vertices++;
     tally[rank] = (tally[rank] ?? 0) + 1;
   }
-  let edges = 0;
-  let placedLinks = 0;
   const { links } = geometry;
-  for (let i = 0; i < links.length; i += 2) {
-    const a = shown[links[i] as number];
-    const b = shown[links[i + 1] as number];
-    if (a && b) placedLinks++;
-    if (a === 1 && b === 1) edges++;
+  const both = (e: number) => at[links[2 * e] as number] === 1 && at[links[2 * e + 1] as number] === 1;
+  let placedLinks = 0;
+  for (let e = 0; e < links.length / 2; e++) if (both(e)) placedLinks++;
+  let edges = placedLinks;
+  if (keptLinks) {
+    edges = 0;
+    for (const e of keptLinks) if (both(e)) edges++;
   }
   return { vertices, edges, domain: encoding.domain, tally, placed, totals, links: links.length / 2, placedLinks };
 }

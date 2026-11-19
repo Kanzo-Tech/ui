@@ -5,7 +5,7 @@ import { MoonIcon, SunIcon } from "lucide-react";
 
 /**
  * The navbar's appearance toggle: Light or Dark, nothing else. It fills fumadocs' `themeSwitch`
- * slot — the navbar on the landing layout, the sidebar's footer row in the docs.
+ * slot on the landing layout, and sits in the docs sidebar's footer.
  *
  * **It flips the side, never the family.** The site wears the corporate `kanzo` pair by default, so
  * the toggle reads as kanzo ↔ kanzo-dark. Another family is chosen from the

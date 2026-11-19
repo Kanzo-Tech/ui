@@ -3,7 +3,6 @@
   "pages": [
     "index",
     "layout",
-    "workspace",
-    "benchmarks"
+    "workspace"
   ]
 }

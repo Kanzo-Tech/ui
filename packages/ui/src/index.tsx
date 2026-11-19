@@ -170,6 +170,11 @@ export type { AsyncCollection, AsyncCollectionOptions } from "./lib/use-async-co
 export { useDebouncedCommit } from "./lib/use-debounced-commit.js";
 export type { DebouncedCommit } from "./lib/use-debounced-commit.js";
 
+// The one keyboard listener a part registers on the window, so a sibling package's key agrees with
+// ours on what a key is and on the rule that a key pressed while typing is the field's.
+export { useHotkey } from "./lib/use-hotkey.js";
+export type { Hotkey, HotkeyOptions } from "./lib/use-hotkey.js";
+
 // Ark collection helpers — required by consumers to build the `collection` that
 // Select / Combobox demand (Ark's own list-collection utilities, surfaced here so
 // downstreams don't need a direct @ark-ui/react dependency).
@@ -236,7 +241,6 @@ export * from "./simples/native-select.js";
 export * from "./simples/number-input.js";
 export * from "./simples/pagination.js";
 export * from "./simples/password-input.js";
-export * from "./simples/pin-input.js";
 export * from "./simples/popover.js";
 export * from "./simples/progress.js";
 export * from "./simples/prose.js";

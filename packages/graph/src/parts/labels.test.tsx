@@ -2,9 +2,10 @@ import { act, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { attach, grow, settle } from "../../test/corpus";
 import { readTitles } from "../core/source";
-import { GraphRoot, useGraphContext } from "../react/graph-root";
+import { GraphRoot } from "./graph-root";
+import { useGraphContext } from "../react/use-graph-context";
 import { internalsOf } from "../react/use-graph";
-import type { LabelLevel } from "../render/graph-looks";
+import type { LabelLevel } from "../core/types";
 import { GraphCanvas } from "./graph-canvas";
 import { cellsIn } from "./labels";
 
@@ -50,19 +51,11 @@ vi.mock("../react/use-graph", async (actual) => {
 const mounted = () => document.querySelectorAll("[data-slot=graph-canvas-label]").length;
 
 beforeEach(() => {
-  vi.stubGlobal(
-    "ResizeObserver",
-    class {
-      observe() {}
-      disconnect() {}
-    },
-  );
   vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(WIDTH);
   vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(HEIGHT);
   vi.mocked(readTitles).mockClear();
 });
 afterEach(() => {
-  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 

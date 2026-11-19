@@ -83,13 +83,13 @@ export const badgeVariants = tv({
     },
     size: {
       // Micro-badge: the "Coming soon" / "Experimental" marker that sits next to a
-      // control rather than standing on its own. Uses the smallest type token.
+      // control rather than standing on its own. 11px, the floor for text anywhere in the library.
       xs: [
         "h-4 min-w-4",
         "px-1",
         "gap-0.5",
         "rounded-selector",
-        "text-[length:var(--kanzo-font-size-xs)]",
+        "text-[length:var(--kanzo-font-size-small)]",
         "[&_svg]:size-2.5",
       ],
       sm: ["h-5 min-w-5", "px-1"],

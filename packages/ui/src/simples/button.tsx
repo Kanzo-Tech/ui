@@ -5,6 +5,9 @@ import { cn } from "../lib/cn";
 import { controlHeight, controlSizes } from "../lib/control-size";
 import { Spinner } from "./spinner";
 
+/** The one size the shared control scale does not have, so it is the button's own. */
+const xl = "[--size:calc(var(--size-field)*10)]";
+
 /**
  * The whole control: the fill, the ink, the edge, the lift, both washes and the height, all on the
  * `base` and all written once in terms of three locals a variant assigns.
@@ -148,18 +151,13 @@ export const buttonVariants = tv({
       sm: [controlSizes.sm, "px-2.5", "gap-1.5", "[&_svg:not([class*='size-'])]:size-3.5"],
       md: [controlSizes.md, "px-3", "py-2"],
       lg: [controlSizes.lg, "px-3.5"],
-      xl: ["[--size:calc(var(--size-field)*10)]", "text-base", "px-4"],
+      xl: [xl, "text-base", "px-4"],
       // Square, and the width is stated rather than left to `aspect-ratio`: a caller who writes
       // `w-fit` on top of an aspect ratio gets the icon's own width and a control twice as tall.
       "icon-sm": [controlSizes.sm, "w-(--size)", "px-0"],
       "icon-md": [controlSizes.md, "w-(--size)", "px-0"],
       "icon-lg": [controlSizes.lg, "w-(--size)", "px-0"],
-      "icon-xl": [
-        "[--size:calc(var(--size-field)*10)]",
-        "w-(--size)",
-        "px-0",
-        "[&_svg:not([class*='size-'])]:size-5",
-      ],
+      "icon-xl": [xl, "w-(--size)", "px-0", "[&_svg:not([class*='size-'])]:size-5"],
     },
     clickEffect: {
       true: "active:not-aria-[haspopup]:scale-[0.98]",

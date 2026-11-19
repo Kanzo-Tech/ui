@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { DataTableContent } from "./data-table-content.js";
-import { DataTablePagination } from "./data-table-pagination.js";
+import { DataTablePagination, type DataTablePaginationProps } from "./data-table-pagination.js";
 import { DataTableRoot } from "./data-table-root.js";
 import { selectColumn } from "./select-column.js";
 import { useDataTable } from "./use-data-table.js";
@@ -20,6 +20,7 @@ function Harness(props: {
   data?: Item[];
   pageSize?: number;
   pageSizes?: number[];
+  translations?: DataTablePaginationProps["translations"];
 }) {
   const table = useDataTable({
     columns: props.columns ?? plain,
@@ -30,7 +31,7 @@ function Harness(props: {
   return (
     <DataTableRoot table={table}>
       <DataTableContent />
-      <DataTablePagination pageSizes={props.pageSizes} />
+      <DataTablePagination pageSizes={props.pageSizes} translations={props.translations} />
     </DataTableRoot>
   );
 }
@@ -76,5 +77,35 @@ describe("DataTablePagination", () => {
     await user.click(checkbox);
 
     expect(screen.getByText("1 of 3 row(s) selected.")).toBeTruthy();
+  });
+
+  it("draws every word from its translations, Pagination's own among them", async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        columns={[selectColumn<Item>(), ...plain]}
+        data={Array.from({ length: 60 }, (_, i) => ({ name: `Row ${i}` }))}
+        pageSize={5}
+        pageSizes={[5, 10]}
+        translations={{
+          selected: (count, total) => `${count} de ${total} seleccionadas.`,
+          rowsPerPage: "Filas por página",
+          ellipsisLabel: "Más páginas",
+          rootLabel: "Paginación",
+          nextTriggerLabel: "Página siguiente",
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("combobox", { name: "Filas por página" })).toBeTruthy();
+    expect(screen.getByRole("navigation", { name: "Paginación" })).toBeTruthy();
+    expect(screen.getByText("Más páginas")).toBeTruthy();
+    // A word left out keeps its English.
+    expect(screen.getByRole("button", { name: "Previous page" })).toBeTruthy();
+
+    await user.click(screen.getAllByRole("checkbox", { name: "Select row 1" })[0]!);
+    expect(screen.getByText("1 de 60 seleccionadas.")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Página siguiente" }));
+    expect(screen.getByText("Row 5")).toBeTruthy();
   });
 });

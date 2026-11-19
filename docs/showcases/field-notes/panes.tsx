@@ -2,6 +2,7 @@
 
 import {
   Badge,
+  Button,
   cn,
   HoverCard,
   HoverCardContent,
@@ -11,10 +12,12 @@ import {
   ResizableResizeTrigger,
   ScrollArea,
   ShellAside,
+  Show,
   Status,
   ToggleGroup,
   ToggleGroupItem,
 } from "@kanzo-tech/ui";
+import { XIcon } from "lucide-react";
 import { Fragment, type ComponentType, type ReactNode } from "react";
 
 export interface RailPanel {
@@ -65,12 +68,15 @@ export function PaneHeader({
   actions,
   detail,
   icon: Icon,
+  onClose,
   title,
   tone,
 }: {
   actions?: ReactNode;
   detail?: string;
   icon: ComponentType<{ "aria-hidden"?: boolean; className?: string }>;
+  /** A pane drawn over the ledger has to say how to get back to it. */
+  onClose?: () => void;
   title: string;
   tone?: "destructive" | "info" | "success" | "warning";
 }) {
@@ -87,6 +93,17 @@ export function PaneHeader({
           </span>
         ) : null}
       </span>
+      <Show when={Boolean(onClose)}>
+        <Button
+          aria-label={`Close ${title.toLowerCase()}`}
+          className="-me-2"
+          onClick={onClose}
+          size="icon-sm"
+          variant="ghost"
+        >
+          <XIcon />
+        </Button>
+      </Show>
     </div>
   );
 }

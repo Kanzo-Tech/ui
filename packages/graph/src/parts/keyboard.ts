@@ -3,15 +3,15 @@
 import { useMemo, useRef, useState } from "react";
 import { nameOf } from "../core/categories";
 import type { VertexId } from "../core/types";
-import { useGraphContext } from "../react/graph-root";
+import { useGraphContext } from "../react/use-graph-context";
 import { internalsOf } from "../react/use-graph";
 import { useGraphSnapshot, useGraphState } from "../react/use-graph-state";
 import { modified } from "./gesture";
 import { useTitles } from "./labels";
 
-/** How far Shift + an arrow pans, in screen pixels, and how much `+` and `-` zoom. */
+/** How far Shift + an arrow pans, in screen pixels, and how much `+` and `-` zoom, as the toolbar's buttons do. */
 const PAN = 80;
-const ZOOM = 1.4;
+export const ZOOM = 1.4;
 
 const ARROWS: Record<string, readonly [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
 

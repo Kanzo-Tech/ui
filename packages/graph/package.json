@@ -45,6 +45,7 @@
   },
   "dependencies": {
     "@kanzo-tech/kernel": "workspace:^",
+    "@kanzo-tech/theme": "workspace:^",
     "tailwind-variants": "^3.2.2"
   },
   "devDependencies": {
@@ -54,7 +55,6 @@
     "@kanzo-tech/mosaic": "workspace:*",
     "@kanzo-tech/relations": "workspace:*",
     "@kanzo-tech/testing": "workspace:*",
-    "@kanzo-tech/theme": "workspace:^",
     "@tanstack/react-query": "^5.104.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
@@ -82,6 +82,6 @@
   "//gauges": "One gauge per published entry, and one per tree-shaken import a consumer meets; `scripts/gauges.mjs` (through `.size-limit.mjs`) is what each measures, and every limit's reason — each raise, dated, with its before and after — is a row on /docs/design, *A gauge per entry, and its raises written here*.",
   "gauges": {
     ".": "28.5 kB",
-    "./section": "1.6 kB"
+    "./section": "1.8 kB"
   }
 }

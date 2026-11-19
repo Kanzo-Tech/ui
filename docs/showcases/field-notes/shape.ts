@@ -8,8 +8,7 @@
 //
 // Nothing here is invented vocabulary. `sh:name`, `sh:description` and `sh:order` are SHACL's
 // NON-VALIDATING property shape characteristics, in the Recommendation precisely so a tool can
-// render a form or a table from a shape; `metadata-form`'s own HealthDCAT-AP shapes use the same
-// three the same way. The one thing this shape does not use is SHACL-UI's `shui:editor`, because
+// render a form or a table from a shape. The one thing this shape does not use is SHACL-UI's `shui:editor`, because
 // the control it would name is already implied by `sh:datatype` and `sh:in`.
 //
 // CASE. `sh:name` is sentence case, not the spaced capitals the hall's press puts on the paper.
@@ -150,7 +149,7 @@ gs:SightingSlipShape a sh:NodeShape ;
   ] .
 `;
 
-/** What the strip offers, the way `metadata-form` offers its example shapes. */
+/** The example shapes the strip offers. */
 export const SHAPES = [
   { id: "slip", label: "Sighting slip — seven columns", source: SLIP_SHAPE },
   { id: "minimal", label: "Minimal — three columns", source: MINIMAL_SHAPE },

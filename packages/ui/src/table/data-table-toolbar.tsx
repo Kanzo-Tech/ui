@@ -116,10 +116,18 @@ export const DataTableFacetFilter = (props: DataTableFacetFilterProps) => {
   );
 };
 
+export interface DataTableViewOptionsTranslations {
+  /** The trigger's text. */
+  label: string;
+  /** The menu's group heading. */
+  heading: string;
+}
+
+const ENGLISH: DataTableViewOptionsTranslations = { label: "View", heading: "Toggle columns" };
+
 export interface DataTableViewOptionsProps
   extends Omit<React.ComponentProps<typeof Button>, "children"> {
-  /** Trigger label. Default "View". */
-  label?: React.ReactNode;
+  translations?: Partial<DataTableViewOptionsTranslations>;
 }
 
 // `meta.label` first, because a column with a `sortableHeader` has a component for a `header` and
@@ -129,7 +137,8 @@ const columnLabel = (column: Column<unknown, unknown>) =>
   (typeof column.columnDef.header === "string" ? column.columnDef.header : column.id);
 
 export const DataTableViewOptions = (props: DataTableViewOptionsProps) => {
-  const { label = "View", slot, ...rest } = props;
+  const { translations, slot, ...rest } = props;
+  const t = { ...ENGLISH, ...translations };
   const table = useDataTableContext();
   const columns = table.getAllLeafColumns().filter((column) => column.getCanHide());
 
@@ -138,12 +147,12 @@ export const DataTableViewOptions = (props: DataTableViewOptionsProps) => {
       <MenuTrigger asChild>
         <Button size="sm" variant="outline" {...rest} slot={slot ?? "data-table-view-options"}>
           <Settings2Icon />
-          {label}
+          {t.label}
         </Button>
       </MenuTrigger>
 
       <MenuContent>
-        <MenuGroup heading="Toggle columns">
+        <MenuGroup heading={t.heading}>
           {columns.map((column) => (
             <MenuCheckboxItem
               checked={column.getIsVisible()}

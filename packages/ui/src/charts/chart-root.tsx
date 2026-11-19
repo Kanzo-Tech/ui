@@ -8,6 +8,7 @@ import type React from "react";
 import { ark } from "@ark-ui/react/factory";
 import * as vg from "@uwdata/vgplot";
 import { cn } from "../lib/cn.js";
+import { useLocale } from "../simples/locale.js";
 import { Show } from "../simples/show.js";
 import { chartColorScale, chartSeriesColor, colorTokenName, isColorToken, type ChartConfig } from "./chart-config.js";
 import {
@@ -245,7 +246,7 @@ export interface ChartRootProps
    * Keep the array referentially stable — a new array rebuilds the plot.
    */
   attributes?: readonly unknown[];
-  /** BCP-47 tag for `formatNumber`. Defaults to the runtime locale. */
+  /** BCP-47 tag for `formatNumber`. Defaults to the page's, `LocaleProvider`'s. */
   locale?: string;
   /** Default options for `formatNumber` — the chart's number vocabulary in one place. */
   numberFormat?: Intl.NumberFormatOptions;
@@ -290,7 +291,7 @@ export function ChartRoot(props: ChartRootProps) {
     facetGrid,
     facetLabel,
     attributes,
-    locale,
+    locale: localeProp,
     numberFormat,
     children,
     className,
@@ -301,6 +302,8 @@ export function ChartRoot(props: ChartRootProps) {
   } = props;
   const { engine, selection, onFailure } = useMosaic();
   const read = useRelation(relation);
+  const pageLocale = useLocale().locale;
+  const locale = localeProp ?? pageLocale;
   const { table } = read;
   const reading = read.relation;
   const [failure, setFailure] = useState<unknown>(undefined);

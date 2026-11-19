@@ -6,7 +6,9 @@
 
 import React from "react";
 
-const MOBILE_BREAKPOINT = 768;
+// Tailwind's `md`, read off the page so a `md:` class and this hook cannot disagree. Tailwind emits
+// the variable because this file names it: `tailwind.css` scans `dist/`.
+const BREAKPOINT = "--breakpoint-md";
 
 export const useIsMobile = () => {
   const [isMobile, setIsMobile] = React.useState<boolean | undefined>(
@@ -14,15 +16,12 @@ export const useIsMobile = () => {
   );
 
   React.useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
-
-    const onChange = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-    };
+    const md = getComputedStyle(document.documentElement).getPropertyValue(BREAKPOINT).trim();
+    const mql = window.matchMedia(`(width < ${md})`);
+    const onChange = () => setIsMobile(mql.matches);
 
     mql.addEventListener("change", onChange);
-
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    onChange();
 
     return () => mql.removeEventListener("change", onChange);
   }, []);

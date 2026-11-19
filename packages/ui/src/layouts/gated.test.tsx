@@ -54,8 +54,20 @@ describe("a gated region is announced by its reason, and nothing in it is reacha
     const float = container.querySelector("[data-slot=float]")!;
 
     expect(float.getAttribute("data-placement")).toBe("bottom-start");
-    expect(float.className).toContain("data-[placement^=bottom]:-bottom-2");
-    expect(float.className).toContain("data-[placement$=start]:-start-2");
+    expect(float.className).toContain("data-[placement^=bottom]:-bottom-2.5");
+    expect(float.className).toContain("data-[placement$=start]:-start-2.5");
+  });
+
+  // Fading the content took muted text to about 3.2:1; the lock and the words mark the gate instead.
+  it("leaves the content at full contrast and marks the gate with a lock beside the words", () => {
+    const root = gated();
+    const content = root.querySelector("[data-slot=gated-content]")!;
+    const badge = root.querySelector("[data-slot=gated-badge]")!;
+
+    expect(content.className).not.toMatch(/opacity/);
+    expect(badge.getAttribute("data-size")).toBe("sm");
+    expect(badge.querySelector("svg.lucide-lock")?.getAttribute("aria-hidden")).toBe("true");
+    expect(badge.textContent).toBe("Coming soon");
   });
 
   it("renames a part through slot, and a spread data-slot cannot erase it", () => {

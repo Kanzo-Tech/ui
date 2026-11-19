@@ -58,6 +58,9 @@ what deep-linking into a table needs.
 They are seeds, not controls: changing an `initial*` value later does nothing. To drive a slice from
 outside, pass TanStack's `state` through instead — it is merged over the hook's own.
 
+A change of filter, global filter or sort returns to the first page; `autoResetPageIndex: false`
+keeps the page instead, and under `manualPagination` that is the default. A new `data` keeps the page.
+
 ## The instance is a TanStack table
 
 Read state with `getState()`, drive it with `setSorting` / `setPageIndex` / `resetColumnFilters`,

@@ -20,7 +20,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "../simples/tooltip";
-import { useHotkey } from "../lib/use-hotkey.js";
+import { type Hotkey, useHotkey } from "../lib/use-hotkey.js";
 import { useIsMobile } from "../lib/use-is-mobile.js";
 import { SIDEBAR_COOKIE_NAME } from "./sidebar-cookie.js";
 
@@ -28,7 +28,6 @@ const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 const SIDEBAR_WIDTH = "16rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
-const SIDEBAR_KEYBOARD_SHORTCUT = "mod+b";
 
 interface SidebarContextProps {
   isMobile: boolean;
@@ -55,6 +54,11 @@ const SidebarIntentContext = React.createContext<
 >(null);
 SidebarIntentContext.displayName = "SidebarIntentContext";
 
+// The mobile sheet portals out of the wrapper, so its width cannot inherit the variable; the
+// provider hands it over instead.
+const SidebarMobileWidthContext = React.createContext<string>(SIDEBAR_WIDTH_MOBILE);
+SidebarMobileWidthContext.displayName = "SidebarMobileWidthContext";
+
 interface SidebarProviderProps extends React.ComponentProps<"div"> {
   /**
    * The person's preference on first render — on a server, `parseSidebarCookie` of the
@@ -63,6 +67,11 @@ interface SidebarProviderProps extends React.ComponentProps<"div"> {
    * @default true
    */
   defaultOpen?: boolean;
+  /**
+   * Key that toggles the sidebar — `"mod+b"` for ⌘B / Ctrl+B. **Opt-in — there is no default**, as
+   * for `CommandDialog` and `PreferencesRoot`: a key pressed while typing in a field is the field's.
+   */
+  hotkey?: Hotkey;
   /**
    * Called when the person's preference changes. A toggle while a `SidebarIntent` is mounted is
    * not one, and does not call it.
@@ -78,6 +87,7 @@ interface SidebarProviderProps extends React.ComponentProps<"div"> {
 export const SidebarProvider = (props: SidebarProviderProps) => {
   const {
     defaultOpen = true,
+    hotkey,
     open: openProp,
     onOpenChange: setOpenProp,
     className,
@@ -139,7 +149,7 @@ export const SidebarProvider = (props: SidebarProviderProps) => {
     }
   }, [isMobile, setOpen]);
 
-  useHotkey(SIDEBAR_KEYBOARD_SHORTCUT, toggleSidebar);
+  useHotkey(hotkey, toggleSidebar);
 
   const state = open ? "expanded" : "collapsed";
 
@@ -156,27 +166,30 @@ export const SidebarProvider = (props: SidebarProviderProps) => {
     [state, open, setOpen, isMobile, openMobile, toggleSidebar]
   );
 
+  const widths = {
+    "--sidebar-width": SIDEBAR_WIDTH,
+    "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
+    "--sidebar-width-mobile": SIDEBAR_WIDTH_MOBILE,
+    ...style,
+  } as React.CSSProperties & Record<"--sidebar-width-mobile", string>;
+
   return (
     <SidebarContext.Provider value={contextValue}>
       <SidebarIntentContext.Provider value={register}>
-        <ark.div
-          className={cn(
-            "group/sidebar-wrapper",
-            "flex",
-            "min-h-svh w-full",
-            "has-data-[variant=inset]:bg-sidebar",
-            className
-          )}
-          style={
-            {
-              "--sidebar-width": SIDEBAR_WIDTH,
-              "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
-              ...style,
-            } as React.CSSProperties
-          }
-          {...rest}
-          data-slot={slot ?? "sidebar-wrapper"}
-        />
+        <SidebarMobileWidthContext.Provider value={widths["--sidebar-width-mobile"]}>
+          <ark.div
+            className={cn(
+              "group/sidebar-wrapper",
+              "flex",
+              "min-h-svh w-full",
+              "has-data-[variant=inset]:bg-sidebar",
+              className
+            )}
+            style={widths}
+            {...rest}
+            data-slot={slot ?? "sidebar-wrapper"}
+          />
+        </SidebarMobileWidthContext.Provider>
       </SidebarIntentContext.Provider>
     </SidebarContext.Provider>
   );
@@ -202,6 +215,7 @@ export const Sidebar = (props: SidebarProps) => {
   } = props;
 
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
+  const mobileWidth = React.useContext(SidebarMobileWidthContext);
 
   if (collapsible === "none") {
     return (
@@ -240,11 +254,7 @@ export const Sidebar = (props: SidebarProps) => {
           data-sidebar="sidebar"
           slot={slot ?? "sidebar"}
           placement={placement === "left" ? "left" : "right"}
-          style={
-            {
-              "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
-            } as React.CSSProperties
-          }
+          style={{ "--sidebar-width": mobileWidth } as React.CSSProperties}
         >
           <SheetHeader
             className="sr-only"

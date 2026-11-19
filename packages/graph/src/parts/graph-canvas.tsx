@@ -1,14 +1,14 @@
 "use client";
 
 import { ark } from "@ark-ui/react/factory";
-import { categoricalCapacity, cn, Show, useThemeTick } from "@kanzo-tech/ui";
+import { categoricalCapacity, cn, Show, useLocale, useThemeTick } from "@kanzo-tech/ui";
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { tv } from "tailwind-variants";
 import { nameOf } from "../core/categories";
 import type { Encoding } from "../core/load";
 import type { GraphOptions } from "../core/state";
 import type { VertexId } from "../core/types";
-import { useGraphContext } from "../react/graph-root";
+import { useGraphContext } from "../react/use-graph-context";
 import { internalsOf } from "../react/use-graph";
 import { useGraphSnapshot, useGraphState } from "../react/use-graph-state";
 import { resolveLook } from "../render/graph-looks";
@@ -53,8 +53,6 @@ export interface GraphCanvasProps extends React.ComponentProps<typeof ark.div> {
   translations?: Partial<GraphCanvasTranslations>;
 }
 
-const WASH = "color-mix(in oklab, var(--primary) 17%, transparent)";
-
 /**
  * Where an overlay the renderer places every frame starts: the canvas's top-left corner, written as
  * a style beside the `transform` `overlays.ts` writes, because both are cosmos.gl's screen
@@ -69,12 +67,12 @@ const graphCanvas = tv({
     surface: "relative size-full",
     labels: "pointer-events-none absolute inset-0 overflow-hidden",
     label: [
-      "absolute whitespace-nowrap font-medium text-[10px] text-foreground leading-none opacity-0 transition-opacity",
+      "absolute whitespace-nowrap font-medium text-[length:var(--kanzo-font-size-small)] text-foreground leading-none opacity-0 transition-opacity",
       "[text-shadow:0_0_3px_var(--background),0_0_6px_var(--background)]",
     ],
     gesture: "absolute inset-0 cursor-crosshair",
     drawing: "pointer-events-none size-full",
-    chip: "pointer-events-none absolute rounded-sm bg-primary px-1.5 py-0.5 font-medium text-[10px] text-primary-foreground tabular-nums",
+    chip: "pointer-events-none absolute rounded-sm bg-primary px-1.5 py-0.5 font-medium text-[length:var(--kanzo-font-size-small)] text-primary-foreground tabular-nums",
     waiting: "pointer-events-none absolute inset-0 grid place-items-center text-muted-foreground text-xs",
     card: "absolute flex w-max max-w-60 items-center gap-2 rounded-lg border bg-popover px-2.5 py-2 opacity-0 shadow-lg",
     cardGlyph: "size-2.5 shrink-0",
@@ -120,6 +118,8 @@ export function GraphCanvas({ children, className, slot, translations, ...rest }
   const themeTick = useThemeTick();
   const overlays = useOverlays({ getGraph, theme: themeTick });
   const summaryId = `${id}-summary`;
+  const { locale } = useLocale();
+  const figure = useMemo(() => new Intl.NumberFormat(locale), [locale]);
   const drawn = useGraphState((s) => s.drawn);
   const matching = useGraphState((s) => s.matching);
   const { heard, onKeyDown } = useKeyboard(t.focused);
@@ -175,6 +175,7 @@ export function GraphCanvas({ children, className, slot, translations, ...rest }
   const gesture = useGesture({
     getGraph,
     getSelection: useCallback(() => api.getState().selection, [api]),
+    getFiltered: useCallback(() => internalsOf(api).store.getSnapshot().filtered, [api]),
     commit: (vertices, source, label, excludes) => internalsOf(api).store.select(vertices ? [...vertices] : null, source, label, excludes),
     setTool: api.setTool,
     tool,
@@ -248,7 +249,7 @@ export function GraphCanvas({ children, className, slot, translations, ...rest }
                   height={Math.abs(drag.to[1] - drag.from[1])}
                   strokeDasharray="4 3"
                   strokeWidth={1}
-                  style={{ fill: WASH }}
+                  style={{ fill: "var(--selection)" }}
                   width={Math.abs(drag.to[0] - drag.from[0])}
                   x={Math.min(drag.from[0], drag.to[0])}
                   y={Math.min(drag.from[1], drag.to[1])}
@@ -259,7 +260,7 @@ export function GraphCanvas({ children, className, slot, translations, ...rest }
                     className="stroke-primary"
                     points={drag.path.map(([x, y]) => `${x},${y}`).join(" ")}
                     strokeWidth={1}
-                    style={{ fill: WASH }}
+                    style={{ fill: "var(--selection)" }}
                   />
                 )
               )}
@@ -278,7 +279,7 @@ export function GraphCanvas({ children, className, slot, translations, ...rest }
         </p>
       </Show>
       <p className="sr-only" id={summaryId}>
-        {drawn ? t.summary(drawn.vertices.toLocaleString(), drawn.edges.toLocaleString(), matching === null ? null : matching.toLocaleString()) : ""}
+        {drawn ? t.summary(figure.format(drawn.vertices), figure.format(drawn.edges), matching === null ? null : figure.format(matching)) : ""}
       </p>
       <div aria-live="polite" className="sr-only" role="status">
         {heard}

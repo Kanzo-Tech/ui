@@ -3,13 +3,23 @@
 import type { ColumnDef, Row } from "@tanstack/react-table";
 import { Checkbox } from "../simples/checkbox.js";
 
+/** The checkboxes' accessible names — the column has no header text to borrow. */
+export interface SelectColumnTranslations<TData> {
+  /** The header checkbox. */
+  headerLabel: string;
+  /** A row's checkbox. Name it by the row's data where it has a name. */
+  rowLabel: (row: Row<TData>) => string;
+}
+
+const ENGLISH: SelectColumnTranslations<unknown> = {
+  headerLabel: "Select all rows on this page",
+  rowLabel: (row) => `Select row ${row.index + 1}`,
+};
+
 export interface SelectColumnOptions<TData> {
-  /** aria-label for the header checkbox. */
-  headerLabel?: string;
   /** Column id. Default "select". */
   id?: string;
-  /** aria-label for a row checkbox. Default `Select row <n>`. */
-  rowLabel?: (row: Row<TData>) => string;
+  translations?: Partial<SelectColumnTranslations<TData>>;
 }
 
 /**
@@ -20,11 +30,8 @@ export interface SelectColumnOptions<TData> {
 export function selectColumn<TData>(
   options: SelectColumnOptions<TData> = {},
 ): ColumnDef<TData, unknown> {
-  const {
-    headerLabel = "Select all rows on this page",
-    id = "select",
-    rowLabel = (row: Row<TData>) => `Select row ${row.index + 1}`,
-  } = options;
+  const { id = "select", translations } = options;
+  const { headerLabel, rowLabel }: SelectColumnTranslations<TData> = { ...ENGLISH, ...translations };
 
   return {
     cell: ({ row }) => (

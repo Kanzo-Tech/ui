@@ -1,15 +1,22 @@
 import { ExternalLinkIcon } from "lucide-react";
-import { Badge } from "@kanzo-tech/ui";
+import { cn } from "@kanzo-tech/ui";
 
-export function UpstreamLinks({ links }: { links?: { doc?: string } }) {
+/** The upstream reference, drawn as one more of fumadocs' page actions beside it. */
+export function UpstreamLinks({ className, links }: { className?: string; links?: { doc?: string } }) {
   if (!links?.doc) return null;
 
   return (
-    <Badge asChild pill size="sm" variant="outline">
-      <a href={links.doc} rel="noreferrer" target="_blank">
-        Ark UI
-        <ExternalLinkIcon />
-      </a>
-    </Badge>
+    <a
+      className={cn(
+        "inline-flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors [&_svg]:size-3.5",
+        className,
+      )}
+      href={links.doc}
+      rel="noreferrer"
+      target="_blank"
+    >
+      Ark UI
+      <ExternalLinkIcon />
+    </a>
   );
 }

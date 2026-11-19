@@ -86,7 +86,7 @@ const RECORDED: RecordedRow[] = [
       observer: { value: "Piet Marrow", confidence: 0.84 },
       verdict: { value: "confirmed", confidence: 0.86 },
       bounty: { value: "15", confidence: 0.99 },
-      leagues: { value: "3,2", confidence: 0.97 },
+      leagues: { value: "3.2", confidence: 0.97 },
     },
   },
   {
@@ -103,7 +103,7 @@ const RECORDED: RecordedRow[] = [
       observer: { value: "", confidence: 0, note: "Under the mug." },
       verdict: { value: "", confidence: 0, note: "Under the mug." },
       bounty: { value: "12", confidence: 0.99 },
-      leagues: { value: "2,8", confidence: 0.97 },
+      leagues: { value: "2.8", confidence: 0.97 },
     },
   },
   {
@@ -116,7 +116,7 @@ const RECORDED: RecordedRow[] = [
       observer: { value: "Hesper Vane", confidence: 0.85 },
       verdict: { value: "", confidence: 0, note: "The rule is blank: nobody settled this slip." },
       bounty: { value: "8", confidence: 0.99 },
-      leagues: { value: "0,8", confidence: 0.97 },
+      leagues: { value: "0.8", confidence: 0.97 },
     },
   },
   {
@@ -129,7 +129,7 @@ const RECORDED: RecordedRow[] = [
       observer: { value: "Piet Marrow", confidence: 0.87 },
       verdict: { value: "confirmed", confidence: 0.88 },
       bounty: { value: "16", confidence: 0.99 },
-      leagues: { value: "3,4", confidence: 0.97 },
+      leagues: { value: "3.4", confidence: 0.97 },
     },
   },
   {
@@ -150,7 +150,7 @@ const RECORDED: RecordedRow[] = [
         confidence: 0,
         note: "The slip runs off the bottom of the frame. The paper reads 21 g.",
       },
-      leagues: { value: "6,0", confidence: 0.96 },
+      leagues: { value: "6.0", confidence: 0.96 },
     },
   },
 ];
@@ -167,32 +167,28 @@ const wait = (ms: number, signal: AbortSignal) =>
     });
   });
 
+/** The recorded run as events, in the order they reach the screen: the row first, then its cells
+ *  down the slip. Synchronous, so the first visit can open on the result without a replay. */
+export function recordedEvents(shot: string): ExtractEvent[] {
+  return RECORDED.flatMap((row) => [
+    { kind: "row" as const, rowId: row.rowId, shot, crop: row.crop },
+    ...CELL_ORDER.flatMap((key) => {
+      const cell = row.cells[key];
+      return cell ? [{ kind: "cell" as const, rowId: row.rowId, key, ...cell }] : [];
+    }),
+  ]);
+}
+
 /**
  * The recorded run, replayed at the pace a model streams at so the table fills in live rather
  * than appearing whole. Every await is cancellable: a stop mid-run leaves the rows already on
  * screen exactly as they were.
  */
 export const recorded: Extractor = async function* (shots, signal) {
-  const shot = shots[0]?.id ?? SAMPLE.id;
-  for (const row of RECORDED) {
+  for (const event of recordedEvents(shots[0]?.id ?? SAMPLE.id)) {
+    await wait(event.kind === "row" ? 260 : 70, signal);
     if (signal.aborted) return;
-    await wait(260, signal);
-    if (signal.aborted) return;
-    yield { kind: "row", rowId: row.rowId, shot, crop: row.crop };
-    for (const key of CELL_ORDER) {
-      const cell = row.cells[key];
-      if (!cell) continue;
-      await wait(70, signal);
-      if (signal.aborted) return;
-      yield {
-        kind: "cell",
-        rowId: row.rowId,
-        key,
-        value: cell.value,
-        confidence: cell.confidence,
-        note: cell.note,
-      };
-    }
+    yield event;
   }
 };
 

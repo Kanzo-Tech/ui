@@ -4,12 +4,12 @@ import { median, quantile } from "@kanzo-tech/mosaic";
 import {
   ChartAxisX,
   ChartAxisY,
-  ChartBarY,
+  ChartBarX,
   ChartHighlight,
   ChartRoot,
-  ChartRuleX,
-  ChartTickY,
-  ChartToggleX,
+  ChartRuleY,
+  ChartTickX,
+  ChartToggleY,
 } from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
@@ -26,21 +26,21 @@ export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
-        <ChartRoot height={260} relation="sightings">
-          <ChartRuleX stroke="var(--muted-foreground)" x="region" y1={p05} y2={p95} />
-          <ChartBarY
+        <ChartRoot height={260} margin={{ top: 4, right: 16, bottom: 32, left: 88 }} relation="sightings">
+          <ChartRuleY stroke="var(--muted-foreground)" x1={p05} x2={p95} y="region" />
+          <ChartBarX
             fill="var(--chart-1)"
             fillOpacity={0.55}
             stroke="var(--chart-1)"
-            x="region"
-            y1={p25}
-            y2={p75}
+            x1={p25}
+            x2={p75}
+            y="region"
           />
-          <ChartTickY stroke="var(--chart-1)" strokeWidth={2} x="region" y={p50} />
-          <ChartToggleX />
+          <ChartTickX stroke="var(--chart-1)" strokeWidth={2} x={p50} y="region" />
+          <ChartToggleY />
           <ChartHighlight />
-          <ChartAxisX label={null} />
-          <ChartAxisY grid label="bounty (gold)" />
+          <ChartAxisX grid label="bounty (gold)" />
+          <ChartAxisY label={null} />
         </ChartRoot>
       </div>
     </MosaicDemo>

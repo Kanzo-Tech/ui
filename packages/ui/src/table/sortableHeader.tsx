@@ -11,7 +11,7 @@ import { tv } from "tailwind-variants";
 import { cn } from "../lib/cn.js";
 
 const sortableHeaderVariants = tv({
-  base: "inline-flex h-7 items-center gap-1 rounded-md px-1 font-medium text-muted-foreground transition-colors hover:text-foreground",
+  base: "group/sortable-header inline-flex h-7 items-center gap-1 rounded-md px-1 font-medium text-muted-foreground transition-colors hover:text-foreground",
   variants: {
     align: {
       start: "-ms-1",
@@ -37,12 +37,20 @@ function SortGlyph({ dir }: { dir: false | "asc" | "desc" }) {
   const cls = "size-3.5 shrink-0";
   if (dir === "asc") return <ChevronUpIcon className={cn(cls, "text-foreground")} />;
   if (dir === "desc") return <ChevronDownIcon className={cn(cls, "text-foreground")} />;
-  return <ChevronsUpDownIcon className={cn(cls, "opacity-50")} />;
+  return (
+    <ChevronsUpDownIcon
+      className={cn(
+        cls,
+        "opacity-0 transition-opacity group-hover/sortable-header:opacity-50 group-focus-visible/sortable-header:opacity-50",
+      )}
+    />
+  );
 }
 
 /**
  * A sortable column header: a button that toggles the column's sort and shows the
- * direction glyph.
+ * direction glyph. An unsorted column keeps the glyph's space but shows it only on hover or
+ * keyboard focus, so a row of headers reads as plain labels until one is sorted.
  *
  * Sorting is opt-in PER COLUMN by using this helper for the header — a plain-string header
  * stays inert even though TanStack marks every column sortable by default. This mirrors the

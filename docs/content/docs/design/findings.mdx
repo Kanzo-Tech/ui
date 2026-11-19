@@ -67,7 +67,7 @@ library already owns.
 severity badge and opens onto its sample. Each item has at most one action — *Go to field*, *Go to
 line*, *Show 362* — and it is the item's `action`, not the place's. A sampled place is read, never
 acted on.** VS Code's Problems panel is the reference: grouped, and one thing to do per entry, which is
-to go there. The metadata-form showcase's popover arrived at the same shape on its own — severity,
+to go there. A form's findings popover arrived at the same shape on its own — severity,
 where, *Go to field*, the message — and it was the clean one of the three call sites.
 
 **It replaced** `FindingRow` and `FindingGroupRow`. They drew the same two lines from the same
@@ -103,7 +103,7 @@ tombstones `!FindingRow` and `!FindingGroupRow`.
 
 **Line 1 is the severity badge, where and the action; line 2 is the message, on a line of its own,
 wrapping. Nothing is held to one line but the badge and the buttons.** It is how a compiler prints a
-diagnostic, and it is the row metadata-form's `IssueDiagnostic` arrived at after the one-line header
+diagnostic, and it is the row a form's findings panel arrived at after the one-line header
 measured a message 0 px wide in a panel a fifth of the workspace wide (`DiagnosticHeader`'s comment
 has the figures). `where` breaks anywhere, because an IRI has no spaces to break at.
 

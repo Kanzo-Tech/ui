@@ -3,6 +3,7 @@ import { DocsLayout } from "fumadocs-ui/layouts/docs";
 import { baseOptions, THEMES_LINK } from "@/lib/layout.config";
 import { getComponentGroups, OWN_GALLERY } from "@/lib/component-groups";
 import { source } from "@/lib/source";
+import { SidebarFooter } from "@/components/sidebar-footer";
 
 /**
  * A group with a gallery of its own is not a fifth layer of the library, and the sidebar was
@@ -47,12 +48,10 @@ export default function Layout({ children }: { children: ReactNode }) {
       {...baseOptions}
       links={[{ text: "Components", url: "/docs/components" }, THEMES_LINK, ...galleryLinks]}
       tree={sidebarTree}
-      // **No sidebar footer, and the Customize panel that was in it is gone from the site chrome.**
-      // The theme menu in the row above (fumadocs' `themeSwitch` slot, filled by `baseOptions`)
-      // carries the whole colour axis now, appearance included, and what the panel had left was
-      // four shape-and-type knobs nobody opens from a documentation page. `Preferences` is still
-      // demonstrated — ten showcases and its own page — so nothing about the component went with
-      // it; what went was a second control cluster twelve pixels from the first.
+      // The toggle moves from fumadocs' icon-link field into `sidebar.footer`, beside the
+      // repository; with the slot off and no icon links, that field renders nothing.
+      sidebar={{ footer: <SidebarFooter /> }}
+      themeSwitch={{ enabled: false }}
     >
       {children}
     </DocsLayout>

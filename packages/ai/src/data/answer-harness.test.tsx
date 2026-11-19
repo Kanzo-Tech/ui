@@ -19,7 +19,7 @@ const queries = new QueryClient();
 /**
  * `AnswerHarness` over `AnswerCard` in jsdom: the card's states and its two actions, read the way a
  * host's end-to-end suite reads them. Asking — the composer, the model, the card that starts — is
- * held over the workspace showcase in `packages/testing/e2e`, whose Ask panel has a recorded model.
+ * held over the keasy showcase's Discover in `packages/testing/e2e`, whose Ask panel has a recorded model.
  */
 
 let db: TestDatabase;

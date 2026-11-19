@@ -1,6 +1,7 @@
+import { stubCoordinator } from "../../test/coordinator";
 import { engineOver } from "../../test/engine";
 import { act, render, screen, waitFor } from "@testing-library/react";
-import { clausePoint, Selection, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
+import { clausePoint, Selection } from "@uwdata/mosaic-core";
 import { Query } from "@uwdata/mosaic-sql";
 import type { JoinGraph, JoinResolver } from "@kanzo-tech/relations";
 import { describe, expect, it } from "vitest";
@@ -14,28 +15,10 @@ function Page({ into }: { into: (selection: Selection) => void }) {
 }
 
 
-/**
- * `MosaicClients` over the move a real coordinator makes when a selection changes: it asks the
- * client to update, and the client — `MosaicClient.requestQuery` — asks only while it is enabled.
- */
-function stubCoordinator() {
-  const queries: string[] = [];
-  const coordinator = {
-    connect(client: MosaicClient) {
-      client.coordinator = coordinator as unknown as Coordinator;
-      client.initialize();
-      client.filterBy?.addEventListener("value", () => void client.requestQuery());
-    },
-    disconnect(client: MosaicClient) {
-      client.coordinator = null;
-    },
-    requestQuery(client: MosaicClient, query: unknown) {
-      queries.push(String(query));
-      return Promise.resolve().then(() => client.queryResult([{ n: queries.length }]).update());
-    },
-    clear() {},
-  };
-  return { coordinator: coordinator as unknown as Coordinator, queries };
+/** A coordinator whose every answer is how many queries it has been asked. */
+function counting() {
+  const stub = stubCoordinator(() => [{ n: stub.queries.length }]);
+  return stub;
 }
 
 function Count() {
@@ -45,7 +28,7 @@ function Count() {
 
 describe("MosaicClients", () => {
   it("asks nothing while disabled, keeps its rows, and runs the query it was owed once enabled", async () => {
-    const { coordinator, queries } = stubCoordinator();
+    const { coordinator, queries } = counting();
     let crossfilter!: Selection;
     const page = (enabled: boolean) => (
       <MosaicProvider engine={engineOver(coordinator)}>
@@ -74,7 +57,7 @@ describe("MosaicClients", () => {
 
 describe("MosaicProvider", () => {
   it("keeps the page's selection and its clauses when `joins` is a new graph, and hands the resolver the new one", () => {
-    const { coordinator } = stubCoordinator();
+    const { coordinator } = counting();
     let crossfilter!: Selection;
     const graph = (): JoinGraph => ({ types: [], edges: [] });
     const first = graph();

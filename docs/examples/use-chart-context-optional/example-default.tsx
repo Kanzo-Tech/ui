@@ -13,9 +13,9 @@ import {
 import { MosaicDemo } from "../charts/mosaic-demo";
 
 const CONFIG: ChartConfig = {
-  ok: { label: "OK", color: "var(--chart-1)" },
-  slow: { label: "Slow", color: "var(--chart-3)" },
-  error: { label: "Error", color: "var(--chart-5)" },
+  confirmed: { label: "Confirmed", color: "var(--chart-2)" },
+  disputed: { label: "Disputed", color: "var(--chart-4)" },
+  hoax: { label: "Hoax", color: "var(--destructive)" },
 };
 
 const STANDALONE = ["Draft", "In review", "Shipped"];
@@ -58,9 +58,9 @@ export default function Example() {
           config={CONFIG}
           height={130}
           margin={{ top: 4, right: 8, bottom: 24, left: 40 }}
-          relation="telemetry"
+          relation="sightings"
         >
-          <ChartBarY fill="status" x="status" y={count()} />
+          <ChartBarY fill="verdict" x="verdict" y={count()} />
           <ChartAxisX label={null} />
           <ChartAxisY grid label={null} />
           <SeriesKey />

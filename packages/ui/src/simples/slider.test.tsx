@@ -54,3 +54,14 @@ describe("Slider field state", () => {
     expect(screen.getAllByRole("slider", { hidden: true })).toHaveLength(2);
   });
 });
+
+describe("a vertical slider's height", () => {
+  it("fills its container by default, and a consumer's own height replaces that", () => {
+    const { container, rerender } = render(<Slider defaultValue={[40]} orientation="vertical" />);
+    const root = () => container.querySelector('[data-slot="slider"]') as HTMLElement;
+    expect(root().className).toContain("h-full");
+    rerender(<Slider className="h-48" defaultValue={[40]} orientation="vertical" />);
+    expect(root().className).toContain("h-48");
+    expect(root().className).not.toContain("h-full");
+  });
+});

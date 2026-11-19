@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ThemeGenerator } from "./theme-generator";
 
 export const metadata: Metadata = {
-  title: "Theme generator — Kanzo UI",
+  title: "Theme generator",
   description:
     "Author a theme family — a light theme and a dark one — in OKLCH, with live WCAG contrast checks. Copy the CSS, an instance config, or a link.",
 };

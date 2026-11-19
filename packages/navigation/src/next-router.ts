@@ -2,7 +2,7 @@
 
 import { useRouter as useNextRouter } from "next/navigation";
 import { useMemo } from "react";
-import { evaluate, locationOf } from "./registry";
+import { guard, locationOf } from "./registry";
 import type { HistoryAction } from "./types";
 
 type Router = ReturnType<typeof useNextRouter>;
@@ -21,16 +21,11 @@ export function useRouter(): Router {
     const guarded =
       (action: HistoryAction, go: Router["push"]): Router["push"] =>
       (href, options) => {
-        const verdict = evaluate({
-          current: locationOf(location.href),
-          next: locationOf(href, location.href),
-          action,
-        });
-        if (verdict === false) return go(href, options);
-        if (verdict === true) return;
-        void verdict.then((block) => {
-          if (!block) go(href, options);
-        });
+        const through = guard(
+          { current: locationOf(location.href), next: locationOf(href, location.href), action },
+          { replay: () => go(href, options) },
+        );
+        if (through) go(href, options);
       };
 
     return {

@@ -5,7 +5,7 @@ import {
   type SectionManifest,
   type ThemePrefs,
 } from "@kanzo-tech/theme";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -20,7 +20,7 @@ import {
   usePref,
 } from "./Preferences.js";
 
-// jsdom ships no `matchMedia`; stub it per-file (do not edit vitest.setup.ts).
+// jsdom ships no `matchMedia`; stub it per-file (do not edit `@kanzo-tech/testing/jsdom`).
 function stubMatchMedia(matches = false) {
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
@@ -228,6 +228,50 @@ describe("Preferences", () => {
       expect(screen.getByRole("heading", { name: "Preferencias" })).toBeTruthy();
       expect(screen.getByRole("button", { name: "Hecho" })).toBeTruthy();
       expect(screen.getByRole("button", { name: "Abrir preferencias" })).toBeTruthy();
+    });
+  });
+
+  describe("the root is Ark's Dialog root", () => {
+    // Ark's presence keeps a closing panel mounted until its exit animation ends, which jsdom never runs.
+    const shown = () => screen.queryByRole("dialog")?.getAttribute("data-state") === "open";
+
+    it("toggles on its hotkey uncontrolled, and still does once a card has focus", async () => {
+      const user = userEvent.setup();
+      render(
+        <KanzoThemeProvider>
+          <PreferencesRoot hotkey="t">
+            <PreferencesPanel />
+          </PreferencesRoot>
+        </KanzoThemeProvider>,
+      );
+      expect(shown()).toBe(false);
+      await user.keyboard("t");
+      expect(shown()).toBe(true);
+
+      const density = screen.getByRole("radiogroup", { name: /density/i });
+      await user.click(within(density).getAllByRole("radio")[0] as HTMLElement);
+      expect((document.activeElement as HTMLInputElement | null)?.type).toBe("radio");
+      await user.keyboard("t");
+      expect(shown()).toBe(false);
+    });
+
+    it("shows what a parent controls, and its hotkey asks the parent rather than opening itself", async () => {
+      const user = userEvent.setup();
+      const onOpenChange = vi.fn();
+      const tree = (open: boolean) => (
+        <KanzoThemeProvider>
+          <PreferencesRoot hotkey="t" onOpenChange={onOpenChange} open={open}>
+            <PreferencesPanel />
+          </PreferencesRoot>
+        </KanzoThemeProvider>
+      );
+      const { rerender } = render(tree(false));
+      await user.keyboard("t");
+      expect(onOpenChange).toHaveBeenCalledWith(expect.objectContaining({ open: true }));
+      expect(shown()).toBe(false);
+
+      rerender(tree(true));
+      await waitFor(() => expect(shown()).toBe(true));
     });
   });
 
@@ -497,6 +541,41 @@ describe("what a declaration says beyond its kind", () => {
     thumb?.focus();
     await userEvent.setup().keyboard("{ArrowRight}");
     expect(screen.getByRole("status").textContent).toBe("all");
+  });
+
+  it("names only a long scale's ends, and reads the chosen stop beside the title and on the thumb", async () => {
+    const LONG: SectionManifest = {
+      namespace: "graph",
+      prefs: {
+        labels: {
+          kind: "choice",
+          ordered: true,
+          label: "Labels",
+          default: "hovered",
+          doc: "how many points carry their title",
+          options: [
+            { value: "none", label: "None" },
+            { value: "hovered", label: "Hovered" },
+            { value: "top", label: "Top" },
+            { value: "visible", label: "Visible" },
+            { value: "all", label: "All" },
+          ],
+        },
+      },
+    };
+    render(
+      <KanzoThemeProvider sections={[LONG]} storage={null}>
+        <PreferencesSections namespace="graph" />
+      </KanzoThemeProvider>,
+    );
+    expect([...document.querySelectorAll("[data-slot=slider-marker]")].map((m) => m.textContent)).toEqual(["None", "", "", "", "All"]);
+    const thumb = document.querySelector<HTMLElement>("[data-slot=slider-thumb]");
+    expect(thumb?.getAttribute("aria-valuetext")).toBe("Hovered");
+    expect(screen.getByText("Hovered").getAttribute("aria-hidden")).toBe("true");
+    thumb?.focus();
+    await userEvent.setup().keyboard("{ArrowRight}");
+    expect(thumb?.getAttribute("aria-valuetext")).toBe("Top");
+    expect(screen.getByText("Top")).toBeTruthy();
   });
 
   it("hands a control of your own the same value and setter the part uses", async () => {

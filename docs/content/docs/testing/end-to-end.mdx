@@ -4,8 +4,8 @@ description: How a host's Playwright suite is layered over the library's harness
 ---
 
 A Playwright suite for a page built with Kanzo UI has four layers, and each knows only the one under
-it. The examples are this site's own suite, which drives the [workspace
-showcase](/docs/showcases/workspace) in CI (`packages/testing/e2e/workspace.e2e.test.ts`). The
+it. The examples are this site's own suite, which drives
+[Discover](/docs/showcases/keasy#discover) in CI (`packages/testing/e2e/workspace.e2e.test.ts`). The
 references are Playwright's [best practices](https://playwright.dev/docs/best-practices) and Testing
 Library's [query priority](https://testing-library.com/docs/queries/about/#priority).
 
@@ -59,7 +59,7 @@ resolved its models without it.
 import { playwright } from "@kanzo-tech/testing";
 
 const env = await playwright(page);
-await page.goto("/view/showcases/workspace");
+await page.goto("/view/showcases/keasy#/graphs/archive/discover");
 ```
 
 ## Wait on states, never on time

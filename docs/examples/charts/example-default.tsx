@@ -5,7 +5,7 @@ import { count } from "@kanzo-tech/mosaic";
 import {
   ChartAxisX,
   ChartAxisY,
-  ChartBarY,
+  ChartBarX,
   ChartDot,
   ChartHighlight,
   ChartIntervalX,
@@ -13,7 +13,7 @@ import {
   ChartLineY,
   ChartRectY,
   ChartRoot,
-  ChartToggleX,
+  ChartToggleY,
   bin,
 } from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
@@ -27,6 +27,8 @@ import { MosaicDemo } from "./mosaic-demo";
 // three plots and highlight the category you clicked.
 
 const MARGIN = { top: 4, right: 8, bottom: 20, left: 32 };
+// The category is on `y`, so its names need the left margin a count does not.
+const BAR_MARGIN = { ...MARGIN, left: 88 };
 
 export default function Example() {
   return (
@@ -42,13 +44,13 @@ export default function Example() {
         </Panel>
 
         <Panel label="region — click to toggle">
-          <ChartRoot height={120} margin={MARGIN} relation="sightings">
-            <ChartBarY fill="var(--muted-foreground)" filterBy={null} opacity={0.3} x="region" y={count()} />
-            <ChartBarY fill="var(--primary)" x="region" y={count()} />
-            <ChartToggleX />
+          <ChartRoot height={120} margin={BAR_MARGIN} relation="sightings">
+            <ChartBarX fill="var(--muted-foreground)" filterBy={null} opacity={0.3} x={count()} y="region" />
+            <ChartBarX fill="var(--primary)" x={count()} y="region" />
+            <ChartToggleY />
             <ChartHighlight />
-            <ChartAxisX label={null} tickRotate={45} />
-            <ChartAxisY anchor={null} />
+            <ChartAxisX anchor={null} />
+            <ChartAxisY label={null} />
           </ChartRoot>
         </Panel>
 

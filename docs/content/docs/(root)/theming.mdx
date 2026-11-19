@@ -411,6 +411,12 @@ the vocabulary.
   the value in the *utility*, so the `var()` resolves on the element wearing the class.
 </Callout>
 
+**One use is declared rather than bridged: `--selection`**, the wash under a text selection in
+`CodeEditor`, its matching bracket and the graph's lasso — `--primary` at 17%. Its readers are a
+CodeMirror theme and an SVG fill, which read no utility, so it is declared on every element that
+carries a theme (`:where(:root, [data-theme])`) and resolves against that element's `--primary`. A
+theme that wants a different wash authors `--selection` in its block, and wins.
+
 ### Syntax inks and the editor
 
 Eight inks colour code, and every theme authors all eight at AA on the editor's paper
@@ -462,6 +468,7 @@ They are what let a client look different without looking like a fork.
 | --- | --- |
 | `--radius-box` / `--radius-field` / `--radius-selector` | card and dialog / button, input and tab / checkbox and badge |
 | `--size-field` / `--size-selector` | the unit a control's height is a multiple of |
+| `--size-control-min` | the smallest control, `--size-field` × 7 unless a theme says otherwise — `sm`'s height, and the floor the density obligation grades |
 | `--stroke` | line weight |
 | `--relief` | relief, `0`–`1`, multiplied into the shadow and the fill's edge. Not `--depth`: that name is Zag's, set per node on a tree item |
 | `--noise` | grain, `0`–`1`; undeclared means off |
@@ -663,7 +670,7 @@ for the document; a tenant answers with a `SectionPolicy` of `SectionPrefPolicy`
 
 **Authoring colour.** `inkFor` returns the ink that belongs on a fill and `pageInk` the same family
 read on the page, each as a hex ready to be written into a theme. `contrast` is the WCAG ratio, `AA`
-its 4.5 floor, and `oklch`/`hex` convert between a hex and an `Oklch` (`l` from 0 to 1, `h` in
+its 4.5 floor for text, `NON_TEXT_CONTRAST` its 3 floor for a boundary or a mark, and `oklch`/`hex` convert between a hex and an `Oklch` (`l` from 0 to 1, `h` in
 degrees). `CONTRAST_PAIRS` and `auditContrast` are [the floors](#contrast). These run in a form while
 somebody picks a colour, never in a page painting one.
 

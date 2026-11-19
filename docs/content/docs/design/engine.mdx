@@ -73,8 +73,8 @@ as its cache and consolidator, and no host holds one.** Before, `ai` held an `En
 (keasy's `Graph = { name, attachment, engine }` carried the pair). The two doors had two caches, two
 result decoders and two cancellation semantics, and the same SQL could be cached twice or read twice.
 
-The engine now holds the coordinator privately and `GraphRoot`, `MosaicProvider` and `useGraph` take
-`engine`:
+The engine holds the coordinator privately, and the page hands the engine to `MosaicProvider` once —
+every view reads it from there ([below](#the-page-provides-the-engine-once-and-every-view-reads-it-from-there)):
 
 - A statement a Mosaic client issues (a chart, a brush) goes through the coordinator, so consolidation
   and the cache of mosaic-core still apply to it. The coordinator's connector is the engine's own, so
@@ -93,6 +93,29 @@ door says so by not accepting a coordinator.
 **What would reverse it:** a host with a non-DuckDB Mosaic connector that must draw the same
 charts. Then `MosaicProvider` takes a `Queryable` plus a `Coordinator` built over it, and the
 coordinator is a second optional argument, not a second door.
+
+### The page provides the engine once, and every view reads it from there
+
+One door for statements had left two ways *in* for a view. A host passes
+the engine to `MosaicProvider`, whose context the charts and `ai/data` read; and it passes the same
+engine again to `GraphRoot` as a prop, then bridges the page's selection to the graph by hand —
+`useMosaic()` in a wrapper, `filterBy={selection}` on the root. The keasy showcase's
+`graph-view.tsx` does exactly that. The graph could not read the context because the provider lives
+in `ui/analytics`, an entry whose static closure is vgplot: reading it would make a WebGL viewer
+declare the chart grammar as a peer, which [packaging follows the entry](/docs/design/architecture#packaging-follows-the-entry)
+forbids.
+
+**The provider and the hook that reads it are the engine's React adapter, in an entry of their own,
+`@kanzo-tech/mosaic/react`, with React a peer of that entry alone. `MosaicProvider` takes what the
+page's views share — the engine, and any model read over it — once; `GraphRoot`, the charts and
+`ai/data` read those and the page's selection from it, and none takes any of them as a prop.** The page's slots — the filter bar and the editor's aside — are
+analytics' and stay in `ui/analytics`. A plane's adapter lives in the lowest entry every consumer of
+the plane already reaches, never inside one of the views that consume it; the theme's adapter
+already does, on `ui`'s root.
+
+**What would reverse it:** two engines on one page by design, two corpora that must not hear each
+other. Then the provider takes a key and a view names the one it reads — still not a prop each view
+repeats.
 
 ## Aborting interrupts the statement
 
@@ -209,19 +232,26 @@ from the URL in its fragment.
 A copy of DuckDB's worker with the line cut was tried first and failed in this site's build: the
 copy is a `.js` inside `@kanzo-tech/mosaic`, which a host's `transpilePackages` runs its loader on,
 and SWC folds `typeof window` to `"object"` in a client build, so DuckDB's worker died on `window is
-not defined`. DuckDB's file stays in `@duckdb/duckdb-wasm`, which no host transpiles, and the wrapper
-has nothing a loader can break. A patch of the dependency would not do either: a host installs
-`@duckdb/duckdb-wasm` itself, and a patch in this workspace reaches none of them.
+not defined`. DuckDB's file stays in `@duckdb/duckdb-wasm`, which no host transpiles. A patch of the
+dependency would not do either: a host installs `@duckdb/duckdb-wasm` itself, and a patch in this
+workspace reaches none of them.
 
-The wrapper imports by `importScripts`, so a host that sends its static assets a CSP of its own must
-allow `'self'` in that policy's `script-src`; the policy this README gives already does.
+The wrapper is a loader's input all the same, and that decides its kind: it is started as a module
+worker. Under `next dev`, React Refresh appends a footer that reads `import.meta` to every file it
+transpiles, and a classic worker refused to parse it, so the engine never booted in development while
+the production build, which appends nothing, worked. DuckDB's classic worker is module-safe (strict
+already, its one global `onmessage`), so the wrapper `import()`s it and holds the messages that
+arrive before the import has run. Either way the import needs `'self'` in the `script-src` of a CSP
+a host sends with its static assets; the policy this README gives already allows it.
 
 *Held by* `packages/mosaic/src/worker.test.ts`, "drops the line DuckDB prints for each header it
-sends, and keeps every other" and "matches the one header print in each of the pinned
-DuckDB-WASM's workers".
+sends, and keeps every other", "hands DuckDB the messages that arrived before its worker was
+imported, in order, then steps aside" and "matches the one header print in each of the pinned
+DuckDB-WASM's workers"; `packages/mosaic/src/engine.test.ts`, "starts its worker as a module".
 
 **What would reverse it:** a DuckDB-WASM release that no longer prints headers. Then the wrapper is
-deleted and `engine()` starts DuckDB's worker again.
+deleted and `engine()` starts DuckDB's worker again. The module worker, by a DuckDB-WASM worker that
+is no longer module-safe: `import()` would fail on it where `importScripts` did not.
 
 The door itself is not locked: any caller of `engine.query` can `INSTALL`, `ATTACH` or `COPY`. Today
 the model never writes SQL (Ask compiles a typed spec), so there is no one to lock it against, and
@@ -342,8 +372,9 @@ test, and the double's interrupt is a documented model of it.
 
 ## Breaking, in the consumer's words
 
-- `GraphRoot`, `MosaicProvider` and `useGraph` take `engine`, not `coordinator`; build one with
-  `engine()` and pass it to all of them and to `ai`. `Graph` no longer needs the pair.
+- `MosaicProvider` takes `engine`, not `coordinator`, from `@kanzo-tech/mosaic/react`; build one
+  with `engine()` and pass it there once. `GraphRoot`, `useGraph` and `ai/data` take neither `engine`
+  nor `filterBy`: they read both from the provider they sit in. `Graph` no longer needs the pair.
 - `import { engine } from "@kanzo-tech/mosaic/engine"`; the root of `@kanzo-tech/mosaic` is the
   `@uwdata` door and no longer has `engine`.
 - `Table` and `Vector` come from `@kanzo-tech/kernel`.

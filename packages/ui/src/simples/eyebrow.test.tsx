@@ -9,14 +9,15 @@ import { FieldLegend, FieldSet } from "./field.js";
  * Tailwind, so `Preferences`' 11px is held by the class list, not by a measurement.
  */
 describe("Eyebrow", () => {
-  it("is a div named eyebrow, small, muted and upper", () => {
+  it("is a div named eyebrow, small and muted, in normal case", () => {
     const { container } = render(<Eyebrow>Parameters</Eyebrow>);
     const line = container.firstElementChild!;
     expect(line.tagName).toBe("DIV");
     expect(line.getAttribute("data-slot")).toBe("eyebrow");
-    for (const c of ["font-medium", "text-muted-foreground", "text-xs", "uppercase", "tracking-wide"]) {
+    for (const c of ["font-medium", "text-muted-foreground", "text-xs"]) {
       expect(line.classList).toContain(c);
     }
+    expect(line.className).not.toMatch(/\buppercase\b|\btracking-/);
   });
 
   it("lands on the element it heads under asChild, and a part keeps its own slot", () => {
@@ -34,10 +35,10 @@ describe("Eyebrow", () => {
     );
     const heading = container.querySelector("h3")!;
     expect(heading.getAttribute("data-slot")).toBe("eyebrow");
-    expect(heading.classList).toContain("uppercase");
+    expect(heading.classList).toContain("text-muted-foreground");
     const legend = container.querySelector("legend")!;
     expect(legend.getAttribute("data-slot")).toBe("field-legend");
-    expect(legend.classList).toContain("uppercase");
+    expect(legend.classList).toContain("text-muted-foreground");
     expect(container.querySelectorAll("div[data-slot=eyebrow]")).toHaveLength(0);
   });
 });

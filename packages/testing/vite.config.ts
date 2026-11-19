@@ -20,11 +20,13 @@ export default defineConfig({
         // A second entry, not a re-export: Testing Library is reached from here and nowhere else, so a
         // host's Playwright suite imports the root without installing it.
         dom: resolve(__dirname, "src/dom.ts"),
+        // A vitest `setupFiles` entry, imported for its effects alone.
+        jsdom: resolve(__dirname, "src/jsdom.ts"),
       },
       formats: ["es"],
     },
     rollupOptions: {
-      external: (id) => id === "playwright-core" || id.startsWith("@testing-library/"),
+      external: (id) => id === "playwright-core" || id === "vitest" || id.startsWith("@testing-library/"),
       output: {
         // One file per module, so both doors share one `environment.js` and one `hook.js`.
         preserveModules: true,

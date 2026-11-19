@@ -1,3 +1,6 @@
+import type { Sim } from "../core/types";
+import { GRAPH_SECTION } from "../section";
+
 /**
  * The force coefficients, and the one function that builds them from the axes a person chose.
  *
@@ -11,42 +14,30 @@
  * screen decides, and somebody tuning a layout until it settles is deciding.
  */
 
-/** Force coefficients, handed straight to the GPU simulation. */
-export interface Sim {
-  gravity: number;
-  repulsion: number;
-  linkSpring: number;
-  linkDistance: number;
-  friction: number;
-  /** Pull toward the centre of the vertex's cluster, when a column is bound to `cluster`. Zero lets the links decide alone. */
-  cluster: number;
-}
-
 /**
  * Coefficients that settle a few-hundred-node graph into something readable.
  *
  * Chosen against a graph of that size, and they are a starting point rather than a law: a graph
- * two orders of magnitude larger wants less repulsion and more friction, and the measurements in
- * `/docs/graph/benchmarks` say a live simulation is finished by around 200,000 points regardless. A
+ * two orders of magnitude larger wants less repulsion and more friction, and a live simulation is
+ * finished by around 200,000 points regardless. A
  * host that knows its graph starts its users elsewhere through the tenant policy.
  *
  * The values are strings for the reason `lookFrom`'s are: a contributed preference is a string in
  * all three kinds, so an unrecognised namespace rides through a write untouched. A key that is
- * missing, or that carries a value the section never offered, takes the default below — which is
- * what a graph simulated before any of this existed.
+ * missing, or that carries a value the section never offered, takes the section's default.
  */
 export function simFrom(values: Readonly<Record<string, string | undefined>> = {}): Sim {
-  const num = (key: string, fallback: number) => {
+  const num = (key: "gravity" | "repulsion" | "link-spring" | "link-distance" | "friction" | "cluster") => {
     const value = Number.parseFloat(values[key] ?? "");
-    return Number.isFinite(value) ? value : fallback;
+    return Number.isFinite(value) ? value : Number.parseFloat(GRAPH_SECTION.prefs[key].default);
   };
   return {
-    gravity: num("gravity", 0.14),
-    repulsion: num("repulsion", 1.1),
-    linkSpring: num("link-spring", 0.6),
-    linkDistance: num("link-distance", 18),
-    friction: num("friction", 0.86),
-    cluster: num("cluster", 0.1),
+    gravity: num("gravity"),
+    repulsion: num("repulsion"),
+    linkSpring: num("link-spring"),
+    linkDistance: num("link-distance"),
+    friction: num("friction"),
+    cluster: num("cluster"),
   };
 }
 

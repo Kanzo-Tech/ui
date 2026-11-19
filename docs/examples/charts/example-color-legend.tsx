@@ -5,7 +5,7 @@ import { count } from "@kanzo-tech/mosaic";
 import {
   ChartAxisX,
   ChartAxisY,
-  ChartBarY,
+  ChartBarX,
   ChartColorLegend,
   ChartLegend,
   ChartRoot,
@@ -46,6 +46,8 @@ const config = {
 
 const ORDER = ["confirmed", "disputed", "hoax"];
 
+const MARGIN = { top: 4, right: 8, bottom: 24, left: 88 };
+
 export default function Example() {
   return (
     <MosaicDemo>
@@ -66,10 +68,10 @@ function Legends() {
             <CardDescription className="text-xs">our DOM, under the plot</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-          <ChartRoot config={config} height={150} relation="sightings">
-            <ChartBarY fill="verdict" order={ORDER} tip x="region" y={count()} />
-            <ChartAxisX label={null} />
-            <ChartAxisY grid label={null} />
+          <ChartRoot config={config} height={150} margin={MARGIN} relation="sightings">
+            <ChartBarX fill="verdict" order={ORDER} tip x={count()} y="region" />
+            <ChartAxisX grid label={null} />
+            <ChartAxisY label={null} />
             <ChartLegend />
           </ChartRoot>
           </CardContent>
@@ -81,13 +83,13 @@ function Legends() {
             <CardDescription className="text-xs">vgplot's, inside the plot — click a swatch</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-          <ChartRoot config={config} height={150} relation="sightings">
-            <ChartBarY fill="verdict" order={ORDER} tip x="region" y={count()} />
+          <ChartRoot config={config} height={150} margin={MARGIN} relation="sightings">
+            <ChartBarX fill="verdict" order={ORDER} tip x={count()} y="region" />
             {/* The field is inferred from the `fill` channel; name it with `field` when the colour
                 comes from an expression. `as={null}` would make it a static key instead. */}
             <ChartColorLegend />
-            <ChartAxisX label={null} />
-            <ChartAxisY grid label={null} />
+            <ChartAxisX grid label={null} />
+            <ChartAxisY label={null} />
           </ChartRoot>
           </CardContent>
         </Card>

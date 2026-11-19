@@ -1,7 +1,6 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import themeData from "@kanzo-tech/theme/theme-data.json" with { type: "json" };
-import { label, sourceFiles } from "./guard-corpus";
+import { code, label, sourceFiles } from "./guard-corpus";
 
 /**
  * A pressable size variant may not sit under 24 CSS pixels at the tightest density.
@@ -75,10 +74,6 @@ const toPx = (units: number) => units * SPACING_REM * tightestRootPx;
  */
 const PRESSABLE = /ark\.button|<button|<Button|buttonVariants|InputGroupButton/;
 
-/** Comments are not code: a JSDoc inside a `size: {}` block was being read as an entry. */
-const stripComments = (source: string) =>
-  source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-
 /** Every `size: { … }` object body in a file, brace-matched rather than regexed to a closing line. */
 function sizeVariantBodies(source: string): string[] {
   const bodies: string[] = [];
@@ -106,7 +101,7 @@ const findings: Finding[] = [];
 let recipesRead = 0;
 
 for (const file of sourceFiles(/\.tsx$/)) {
-  const source = stripComments(readFileSync(file, "utf8"));
+  const source = code(file);
   if (!PRESSABLE.test(source)) continue;
 
   for (const body of sizeVariantBodies(source)) {

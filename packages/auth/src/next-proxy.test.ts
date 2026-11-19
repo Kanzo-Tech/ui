@@ -62,6 +62,18 @@ describe("kanzoAuth().api", () => {
     expect(response.headers.get("x-from")).toBe("upstream");
   });
 
+  it.each([
+    ["a bare host", "https://reports.internal", "https://reports.internal/reports/7"],
+    ["one trailing slash", "https://reports.internal/v1/", "https://reports.internal/v1/reports/7"],
+    ["two trailing slashes", "https://reports.internal/v1//", "https://reports.internal/v1/reports/7"],
+  ])("joins a target with %s to the path without doubling a separator", async (_, target, expected) => {
+    const api = kanzoAuth({ ...config, apis: { "/api/data": { target } } }).api;
+
+    await api.GET(fromPage(`${ORIGIN}/api/data/reports/7`, { headers: edge }));
+
+    expect(sent().url.href).toBe(expected);
+  });
+
   /** One BFF in front of a resource server per tenant: Keycloak's one client for every organization. */
   it("forwards to the target of the organization the request addresses", async () => {
     const tenanted = kanzoAuth({

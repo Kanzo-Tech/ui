@@ -7,7 +7,8 @@ import type { JoinGraph, Relation } from "@kanzo-tech/relations";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { attach, settle, type Attached } from "../../test/corpus";
 import { readJoinGraph } from "@kanzo-tech/relations";
-import { GraphRoot, useGraphContext } from "../react/graph-root";
+import { GraphRoot } from "./graph-root";
+import { useGraphContext } from "../react/use-graph-context";
 import { internalsOf } from "../react/use-graph";
 import { GRAPH_SECTION } from "../section";
 
@@ -87,17 +88,6 @@ describe("a pick on a hidden dashboard, under the timeline", { timeout: 60_000 }
         }
         unobserve() {}
         disconnect() {}
-      },
-    );
-    vi.stubGlobal(
-      "IntersectionObserver",
-      class {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-        takeRecords() {
-          return [];
-        }
       },
     );
     const computed = window.getComputedStyle.bind(window);

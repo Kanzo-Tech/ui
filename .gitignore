@@ -12,3 +12,8 @@ out/
 next-env.d.ts
 .source/
 .claude/
+
+# Local agent tooling, per developer
+.agents/
+.taste-skill/
+skills-lock.json

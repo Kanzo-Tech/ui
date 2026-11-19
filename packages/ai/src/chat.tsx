@@ -12,6 +12,7 @@ import { Message, MessageContent, MessageList } from "./message.js";
 import {
   PromptInput,
   PromptInputSubmit,
+  type PromptInputSubmitTranslations,
   PromptInputTextarea,
   PromptInputToolbar,
 } from "./prompt-input.js";
@@ -19,10 +20,10 @@ import { Reasoning } from "./reasoning.js";
 import type { Proposal } from "./task/index.js";
 import { Working } from "./working.js";
 import type { KeptChat } from "./kept-chat.js";
-import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput, type ToolPart } from "./tool.js";
+import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput, type ToolPart, type ToolTranslations, working } from "./tool.js";
 
-/** Every word `Chat` draws. English by default. */
-export interface ChatTranslations {
+/** Every word `Chat` draws — its own, its submit button's and its tool calls' states. English by default. */
+export interface ChatTranslations extends PromptInputSubmitTranslations, ToolTranslations {
   /** The composer's placeholder. */
   placeholder: string;
   /** Announced to a screen reader with the error that stopped an answer. */
@@ -35,7 +36,7 @@ export interface ChatTranslations {
   unsaved: string;
 }
 
-const ENGLISH: ChatTranslations = {
+const ENGLISH: Omit<ChatTranslations, keyof PromptInputSubmitTranslations | keyof ToolTranslations> = {
   placeholder: "Ask anything…",
   failed: "The answer stopped:",
   waiting: "Thinking…",
@@ -184,7 +185,7 @@ export function Chat<M extends UIMessage, V = string>(props: ChatProps<M, V>) {
           />
           <PromptInputToolbar>
             {context}
-            <PromptInputSubmit status={chat.status} />
+            <PromptInputSubmit status={chat.status} translations={translations} />
           </PromptInputToolbar>
         </PromptInput>
       }
@@ -246,9 +247,9 @@ export function Chat<M extends UIMessage, V = string>(props: ChatProps<M, V>) {
                   }
                   if (isToolUIPart(part)) {
                     const draw = tools[getToolName(part)];
-                    const stopped = !streaming && RUNNING.has(part.state);
+                    const stopped = !streaming && working(part.state);
                     return (
-                      <Tool key={key} part={part} stopped={stopped}>
+                      <Tool key={key} part={part} stopped={stopped} translations={translations}>
                         <ToolHeader />
                         <ToolContent>
                           {draw ? (
@@ -300,9 +301,6 @@ export function Chat<M extends UIMessage, V = string>(props: ChatProps<M, V>) {
     </ChatFrame>
   );
 }
-
-/** The states of a call still working; one left in them once the answer stopped never settles. */
-const RUNNING = new Set<ToolPart["state"]>(["input-streaming", "input-available", "approval-responded"]);
 
 interface ChatFrameProps extends React.ComponentProps<typeof ark.div> {
   /** Between the transcript and the composer: the questions to start from, while there are any. */

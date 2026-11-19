@@ -117,6 +117,7 @@ export async function loadGeometry(engine: Engine, structure: JoinGraph, binding
   if (!bound) return { structure, size, positions: seeded(size, space), bound, links, extent: null, space };
   const positions = new Float32Array(2 * size).fill(Number.NaN);
   for (const { table, answer } of columns) {
+    // Raw, not `numbers`: a null is an unplaced vertex, which a coercion would put at 0.
     const xs = answer.getChild(binding.x as string)?.toArray() ?? [];
     const ys = answer.getChild(binding.y as string)?.toArray() ?? [];
     for (let i = 0; i < answer.numRows; i++) {
@@ -165,6 +166,7 @@ export async function loadEncoding(
     codes.fill(dictionary.code(null));
   }
   for (const { table, answer } of answers) {
+    // Raw, not `numbers`: a category or a cluster is any value, and a null is a value of its own.
     const values = binding.category === undefined || binding.byTable ? undefined : answer.getChild(binding.category)?.toArray();
     const ramp = binding.size === undefined ? undefined : answer.getChild(binding.size)?.toArray();
     const cluster = clusterBy === undefined ? undefined : answer.getChild(clusterBy)?.toArray();

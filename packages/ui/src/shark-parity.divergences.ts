@@ -73,7 +73,7 @@ export const UNADOPTED: Readonly<Record<string, string>> = {
   frame: "Not built. `SectionRoot` and its parts are the framed-region composite in this library.",
   hint: "Not built. `Tooltip` is the hover surface here.",
   "input-otp":
-    "Not adopted under this name. We ship `PinInput` over Ark's pin-input machine; Shark solves the same problem with `input-otp` and exports no hook for it, which is exactly why `usePinInput` is ours to decide rather than the reference's.",
+    "Not built. Shark solves one-time codes with `input-otp` and exports no hook for it; nothing in any product here enters one, and Ark's pin-input machine is there to compose when something does. Tombstoned in `index.test.ts`, `tracks Shark's context aliases and parts, in both directions`.",
   "link-overlay": "Not built. No renderer in the library or the docs.",
   marquee: "Not built. No renderer in the library or the docs.",
   presence: "Not built. Ark's presence primitive is used inside the components that need it, never composed by a caller here.",
@@ -93,9 +93,8 @@ export const OURS_ALONE: Readonly<Record<string, string>> = {
   FacetFilter: "Ours. The one facet-filter surface, built on `Listbox` because a filter is a value. On the root barrel because its two consumers sit on subpaths that must not import each other.",
   FieldArray: "Ours. Repeatable field rows. No Ark machine and no Shark file; `index.test.ts` pins it.",
   diagnostic: "Ours. A severity, a message and a list of source positions, over Ark's collapsible — the shape a validation violation, a compiler diagnostic and a stack trace all share. Shark has no file for it; `docs/content/docs/data-display/diagnostic.mdx` is the page, and the frames are the part nothing else here does.",
-  eyebrow: "Ours. The small uppercase line that names a block, one fixed role with no knobs, written out by hand four times before it had a name — `/docs/design/admission`, *A role written out four times is a part*. Shark has no file for it; `docs/content/docs/data-display/eyebrow.mdx` is the page.",
+  eyebrow: "Ours. The small muted line that names a block, one fixed role with no knobs, written out by hand four times before it had a name — `/docs/design/admission`, *A role written out four times is a part*. Shark has no file for it; `docs/content/docs/data-display/eyebrow.mdx` is the page.",
   Link: "Ours. The styled anchor, and the routing seam every composite reaches through `asChild` — `index.test.ts`, `drops the components that took a layout tree as an array prop`.",
-  "pin-input": "Ours over Ark's pin-input machine. Shark's answer to the same problem is `input-otp`, under names that do not correspond.",
   suggestions: "Ours. A row of values on offer, each committing a string and leaving no selection — which by the menu/listbox rule makes it a command surface and not a value one. It is in `ui` and not `@kanzo-tech/ai` because it does not know a model exists, which is the line `/docs/design/admission` draws; the ✨ beside it does, and stays there. Shark has no file for it. **Admission rule 2 is not met yet**: `@kanzo-tech/ai`'s `SuggestList` is the one real consumer, and the second is expected to be a non-model one (recent values, saved filters).",
   stat: "Ours. One dashboard number as a compound over `Card` — `/docs/design/admission`, *One dashboard number, one compound*. Shark has no file for it.",
   swatch: "Ours. A strip that only depicts; Ark's picker swatch parts all require a picker context and compute `checked` against its single value, so a sixteen-slot palette strip cannot be built from them (`index.test.ts`, `exposes the core surface`).",
@@ -420,5 +419,19 @@ export const BEYOND_THE_SURFACE: readonly {
       "halves — and what stays open is the general case of the two references colliding, which " +
       "that record deliberately does not settle.",
     held: ["docs/content/docs/design/references.mdx"],
+  },
+  {
+    what: "The primary button has no coloured shadow at rest; Shark's does.",
+    why:
+      "A house rule, not a measurement: chrome carries no resting shadow, so a primary action " +
+      "reads by its fill alone. The lift is still in the recipe, a shadow tinted by the button's " +
+      "own fill and multiplied by `--relief`, and every theme ships `--relief: 0`, which is why " +
+      "nothing is drawn. No exported name changes, so the guard cannot see it. What would reverse " +
+      "it: a consumer who needs primary to read as raised, which is a theme setting `--relief` " +
+      "above zero rather than a new variant.",
+    held: [
+      "packages/ui/src/simples/button.tsx",
+      "docs/content/docs/(root)/theming.mdx",
+    ],
   },
 ];

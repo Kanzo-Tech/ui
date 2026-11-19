@@ -352,7 +352,7 @@ outside the scroll region, so it stays put while the transcript moves:
 | `notice` | `ReactNode` | In place of the pills while there are none: why proposing failed, with a retry |
 | `context` | `ReactNode` | What the next question is asked over, read-only in the composer beside Send — a pill such as *Subset · 40 nodes*, as Copilot Chat and Cursor show theirs |
 | `describe` | `ProblemProps["describe"]` | The host's words for a failure's code, as `Problem` takes them |
-| `translations` | `Partial<ChatTranslations>` | `placeholder` for the composer, and `failed`, `unread` and `unsaved`, read before an answer's failure, a kept chat's read and its save |
+| `translations` | `Partial<ChatTranslations>` | `placeholder` for the composer, and `failed`, `unread` and `unsaved`, read before an answer's failure, a kept chat's read and its save; `send`, `stop` and `retry` for the submit button (`PromptInputSubmit`'s own), and a label per tool state plus `stopped` (`Tool`'s own) |
 | `className` | `string` | On the root |
 
 The types are exported as `ChatProps`, `ChatProposals`, `ChatMessage` (what `sendMessage` takes),

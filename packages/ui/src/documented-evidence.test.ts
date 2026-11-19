@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
+import { REPO } from "./guard-corpus";
 import * as UI from "./index";
 
 /**
@@ -61,8 +61,7 @@ import * as UI from "./index";
  *   paragraph and nothing looks at it. That is the same limit the field had, moved into prose.
  */
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-const PAGES = join(ROOT, "docs", "content", "docs");
+const PAGES = join(REPO, "docs", "content", "docs");
 
 const DIRECTORIES_NOT_WALKED = new Set([
   "node_modules",
@@ -79,12 +78,12 @@ function walk(dir: string, keep: (path: string) => boolean, out: string[] = []):
     if (DIRECTORIES_NOT_WALKED.has(entry.name)) continue;
     const path = join(dir, entry.name);
     if (entry.isDirectory()) walk(path, keep, out);
-    else if (keep(path)) out.push(relative(ROOT, path));
+    else if (keep(path)) out.push(relative(REPO, path));
   }
   return out;
 }
 
-const FILES = walk(ROOT, () => true);
+const FILES = walk(REPO, () => true);
 const MDX = walk(PAGES, (p) => p.endsWith(".mdx"));
 
 const flatten = (s: string) => s.replace(/\s+/g, " ").trim();
@@ -99,13 +98,13 @@ const isTest = (path: string) => /\.test\.tsx?$/.test(path);
 
 /** A citation resolves if it is a repo path, or the tail of exactly the kind of path a page writes. */
 const resolveCitation = (cited: string) =>
-  existsSync(join(ROOT, cited))
+  existsSync(join(REPO, cited))
     ? cited
     : (FILES.find((f) => f === cited || f.endsWith(`/${cited}`)) ?? null);
 
 const fileText = new Map<string, string>();
 const textOf = (path: string) => {
-  if (!fileText.has(path)) fileText.set(path, flatten(readFileSync(join(ROOT, path), "utf8")));
+  if (!fileText.has(path)) fileText.set(path, flatten(readFileSync(join(REPO, path), "utf8")));
   return fileText.get(path) as string;
 };
 
@@ -119,7 +118,7 @@ const textOf = (path: string) => {
 const titleCache = new Map<string, string[]>();
 function testTitles(path: string): string[] {
   if (!titleCache.has(path)) {
-    const source = readFileSync(join(ROOT, path), "utf8");
+    const source = readFileSync(join(REPO, path), "utf8");
     titleCache.set(
       path,
       [
@@ -142,7 +141,7 @@ interface Held {
 }
 
 const HELD: Held[] = MDX.flatMap((page) => {
-  const source = readFileSync(join(ROOT, page), "utf8");
+  const source = readFileSync(join(REPO, page), "utf8");
   return [...source.matchAll(/^\*Held by\*([\s\S]*?)(?:\n\s*\n|(?![\s\S]))/gm)].map(([, body = ""]) => ({
     page,
     line: flatten(body),

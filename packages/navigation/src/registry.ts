@@ -35,7 +35,7 @@ export const bypass = { navigate: false, beforeunload: false };
  * one: the caller then has to cancel now and replay later, because both hooks it sits on demand a
  * synchronous `preventDefault()`.
  */
-export function evaluate(args: ShouldBlockFnArgs): boolean | Promise<boolean> {
+function evaluate(args: ShouldBlockFnArgs): boolean | Promise<boolean> {
   const from = (start: number): boolean | Promise<boolean> => {
     const list = blockers.slice(start);
     for (const [offset, blocker] of list.entries()) {
@@ -48,6 +48,22 @@ export function evaluate(args: ShouldBlockFnArgs): boolean | Promise<boolean> {
     return false;
   };
   return from(0);
+}
+
+/**
+ * What every door does with the verdict: `true` when nothing blocks and the navigation goes on as it
+ * was; otherwise it is cancelled now, and a pending verdict that lets it through replays it.
+ */
+export function guard(args: ShouldBlockFnArgs, { cancel, replay }: { cancel?: () => void; replay: () => void }): boolean {
+  const verdict = evaluate(args);
+  if (verdict === false) return true;
+  cancel?.();
+  if (verdict !== true) {
+    void verdict.then((block) => {
+      if (!block) replay();
+    });
+  }
+  return false;
 }
 
 export function locationOf(url: string | URL, base?: string): ShouldBlockFnLocation {

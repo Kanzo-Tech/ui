@@ -6,8 +6,7 @@ import type { ReactNode } from "react";
 
 interface PreviewIframeTabsProps {
   iframe: ReactNode;
-  /** The showcase source; when absent, the Code tab is hidden. */
-  source?: ReactNode;
+  source: ReactNode;
   /** Standalone `/view/showcases/<name>` URL for the full-size link. */
   fullUrl: string;
 }
@@ -17,7 +16,7 @@ export const PreviewIframeTabs = ({ iframe, source, fullUrl }: PreviewIframeTabs
     <div className="flex items-center justify-between gap-2">
       <TabsList>
         <TabsTrigger value="preview">Preview</TabsTrigger>
-        {source && <TabsTrigger value="code">Code</TabsTrigger>}
+        <TabsTrigger value="code">Code</TabsTrigger>
       </TabsList>
       <a
         className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-muted-foreground text-sm transition-colors hover:text-foreground"
@@ -34,11 +33,9 @@ export const PreviewIframeTabs = ({ iframe, source, fullUrl }: PreviewIframeTabs
       <TabsContent slot="tab-preview" value="preview">
         {iframe}
       </TabsContent>
-      {source && (
-        <TabsContent slot="tab-code" value="code">
-          {source}
-        </TabsContent>
-      )}
+      <TabsContent slot="tab-code" value="code">
+        {source}
+      </TabsContent>
     </div>
   </Tabs>
 );

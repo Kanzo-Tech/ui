@@ -6,9 +6,15 @@ import type { ReactNode } from "react";
 import { Button } from "../simples/button.js";
 import { Menu, MenuContent, MenuTrigger } from "../simples/menu.js";
 
+export interface ActionsColumnTranslations {
+  /** Visually hidden header text, so the column is not an empty `<th>`. */
+  headerLabel: string;
+}
+
+const ENGLISH: ActionsColumnTranslations = { headerLabel: "Actions" };
+
 export interface ActionsColumnOptions<TData> {
-  /** Visually hidden header text, so the column is not an empty `<th>`. Default "Actions". */
-  headerLabel?: string;
+  translations?: Partial<ActionsColumnTranslations>;
   /** Column id. Default "actions". */
   id?: string;
   /** aria-label for a row's trigger. It names the row — the icon has no text to borrow. */
@@ -30,7 +36,8 @@ const WIDTH = 44;
 export function actionsColumn<TData>(
   options: ActionsColumnOptions<TData>,
 ): ColumnDef<TData, unknown> {
-  const { headerLabel = "Actions", id = "actions", label, menu } = options;
+  const { translations, id = "actions", label, menu } = options;
+  const { headerLabel } = { ...ENGLISH, ...translations };
 
   return {
     cell: ({ row }) => {

@@ -1,12 +1,11 @@
-"use client";
-
 import { Portal } from "@ark-ui/react";
 import { Combobox as ArkCombobox } from "@ark-ui/react/combobox";
-import { Dialog as ArkDialog, useDialogContext } from "@ark-ui/react/dialog";
+import { Dialog as ArkDialog } from "@ark-ui/react/dialog";
 import { SearchIcon } from "lucide-react";
 import type React from "react";
 import { cn } from "../lib/cn";
-import { type Hotkey, useHotkey } from "../lib/use-hotkey";
+import { DialogHotkey } from "../lib/dialog-hotkey";
+import type { Hotkey } from "../lib/use-hotkey";
 import {
   Combobox,
   ComboboxControl,
@@ -41,13 +40,6 @@ export interface CommandDialogProps extends React.ComponentProps<typeof Dialog> 
    */
   hotkey?: Hotkey;
 }
-
-/** Toggles the dialog it sits in through Ark's own machine, so a controlled `open` hears `onOpenChange`. */
-const DialogHotkey = ({ hotkey }: { hotkey: Hotkey }) => {
-  const dialog = useDialogContext();
-  useHotkey(hotkey, () => dialog.setOpen(!dialog.open));
-  return null;
-};
 
 /**
  * `Dialog`, and the one thing a palette adds to it: the key that summons it. Shark's site writes that

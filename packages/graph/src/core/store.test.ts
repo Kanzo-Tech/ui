@@ -8,7 +8,7 @@ import type { GraphOptions } from "./state";
 /**
  * The store with no React in it, over a real DuckDB through a real coordinator: what it reads, what a
  * subscriber hears, and how a page's crossfilter reaches it. The adapter half is in
- * `react/graph-root.test.tsx`.
+ * `parts/graph-root.test.tsx`.
  */
 
 /** A chart beside the graph: the source of the clauses the page publishes. */

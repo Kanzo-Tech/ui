@@ -78,13 +78,15 @@ const db = {
   }),
 };
 const workers: string[] = [];
+const workerOptions: (WorkerOptions | undefined)[] = [];
 
 vi.stubGlobal("location", new URL("https://page.test/docs/"));
 vi.stubGlobal(
   "Worker",
   class {
-    constructor(url: string) {
+    constructor(url: string, options?: WorkerOptions) {
       workers.push(url);
+      workerOptions.push(options);
     }
   },
 );
@@ -136,6 +138,13 @@ describe("engine", () => {
     expect(worker.pathname).toMatch(/\/@duckdb\/duckdb-wasm\/dist\/duckdb-browser-eh\.worker\.js$/);
     expect(module.pathname).toMatch(/\/@duckdb\/duckdb-wasm\/dist\/duckdb-eh\.wasm$/);
     expect([wrapper.protocol, worker.protocol, module.protocol]).toEqual(["file:", "file:", "file:"]);
+  });
+
+  // A host's loaders run on the wrapper as on any `.js` it transpiles, and `next dev`'s React Refresh
+  // footer reads `import.meta`: a classic worker died on it before DuckDB's was ever imported.
+  it("starts its worker as a module", async () => {
+    await engine();
+    expect(workerOptions).toEqual([{ type: "module" }]);
   });
 
   // Without httpfs a vended credential has nowhere to go: `CREATE SECRET (TYPE s3 …)` is httpfs's.

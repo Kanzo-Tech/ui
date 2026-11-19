@@ -353,7 +353,7 @@ export const MenuShortcut = (props: React.ComponentProps<typeof ark.span>) => {
     <ark.span
       className={cn(
         "ms-auto rtl:me-auto",
-        "text-muted-foreground text-xs tracking-widest",
+        "text-muted-foreground text-xs",
         "group-data-highlighted/menu-item:group-data-[variant=destructive]/menu-item:text-destructive dark:group-data-highlighted/menu-item:group-data-[variant=destructive]/menu-item:text-destructive-foreground",
         className
       )}

@@ -18,6 +18,9 @@
 // presets, and "customised" was the state most readers ended in. Cosmograph's configuration and Gephi
 // Lite's appearance panel offer the axes alone, with good defaults, and so does this package.
 
+import type { LabelLevel, Look, LookPatch } from "../core/types";
+import { GRAPH_SECTION } from "../section";
+
 /**
  * The glyphs this canvas draws — **by name**, because a name is what the concept is.
  *
@@ -70,7 +73,7 @@ export const SHAPE_INDEX: Record<Shape, number> = {
  * doi:10.1145/3290605.3300899) measured 16 shapes across 6 mark sizes from 6 to 50 px and found
  * shape discrimination *robust* to size: the only significant variation is at 6 px, and it is 4.5
  * accuracy points against 50 px. The conclusion survived the argument that was given for it, which
- * is the most dangerous shape a comment can have — see `OBLIGATIONS` in `./obligations.ts` for what
+ * is the most dangerous shape a comment can have — see `check()` in `./obligations.ts` for what
  * the floor actually protects.
  */
 export const SHAPE_ORDER: Shape[] = ["circle", "square", "triangle", "diamond"];
@@ -83,95 +86,6 @@ export const SHAPE_ORDER: Shape[] = ["circle", "square", "triangle", "diamond"];
  * it — `SHAPE_ORDER[4]` is `undefined`, and the fallback was `circle`.
  */
 export const SHAPE_OTHER: Shape = "cross";
-
-/** How much text the canvas carries, least to most — Cosmograph's label model as one scale. */
-export type LabelLevel = "none" | "hovered" | "top" | "visible" | "all";
-
-const LEVELS: readonly LabelLevel[] = ["none", "hovered", "top", "visible", "all"];
-
-/**
- * The geometry a canvas draws — and nothing else.
- *
- * **No `id`, no `label`, no `blurb`.** Those three were a picker's metadata, and the picker was a
- * list of three names that turned out to be two pictures. What a person chooses is declared in
- * `section.ts` as axes and resolved by `lookFrom`; what a renderer consumes is this.
- */
-export interface Look {
-  /** Radius at the lowest degree in the graph, and at the highest. */
-  size: [number, number];
-  link: {
-    /**
-     * Whether the edge layer is drawn at all.
-     *
-     * It was `Display.links`, a second vocabulary for the picture that sat beside this one with its
-     * own default and its own switch. A form that draws no links is a form.
-     */
-    render: boolean;
-    opacity: number;
-    width: number;
-    /**
-     * How far a link bows off the straight line, as a fraction of its length. `0` is straight.
-     *
-     * Keep it small. Every link curves the same way, so at cosmos.gl's default of `0.5` a few
-     * hundred of them read as one pinwheel and the picture looks like it is spinning — motion
-     * where there is structure. A hint is enough to tell two parallel edges apart.
-     */
-    curve: number;
-    /**
-     * Whether links **add** where they overlap, instead of compositing over one another.
-     *
-     * cosmos.gl's default is on, which is a choice nobody here made and which the archive made
-     * visible: 4,280 grey links at 0.45 summed to a white spray that swallowed 1,543 points of
-     * 2–9 px. Every point was uploaded, none was legible, and the picture read as *the nodes are
-     * not rendering*.
-     *
-     * On, it is a real register rather than a bug — additive light is what makes a dense graph read
-     * as flow — so it belongs to the form that wants it and not to the renderer's defaults.
-     */
-    blend: boolean;
-    /**
-     * Screen lengths between which a link fades out — depth, for free.
-     *
-     * Keep the far end generous. cosmos.gl measures this in *screen* pixels, so a range that
-     * looks reasonable while zoomed in erases the whole edge layer when you zoom out, which
-     * reads as "Show links stopped working".
-     */
-    fade: [number, number];
-  };
-  /** Which points carry their title — `labels` in `section.ts` says what each level draws. */
-  labels: LabelLevel;
-  /** A darkened rim. Mood rather than a reading aid, which is why it is form and not display. */
-  vignette: boolean;
-  /**
-   * The dot grid behind the graph, which pans and subdivides with the camera.
-   *
-   * Beside `vignette` because it is the same kind of thing — the backdrop a form sits on — and it
-   * arrived from the same place the rim did not: a `Display` interface that spelled the backdrop,
-   * the edge layer and two multipliers as a second set of appearance controls.
-   */
-  grid: boolean;
-  // **There is no `pointScale` and no `linkOpacity`**, and they are the two fields `Display` had that
-  // this does not. Each was a reader's multiplier over a number this builder already computes from
-  // the axis that owns it — `size` from `marks`, `link.opacity` from `marks` — so the panel offered
-  // two ways to say one thing and the second could always overrule the measurement. The measured
-  // pair (0.28 legible, 0.42 dense) is the whole argument of `marks`; a slider on top of it is the
-  // post-process `graph-model.ts` forbids one layer down, wearing a preference's clothes.
-  //
-  // What is lost with them is the fit-to-graph case, and it was never a preference: a computed fit
-  // belongs to the tenant's starting point — which is a policy, and which is now expressible.
-
-  // There is no `filter`, and its absence is a rule rather than an omission. Nebula carried
-  // `saturate(1.1)` on the canvas element — the one thing left in a Look that touched hue, and a
-  // chroma multiplier is colour wearing geometry's clothes. Measured over Kanzo's eight slots
-  // (2026-08-13, `saturate(1.1)` through the same filter engine the browser applies): it moved
-  // every slot, by ΔE 0.85 to **8.05**, which is the size of the separation `deriveScheme`
-  // *guarantees* between two different categories. It did not break that separation here —
-  // the closest pair went from ΔE 32.36 to 30.38, with room to spare — so the reason it is gone
-  // is not a failure it caused, it is that a look must not be able to cause one. The whole claim
-  // of the colour layer is that what ships is what was derived and measured; a post-process on
-  // the canvas voids it silently, and `graph-model.ts` already forbids the same move one layer
-  // down ("nudging one on the way to the GPU voids all three").
-}
 
 /**
  * The form a canvas draws, from the axes a person chose.
@@ -206,13 +120,15 @@ export interface Look {
  * default. Those defaults are what a graph drew before any of this existed.
  */
 export function lookFrom(values: Readonly<Record<string, string | undefined>> = {}): Look {
-  const on = (key: string, fallback: boolean) => {
-    const value = values[key];
-    return value === undefined ? fallback : value === "true";
+  const { prefs } = GRAPH_SECTION;
+  const on = (key: "additive-links" | "vignette" | "grid") => (values[key] ?? prefs[key].default) === "true";
+  const chosen = (key: "marks" | "edges" | "labels"): string => {
+    const options: readonly { value: string }[] = prefs[key].options;
+    return options.some((o) => o.value === values[key]) ? (values[key] as string) : prefs[key].default;
   };
-  const legible = values.marks === "legible";
-  const edges = values.edges === "hidden" || values.edges === "straight" ? values.edges : "curved";
-  const labels = LEVELS.find((level) => level === values.labels) ?? "top";
+  const legible = chosen("marks") === "legible";
+  const edges = chosen("edges");
+  const labels = chosen("labels") as LabelLevel;
   return {
     size: legible ? [4, 13] : [2, 8],
     link: {
@@ -223,14 +139,14 @@ export function lookFrom(values: Readonly<Record<string, string | undefined>> = 
       // of 0.5 reads as one pinwheel. A choice rather than a range because a reader wants two
       // pictures — straight, and told apart — not a number to tune.
       curve: edges === "curved" ? 0.12 : 0,
-      blend: on("additive-links", false),
+      blend: on("additive-links"),
       // Shared by every form. It was three ranges within ±10% of each other, which is the
       // definition of a field nobody chose.
       fade: [200, 1400],
     },
     labels,
-    vignette: on("vignette", false),
-    grid: on("grid", true),
+    vignette: on("vignette"),
+    grid: on("grid"),
   };
 }
 
@@ -244,17 +160,6 @@ export function lookFrom(values: Readonly<Record<string, string | undefined>> = 
  * and a copy is what stops tracking the original the next time a number here moves.
  */
 export const DEFAULT_LOOK: Look = lookFrom();
-
-/**
- * A look in the pieces a caller wants different — everything else is this package's answer.
- *
- * Two levels, because a `Look` has exactly two: the fields, and `link`. Deep-merging arbitrarily
- * would be a guess about a shape that is right here in this file, and `size` and `fade` are tuples
- * that must be replaced whole rather than merged element-wise.
- */
-export interface LookPatch extends Partial<Omit<Look, "link">> {
-  link?: Partial<Look["link"]>;
-}
 
 /**
  * A patch over the package's own default — the merge `DEFAULT_LOOK` existed so a host could do by

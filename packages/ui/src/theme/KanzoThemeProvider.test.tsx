@@ -15,6 +15,7 @@ import {
   KanzoThemeProvider,
   useKanzoTheme,
 } from "./KanzoThemeProvider.js";
+import { stripComments } from "../guard-corpus";
 
 function Probe({ onValue }: { onValue: (v: ReturnType<typeof useKanzoTheme>) => void }) {
   onValue(useKanzoTheme());
@@ -23,7 +24,7 @@ function Probe({ onValue }: { onValue: (v: ReturnType<typeof useKanzoTheme>) => 
 
 /**
  * jsdom ships no `matchMedia`. This stub is live: `set()` flips `matches` AND fires the listeners,
- * which is the only way to exercise the OS-change path (do not edit vitest.setup.ts).
+ * which is the only way to exercise the OS-change path (do not edit `@kanzo-tech/testing/jsdom`).
  */
 function stubMatchMedia(dark = false) {
   const listeners = new Set<() => void>();
@@ -75,9 +76,9 @@ describe("KanzoThemeProvider axis wiring", () => {
   // Comments are stripped first, and that is not tidiness: the pattern walks to the closing `]`, so
   // a single square bracket anywhere in the prose inside the list truncates the match and this
   // reports "could not find the dependency list" for a list that is right there. It happened the
-  // first time a comment in there mentioned a `data-*` selector. Same move `no-literal-hues.test.ts`
-  // makes for the same reason — source-reading tests must read code, not prose.
-  const code = source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/.*$/gm, "$1");
+  // first time a comment in there mentioned a `data-*` selector. Source-reading tests read code, not
+  // prose, through the one `stripComments` the guards share.
+  const code = stripComments(source);
   const deps = () => code.match(/\}, \[([^\]]*storedPrefs\.density[^\]]*)\]\);/)?.[1] ?? "";
 
   it("watches every axis it claims to apply", () => {

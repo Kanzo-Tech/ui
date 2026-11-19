@@ -21,6 +21,27 @@
 @import "@kanzo-tech/ai/tailwind.css";
 @import "@kanzo-tech/graph/tailwind.css";
 
+/* The docs' own headings — fumadocs' page titles and the prose — read the theme's heading face, as
+   the library's title parts do. */
+:where(h1, h2, h3, h4) {
+  font-family: var(--font-heading);
+}
+
+/* The face the Kanzo themes name for headings. The files are not in the repository (see
+   `.gitignore`); where they are absent the rule loads nothing and the stack falls back to Geist. */
+@font-face {
+  font-family: "Neue Haas Grotesk Display Pro";
+  src: url("/fonts/neue-haas-display-medium.woff2") format("woff2");
+  font-weight: 500 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Neue Haas Grotesk Display Pro";
+  src: url("/fonts/neue-haas-display-bold.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
 /*
  * The landing nav's collapsed menu, hidden once it has nothing to open.
  *
@@ -103,4 +124,23 @@
 #nd-sidebar {
   --color-fd-card: var(--sidebar, var(--popover, var(--card)));
   --color-fd-muted-foreground: var(--sidebar-foreground, var(--muted-foreground));
+}
+
+/*
+ * ── Reading pages: five sizes ──────────────────────────────────────────────────────────────────
+ *
+ * 32 title, 24 section, 20 subsection, 16 body, 14 everything small — tables, captions, the page
+ * actions and code. fumadocs' typography sets code at 13px, its heading code at 21 and 18, and the
+ * codeblock at 0.8125rem; with a 12px badge and an 18px description that was nine sizes on a page.
+ * Code goes to 14px in px, not rem, so `lib/preview-height.mjs`'s line box does not move with
+ * density; inside a heading it takes the heading's size.
+ */
+#nd-page .prose :where(code):not(:where(pre code, .not-prose *)) {
+  font-size: 14px;
+}
+#nd-page .prose :where(h1, h2, h3, h4):not(:where(.not-prose *)) code {
+  font-size: 1em;
+}
+#nd-page figure.shiki pre {
+  font-size: 14px;
 }

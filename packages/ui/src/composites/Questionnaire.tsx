@@ -116,6 +116,8 @@ export interface QuestionnaireProps
   defaultStep?: number;
   onAnswersChange?: (answers: QuestionnaireAnswers) => void;
   onStepChange?: (details: { step: number }) => void;
+  /** The question on screen, controlled — Ark's `step`; pair it with `onStepChange`. */
+  step?: number;
   /** Called with the whole payload when the last question is submitted and passes validation. */
   onSubmit?: (answers: QuestionnaireAnswers) => void;
   /**
@@ -144,6 +146,7 @@ export function Questionnaire(props: QuestionnaireProps) {
     onSubmit,
     shortcuts = false,
     slot,
+    step,
     translations,
     ...rest
   } = props;
@@ -157,6 +160,7 @@ export function Questionnaire(props: QuestionnaireProps) {
     // `|| 1`: zag divides by `count` for `percent`, so an empty questionnaire would paint `NaN%`.
     count: questions.length || 1,
     defaultStep,
+    step,
     isStepSkippable: (index) => questions[index]?.skippable === true,
     isStepValid: (index) => answered(questions[index], answers),
     onStepChange: (details) => {

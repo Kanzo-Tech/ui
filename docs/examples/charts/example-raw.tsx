@@ -49,7 +49,7 @@ export default function Example() {
             x={count()}
             y="region"
           />
-          <ChartBarX fill="var(--primary)" sort={{ y: "-x" }} tip x={count()} y="region" />
+          <ChartBarX fill="var(--primary)" sort={{ y: "-x" }} x={count()} y="region" />
           <ChartToggleY />
           <ChartHighlight />
           <ChartRaw spec={AXES} />

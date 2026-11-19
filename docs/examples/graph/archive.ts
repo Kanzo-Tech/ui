@@ -7,8 +7,8 @@ import { attachWritten } from "@/lib/attach-graph";
 export { ARCHIVE_KINDS } from "@/example/archive";
 
 /**
- * The archive the workspace showcase draws, as a GraphAr graph — written by fossil's executor through
- * `showcases/workspace/corpus/build-corpus.mjs`. Prefixed, because a path handed to DuckDB is not.
+ * The archive the keasy showcase's Discover draws, as a GraphAr graph — written by fossil's executor through
+ * `showcases/keasy/corpus/build-corpus.mjs`. Prefixed, because a path handed to DuckDB is not.
  */
 export const ARCHIVE = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/corpus/archive`;
 

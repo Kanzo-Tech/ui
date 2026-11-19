@@ -6,11 +6,10 @@ import { Streamdown, defaultRehypePlugins, type StreamdownProps } from "streamdo
 import { cn } from "@kanzo-tech/ui";
 
 /**
- * **`MessageText`, for a source that streams markdown.**
+ * **A message's text, as the markdown a model streams.**
  *
- * `MessageText` takes a plain string and renders it as text, which is right for a model answering
- * in prose and wrong the moment one emits a `**bold`, a list or a fence. The hard part is not the
- * markdown — it is the *incomplete* markdown: a stream delivers `**bo`, then `**bold`, then
+ * A model answering in prose may emit a `**bold`, a list or a fence at any moment. The hard part is
+ * not the markdown — it is the *incomplete* markdown: a stream delivers `**bo`, then `**bold`, then
  * `**bold**`, and a parser that renders each of those honestly makes the answer flicker between
  * literal asterisks and emphasis as it completes. Streamdown exists to close those, and closing
  * them well is a parser's worth of work rather than a component's.
@@ -23,17 +22,14 @@ import { cn } from "@kanzo-tech/ui";
  * asks the reader before it opens (Streamdown's link check). A host that renders its own
  * authored markdown reopens this with Streamdown's own props: `rehypePlugins` and `linkSafety`.
  *
- * ## The animation is Streamdown's now, not ours
+ * ## The animation is Streamdown's, not ours
  *
- * `MessageText` hand-rolls a per-word cascade whose four rules are all read off Streamdown's
- * `animate.ts` — its docblock says so and names each one. Here the original is present, so it does
- * the work: `animated` with `sep: "word"` is the same idea from the source it was copied from, and
- * two implementations of one cascade is one too many. The numbers below are `MessageText`'s, so a
- * transcript that mixes the two components does not visibly change rhythm mid-conversation.
+ * `animated` with `sep: "word"` cascades each word in as it arrives, from Streamdown's own
+ * `animate.ts`; there is no second implementation of the cascade here.
  *
  * **A message that mounts complete did not arrive**, so `streaming` also decides whether anything
- * animates at all — a transcript loaded from history must not replay itself, which is the one rule
- * of `MessageText` that has no counterpart in a prop and has to be spelled here.
+ * animates at all — a transcript loaded from history must not replay itself, which no Streamdown
+ * prop says and so is spelled here.
  */
 export interface MessageMarkdownProps
   extends Omit<StreamdownProps, "children" | "mode" | "animated"> {
@@ -60,7 +56,7 @@ const SAFE: NonNullable<StreamdownProps["rehypePlugins"]> = [
   [(defaultRehypePlugins.harden as [never])[0], { allowedImagePrefixes: [], allowedLinkPrefixes: ["*"], allowDataImages: false }],
 ];
 
-/** `MessageText`'s cascade, so the two components keep the same rhythm. See its docblock. */
+/** Milliseconds between one arriving word and the next. */
 const STAGGER = 18;
 
 export const MessageMarkdown = (props: MessageMarkdownProps) => {
@@ -79,7 +75,7 @@ export const MessageMarkdown = (props: MessageMarkdownProps) => {
     >
       <Streamdown
         animated={streaming ? { sep: "word", stagger: STAGGER } : false}
-        // Streamdown's own caret, rather than the `<span>` `MessageText` draws: it belongs at the
+        // Streamdown's own caret, rather than a `<span>` of ours: it belongs at the
         // end of the last *rendered* block, which only the renderer knows — a caret appended by us
         // would sit after a table rather than inside the paragraph the model is still writing.
         caret={streaming ? "block" : undefined}

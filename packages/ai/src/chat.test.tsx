@@ -98,6 +98,17 @@ describe("Chat", () => {
     expect(document.querySelector("[data-slot=tool-input]")).toBeNull();
   });
 
+  it("hands its translations to the submit button and its tool calls", () => {
+    const chat = {
+      ...idle,
+      status: "ready",
+      messages: [{ id: "a", role: "assistant", parts: [{ type: "tool-query", toolCallId: "c", state: "input-available", input: {} }] }],
+    };
+    render(<Chat chat={chat as never} translations={{ send: "Enviar", stopped: "Detenida" }} />);
+    expect(screen.getByRole("button", { name: "Enviar" })).not.toBeNull();
+    expect(document.querySelector("[data-slot=tool-badge]")?.textContent).toBe("Detenida");
+  });
+
   it("hands the host's renderer every state, and says whether the call will ever settle", () => {
     const calls: { state: string; stopped: boolean }[] = [];
     const query = (state: string, status: string) => ({

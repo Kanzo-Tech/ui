@@ -1,10 +1,12 @@
-import { AA, contrast } from "./ink.js";
+import themeDataJson from "../theme-data.json";
+import { AA, contrast, NON_TEXT_CONTRAST } from "./ink.js";
 
 /**
  * A ground, the ink or mark read on it, and the WCAG floor between them.
  *
- * `4.5` is body text (1.4.3); `3` is a UI component's boundary or a graphical object (1.4.11) — a
- * focus ring, a field's border, a chart mark, and a brand fill that has to stand out from the page.
+ * `AA` is body text (1.4.3); `NON_TEXT_CONTRAST` is a UI component's boundary or a graphical object
+ * (1.4.11) — a focus ring, a field's border, a chart mark, and a brand fill that has to stand out
+ * from the page.
  */
 export interface ContrastPair {
   ground: string;
@@ -13,9 +15,7 @@ export interface ContrastPair {
 }
 
 const text = (ground: string, ink: string): ContrastPair => ({ ground, ink, min: AA });
-const mark = (ground: string, ink: string): ContrastPair => ({ ground, ink, min: 3 });
-
-const SYNTAX = ["keyword", "string", "number", "function", "variable", "property", "type", "annotation"];
+const mark = (ground: string, ink: string): ContrastPair => ({ ground, ink, min: NON_TEXT_CONTRAST });
 
 /**
  * Every pair a theme owes, by the names the vocabulary gives them.
@@ -47,10 +47,7 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
   text("--background", "--info-foreground"),
   text("--background", "--success-foreground"),
   text("--background", "--warning-foreground"),
-  ...SYNTAX.flatMap((role) => [
-    text("--background", `--syntax-${role}`),
-    text("--muted", `--syntax-${role}`),
-  ]),
+  ...themeDataJson.syntax.flatMap((ink) => [text("--background", ink), text("--muted", ink)]),
   mark("--background", "--primary"),
   mark("--background", "--ring"),
   mark("--background", "--input"),

@@ -3,7 +3,7 @@ title: Contributing a section
 description: How an optional package adds its own appearance tokens and its own user preference, without the core ever naming it.
 ---
 
-Some packages carry appearance of their own. The graph has a dot grid and a hover ring; an
+Some packages carry appearance of their own. The graph has a dot grid; an
 editor would have its own type size. Neither belongs in the core's vocabulary — a role minted for one
 consumer is how a token list grows past anyone's ability to read it — and neither should cost a
 product that never installs the package.
@@ -29,7 +29,6 @@ export const GRAPH_SECTION = {
   namespace: "graph",
   tokens: {
     grid: { default: "var(--input)", doc: "The dot grid behind the canvas." },
-    "point-ring-hover": { default: "var(--primary)", doc: "The ring around a hovered point." },
   },
   prefs: {
     marks: {

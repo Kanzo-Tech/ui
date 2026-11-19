@@ -420,8 +420,13 @@ export function ThemeGenerator() {
         </div>
       </ShellHeader>
 
-      <ShellBody>
-        <ShellAside className="w-84 shrink-0 overflow-y-auto border-border border-e" side="start">
+      {/* Below md the controls stack above the previews and the body scrolls as one column: a 21rem
+          aside beside them left the previews about 50px wide. */}
+      <ShellBody className="max-md:flex-col max-md:overflow-y-auto">
+        <ShellAside
+          className="w-84 shrink-0 overflow-y-auto border-border border-e max-md:w-full max-md:overflow-visible max-md:border-e-0 max-md:border-b"
+          side="start"
+        >
           <div className="flex flex-col gap-7 p-5">
             {/* Which side the colour pickers edit. Shape is shared, so it sits outside the switch. */}
             <div className="flex items-center gap-1 rounded-field border border-border p-0.5">
@@ -578,7 +583,7 @@ export function ThemeGenerator() {
           </div>
         </ShellAside>
 
-        <ShellMain className="overflow-y-auto">
+        <ShellMain className="overflow-y-auto max-md:overflow-visible">
           <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
             {/* Both sides at once, each wearing its own values: a pair is judged together. */}
             <div className="grid gap-4 sm:grid-cols-2">

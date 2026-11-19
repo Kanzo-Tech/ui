@@ -15,7 +15,7 @@ import { openQuests, type Quest } from "@/example/quests";
 const data = openQuests().slice(0, 4);
 
 const columns: ColumnDef<Quest>[] = [
-  selectColumn<Quest>({ rowLabel: (row) => `Select ${row.original.title}` }),
+  selectColumn<Quest>({ translations: { rowLabel: (row) => `Select ${row.original.title}` } }),
   { accessorKey: "title", header: "Contract" },
   { accessorKey: "reward", header: "Reward" },
   { accessorKey: "region", header: "Region" },

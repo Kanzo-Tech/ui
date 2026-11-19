@@ -92,7 +92,7 @@ export { CHART_SLOTS };
  * Module-level only: `categoricalCapacity` is the way to read it, and an export whose whole use is
  * to be passed straight back into the function beside it is a second way to do one thing.
  */
-export const CHART_CAPACITY_PROPERTY = "--chart-capacity";
+const CHART_CAPACITY_PROPERTY = "--chart-capacity";
 
 /**
  * How many slots name a real category, read off the live cascade.
