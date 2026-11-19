@@ -49,7 +49,7 @@ describe("the kernel is layer 0", () => {
 describe("Queryable", () => {
   it("is satisfied by an Arrow-shaped table without a conversion", async () => {
     const vector: Vector = { length: 2, get: (i) => [1, 2][i], toArray: () => [1, 2] };
-    const table: Table = { numRows: 2, schema: { fields: [{ name: "n" }] }, getChild: (name) => (name === "n" ? vector : null) };
+    const table: Table = { numRows: 2, schema: { fields: [{ name: "n", nullable: false, type: { typeId: 2 } }] }, getChild: (name) => (name === "n" ? vector : null) };
     const engine: Queryable = { query: async () => table };
     const answer = await engine.query("select 1", { signal: new AbortController().signal });
     expect(answer.getChild("n")?.get(1)).toBe(2);
