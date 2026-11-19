@@ -4,7 +4,7 @@
 #
 # Its authority is the deployment's identity, never a stored key: the AWS default chain (an instance
 # role, or a web identity), DefaultAzureCredential (a managed or workload identity), Google's ADC. The
-# organization grants that identity a role on its storage, and STORAGE_CONNECTION names it.
+# organization grants that identity a role on its storage, and STORAGE_LOCATIONS names where.
 #
 # Nothing publishes its port, and it sits on its own network, `kanzo-storage`, which only the
 # application's server joins: the web, the edge and Keycloak cannot reach it. The server calls
@@ -24,7 +24,7 @@ services:
       context: ../..
       dockerfile: services/storage/Dockerfile
     environment:
-      STORAGE_CONNECTION: ${STORAGE_CONNECTION:?set STORAGE_CONNECTION, the organization's storage and the role granted there}
+      STORAGE_LOCATIONS: ${STORAGE_LOCATIONS:?set STORAGE_LOCATIONS, the organization's storage locations and the role granted there}
       AUTH_ISSUER: ${AUTH_ISSUER:?set AUTH_ISSUER, the realm's public issuer}
       AUTH_CLIENT_ID: ${AUTH_CLIENT_ID:?set AUTH_CLIENT_ID, the application whose server calls this service}
       AUTH_ORGANIZATION: ${AUTH_ORGANIZATION:?set AUTH_ORGANIZATION, the organization this deployment serves}

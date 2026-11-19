@@ -24,14 +24,15 @@ export interface StorageCredential {
 }
 
 /**
- * The organization's storage, as the deployment declares it: where its graphs live (`root`) and the
- * role the deployment's identity is granted there. A role, never a key.
+ * Where the organization's data may live, as the deployment declares it: a storage URL and the role
+ * the deployment's identity is granted there — Unity Catalog's external location and its storage
+ * credential in one. A role, never a key.
  */
-export type Connection =
+export type Location =
   | {
       readonly kind: "s3";
-      readonly bucket: string;
-      readonly root: string;
+      /** `s3://bucket/prefix` */
+      readonly url: string;
       readonly region: string;
       readonly roleArn: string;
       readonly externalId?: string;
@@ -39,8 +40,16 @@ export type Connection =
       readonly stsEndpoint?: string;
       readonly s3Endpoint?: string;
     }
-  | { readonly kind: "adls"; readonly account: string; readonly container: string; readonly root: string }
-  | { readonly kind: "gcs"; readonly bucket: string; readonly root: string };
+  | {
+      readonly kind: "adls";
+      /** `abfss://container@account.dfs.core.windows.net/prefix` */
+      readonly url: string;
+    }
+  | {
+      readonly kind: "gcs";
+      /** `gs://bucket/prefix` */
+      readonly url: string;
+    };
 
 /** Unity Catalog's and Polaris's lifetime. Readers renew before it lapses. */
 export const LIFETIME_S = 3600;
@@ -48,16 +57,54 @@ export const LIFETIME_S = 3600;
 /** Azure refuses a SAS whose start is ahead of its clock; Polaris backdates by the same margin. */
 const SKEW_MS = 5 * 60 * 1000;
 
+/** A storage URL taken apart: which store (`kind`, and the bucket or the account's container) and the path's segments. */
+interface Parsed {
+  readonly kind: Location["kind"];
+  readonly bucket: string;
+  readonly account?: string;
+  readonly segments: readonly string[];
+}
+
+const SCHEMES: Readonly<Record<string, Location["kind"]>> = { s3: "s3", s3a: "s3", abfss: "adls", gs: "gcs" };
+
 /**
- * The prefix a request may open: the path under the connection's root, relative, with no `.`, `..`
- * or empty segment. Anything else is `storage/path` — a caller cannot climb out of the root.
+ * `s3://b/a`, `abfss://c@account.dfs.core.windows.net/a`, `gs://b/a`. The path is taken as the text
+ * names it: a `.`, a `..` or an empty segment is refused, never resolved, so what is checked against a
+ * location and what is signed are the same string.
  */
-export function under(root: string, path: string): string {
-  const parts = path.split("/").filter((p) => p !== "");
-  if (parts.length === 0 || parts.some((p) => p === "." || p === "..")) {
-    throw new Problem("storage/path", `not a graph path: ${path}`, { path });
+export function parse(url: string): Parsed {
+  const refuse = (why: string) => new Problem("storage/path", `${url}: ${why}`, { path: url });
+  const match = /^([a-z0-9]+):\/\/([^/]+)(\/.*)?$/i.exec(url);
+  const kind = match && SCHEMES[match[1]!.toLowerCase()];
+  if (!match || !kind) throw refuse("not an s3://, abfss:// or gs:// URL");
+  const path = (match[3] ?? "").replace(/^\/|\/$/g, "");
+  const segments = path === "" ? [] : path.split("/");
+  if (segments.some((s) => s === "" || s === "." || s === "..")) throw refuse("a path names no `.`, `..` or empty segment");
+  if (kind === "adls") {
+    const at = /^([^@]+)@([a-z0-9]+)\.dfs\.core\.windows\.net$/i.exec(match[2]!);
+    if (!at) throw refuse("names no container@account.dfs.core.windows.net");
+    return { kind, bucket: at[1]!, account: at[2]!.toLowerCase(), segments };
   }
-  return [...root.split("/"), ...parts].filter((p) => p !== "").join("/");
+  if (/[@:]/.test(match[2]!)) throw refuse("names no bucket");
+  return { kind, bucket: match[2]!, segments };
+}
+
+/**
+ * The declared location `url` lies in, and the prefix to open — `url`'s own path, never the
+ * location's root alone unless it is that. A URL in no declared location is `storage/path`: the
+ * deployment's identity reaches only what the organization granted, and this service only what it
+ * was told was granted.
+ */
+export function within<L extends Location>(locations: readonly L[], url: string): { location: L; bucket: string; account?: string; prefix: string } {
+  const wanted = parse(url);
+  const same = (a: Parsed) => a.kind === wanted.kind && a.bucket === wanted.bucket && a.account === wanted.account;
+  const found = locations
+    .map((location) => ({ location, root: parse(location.url) }))
+    .filter(({ root }) => same(root) && root.segments.every((s, i) => wanted.segments[i] === s))
+    .sort((a, b) => b.root.segments.length - a.root.segments.length)[0];
+  if (!found) throw new Problem("storage/path", `${url} is in no storage location of this deployment`, { path: url });
+  if (wanted.segments.length === 0) throw new Problem("storage/path", `${url} names a whole bucket`, { path: url });
+  return { location: found.location, bucket: wanted.bucket, ...(wanted.account ? { account: wanted.account } : {}), prefix: wanted.segments.join("/") };
 }
 
 /** Read and list the prefix, or write under it. Never delete, and writing does not read. */
@@ -110,14 +157,14 @@ export function directorySas(
   ).toString();
 }
 
-async function s3(c: Extract<Connection, { kind: "s3" }>, prefix: string, access: Access, session: string): Promise<StorageCredential> {
+async function s3(c: Extract<Location, { kind: "s3" }>, bucket: string, prefix: string, access: Access, session: string): Promise<StorageCredential> {
   const sts = new STSClient({ region: c.region, ...(c.stsEndpoint ? { endpoint: c.stsEndpoint } : {}) });
   const { Credentials: k } = await sts.send(
     new AssumeRoleCommand({
       RoleArn: c.roleArn,
       ExternalId: c.externalId,
       RoleSessionName: session,
-      Policy: s3Policy(c.bucket, prefix, access),
+      Policy: s3Policy(bucket, prefix, access),
       DurationSeconds: LIFETIME_S,
     }),
   );
@@ -125,7 +172,7 @@ async function s3(c: Extract<Connection, { kind: "s3" }>, prefix: string, access
     throw new Problem("storage/refused", "STS answered without a credential");
   }
   return {
-    prefix: `s3://${c.bucket}/${prefix}/`,
+    prefix: `s3://${bucket}/${prefix}/`,
     config: {
       "s3.access-key-id": k.AccessKeyId,
       "s3.secret-access-key": k.SecretAccessKey,
@@ -137,15 +184,15 @@ async function s3(c: Extract<Connection, { kind: "s3" }>, prefix: string, access
   };
 }
 
-async function adls(c: Extract<Connection, { kind: "adls" }>, prefix: string, access: Access, identity: TokenCredential): Promise<StorageCredential> {
-  const host = `${c.account}.dfs.core.windows.net`;
+async function adls(account: string, container: string, prefix: string, access: Access, identity: TokenCredential): Promise<StorageCredential> {
+  const host = `${account}.dfs.core.windows.net`;
   const startsOn = new Date(Date.now() - SKEW_MS);
   const expiresOn = new Date(Date.now() + LIFETIME_S * 1000);
   const key = await new DataLakeServiceClient(`https://${host}`, identity).getUserDelegationKey(startsOn, expiresOn);
   return {
-    prefix: `abfss://${c.container}@${host}/${prefix}/`,
+    prefix: `abfss://${container}@${host}/${prefix}/`,
     config: {
-      [`adls.sas-token.${host}`]: directorySas(c.account, c.container, prefix, access, key, startsOn, expiresOn),
+      [`adls.sas-token.${host}`]: directorySas(account, container, prefix, access, key, startsOn, expiresOn),
       [`adls.sas-token-expires-at-ms.${host}`]: String(expiresOn.getTime()),
     },
   };
@@ -169,14 +216,14 @@ export function gcsBoundary(bucket: string, prefix: string, access: Access) {
   };
 }
 
-async function gcs(c: Extract<Connection, { kind: "gcs" }>, prefix: string, access: Access): Promise<StorageCredential> {
+async function gcs(bucket: string, prefix: string, access: Access): Promise<StorageCredential> {
   const source = await new GoogleAuth({ scopes: ["https://www.googleapis.com/auth/cloud-platform"] }).getClient();
-  const downscoped = new DownscopedClient({ authClient: source as never, credentialAccessBoundary: gcsBoundary(c.bucket, prefix, access) });
+  const downscoped = new DownscopedClient({ authClient: source as never, credentialAccessBoundary: gcsBoundary(bucket, prefix, access) });
   const { token, res } = await downscoped.getAccessToken();
   if (!token) throw new Problem("storage/refused", "Google's STS answered without a token");
   const expiresIn = (res?.data as { expires_in?: number } | undefined)?.expires_in ?? LIFETIME_S;
   return {
-    prefix: `gs://${c.bucket}/${prefix}/`,
+    prefix: `gs://${bucket}/${prefix}/`,
     config: { "gcs.oauth2.token": token, "gcs.oauth2.token-expires-at": String(Date.now() + expiresIn * 1000) },
   };
 }
@@ -185,16 +232,16 @@ async function gcs(c: Extract<Connection, { kind: "gcs" }>, prefix: string, acce
 let azure: TokenCredential | undefined;
 
 /**
- * One credential for `path` under the connection's root. `session` names the person in the cloud's
- * audit log (CloudTrail's `RoleSessionName`); the decision that they may is the caller's, taken
- * before it asks.
+ * One credential for the prefix `url` names, inside one of the deployment's `locations`. `session`
+ * names the person in the cloud's audit log (CloudTrail's `RoleSessionName`); the decision that they
+ * may is the caller's, taken before it asks.
  */
-export async function vend(c: Connection, path: string, access: Access, session: string): Promise<StorageCredential> {
-  const prefix = under(c.root, path);
+export async function vend(locations: readonly Location[], url: string, access: Access, session: string): Promise<StorageCredential> {
+  const { location, bucket, account, prefix } = within(locations, url);
   try {
-    if (c.kind === "s3") return await s3(c, prefix, access, session);
-    if (c.kind === "adls") return await adls(c, prefix, access, (azure ??= new DefaultAzureCredential()));
-    return await gcs(c, prefix, access);
+    if (location.kind === "s3") return await s3(location, bucket, prefix, access, session);
+    if (location.kind === "adls") return await adls(account!, bucket, prefix, access, (azure ??= new DefaultAzureCredential()));
+    return await gcs(bucket, prefix, access);
   } catch (error) {
     if (error instanceof Problem) throw error;
     throw new Problem("storage/refused", `the store refused: ${(error as Error).message}`, {}, { cause: error });

@@ -9,12 +9,17 @@ does not read), for any prefix an application decides a person may open.
 POST /v1/credentials
 x-forwarded-access-token: <the person's Keycloak access token>
 
-{ "path": "graph-42", "access": "write" }
+{ "location": "s3://bucket/graphs/graph-42/", "access": "write" }
 ```
 
 ```json
 { "storage-credentials": [{ "prefix": "s3://bucket/graphs/graph-42/", "config": { "s3.access-key-id": "…", "s3.session-token": "…" } }] }
 ```
+
+`STORAGE_LOCATIONS` declares where the organization's data may live: each a storage URL
+(`s3://`, `abfss://container@account.dfs.core.windows.net/`, `gs://`) and, for S3, the role
+granted there — Unity Catalog's external locations. A `location` in none of them is refused
+(`storage/path`), as is one that names a `.`, a `..` or an empty segment.
 
 ## Nothing here signs
 
@@ -40,7 +45,7 @@ service holds no permissions of its own. `/docs/design/services` says why, and w
 ## Running it
 
 ```sh
-STORAGE_CONNECTION='{"kind":"s3","bucket":"b","root":"graphs","region":"eu-west-1","roleArn":"arn:aws:iam::123:role/kanzo-storage","externalId":"…"}' \
+STORAGE_LOCATIONS='[{"kind":"s3","url":"s3://bucket/graphs","region":"eu-west-1","roleArn":"arn:aws:iam::123:role/kanzo-storage","externalId":"…"}]' \
 AUTH_ISSUER=https://id.example/realms/kanzo AUTH_CLIENT_ID=my-app AUTH_ORGANIZATION=acme \
 docker compose -f compose.yaml up -d --wait
 ```

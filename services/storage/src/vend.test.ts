@@ -1,14 +1,31 @@
 import { isProblem } from "@kanzo-tech/kernel";
 import { describe, expect, it } from "vitest";
-import { directorySas, gcsBoundary, s3Policy, under, vend } from "./vend.ts";
+import { directorySas, gcsBoundary, type Location, s3Policy, vend, within } from "./vend.ts";
 
-describe("under", () => {
-  it("opens a path below the root, and nothing that climbs out of it", () => {
-    expect(under("graphs", "g1")).toBe("graphs/g1");
-    expect(under("/graphs/", "/g1/vertex/")).toBe("graphs/g1/vertex");
-    expect(under("", "g1")).toBe("g1");
-    for (const path of ["", "/", "../etc", "g1/../../x", "./g1"]) {
-      expect(() => under("graphs", path)).toThrow(expect.objectContaining({ code: "storage/path" }));
+const locations: Location[] = [
+  { kind: "s3", url: "s3://b/graphs", region: "us-east-1", roleArn: "arn:aws:iam::1:role/r" },
+  { kind: "s3", url: "s3://b/graphs/sales", region: "eu-west-1", roleArn: "arn:aws:iam::1:role/sales" },
+  { kind: "adls", url: "abfss://c@acct.dfs.core.windows.net/" },
+  { kind: "gcs", url: "gs://g/raw" },
+];
+const refused = expect.objectContaining({ code: "storage/path" });
+
+describe("within", () => {
+  it("opens the prefix a URL names, in the deepest location that holds it", () => {
+    expect(within(locations, "s3://b/graphs/g1/")).toMatchObject({ location: locations[0], bucket: "b", prefix: "graphs/g1" });
+    expect(within(locations, "s3a://b/graphs/sales/q3")).toMatchObject({ location: locations[1], prefix: "graphs/sales/q3" });
+    expect(within(locations, "s3://b/graphs")).toMatchObject({ location: locations[0], prefix: "graphs" });
+    expect(within(locations, "abfss://c@ACCT.dfs.core.windows.net/x/y")).toMatchObject({ location: locations[2], bucket: "c", account: "acct", prefix: "x/y" });
+    expect(within(locations, "gs://g/raw/2026")).toMatchObject({ location: locations[3], prefix: "raw/2026" });
+  });
+
+  it("refuses what no location holds, a whole bucket, and a path that climbs", () => {
+    for (const url of [
+      "s3://b/graphsx/g1", "s3://b/other", "s3://other/graphs/g1", "gs://b/graphs/g1",
+      "abfss://c@other.dfs.core.windows.net/x", "abfss://c@acct.dfs.core.windows.net/",
+      "s3://b/graphs/../x", "s3://b/graphs/./g1", "s3://b/graphs//g1", "https://b/graphs/g1", "graphs/g1",
+    ]) {
+      expect(() => within(locations, url), url).toThrow(refused);
     }
   });
 });
@@ -66,8 +83,7 @@ describe("gcsBoundary", () => {
 });
 
 describe("vend", () => {
-  it("refuses a path that climbs out before it asks any cloud", async () => {
-    const connection = { kind: "s3" as const, bucket: "b", root: "graphs", region: "us-east-1", roleArn: "arn:aws:iam::1:role/r" };
-    await expect(vend(connection, "../x", "read", "s")).rejects.toSatisfy((e: unknown) => isProblem(e) && (e as { code: string }).code === "storage/path");
+  it("refuses a URL outside its locations before it asks any cloud", async () => {
+    await expect(vend(locations, "s3://b/elsewhere", "read", "s")).rejects.toSatisfy((e: unknown) => isProblem(e) && (e as { code: string }).code === "storage/path");
   });
 });

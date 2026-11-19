@@ -169,13 +169,14 @@ database is what this replaces.
 **It decides nothing about who may.** The caller is an application's server, after its own
 permission check; the service verifies the forwarded token so the cloud's audit log names the
 person, refuses a token whose person is not a member of the deployment's organization
-(`AUTH_ORGANIZATION`), and refuses a path that climbs out of the organization's root. Permissions
+(`AUTH_ORGANIZATION`), and refuses a location outside the ones the deployment declares (`STORAGE_LOCATIONS`, Unity
+Catalog's external locations). Permissions
 stay where the application's domain is. It sits on its own network, `kanzo-storage`, which only the
 application's server joins: the web, the edge and Keycloak cannot reach it.
 
 **What it cost.** A process per deployment, and the service trusts its caller for the decision it
 leaves to it: code running *as the application's server*, with a member's token, can ask for any
-path under the root. That is what the same code could already do through the server itself, and
+prefix inside a declared location. That is what the same code could already do through the server itself, and
 what it could do when the vending lived inside the server. A credential of the server's own — a
 Keycloak client the service would require — would narrow it to the server's process, at the price
 of a secret in a server built to hold none; not taken.

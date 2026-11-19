@@ -22,7 +22,7 @@ docker compose -f compose.dev.yaml up -d --wait   # for development
 
 `storage` is not in the aggregate files below: an application that writes to an organization's storage
 includes `storage/compose.yaml` itself, because it cannot start without that organization's
-`STORAGE_CONNECTION`.
+`STORAGE_LOCATIONS`.
 
 An application includes them from this repository, at the release it was built against — one URL
 per environment — and adds its own services and declarations:

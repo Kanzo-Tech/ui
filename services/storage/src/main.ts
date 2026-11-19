@@ -1,5 +1,5 @@
 /**
- * The storage service: `POST /v1/credentials` `{ path, access }` → `{ "storage-credentials": [...] }`,
+ * The storage service: `POST /v1/credentials` `{ location, access }` → `{ "storage-credentials": [...] }`,
  * Iceberg REST's `LoadCredentialsResponse`. Its caller is an application's server, after its own
  * permission check, forwarding the person's access token as the edge forwarded it to that server
  * (`x-forwarded-access-token`); the token is verified against the realm's keys by
@@ -11,7 +11,7 @@ import { createServer } from "node:http";
 import { sessionReader } from "@kanzo-tech/auth/server";
 import { Problem } from "@kanzo-tech/kernel";
 import { member } from "./caller.ts";
-import { vend, type Access, type Connection } from "./vend.ts";
+import { vend, type Access, type Location } from "./vend.ts";
 
 function required(name: string): string {
   const value = process.env[name]?.trim();
@@ -19,7 +19,7 @@ function required(name: string): string {
   return value;
 }
 
-const connection = JSON.parse(required("STORAGE_CONNECTION")) as Connection;
+const locations = JSON.parse(required("STORAGE_LOCATIONS")) as Location[];
 const read = sessionReader({
   issuer: required("AUTH_ISSUER"),
   clientId: required("AUTH_CLIENT_ID"),
@@ -47,13 +47,13 @@ createServer(async (request, response) => {
     member(session, organization);
     let body = "";
     for await (const chunk of request) body += chunk;
-    const { path, access } = JSON.parse(body) as { path?: unknown; access?: unknown };
-    if (typeof path !== "string" || (access !== "read" && access !== "write")) {
-      return problem(new Problem("storage/path", "the body is { path, access: read | write }", { path: String(path) }));
+    const { location, access } = JSON.parse(body) as { location?: unknown; access?: unknown };
+    if (typeof location !== "string" || (access !== "read" && access !== "write")) {
+      return problem(new Problem("storage/path", "the body is { location, access: read | write }", { path: String(location) }));
     }
-    const credential = await vend(connection, path, access as Access, sessionName(session.user.id));
+    const credential = await vend(locations, location, access as Access, sessionName(session.user.id));
     reply(200, { "storage-credentials": [credential] });
   } catch (error) {
     problem(error instanceof Problem ? error : new Problem("storage/refused", String(error), {}, { cause: error }));
   }
-}).listen(port, () => console.log(`storage: ${connection.kind} on :${port}`));
+}).listen(port, () => console.log(`storage: ${locations.map((l) => l.url).join(", ")} on :${port}`));
