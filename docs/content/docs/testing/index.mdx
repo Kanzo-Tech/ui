@@ -102,7 +102,7 @@ keep their own, because CDK has none or its namesake does something else
 | `DashboardHarness` | its `data-slot` | `tile(title)`, `settled()` |
 | `TileHarness` | an `article` holding its title | `text()`, `chart()`, `settled()` |
 | `FilterBarHarness` | the region *Filters* | `chips()`, `remove(field)`, `open(field)`, `readout()` |
-| `RelationPickerHarness` | the group *Relation* | `root()`, `pick(type)`, `add(hop)`, `path()`, `remove(sentence)`, `grain()` — a hop by its sentence (*Comment · located in this place*), its step as `relationKey` writes it (`<isLocatedIn<Comment`), or its edge label where one item has it |
+| `RelationPickerHarness` | the group *Relation* | `root()`, `pick(type)`, `add(hop)`, `path()`, `remove(sentence)` — a hop by its sentence (*Comment isLocatedIn → this Place*), its step (`<isLocatedIn<Comment`), or its edge label where one item has it |
 | `AnswerHarness` | the composer, a textbox named *Ask…*; the answer cards by their `data-slot` | `ask(question)`, `answer()`, `rows()`, `addToDashboard()`, `openOnDashboard()`, `filterTo()` |
 | `FindingsBadgeHarness` | its `data-slot`: the badge is named by the host's tally | `tally()`, `open()`, `groups()`, `item(message)` |
 | `FindingsItemHarness` | its `data-slot`, a `listitem` | `severity()` — `@kanzo-tech/ui`'s `FindingSeverity` — `count()`, `message()`, `where()`, `act(label)`, `open()`, `sample()` |
@@ -206,7 +206,8 @@ and `localModel` fails as `llm/unavailable`, its own answer.
 
 `queryableConformance(make, options?)` returns the cases an engine, or a double of one, has to pass to
 be handed to anything that reads through DuckDB: a statement answers in columns (`numRows`,
-`schema.fields`, `getChild`) with SQL `NULL` read as `null`; a refusal rejects `engine/failed` and no
+`schema.fields`, `getChild`), each field `{ name, nullable, type: { typeId } }` as Arrow types it,
+with SQL `NULL` read as `null`; a refusal rejects `engine/failed` and no
 literal of the statement is on it; a signal aborted before the call rejects with its reason and the
 statement is never sent; a signal aborted during a long statement rejects with its reason and the
 connection answers the next statement within 200 ms; and an engine that dies rejects what it held,

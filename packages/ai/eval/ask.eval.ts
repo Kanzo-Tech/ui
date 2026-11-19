@@ -112,7 +112,7 @@ function holds(rows: readonly Record<string, string>[], [label, n]: Pair): boole
 
 /** The fixture's address for a case: its corpus, its relation, and the field its filter counts. */
 function addressOf(c: AskCase): string {
-  const query = new URLSearchParams({ corpus: c.corpus, relation: [c.page.root, ...(c.page.hops ?? [])].join(""), model: MODEL });
+  const query = new URLSearchParams({ corpus: c.corpus, pattern: JSON.stringify(c.page.pattern), model: MODEL });
   if (c.page.filter) query.set("filter", c.page.filter.x);
   return `${ORIGIN}/fixtures/ask-eval?${query}`;
 }

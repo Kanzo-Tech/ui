@@ -1,0 +1,16 @@
+PREFIX sightings: <https://kanzo.tech/sightings/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+# The output contract of `sightings.fossil`: one sighting per reported beast, with the seven columns
+# `example/sightings.ts` describes — four kinds of field, so the dashboard's stats choose every kind
+# of filter and tile from one type.
+
+sightings:Sighting {
+  sightings:beast   xsd:string ;
+  sightings:region  xsd:string ;
+  sightings:hall    xsd:string ;
+  sightings:hour    xsd:integer ;
+  sightings:leagues xsd:double ;
+  sightings:bounty  xsd:integer ;
+  sightings:verdict xsd:string
+}

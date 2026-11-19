@@ -1,5 +1,7 @@
-import type { Table } from "@kanzo-tech/kernel";
-import { toDataColumns } from "@uwdata/mosaic-core";
+import { toDataColumns, type decodeIPC } from "@uwdata/mosaic-core";
+
+/** The Arrow table mosaic-core decodes: what an engine answers. */
+type Table = ReturnType<typeof decodeIPC>;
 
 /**
  * **An engine's answer as rows** — objects keyed by column, in the answer's order, each value as its

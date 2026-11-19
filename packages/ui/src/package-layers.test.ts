@@ -30,6 +30,9 @@ import { label, REPO, SHIPPED, sourceFiles, type Root } from "./guard-corpus";
  *   until the table gives it one.
  * - **Tests are not walked**, and a module under `testing` — the `./testing` entry, or a directory of
  *   that name — may import what is outside the map, as the page allows.
+ * - **A sibling is a package of this repository.** `@kanzo-tech/graphar-duckdb` shares the scope and
+ *   ships from Kanzo-Tech/graphar; to this guard it is a third party's package, as the page says, and
+ *   its layer is not this map's to give.
  */
 
 const ARCHITECTURE = readFileSync(join(REPO, "docs/content/docs/design/architecture.mdx"), "utf8");
@@ -37,6 +40,10 @@ const PHILOSOPHY = readFileSync(join(REPO, "docs/content/docs/(root)/philosophy.
 
 const ticks = (text: string) => [...text.matchAll(/`([^`]+)`/g)].map((m) => m[1]!);
 const bare = (name: string) => name.replace(/^@kanzo-tech\//, "");
+
+/** The packages of this repository: a `@kanzo-tech/` name outside it is a third party's. */
+const FAMILY = new Set(SHIPPED.map((root) => root.name));
+const sibling = (spec: string) => spec.startsWith("@kanzo-tech/") && FAMILY.has(bare(spec).split("/")[0]!);
 
 /** Entry or package → layer, from the rows of the table. `/table` after `ui` is `ui/table`. */
 const LAYER = new Map<string, number>();
@@ -102,14 +109,14 @@ const manifestOf = (root: Root) =>
   };
 const declared = (root: Root) =>
   [...Object.keys(manifestOf(root).dependencies ?? {}), ...Object.keys(manifestOf(root).peerDependencies ?? {})]
-    .filter((name) => name.startsWith("@kanzo-tech/"))
+    .filter(sibling)
     .map(bare);
 
 const MAPPED = SHIPPED.filter((root) => !OUTSIDE.has(root.name));
 const siblings = MAPPED.flatMap((root) =>
   sourceFiles(/\.tsx?$/, [root]).flatMap((file) =>
     importsOf(file)
-      .filter(({ spec }) => spec.startsWith("@kanzo-tech/"))
+      .filter(({ spec }) => sibling(spec))
       .map(({ spec }) => ({ root, file, target: bare(spec) }))
       .filter(({ target }) => target.split("/")[0] !== root.name),
   ),

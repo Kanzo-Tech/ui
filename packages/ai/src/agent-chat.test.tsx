@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Problem } from "@kanzo-tech/kernel";
+import { Problem } from "@kanzo-tech/problems";
 import { ToolLoopAgent } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, it } from "vitest";

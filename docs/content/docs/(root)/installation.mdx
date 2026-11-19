@@ -35,7 +35,7 @@ nothing else:
 | Subpath | What it is | Optional peers |
 | --- | --- | --- |
 | [`@kanzo-tech/ui/table`](/docs/data-display/data-table) | The connected data table | `@tanstack/react-table` |
-| [`@kanzo-tech/ui/analytics`](/docs/analytics) | The charts, over Mosaic + DuckDB | `@kanzo-tech/mosaic` (with its peers `@uwdata/mosaic-core` and `@uwdata/mosaic-sql`), `@uwdata/vgplot`, `@uwdata/mosaic-plot`, `valibot` |
+| [`@kanzo-tech/ui/analytics`](/docs/analytics) | The charts, over Mosaic + DuckDB | `@kanzo-tech/mosaic` (with its peers `@uwdata/mosaic-core` and `@uwdata/mosaic-sql`), `@uwdata/vgplot`, `@uwdata/mosaic-plot`, `valibot`, `@kanzo-tech/graphar-duckdb` (the `Graph` a dashboard's pattern is read over) |
 | [`@kanzo-tech/ui/editor`](/docs/forms/code-editor) | The CodeMirror editors | `@codemirror/state`, `@codemirror/view`, `@codemirror/language`, `@codemirror/commands`, `@codemirror/search`, `@codemirror/autocomplete`, `@lezer/highlight` |
 
 <Callout type="info">
@@ -57,9 +57,9 @@ pnpm add @kanzo-tech/graph @cosmos.gl/graph @kanzo-tech/mosaic @kanzo-tech/ui lu
 ```
 
 Every peer is required: `@kanzo-tech/mosaic` is the engine the graph reads through and the
-crossfilter it shares with the charts. The graph imports nothing of graphar's or fossil's — the host
-attaches a GraphAr graph with `@kanzo-tech/graphar-duckdb`'s `attachGraph`, its own dependency, and
-names the catalog to the root.
+crossfilter it shares with the charts. The host attaches a GraphAr graph with
+`@kanzo-tech/graphar-duckdb`'s `attachGraph` and hands the root the `Graph` it answers; the graph reads
+through that `Graph` and writes no name of the format.
 
 ### The AI surfaces are a package too
 
@@ -83,7 +83,7 @@ nothing else.
 
 [Asking questions of data](/docs/ai/data) — `useAskChat`, `AnswerCard`, `AskChips` — is a subpath,
 `@kanzo-tech/ai/data`, because it draws with `@kanzo-tech/ui/analytics` and `/table`. Its own optional
-peers are `@kanzo-tech/mosaic`, `@kanzo-tech/relations` and `@tanstack/react-query`, and a host that
+peers are `@kanzo-tech/mosaic` and `@tanstack/react-query`, and a host that
 opens it installs those two subpaths' peers from the table above as well. `Chat` and `Assist`, on the
 root, need none of them.
 

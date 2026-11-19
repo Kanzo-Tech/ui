@@ -34,7 +34,7 @@
   },
   "//peers": "`ai` is REQUIRED, not optional, and that is the point of this package: there is nothing here without it, and a host installs it once so @kanzo-tech/ai's components and the host's own agent see the same UIMessage, the same agent and the same transport. Two copies would be two type universes that do not assign to each other. None of it is re-exported: a host imports `ai` by name. `@browser-ai/web-llm` and `@mlc-ai/web-llm` are optional, and only `/local` reaches them: a host that runs no model in the page installs neither. `@kanzo-tech/testing` is optional and reached only from `/testing`: the double's script and its answering (`scripted`) are that package's, declared once where the environment that registers them in a page is, and `scriptedModel` is the AI SDK's mock over them. `/local` imports nothing of it: a model is resolved through the registry on `globalThis` under `Symbol.for(\"@kanzo-tech/llm/local\")`, and a test registers its scripted provider there as a host registers WebLLM's.",
   "dependencies": {
-    "@kanzo-tech/kernel": "workspace:^"
+    "@kanzo-tech/problems": "workspace:^"
   },
   "peerDependencies": {
     "@browser-ai/web-llm": "^3.0.4",

@@ -1,7 +1,7 @@
-import type { Problem } from "@kanzo-tech/kernel";
+import type { Problem } from "@kanzo-tech/problems";
 
 /**
- * Every refusal the forwarder sends as a body, in one shape: the kernel's `Problem` as RFC 9457's
+ * Every refusal the forwarder sends as a body, in one shape: `@kanzo-tech/problems`' `Problem` as RFC 9457's
  * `application/problem+json`. The status is the registry's (`problems.bnf`), the only table. Only
  * the `./next` modules import this, and none of them reaches React.
  */

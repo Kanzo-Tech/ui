@@ -1,19 +1,19 @@
-import { clausePoints, type SelectionClause, Query } from "@kanzo-tech/mosaic";
-import { crossfilterOver, onRelation, readOf, relationHops, JoinResolver, type Hop, type JoinGraph, type Relation, type RelationRef } from "@kanzo-tech/relations";
+import type { Graph, Pattern } from "@kanzo-tech/graphar-duckdb";
+import { clausePoints, crossfilterOver, onRelation, relationOver, verbatim, type Relation, type SelectionClause, Query } from "@kanzo-tech/mosaic";
 import fc from "fast-check";
 import { describe, expect, it, vi } from "vitest";
 import { attach, type Attached } from "../../test/corpus";
-import { readJoinGraph } from "@kanzo-tech/relations";
 
 /**
  * **The page's one selection across relations, as properties** — `/docs/design/crossfilter#one-selection-across-relations`.
- * Each run takes two random relations over the corpus's joins (a type, the union of every vertex, or
- * a path of up to two hops from either), publishes a random clause on the first, and reads the second
- * through the page's resolver — against an oracle that is not the resolver: DuckDB asked for each
- * relation's rows on its own, and the semi-join done here, by hand.
+ * Each run takes two random patterns over the corpus's graph (a vertex, or a path of up to two edges
+ * from it), publishes a random clause on the first, and reads the second through the page's resolver
+ * — against an oracle that is not the resolver: DuckDB asked for each pattern's rows on its own, and
+ * the semi-join done here, by hand.
  *
- * - the clause on A reaches B exactly as the semi-join on A's root key into the first step of B of a
- *   type A's root shares rows with — and as nothing where B has none;
+ * - the clause on A reaches B exactly as the semi-join on A's first vertex into B's first vertex of
+ *   its type — or, where B has none, into B's first vertex along the graph's one shortest path
+ *   (`Graph.reach`), and as nothing where there is no such path;
  * - a chip's × (`selection.reset([clause])`) retracts it for every reader, whatever relation it was on.
  */
 
@@ -29,89 +29,89 @@ async function rows(corpus: Attached, query: Query | string): Promise<Rows> {
   return [...answer];
 }
 
-/** A relation drawn from `joins`: a type and up to two hops, the hops picked by `walk`. */
-function relationFrom(joins: JoinGraph, root: number, walk: readonly number[]): Relation {
-  const types = joins.types.map((t) => t.name);
+/** A pattern drawn from `graph`: a vertex and up to two edges, the edges picked by `walk`, each vertex named by its place. */
+function patternFrom(graph: Graph, root: number, walk: readonly number[]): Pattern {
+  const types = graph.vertexTypes.map((t) => t.type);
   let at = types[root % types.length]!;
-  const path: Hop[] = [];
+  const pattern: Pattern[number][] = [{ as: "v0", type: at }];
   for (const step of walk) {
-    const hops = relationHops(joins, at);
+    const hops = [
+      ...graph.edgeTypes.filter((e) => e.srcType === at).map((e) => ({ edge: e.edgeType, direction: "out" as const, to: e.dstType })),
+      ...graph.edgeTypes.filter((e) => e.dstType === at).map((e) => ({ edge: e.edgeType, direction: "in" as const, to: e.srcType })),
+    ];
     if (hops.length === 0) break;
     const hop = hops[step % hops.length]!;
-    path.push(hop.hop);
+    pattern.push({ edge: hop.edge, direction: hop.direction }, { as: `v${pattern.length / 2 + 0.5}`, type: hop.to });
     at = hop.to;
   }
-  return { root: types[root % types.length]!, path };
+  return pattern;
 }
-
-/** The key of each step, as the relation names it, with its type: what a crossing reads. */
-function identities(joins: JoinGraph, relation: RelationRef) {
-  if (typeof relation === "string") {
-    const type = joins.types.find((t) => t.name === relation)!;
-    return [{ column: type.key, type: type.name }];
-  }
-  // The relation's own names for its keys — its paths — which only the joins' door spells.
-  return new JoinResolver(joins).steps(relation).map((s) => ({ column: s.key, type: s.type }));
-}
-
-/** Whether rows of `a` and rows of `b` share keys: one type, or a union and a type of it. */
-const meets = (joins: JoinGraph, a: string, b: string) => {
-  const of = (name: string) => joins.types.find((t) => t.name === name)?.of ?? [];
-  return a === b || of(a).includes(b) || of(b).includes(a);
-};
 
 const key = (v: unknown) => Number(v);
 const sorted = (values: unknown[]) => values.map(key).sort((x, y) => x - y);
 
-const arbitrary = (joins: JoinGraph) =>
-  fc.record({
-    a: fc.record({ root: fc.nat(), walk: fc.array(fc.nat(), { maxLength: 2 }), named: fc.boolean() }),
-    b: fc.record({ root: fc.nat(), walk: fc.array(fc.nat(), { maxLength: 2 }), named: fc.boolean() }),
-    step: fc.nat(),
-    members: fc.uniqueArray(fc.integer({ min: 0, max: SIZE - 1 }), { minLength: 1, maxLength: SIZE }),
-  }).map(({ a, b, step, members }) => {
-    // A type alone is read by name half the time: its table as it is, the other form of one step.
-    const pick = (r: { root: number; walk: number[]; named: boolean }): RelationRef => {
-      const relation = relationFrom(joins, r.root, r.walk);
-      return relation.path.length === 0 && r.named ? relation.root : relation;
-    };
-    return { a: pick(a), b: pick(b), step, members };
-  });
+const arbitrary = (graph: Graph) =>
+  fc
+    .record({
+      a: fc.record({ root: fc.nat(), walk: fc.array(fc.nat(), { maxLength: 2 }) }),
+      b: fc.record({ root: fc.nat(), walk: fc.array(fc.nat(), { maxLength: 2 }) }),
+      step: fc.nat(),
+      members: fc.uniqueArray(fc.integer({ min: 0, max: SIZE - 1 }), { minLength: 1, maxLength: SIZE }),
+    })
+    .map(({ a, b, step, members }) => ({
+      a: relationOver(graph, patternFrom(graph, a.root, a.walk)),
+      b: relationOver(graph, patternFrom(graph, b.root, b.walk)),
+      step,
+      members,
+    }));
 
 /** A client of `relation`: what the resolver reads at predicate time. */
-const reader = (relation: RelationRef) => ({ relation }) as never;
+const reader = (relation: Relation) => ({ relation }) as never;
+
+/** The column a relation's vertex is read by: its variable. */
+const columnOf = (relation: Relation, i: number) => relation.vertices[i % relation.vertices.length]!.variable!;
 
 describe("one selection across relations, as properties", () => {
-  it("reads a clause on one relation from another exactly as the semi-join on its root's key, and as nothing without a step of its type", BUDGET, async () => {
+  it("reads a clause on one pattern from another exactly as the semi-join on its first vertex, landed by type or carried by the one shortest path", BUDGET, async () => {
     const corpus = await attach();
-    const joins = await readJoinGraph(corpus.engine, corpus.from, { signal: new AbortController().signal });
+    const { graph } = corpus;
     await fc.assert(
-      fc.asyncProperty(arbitrary(joins), async ({ a, b, step, members }) => {
-        const page = crossfilterOver(joins);
-        // A clause on one of A's keys — a column of A, of whichever step — keeping `members`.
-        const ofA = identities(joins, a);
-        const column = ofA[step % ofA.length]!.column;
-        const clause = onRelation(clausePoints([column], members.map((m) => [m]), { source: { reset() {} } }), a);
+      fc.asyncProperty(arbitrary(graph), async ({ a, b, step, members }) => {
+        const page = crossfilterOver(graph);
+        // A clause on one of A's vertices — whichever — keeping `members` of its indexes.
+        const clause = onRelation(clausePoints([columnOf(a, step)], members.map((m) => [m]), { source: { reset() {} } }), a);
         page.update(clause);
 
-        const A = readOf(joins, a).table;
-        const B = readOf(joins, b).table;
-        const ofB = identities(joins, b);
+        const first = b.vertices[0]!.variable!;
         const filter = page.predicate(reader(b));
-        const read = await rows(corpus, Query.select({ k: ofB[0]!.column }).from(B).where(filter ?? []));
-
-        // The oracle: A's kept roots, and B's rows whose step of a type they share is among them.
-        const kept = new Set(sorted((await rows(corpus, Query.select({ k: ofA[0]!.column }).from(A).where(clause.predicate!))).map((r) => r.k)));
-        const across = ofB.find((i) => meets(joins, i.type, ofA[0]!.type));
-        const all = await rows(corpus, Query.select({ k: ofB[0]!.column, at: across?.column ?? ofB[0]!.column }).from(B));
-        const expected = across === undefined && JSON.stringify(a) !== JSON.stringify(b) ? [] : all.filter((r) => kept.has(key(r.at))).map((r) => r.k);
-        if (JSON.stringify(a) === JSON.stringify(b)) {
+        const read = await rows(corpus, Query.select({ k: first }).from(b.table).where(filter ?? []));
+        if (a.key === b.key) {
           // The same relation: the clause as published, Mosaic's own.
-          const own = await rows(corpus, Query.select({ k: ofB[0]!.column }).from(B).where(clause.predicate!));
+          const own = await rows(corpus, Query.select({ k: first }).from(b.table).where(clause.predicate!));
           expect(sorted(read.map((r) => r.k))).toEqual(sorted(own.map((r) => r.k)));
-        } else {
-          expect(sorted(read.map((r) => r.k))).toEqual(sorted(expected));
+          return;
         }
+
+        // The oracle: A's kept first vertices, and B's rows whose vertex of that type is among them.
+        const root = a.roots[0]!;
+        const kept = new Set(sorted((await rows(corpus, Query.select({ k: root.variable! }).from(a.table).where(clause.predicate!))).map((r) => r.k)));
+        const same = b.vertices.find((v) => v.type === root.type);
+        const all = await rows(corpus, Query.select({ k: first, at: same?.variable ?? first }).from(b.table));
+        let expected: unknown[];
+        if (same) expected = all.filter((r) => kept.has(key(r.at))).map((r) => r.k);
+        else {
+          const source = graph.vertexTypes.find((t) => t.type === root.type)!;
+          const target = graph.vertexTypes.find((t) => t.type === b.vertices[0]!.type)!;
+          let where: string | null;
+          try {
+            where = graph.reach({ type: root.type, where: `"${source.index}" IN (${[...kept, -1].join(", ")})` }, target.type);
+          } catch {
+            where = null;
+          }
+          const reached = where === null ? new Set() : new Set(sorted((await rows(corpus, Query.select({ i: target.index }).from(verbatim(target.table)).where(verbatim(where)))).map((r) => r.i)));
+          expected = all.filter((r) => reached.has(key(r.k))).map((r) => r.k);
+        }
+        expect(sorted(read.map((r) => r.k))).toEqual(sorted(expected));
       }),
       RUNS,
     );
@@ -119,15 +119,14 @@ describe("one selection across relations, as properties", () => {
 
   it("retracts a chip's clause for every reader, whatever relation it was published on", BUDGET, async () => {
     const corpus = await attach();
-    const joins = await readJoinGraph(corpus.engine, corpus.from, { signal: new AbortController().signal });
+    const { graph } = corpus;
     await fc.assert(
-      fc.asyncProperty(fc.array(arbitrary(joins), { minLength: 1, maxLength: 4 }), fc.nat(), async (runs, chip) => {
-        const page = crossfilterOver(joins);
+      fc.asyncProperty(fc.array(arbitrary(graph), { minLength: 1, maxLength: 4 }), fc.nat(), async (runs, chip) => {
+        const page = crossfilterOver(graph);
         const resets = runs.map(() => vi.fn());
-        const clauses: SelectionClause[] = runs.map(({ a, step, members }, i) => {
-          const ofA = identities(joins, a);
-          return onRelation(clausePoints([ofA[step % ofA.length]!.column], members.map((m) => [m]), { source: { reset: resets[i] } }), a);
-        });
+        const clauses: SelectionClause[] = runs.map(({ a, step, members }, i) =>
+          onRelation(clausePoints([columnOf(a, step)], members.map((m) => [m]), { source: { reset: resets[i] } }), a),
+        );
         for (const clause of clauses) page.update(clause);
         const gone = chip % clauses.length;
         page.reset([clauses[gone]!]);
@@ -135,7 +134,7 @@ describe("one selection across relations, as properties", () => {
         expect(resets[gone]).toHaveBeenCalledOnce();
         expect(page.clauses).not.toContain(clauses[gone]);
         // Every reader reads the page as if the clause had never been published.
-        const without = crossfilterOver(joins);
+        const without = crossfilterOver(graph);
         for (const [i, clause] of clauses.entries()) if (i !== gone) without.update(clause);
         for (const { b } of runs) expect(String(page.predicate(reader(b)))).toBe(String(without.predicate(reader(b))));
       }),

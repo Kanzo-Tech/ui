@@ -1,9 +1,9 @@
 import { engineOver } from "../../test/engine";
+import { graphOf } from "../../test/graph";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { Coordinator, Selection } from "@uwdata/mosaic-core";
 import { firstDrawsPending } from "@kanzo-tech/mosaic";
-import type { JoinGraph } from "@kanzo-tech/relations";
 import { ChartAxisX } from "./chart-axes.js";
 import { ChartLegend } from "./chart-legend.js";
 import { ChartToggleX } from "./chart-interactors.js";
@@ -74,12 +74,9 @@ describe("ChartRoot", () => {
  * selection, which relation, and the first draw the root holds while it has not drawn.
  */
 describe("ChartRoot on the page's selection", () => {
-  const JOINS: JoinGraph = {
-    types: [{ name: "Person", table: "people", key: "dense_id", columns: [{ name: "age", type: "INTEGER" }] }],
-    edges: [],
-  };
+  const GRAPH = graphOf([{ type: "Person", properties: [{ name: "age", type: "INTEGER" }] }]);
 
-  function wire(node: React.ReactNode, joins?: JoinGraph) {
+  function wire(node: React.ReactNode) {
     const roots: ChartContextValue[] = [];
     let mosaic!: MosaicContextValue;
     const Probe = () => {
@@ -91,7 +88,7 @@ describe("ChartRoot on the page's selection", () => {
       return null;
     };
     const view = render(
-      <MosaicProvider engine={engineOver(coordinator)} joins={joins}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <Context />
         {node}
         <ChartRoot relation="telemetry">
@@ -109,9 +106,9 @@ describe("ChartRoot on the page's selection", () => {
     expect(mosaic().selection.resolver.cross).toBe(true);
   });
 
-  it("names its relation to the page: a table by name, a type of the joins read as its table", () => {
+  it("names its relation to the page: none for a table, a pattern's for a pattern of the graph", () => {
     const { roots } = wire(null);
-    expect(roots.at(-1)).toMatchObject({ relation: "telemetry", table: "telemetry" });
+    expect(roots.at(-1)).toMatchObject({ relation: null, table: "telemetry" });
 
     const typed: ChartContextValue[] = [];
     const Probe = () => {
@@ -119,17 +116,15 @@ describe("ChartRoot on the page's selection", () => {
       return null;
     };
     render(
-      <MosaicProvider engine={engineOver(coordinator)} joins={JOINS}>
-        <ChartRoot relation="Person">
-          <Probe />
-        </ChartRoot>
-        <ChartRoot relation={{ root: "Person", path: [] }}>
+      <MosaicProvider engine={engineOver(coordinator)} graph={GRAPH}>
+        <ChartRoot relation={[{ as: "p", type: "Person" }]}>
           <Probe />
         </ChartRoot>
       </MosaicProvider>,
     );
-    expect(typed[0]).toMatchObject({ relation: "Person", table: "people" });
-    expect(String(typed[1]?.table)).toBe('SELECT "dense_id", "age" FROM "people"');
+    expect(typed[0]?.relation).toMatchObject({ key: '[{"as":"p","type":"Person"}]', roots: [{ type: "Person", variable: "p" }] });
+    // What the marks read is the graph's `match`, as it answers.
+    expect(String(typed[0]?.table)).toBe('(SELECT "p", "p.age" FROM "match")');
   });
 
   it("holds the page's first draw while it asks and has not drawn, and lets go when it stops asking or unmounts", () => {

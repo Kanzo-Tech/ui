@@ -1,13 +1,13 @@
 ---
 title: One read per datum
-description: Why every read the library makes for a host — a relation's fields, an answer's rows — is a TanStack Query query inside the library's own hook, on the host's QueryClient, with no queryOptions surface; and what would reverse it.
+description: Why every read the library makes for a host — an answer's rows, Ask's values — is a TanStack Query query inside the library's own hook, on the host's QueryClient, with no queryOptions surface; and what would reverse it.
 ---
 
 The same datum was read by several parts of one page, each in its own way. A relation's fields
 were read by the dashboard's `useFieldStats`, again by `AnswerCard` over the same relation, and a
 third time by `readAnswerRelations` for Ask's prompt, so a page drew one relation's summary two or
-three times and the model and the card could be told different distinct counts. Over a graph none
-of those reads is left: what a field holds is the graph's profile, on the join graph
+three times and the model and the card could be told different distinct counts. None of those reads
+is left: what a field is and holds is the `Graph`'s, and nothing is read for it
 ([What a field is](/docs/design/fields)). A host that read
 anything else of its own wrote a promise memo that forgot failures — keasy wrote three, and a guard
 to stop a fourth. Each was a cache, and none of them knew about the others.
@@ -16,11 +16,12 @@ to stop a fourth. Each was a cache, and none of them knew about the others.
 
 **Every read the library makes on a host's behalf is a TanStack Query query, made inside the
 library's own hook, on the `QueryClient` the host's `QueryClientProvider` puts in context.** The
-hook is the surface — `useFieldStats`, Ask's `useAskChat`, `useSession` — and the library's surface has no
-`queryOptions`, no keys and no client of its own. `@tanstack/react-query` is a peer of the entries
-that read, and only of them: `@kanzo-tech/ui/analytics` and `@kanzo-tech/ai/data`, each an optional
-peer reached only from that subpath through [the engine rule](/docs/philosophy#the-engine-rule)
-(decided 13 October 2026). `@kanzo-tech/ai`'s root — `Chat`, `Assist`, the chat hooks — reads
+hook is the surface — Ask's `useAskChat` and `AskChips` — and the library's surface has no
+`queryOptions`, no keys and no client of its own. `@tanstack/react-query` is a peer of the one entry
+that reads, and only of it: `@kanzo-tech/ai/data`, an optional peer reached only from that subpath
+through [the engine rule](/docs/philosophy#the-engine-rule) (decided 13 October 2026).
+`@kanzo-tech/ui/analytics` was a second until `useFieldStats` stopped reading: a pattern's fields are
+the `Graph`'s, so the dashboard reads nothing through TanStack and takes no peer for it. `@kanzo-tech/ai`'s root — `Chat`, `Assist`, the chat hooks — reads
 nothing through it, so a host that only draws a field the model helps fill, as metadata-form does,
 installs nothing new. `@kanzo-tech/auth` was a third reader until the session became a prop the
 server hands `AuthProvider`, and reads nothing through it now
@@ -35,15 +36,12 @@ collection — and has exactly one of it.
 
 What it bought, each a defect before:
 
-- **One read, deduplicated.** The dashboard and an answer's card ask for a relation's fields under
-  one key, and the second asker gets the first's answer, never a second `SUMMARIZE`. The key is the
-  relation's: what a part hides (`exclude`) is applied to the read afterwards, so two parts that
-  hide different columns still read once.
+- **One read, deduplicated.** An answer asked again under the same chips is read once, and the
+  values Ask's chips offer for an answer's conditions are read once for every chip that offers them.
 - **An abort is the query's.** A query function is handed a signal. A read hands it to
   `Engine.query`, and *Stop* interrupts the statement in the engine, not only the wait
   ([the engine](/docs/design/engine#aborting-interrupts-the-statement)); the connection answers the
-  next read at once. A read the library makes for a Mosaic client carries the signal of the part that
-  asked, so a `SUMMARIZE` for a part that has gone stops too.
+  next read at once.
 - **A failure is kept out of the cache.** A rejected read is an error state with the thrown value
   whole, and the next asker reads again; the memo keasy wrote three times is the cache's default.
 
@@ -62,9 +60,7 @@ render a provider at all — and every reading package is a React package.
 and refuses a second cache library. Then the reads become descriptions a small adapter per cache
 library runs, and TanStack's is the first adapter, not the only path.
 
-*Held by* `packages/ui/src/charts/field-stats.test.tsx`, "reads a relation once for every part that
-asks, whatever each hides"; "reads on the host's client, and throws without one".
-`packages/ai/src/data/ask-chat.test.ts`, "ends the read with the chat's signal, keeps nothing of it,
+*Held by* `packages/ai/src/data/ask-chat.test.ts`, "ends the read with the chat's signal, keeps nothing of it,
 and reads again when asked again". The peer stays off both root entries by
 `packages/ui/src/optional-peers.test.ts`, "are reached from no package's root entry", which walks the
 import graph from each package's root module rather than asserting names — the peer arrived with no
@@ -81,12 +77,12 @@ A session changes under its key — renewed, ended, signed out in another tab �
 
 | Datum | Read by | Kept | Read again |
 | --- | --- | --- | --- |
-| a relation's `SUMMARIZE`, for one whose columns no graph counted ([What a field is](/docs/design/fields)) | `useFieldStats`, and through it `Dashboard` | the page's life | when the relation or the provider's engine changes, which is another key |
+| a property's values, for Ask's chips (`graph.values`) | `AskChips` | the page's life, by graph, pattern and the conditions' fields | when one of those changes, which is another key |
 | an answer's rows | `useAskChat`, under the page's chips | the page's life, by engine and statement | when a chip or the answer changes, which changes the statement |
 | a session | `AuthProvider`, and through it `useSession` and `Gate` | until it is stale, which is at once | when the tab becomes visible, after a renewal, and when another tab says so |
 
 **The keys are the library's, and they are not an API.** Each says what was read and from what — the
-engine it was read on, and the relation or the compiled statement, which holds the
+engine or the graph it was read on, and the property or the compiled statement, which holds the
 page's clauses — so a new input is a new read, and nothing asks the host to invalidate by hand. A host
 that signs out clears its client, as it would for any other data of the person's.
 
@@ -99,6 +95,5 @@ second copy of a conversation the chat itself holds. When the chat hooks take `l
 host rewrites in place under its name, a graph rewritten under its attachment. Then that key gains
 the datum's own version — a graph's from its manifest — and the rest stay as they are.
 
-*Held by* `packages/ui/src/charts/field-stats.test.tsx`, "keeps a failure out of the cache, whole,
-and reads again for the next part that asks". `packages/ai/src/data/ask-chat.test.ts`, "reads an
+*Held by* `packages/ai/src/data/ask-chat.test.ts`, "reads an
 answer asked again under the same chips once, on the host's client".

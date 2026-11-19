@@ -57,8 +57,9 @@ import type { Proposal } from "@kanzo-tech/ai/task";
 import { AnswerCard, askEdit, AskChips, askOffers, useAskChat, type AskOutput, type AskSpec } from "@kanzo-tech/ai/data";
 import { scriptedModel } from "@kanzo-tech/llm/testing";
 import { promptOf } from "@kanzo-tech/testing";
-import { Query, Selection as MosaicSelection, count, numbers, sql, type TableExpr } from "@kanzo-tech/mosaic";
+import { Query, Selection as MosaicSelection, count, isNotNull, numbers, sql, type TableExpr } from "@kanzo-tech/mosaic";
 import { type Engine } from "@kanzo-tech/mosaic/engine";
+import type { Graph, Pattern } from "@kanzo-tech/graphar-duckdb";
 import { MosaicProvider, useChartQuery, useMosaic } from "@kanzo-tech/ui/analytics";
 import {
   SparklesIcon,
@@ -67,8 +68,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { cn } from "@kanzo-tech/ui";
-import { readJoinGraph, type JoinGraph } from "@kanzo-tech/relations";
-import { GraphCounts, GraphInspector, GraphRoot, GraphSearch, GraphStatus, useGraphPrefs, usePick, type VertexDetail } from "@kanzo-tech/graph";
+import { GraphCounts, GraphInspector, GraphRoot, GraphSearch, GraphStatus, useGraphPrefs, usePick, verticesOf, type VertexDetail } from "@kanzo-tech/graph";
 import {
   compileOrders,
   DEFAULT_ORDERS,
@@ -115,35 +115,35 @@ const CORPUS = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/corpus/archive`;
 /** The archive's one vertex type, which the orders and the ask box query. */
 const TYPE = "Node";
 
-/** The address column a panel's `SELECT` names, so a picked row becomes a vertex. */
-const ID = "dense_id";
+/** Every node, as Ask's answers read the archive: a field is `node.kind`, `node.hall`, … */
+const NODES: Pattern = [{ as: "node", type: TYPE }];
 
-/** The catalog the archive is attached under — every relation below is spelled with it. */
-const FROM = "archive";
+/** The catalog the archive is attached under. */
+const CATALOG = "archive";
 
 /**
- * An attached archive: the engine every panel and the canvas query through, the join graph read
- * once, and the node relation the orders and the ask box name — the graph's, not the raw view,
- * because only the graph's relation carries the `dense_id` a picked row becomes a vertex by.
+ * An attached archive: the engine every panel and the canvas query through, the `Graph` that
+ * answers for it, and the node relation the orders and the ask box name — the graph's own rows of
+ * `Node` under the canvas's `dense_id` (`verticesOf`), not the raw view, because only those carry
+ * the id a picked row becomes a vertex by: a type's index within the type is that id only for the
+ * graph's first type.
  */
 export interface Archive {
   /** The page's engine: the provider, the root and the Ask panel's agent are all handed it. */
   engine: Engine;
-  /** What may be asked: every type and field the archive holds. */
-  graph: JoinGraph;
+  /** What may be asked: every type and property the archive holds. */
+  graph: Graph;
   nodes: TableExpr;
 }
 
 function openArchive(): Promise<Archive> {
   return ensure(CORPUS, async (engine) => {
     // Origin-qualified: DuckDB-WASM resolves a root-relative path in its own filesystem. The page
-    // holds the catalog for its life, so the attachment `attachWritten` answers is not kept.
-    await attachWritten(engine, FROM, `${window.location.origin}${CORPUS}`);
-    // Read once for the page's life, like the attachment, so nothing ever aborts it.
-    const graph = await readJoinGraph(engine, FROM, { signal: new AbortController().signal });
-    const node = graph.types.find((t) => t.name === TYPE);
+    // holds the catalog for its life, so the graph is never detached.
+    const graph = await attachWritten(engine, CATALOG, `${window.location.origin}${CORPUS}`);
+    const node = verticesOf(graph).vertices.find((v) => v.type === TYPE);
     if (!node) throw new Error(`The archive has no ${TYPE} vertices.`);
-    return { engine, graph, nodes: node.table };
+    return { engine, graph, nodes: Query.from(verticesOf(graph).table).select("*").where(isNotNull(node.index)) };
   });
 }
 
@@ -176,16 +176,16 @@ function announce(error: unknown): void {
 
 /**
  * **The graph, whole.** The provider arrives with the archive's engine and owns the page's one
- * selection; the root names the attached catalog and reads it through that engine, one Mosaic
+ * selection; the root draws the attached graph and reads it through that engine, one Mosaic
  * client of that selection beside the charts, and the panels under it query the node relation the
- * orders and the ask box are written against.
+ * orders are written against.
  */
 export function ArchiveGraph({ children }: { children: ReactNode }) {
   const archive = useArchive();
   return (
     <Show fallback={<ArchiveRoot archive={null}>{children}</ArchiveRoot>} when={archive !== null}>
       {archive && (
-        <MosaicProvider engine={archive.engine}>
+        <MosaicProvider engine={archive.engine} graph={archive.graph}>
           <OnPage archive={archive}>{children}</OnPage>
         </MosaicProvider>
       )}
@@ -211,7 +211,7 @@ function ArchiveRoot({ archive, filterBy, children }: { archive: Archive | null;
         engine={archive?.engine ?? null}
         fill="kind"
         filterBy={filterBy}
-        from={archive ? FROM : null}
+        graph={archive?.graph ?? null}
         look={look}
         onFailure={announce}
         r="degree"
@@ -674,7 +674,7 @@ function OrdersBody({ archive }: { archive: Archive }) {
    */
   const failingIds = async (order: Order) => {
     const data = await engine.query(
-      String(Query.from(archive.nodes).select({ id: ID }).where(order.failing)),
+      String(Query.from(archive.nodes).select({ id: "dense_id" }).where(order.failing)),
       { signal: AbortSignal.timeout(10_000) }
     );
     return numbers(data, "id");
@@ -980,7 +980,7 @@ export function GraphSettings() {
  * pretends to have understood anything it did not.
  *
  * Everything around the model is the real path, and it is the whole of what a host writes:
- * `readJoinGraph` for what may be asked — every type's facts are the graph's — `useAskChat`,
+ * the attached `Graph` for what may be asked — every type's facts are its own — `useAskChat`,
  * `askOffers` for the pills, `ChatSkeleton` while the graph loads, and `AnswerCard`. Swapping the
  * recording for `localModel(…)` changes one line.
  */
@@ -1001,10 +1001,10 @@ const INTENTS: Intent[] = [
     match: ["old", "oldest", "long ago", "years", "before", "closed before"],
     question: "How many contracts closed more than five years ago?",
     spec: {
-      of: TYPE,
+      match: NODES,
       where: [
-        { field: "kind", in: ["contract"] },
-        { field: "closed", between: ["1000-01-01", FIVE_YEARS_BACK] },
+        { field: "node.kind", in: ["contract"] },
+        { field: "node.closed", between: ["1000-01-01", FIVE_YEARS_BACK] },
       ],
       show: { kind: "stat", measure: { op: "count" }, title: `Contracts closed before ${FIVE_YEARS_BACK}` },
     },
@@ -1013,9 +1013,9 @@ const INTENTS: Intent[] = [
     match: ["amber", "hall", "tenant", "whose"],
     question: "What does the Amber Hall hold, by kind?",
     spec: {
-      of: TYPE,
-      where: [{ field: "hall", in: ["amber"] }],
-      show: { kind: "chart", type: "bar", x: "kind", y: { op: "count" } },
+      match: NODES,
+      where: [{ field: "node.hall", in: ["amber"] }],
+      show: { kind: "chart", type: "bar", x: "node.kind", y: { op: "count" } },
       top: 20,
     },
   },
@@ -1023,9 +1023,9 @@ const INTENTS: Intent[] = [
     match: ["hub", "connected", "busiest", "central", "biggest", "most work"],
     question: "What holds the archive together?",
     spec: {
-      of: TYPE,
-      where: [{ field: "degree", between: [60, 1_000_000] }],
-      show: { kind: "chart", type: "bar", x: "label", y: { op: "max", field: "degree" }, title: "The busiest nodes" },
+      match: NODES,
+      where: [{ field: "node.degree", between: [60, 1_000_000] }],
+      show: { kind: "chart", type: "bar", x: "node.label", y: { op: "max", field: "node.degree" }, title: "The busiest nodes" },
       top: 10,
     },
   },
@@ -1033,9 +1033,9 @@ const INTENTS: Intent[] = [
     match: ["contracts", "halls", "spread", "split"],
     question: "How do contracts spread across the halls?",
     spec: {
-      of: TYPE,
-      where: [{ field: "kind", in: ["contract"] }],
-      show: { kind: "chart", type: "bar", x: "hall", y: { op: "count" }, title: "Contracts by hall" },
+      match: NODES,
+      where: [{ field: "node.kind", in: ["contract"] }],
+      show: { kind: "chart", type: "bar", x: "node.hall", y: { op: "count" }, title: "Contracts by hall" },
       top: 10,
     },
   },
@@ -1093,7 +1093,7 @@ function AskEmpty() {
 }
 
 /** Questions to start from: Ask's own offers, each checked, whole. None on failure, and the chat works without them. */
-function useOffers(graph: JoinGraph, selection: MosaicSelection) {
+function useOffers(graph: Graph, selection: MosaicSelection) {
   const [state, setState] = useState<{ questions: Proposal<AskSpec>[]; proposing: boolean }>({ questions: [], proposing: true });
   useEffect(() => {
     const abort = new AbortController();
@@ -1119,7 +1119,8 @@ function useOffers(graph: JoinGraph, selection: MosaicSelection) {
  */
 function SubsetPill({ archive }: { archive: Archive }) {
   const { selection } = useMosaic();
-  const { row } = useChartQuery({ deps: [archive], query: (filter) => Query.from(archive.nodes).select({ n: count() }).where(filter) });
+  const vertices = verticesOf(archive.graph);
+  const { row } = useChartQuery({ deps: [archive], relation: vertices, query: (filter) => Query.from(vertices.table).select({ n: count() }).where(filter) });
   if (!row || selection.clauses.length === 0) return null;
   return (
     <Badge pill variant="outline">

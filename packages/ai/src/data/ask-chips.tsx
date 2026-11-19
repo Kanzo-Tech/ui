@@ -1,9 +1,11 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { ChevronDownIcon } from "lucide-react";
 import * as React from "react";
 import { Button, cn, Menu, MenuContent, MenuItem, MenuTrigger } from "@kanzo-tech/ui";
-import { askAlternatives, type AskInput, type AskSpec } from "./ask.js";
+import { askAlternatives, askValues, type AskInput, type AskSpec } from "./ask.js";
+import { keyOf } from "./read.js";
 
 export interface AskChipsProps {
   /** The spec the answer was read from — an `answer` part's `output.spec`. */
@@ -19,12 +21,19 @@ export interface AskChipsProps {
  * **What an answer was read as, each part of it editable** — what is counted, what a chart is by,
  * each condition. A chip opens the values it can hold instead, computed from the data and checked by
  * Ask's own oracles before they are offered, so taking one re-reads the answer with no model and no
- * question in between. A chip with nothing else to hold is drawn, disabled: it still says what the
- * answer read.
+ * question in between. A condition's values are asked of the graph (`askValues`), as a query on the
+ * host's client; until they land, its chip offers *any* alone. A chip with nothing else to hold is
+ * drawn, disabled: it still says what the answer read.
  */
 export function AskChips(props: AskChipsProps) {
   const { spec, over, onChange, className } = props;
-  const chips = React.useMemo(() => askAlternatives(spec, { ...over, question: "" }), [spec, over]);
+  const values = useQuery({
+    queryKey: ["@kanzo-tech/ai", "values", keyOf(over.graph), spec.match, (spec.where ?? []).map((c) => c.field)],
+    queryFn: ({ signal }) => askValues(spec, over.graph, signal),
+    retry: false,
+    staleTime: Infinity,
+  }).data;
+  const chips = React.useMemo(() => askAlternatives(spec, { ...over, question: "" }, values), [spec, over, values]);
   return (
     <div className={cn("flex flex-wrap items-center gap-1.5", className)} data-slot="ask-chips">
       {chips.map((chip) => (

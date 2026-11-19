@@ -23,8 +23,8 @@ and a tile on it.**
 
 ```ts
 interface Answer {
-  /** What is asked about: the type measured, and the hops the tile's paths take from it. */
-  relation: Relation;
+  /** What is asked about: the vertices and edges the tile's fields are on, the first the one measured. */
+  pattern: Pattern;
   /** How it is shown, and what it is narrowed to (`where`) and ranked by (`top`): the dashboard's `Tile`. */
   tile: Tile;
 }
@@ -34,44 +34,44 @@ The tile carries the whole question because [a dashboard's tile carries its own]
 So *Physics prizes by university*, added to the dashboard, is still Physics prizes by university,
 where before a tile could hold neither condition nor ranking and the dashboard stored *prizes by
 university*. The spec the model writes is the tile without what only the page gives it — its id and
-its width — with `of`, the type it measures, and every field a path from it
-([Tasks](/docs/design/tasks#a-field-is-a-path-from-what-is-measured)); `JoinResolver` makes the
-relation of the paths, and the oracles are its misses and `parseTile`. The prompt lists each type's
+its width — with `match`, the pattern it reads, and every field `variable.property`
+([Tasks](/docs/design/tasks#a-field-is-a-variable-and-a-property)); the graph's `match` reads the
+pattern, and the oracles are its misses and `parseTile`. The prompt lists each type's
 fields once, with their kind and most common values, *gender: category (female, male)*, read from
-the graph — `fieldStats` over its descriptions of the columns, the commonest values the graph's
-writer counted ([What a field is](/docs/design/fields)) — and the edges a path steps across,
+the graph — `fieldStats` over its descriptions of the properties, the commonest values asked of
+it ([What a field is](/docs/design/fields)) — and the edges a pattern steps across,
 rather than DDL; [Asking within a context](/docs/design/ai-context) is why once.
 
 It replaced `answerSchema`, `checkAnswer` and `AnswerInput` (the old answer tool's schema, validator
 and an answer whose relation was a key) and `answerQuery`, a second compiler of a tile to SQL beside
 the dashboard's.
 
-**It compiles with what the dashboard compiles with, and only that.** `relationQuery` makes the
-relation, `JoinResolver.crossing` brings in a condition off its path, and `tileQuery` makes the query:
+**It compiles with what the dashboard compiles with, and only that.** `relationOver` makes the
+relation of the pattern, and `tileQuery` makes the query:
 grouping, measure, order, `top`. The rows Ask reads and the marks the card draws come from one
 function, so the sentence and the chart cannot describe two queries. All of it runs under the page's
 crossfilter at the moment of asking, which is a predicate the answer is read under and never
 something the model names. The card is a tile afterwards, and follows the page like any other.
 
 **A page's clause reaches the answer as it reaches a tile.** A chip published on a relation is read by
-the page's own resolver (`JoinResolver.crossing`): as it is on that relation, and on the answer's
-through a semi-join on the key of a type both reach. A chip on *Physics*, published on
-`LaureateAward>category>Category`, narrows `LaureateAward>university>University` by the prize, so the
-University of California reads 16 and not its 43 in every category. It replaced matching a clause by
+the page's own resolver (`GraphResolver`): as it is on that pattern, and on the answer's by the
+vertex both hold, or along the graph's one shortest path. A chip on *Physics*, published on
+`award-category->category`, narrows `award-university->university` by the prize, so the University
+of California reads 16 and not its 43 in every category. It replaced matching a clause by
 its columns alone, under which that answer kept none of its rows while the tiles beside it were
-narrowed. A clause the answer's relation shares no type with keeps none of its rows, as a tile's
+narrowed. A clause the graph has no one way across from keeps none of the answer's rows, as a tile's
 would (decided 11 October 2026), and is said, with the columns it names, under the tile. A clause
 published on no relation is still answered by column. What would reverse it is a resolver that
 crosses differently for tiles, and then the answer follows it.
 
-*Held by* `packages/ai/src/data/page-clauses.test.ts`, "crosses a chip on another relation by the key
-both reach, as the page's tiles are crossed"; "keeps none of a relation's rows when it shares no type
-with the chip's".
+*Held by* `packages/ai/src/data/page-clauses.test.ts`, "crosses a chip on another pattern by the vertex
+both hold, as the page's tiles are crossed"; "carries a chip along the graph's one shortest path to a
+pattern that holds none of its vertices"; "reads a chip published on the answer's own pattern as it is".
 
 **The card is a dashboard tile, and it takes the answer.** `AnswerCard` takes `answer` — what the
 `data-answer` part holds — not an AI SDK tool part, so an answer can be drawn outside a transcript. It
 draws the dashboard's own `TileView` over the tile, with two verbs that fall out of the shape:
-**Filter the page to these rows** publishes one semi-join on the relation's root key over the rows
+**Filter the page to these rows** publishes one semi-join on the pattern's first vertex over the rows
 the tile reads — `tileQuery`'s narrowed relation, its conditions and its ranking in it, and for a bar
 chart the categories it answered — and **Add to the dashboard** puts the tile, its conditions and its
 ranking with it, in the relation's spec. A kept answer is names, not SQL, so a restored transcript
@@ -80,8 +80,8 @@ statement.
 
 **The references are the semantic layer's**: Looker's Conversational Analytics and ThoughtSpot Sage,
 where a question is answered by picking fields of an explore or a worksheet, and Cube, LookML and
-Malloy, where SQL is compiled from a model of the data. `relationQuery`'s own page names Looker's
-explore and Malloy's source, so the answer and the dashboard share a model.
+Malloy, where SQL is compiled from a model of the data. The model the answer and the dashboard share
+is the graph's, read as a pattern.
 
 **It replaced Databricks Genie's and Hex Magic's loop**: one SQL query per answer, written by the
 model against DDL, behind `gateStatement`. The gate kept the engine safe and could not make the model
@@ -93,7 +93,7 @@ reader owns; a page that runs whatever model its host points it at, over names a
 cannot count on either.
 
 **What it costs:** a question the spec cannot say, such as a window function, a ratio of two
-aggregates or a join the `JoinGraph` does not have, gets no answer: the oracles refuse every spec the
+aggregates or a pattern the graph does not match, gets no answer: the oracles refuse every spec the
 model tries, and the reader is told. No SQL tool is kept beside it: two doors are two things to
 secure, and the spec is where missing words get added.
 
@@ -103,8 +103,7 @@ growing the spec costs more than a second door. Then a SQL tool returns beside t
 gate's parser), and the card says which one answered.
 
 *Held by* `packages/ai/src/data/answer.test.ts`, "reads its tile's rows with the one compiler the
-dashboard's tile reads"; `packages/ai/src/data/answer-card.test.tsx`, "Add to the dashboard hands the
-host its dashboards with the tile in the relation's spec, and where it landed".
+dashboard's tile reads"; `packages/ai/src/data/answer-card.test.tsx`, "Add to the dashboard hands the host its dashboards with the tile in the pattern's spec, and where it landed".
 
 ## An answer is a data part, not a tool call
 
@@ -136,9 +135,9 @@ back as the option's id in the reply's own `data-ask` part, `askEdit(spec, { [de
 It was numbered text matched back against *1*, the option's id or its label, a second way to ask
 beside the question component keasy's assistant draws with. There is one question part, in
 `@kanzo-tech/ui`, and [Admission](/docs/design/admission#a-question-is-one-part-in-kanzo-techui) is why.
-Since Ask's fields became paths none of its own oracles raises a decision: the tie between two paths
-of one length is the model's to write
-([Tasks](/docs/design/tasks#two-paths-of-one-length-are-the-models-with-the-other-on-the-chip)). The
+Since Ask writes its pattern none of its own oracles raises a decision: which of two ways across the
+graph is the model's to write
+([Tasks](/docs/design/tasks#a-field-is-a-variable-and-a-property)). The
 door stays because a Task's oracle may ask. The reference is MCP's elicitation, which `Decision`
 follows: a schema of options, answered by a structured reply, never parsed out of prose.
 
@@ -196,18 +195,17 @@ answer, and disables on equal counts.
 
 *Held by* `packages/ai/src/data/answer-card.test.tsx`, "draws its verbs in the tile's header, beside
 its title"; "opens the tile on the dashboard once it is there, when the host says how"; "is disabled,
-and says why, when its clause would keep everything in view"; "filters when the bars are ranked down
-to some categories, or cross a hop"; "names the chip after what it filters, as the filter bar reads
+and says why, when its clause would keep everything in view"; "filters when the bars are ranked down to some categories, or cross an edge"; "names the chip after what it filters, as the filter bar reads
 each clause".
 
 ## Which relations are offered
 
-**Ask is offered the types alone, as the graph describes them, and the relation is the paths the
-model writes from them.** An answer across a hop is still answered: a path steps across it, and a
-step's fields are the type's. A multi-valued property is reached the same way and is never a type Ask
-measures on its own. Nothing is read from the engine to offer them: each type's fields, kinds and
-commonest values are on the join graph, counted by the graph's writer
-([What a field is](/docs/design/fields#what-a-field-holds-comes-from-counts-stated-in-the-graph)).
+**Ask is offered the types alone, as the graph describes them, and the relation is the pattern the
+model writes from them.** An answer across a hop is still answered: the pattern steps across it, and
+a vertex's fields are its type's. Each type's fields and kinds are the `Graph`'s, read from nothing
+([What a field is](/docs/design/fields#what-a-field-holds-comes-from-the-chunks-statistics-and-nothing-is-read-for-it));
+the commonest values of its few-valued properties are asked of the graph, `graph.values`, once per
+graph and a query per property, and a read that fails is not kept.
 
 It replaced `readAnswerRelations`, a `SUMMARIZE` per relation and a count per category queued on the
 page's one connection ahead of its charts. Measured 2026-10 in DuckDB-WASM's Node build over a graph
@@ -217,15 +215,14 @@ for the types and 39,018 with every hop. Offering every hop had already gone bef
 keasy's first evaluation pass found the model choosing a relation wrongly.
 
 **What would reverse it:** a spec whose fields the type alone cannot give, such as an edge's own
-property. Then that edge's columns are described on the graph beside the types', and its fields
-join the spec's enum under its path. And a graph whose writer counted nothing offers fields without
-values; if that became the common case, the counts would be read once per graph through the read
-door, never once per prompt.
+property. Then a named edge's properties join the spec's enum as `variable.property`, as a vertex's
+do. And a graph with many few-valued properties, where a query per property delays the first answer
+measurably; then graphar answers every property's values in one read.
 
-*Held by* `packages/ai/src/data/answer.test.ts`, "describes a relation's fields from the graph,
-without its steps' keys, each with the commonest values its writer counted"; "reads nothing from the
-engine: what a field is and holds is the graph's"; `packages/ai/src/data/ask.test.ts`, "is a path Ask
-may write and read its value by, and never a type it measures".
+*Held by* `packages/ai/src/data/answer.test.ts`, "describes a pattern's fields from the graph, each
+variable.property, beside a column per vertex for its index"; "reads nothing from the engine: what a
+field is and holds is the graph's"; `packages/ai/src/data/ask.test.ts`, "finds a type by a value the
+graph answers for it, and keeps what the page's chips are on".
 
 ## An answer's rows are on the page, as a table
 
@@ -270,8 +267,7 @@ statement. They are written by hand as Standard Schema, which the AI SDK takes, 
 parts are written in it.
 
 *Held by* `packages/ai/src/data/ask-parts.test.ts`, "reads back an answer and its turn as Ask wrote
-them, and nothing they do not hold"; "refuses an answer whose tile a dashboard would not read, or
-whose relation is not one".
+them, and nothing they do not hold"; "refuses an answer whose tile a dashboard would not read, or whose pattern is not one".
 
 **A stored Ask chat holds structure, and the person's data is not in it.** `useAskChat`'s default
 `keep` empties an answer's rows and keeps its spec and its tile: the question, the relation as
@@ -294,8 +290,7 @@ turns the product decides and whose messages it writes itself; the chat hooks ar
 transcript. *What would reverse it:* the guided conversation moving onto `useChat`; then
 `useKeptChat` has no caller and leaves the barrel.
 
-**A conversation that built a graph is closed.** A built graph is write once and read many
-([relations](/docs/design/relations#the-pre-run-shape-comes-from-the-compiler)): the kept chat of a
+**A conversation that built a graph is closed.** A built graph is write once and read many: the kept chat of a
 build opens read-only, a save into it is refused, and *start a new one from here* is the only way on.
 The in-thread *I assumed … Change* door stays, because it is before the build, on the preview.
 
@@ -508,3 +503,6 @@ suppressed with the clause beside it, not removed.
 - `stream` and `generate` take `temperature`, `seed`, `maxOutputTokens` and `stopSequences`;
   `generate` returns `finishReason`.
 - A model that makes no progress rejects as `llm/silent`, and its turn is free.
+- An `AskSpec` writes `match`, a `Pattern`, in place of `of`, and every field is `variable.property`;
+  a count names a `variable`, not a `path`. An `Answer` and the `AnswerAdded` a card hands the host
+  carry `pattern`, not `relation`. A kept answer of an earlier release is refused when it is read.

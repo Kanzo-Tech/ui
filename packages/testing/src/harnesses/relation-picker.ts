@@ -6,7 +6,7 @@ const REMOVE = /^Remove (.+)$/;
  * **A `RelationPicker`**: the `group` "Relation". The root is the combobox "Root type"; each hop
  * taken is a chip whose button is "Remove {sentence}"; "Add related…" opens a menu of the hops that
  * leave the last type, each a `menuitem` named by its sentence and carrying its step as `data-hop`
- * — `>isPartOf>Place`, `<isLocatedIn<Comment`, the spelling `relationKey` joins. The menus portal
+ * — `>isPartOf>Place`, `<isLocatedIn<Comment`. The menus portal
  * to the body, so they are reached through their trigger's `aria-controls`.
  */
 export class RelationPickerHarness extends ComponentHarness {
@@ -29,7 +29,7 @@ export class RelationPickerHarness extends ComponentHarness {
 
   /**
    * Takes the hop `hop` from the last type, and waits for its chip. `hop` is the item's sentence
-   * (*Comment · located in this place*), its step (`<isLocatedIn<Comment`), or the edge's bare label
+   * (*Comment isLocatedIn → this Place*), its step (`<isLocatedIn<Comment`), or the edge's bare label
    * (`isLocatedIn`) where only one item has it — a self-edge has two, so it takes the step.
    */
   async add(hop: string | RegExp): Promise<void> {

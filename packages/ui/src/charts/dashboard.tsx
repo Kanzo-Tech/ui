@@ -1,17 +1,15 @@
 "use client";
 
+import type { Pattern } from "@kanzo-tech/graphar-duckdb";
 import type { TableExpr } from "@kanzo-tech/mosaic";
-import type { RelationExpr } from "@kanzo-tech/relations";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import { createPortal } from "react-dom";
 import { ark } from "@ark-ui/react/factory";
 import { EllipsisIcon, PlusIcon } from "lucide-react";
 import { cn } from "../lib/cn.js";
-import { Alert, AlertDescription, AlertTitle } from "../simples/alert.js";
 import { Button } from "../simples/button.js";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "../simples/menu.js";
-import { Skeleton } from "../simples/skeleton.js";
 import type { ChartConfig } from "./chart-config.js";
 import { MosaicClients, useEditorAside, useRelation, useTileEditorOpen } from "./mosaic-provider.js";
 import { DashboardFilters } from "./dashboard-filters.js";
@@ -23,12 +21,12 @@ import { useFieldStats, type FieldStat } from "./field-stats.js";
 
 export interface DashboardProps extends Omit<React.ComponentProps<typeof ark.div>, "onChange" | "defaultValue"> {
   /**
-   * The relation every filter and tile reads, as `ChartRoot` takes it: a table by name, or a path over
-   * the provider's joins — what a `RelationPicker` gives. Its clauses are published on it, so a graph
-   * or another relation beside the dashboard is filtered by what the tiles show, crossed by key; and a
-   * clause on another relation reaches every tile the same way.
+   * The pattern of the provider's graph every filter and tile reads — what a `RelationPicker` gives.
+   * Its fields are `variable.property`, described by the graph. Its clauses are published on it, so a
+   * graph or another relation beside the dashboard is filtered by what the tiles show; and a clause on
+   * another relation reaches every tile the same way.
    */
-  relation: RelationExpr;
+  relation: Pattern;
   /**
    * The saved dashboard. `undefined` draws the automatic one from the relation's field stats —
    * which is what a host persists nothing for until somebody edits it.
@@ -57,44 +55,21 @@ export function Dashboard(props: DashboardProps) {
   const { relation, value, onChange, exclude, config, className, slot, ...rest } = props;
   const read = useRelation(relation);
   const table = read.table as TableExpr;
-  const { fields, columns, error } = useFieldStats(relation, { exclude });
+  const stats = useFieldStats(relation, { exclude });
   // Everything below reads the relation the plots can: see `plotRelation`.
   const readable = useMemo(
-    () =>
-      fields && columns
-        ? plotRelation(table, { fields, columns })
-        : null,
+    () => plotRelation(table, stats),
     // `chartTableKey` stands in for the identity of `table`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [fields, columns, chartTableKey(table)],
+    [stats, chartTableKey(table)],
   );
 
   return (
-    <ark.div
-      aria-busy={(error === null && readable === null) || undefined}
-      className={cn("@container/dashboard flex flex-col gap-4", className)}
-      {...rest}
-      data-slot={slot ?? "dashboard"}
-    >
-      {error !== null ? (
-        <Alert variant="destructive">
-          <AlertTitle>The relation could not be summarized</AlertTitle>
-          <AlertDescription>{error instanceof Error ? error.message : String(error)}</AlertDescription>
-        </Alert>
-      ) : readable === null ? (
-        <DashboardSkeleton />
-      ) : (
-        // The tiles read the relation projected for the plots, and are clients of the relation itself.
-        <MosaicClients relation={read.relation ?? undefined}>
-          <Board
-            config={config}
-            fields={readable.fields}
-            onChange={onChange}
-            table={readable.table}
-            value={value}
-          />
-        </MosaicClients>
-      )}
+    <ark.div className={cn("@container/dashboard flex flex-col gap-4", className)} {...rest} data-slot={slot ?? "dashboard"}>
+      {/* The tiles read the relation projected for the plots, and are clients of the relation itself. */}
+      <MosaicClients relation={read.relation ?? undefined}>
+        <Board config={config} fields={readable.fields} onChange={onChange} table={readable.table} value={value} />
+      </MosaicClients>
     </ark.div>
   );
 }
@@ -240,21 +215,6 @@ function Board({
         </Suspense>,
         aside.element,
       ) : null}
-    </>
-  );
-}
-
-function DashboardSkeleton() {
-  return (
-    <>
-      <Skeleton className="h-8 w-full rounded-lg" />
-      <div className="grid gap-4 @3xl/dashboard:grid-cols-2 @6xl/dashboard:grid-cols-3">
-        {Array.from({ length: 3 }, (_, i) => (
-          <Skeleton className="h-24 w-full rounded-lg" key={i} />
-        ))}
-        <Skeleton className="h-72 w-full rounded-lg @3xl/dashboard:col-span-2" />
-        <Skeleton className="h-72 w-full rounded-lg" />
-      </div>
     </>
   );
 }

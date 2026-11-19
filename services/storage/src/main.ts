@@ -9,7 +9,7 @@
  */
 import { createServer } from "node:http";
 import { sessionReader } from "@kanzo-tech/auth/server";
-import { Problem } from "@kanzo-tech/kernel";
+import { Problem } from "@kanzo-tech/problems";
 import { member } from "./caller.ts";
 import { vend, type Access, type Location } from "./vend.ts";
 

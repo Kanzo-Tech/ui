@@ -1,6 +1,6 @@
 ---
 title: useMosaic
-description: The Mosaic context in one call — the engine, the page's one selection and the joins its relations are read over.
+description: The Mosaic context in one call — the engine, the page's one selection and the graph its patterns are read over.
 ---
 
 <ComponentPreview componentName="use-mosaic" />
@@ -19,7 +19,7 @@ import { useMosaic } from "@kanzo-tech/ui/analytics";
 ```
 
 ```tsx
-const { engine, selection, joins } = useMosaic();
+const { engine, selection, graph } = useMosaic();
 ```
 
 It reads the context [`MosaicProvider`](/docs/analytics/charts#the-pages-one-engine)
@@ -34,18 +34,18 @@ does the same: a `MosaicClient` with `filterBy: selection`, or [`useChartQuery`]
 
 It is Mosaic's crossfilter — a chart is exempt from its own clause, so the bars under a brush do not
 vanish — with one addition, made through Mosaic's own extension point, its resolver: a clause
-published on one relation reaches a part reading another, crossed by key over the provider's
-`joins`, or keeping none of it where there is no way across
+published on one relation reaches a part reading another, landed on the vertex both hold or carried
+along the provider's `graph`, or keeping none of it where there is no way across
 ([why](/docs/design/crossfilter#one-selection-across-relations)).
 
 **Retracting is Mosaic's own.** `selection.reset([clause])` takes a clause out and calls its source
 back, which is how a chip's × clears the brush that published it; `selection.reset()` is *Clear
 filters*. There is no second selection upstream for a reset to miss.
 
-## joins
+## graph
 
-The join graph the provider was handed — `readJoinGraph` for an attached GraphAr graph — or `null`. A part's
-`relation` names a type or a path over it.
+The `Graph` the provider was handed — what `@kanzo-tech/graphar-duckdb`'s `attachGraph` answered — or
+`null`. A part's `relation` may be a `Pattern` over it.
 
 ## engine
 
@@ -69,7 +69,7 @@ crossfilter. Use [`useChartQuery`](/docs/hooks/use-chart-query), or `ChartStat` 
 | --- | --- | --- |
 | `engine` | `Engine` | the caller's engine; its coordinator is registered as vgplot's active one |
 | `selection` | `Selection` | the page's one selection: what every part filters by and publishes into |
-| `joins` | `JoinGraph \| null` | the graph the page's relations are read over |
+| `graph` | `Graph \| null` | the graph the page's patterns are read over |
 | `onFailure` | `(error: unknown) => void` | hands a failed read to the provider's `onFailure` |
 
 Throws `useMosaic must be used within a <MosaicProvider>.` when there is no provider above it.

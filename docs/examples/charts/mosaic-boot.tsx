@@ -3,7 +3,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { loadObjects } from "@kanzo-tech/mosaic";
 import { engine, type Engine } from "@kanzo-tech/mosaic/engine";
-import { type JoinGraph } from "@kanzo-tech/relations";
 import { MosaicProvider } from "@kanzo-tech/ui/analytics";
 import { Skeleton } from "@kanzo-tech/ui";
 import { SIGHTINGS_TABLE, sightingRows } from "@/example/sightings";
@@ -23,7 +22,7 @@ function boot(): Promise<Engine> {
   return loading;
 }
 
-export default function MosaicBoot({ children, joins }: { children: ReactNode; joins?: JoinGraph }) {
+export default function MosaicBoot({ children }: { children: ReactNode }) {
   const [booted, setBooted] = useState<Engine | null>(null);
 
   useEffect(() => {
@@ -39,7 +38,7 @@ export default function MosaicBoot({ children, joins }: { children: ReactNode; j
   if (!booted) return <Skeleton className="h-40 w-full max-w-2xl" />;
 
   return (
-    <MosaicProvider engine={booted} joins={joins}>
+    <MosaicProvider engine={booted}>
       {children}
     </MosaicProvider>
   );

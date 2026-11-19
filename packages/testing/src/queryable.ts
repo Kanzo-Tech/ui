@@ -9,8 +9,19 @@ export interface Queryable {
 /** The part of apache-arrow's `Table` a reader reads. */
 export interface QueryableTable {
   readonly numRows: number;
-  readonly schema: { readonly fields: readonly { readonly name: string }[] };
+  readonly schema: { readonly fields: readonly QueryableField[] };
   getChild(name: string): { readonly length: number; get(index: number): unknown } | null;
+}
+
+/**
+ * The part of an Arrow field a reader reads: its name, whether it may hold a null, and its type as
+ * Arrow's IPC schema numbers it (`Schema.fbs`'s `Type`: 2 Int, 3 FloatingPoint, 5 Utf8, 6 Bool). A
+ * reader that types a column by what the engine answered — fossil's profile does — reads it here.
+ */
+export interface QueryableField {
+  readonly name: string;
+  readonly nullable: boolean;
+  readonly type: { readonly typeId: number };
 }
 
 /** What a conformance case runs against, made fresh for each case. */
@@ -92,7 +103,7 @@ export function queryableConformance(
   const signal = () => new AbortController().signal;
   const cases: ConformanceCase[] = [
     {
-      name: "answers in columns: numRows, schema.fields and getChild",
+      name: "answers in columns: numRows, schema.fields typed as Arrow types them, and getChild",
       async run() {
         const { queryable } = await make();
         const table = await queryable.query("SELECT 41 + 1 AS answer, 'x' AS letter", { signal: signal() });
@@ -101,6 +112,10 @@ export function queryableConformance(
           table.schema.fields.map((field) => field.name).join() === "answer,letter",
           "schema.fields did not name the columns in order",
         );
+        // Arrow's `Type` ids: an integer is Int (2), a string is Utf8 (5) or Arrow's LargeUtf8 (20).
+        const [whole, text] = table.schema.fields;
+        assert(whole?.type.typeId === 2 && [5, 20].includes(text?.type.typeId ?? -1), "schema.fields did not carry each column's Arrow type");
+        assert(typeof whole.nullable === "boolean", "schema.fields did not say whether a column may hold a null");
         const answer = table.getChild("answer");
         assert(answer?.length === 1 && answer.get(0) === 42, "getChild(name).get(0) did not read the value");
         // Arrow JS answers `null` and flechette `undefined`; every reader here reads it with `?.`.

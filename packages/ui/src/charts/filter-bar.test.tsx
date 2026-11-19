@@ -1,7 +1,7 @@
 import { engineOver } from "../../test/engine";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { onRelation } from "@kanzo-tech/relations";
+import { onRelation, type Relation } from "@kanzo-tech/mosaic";
 import { clauseInterval, clausePoint, clausePoints, type Coordinator, type Selection } from "@uwdata/mosaic-core";
 import { describe, expect, it, vi } from "vitest";
 import { FilterBar } from "./filter-bar.js";
@@ -9,6 +9,9 @@ import { useEffect } from "react";
 import { InFilterBar, InFilterBarActions, MosaicClients, MosaicProvider, useClientsEnabled, useMosaic } from "./mosaic-provider.js";
 
 const coordinator = {} as Coordinator;
+
+/** A relation by its key alone: what a clause says it was published on. */
+const on = (key: string): Relation => ({ key, table: key, vertices: [], roots: [] });
 
 /** The page's selection, which the provider owns: handed out from inside it. */
 function Page({ into }: { into: (selection: Selection) => void }) {
@@ -47,7 +50,7 @@ describe("FilterBar", () => {
         <FilterBar />
       </MosaicProvider>,
     );
-    page.update(onRelation(clauseInterval("birthday", [1981, 1985], { source: { reset() {} } }), "vertices"));
+    page.update(onRelation(clauseInterval("birthday", [1981, 1985], { source: { reset() {} } }), on("vertices")));
     expect(await screen.findByRole("button", { name: "Remove birthday 1981 – 1985" })).toBeTruthy();
   });
 
@@ -62,10 +65,10 @@ describe("FilterBar", () => {
         </InFilterBar>
       </MosaicProvider>,
     );
-    page.update(onRelation(clausePoint("country", "Spain", { source: { reset() {} } }), "Person"));
-    page.update(onRelation(clausePoint("team", 1, { source: { reset() {} } }), "Person"));
+    page.update(onRelation(clausePoint("country", "Spain", { source: { reset() {} } }), on("Person")));
+    page.update(onRelation(clausePoint("team", 1, { source: { reset() {} } }), on("Person")));
     // Another relation's `country` is not the part's.
-    page.update(onRelation(clausePoint("country", "France", { source: { reset() {} } }), "Place"));
+    page.update(onRelation(clausePoint("country", "France", { source: { reset() {} } }), on("Place")));
 
     const bar = await screen.findByRole("region", { name: "Filters" });
     await waitFor(() => expect(within(bar).getByText("country: Spain")).toBeTruthy());
@@ -95,7 +98,7 @@ describe("FilterBar", () => {
       </MosaicProvider>
     );
     const { rerender } = render(view(false));
-    page.update(onRelation(clausePoint("country", "Spain", { source: { reset() {} } }), "Person"));
+    page.update(onRelation(clausePoint("country", "Spain", { source: { reset() {} } }), on("Person")));
 
     const bar = await screen.findByRole("region", { name: "Filters" });
     await waitFor(() => expect(within(bar).getByRole("button", { name: "country: Spain" })).toBeTruthy());

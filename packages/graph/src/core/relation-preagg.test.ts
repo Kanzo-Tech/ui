@@ -1,33 +1,34 @@
-import { MosaicClient, Query, Selection, clauseIntervals, type FilterExpr, type TableExpr } from "@kanzo-tech/mosaic";
-import { relationQuery } from "@kanzo-tech/relations";
+import { MosaicClient, Query, Selection, clauseIntervals, relationOver, type FilterExpr, type TableExpr } from "@kanzo-tech/mosaic";
+import type { Graph } from "@kanzo-tech/graphar-duckdb";
 import { regrCount, regrSlope, variance } from "@uwdata/mosaic-sql";
 import { describe, expect, it, vi } from "vitest";
-import { attach, settle } from "../../test/corpus";
-import { readJoinGraph } from "@kanzo-tech/relations";
-import type { Relation } from "@kanzo-tech/relations";
+import { attach, settle, typeRelation } from "../../test/corpus";
 
 /**
  * **A regression tile over a relation, under a 2-D brush**, through a real coordinator with its
  * pre-aggregator on. A regression's sufficient statistics are mean-centred: mosaic-core rewrites
  * each one with `(SELECT avg(<column>) FROM <base table>)`, where `<column>` is the relation's
- * select expression for that column. So the relation must name its columns the way the base table
- * names them, or the materialised view is never created and every brush reads a table that does not
- * exist.
+ * select expression for that column. So it pre-aggregates only what it can trace to one base table: a
+ * type's own table does, and a pattern — `graph.match`'s SQL text — does not, and is answered plainly.
  */
 
-/** A tile fitting `score` against `lon`; its filter is stable, so Mosaic pre-aggregates it. */
+/** A tile fitting `score` against `lon`; its filter is stable, so Mosaic pre-aggregates it where it can. */
 class Fit extends MosaicClient {
   result: { slope: number; n: number; variance: number } | null = null;
   readonly #table: TableExpr;
-  constructor(filterBy: Selection, table: TableExpr) {
+  readonly #score: string;
+  readonly #lon: string;
+  constructor(filterBy: Selection, table: TableExpr, [score, lon]: readonly [string, string]) {
     super(filterBy);
     this.#table = table;
+    this.#score = score;
+    this.#lon = lon;
   }
   override query(filter?: FilterExpr | null): Query {
     return Query.select({
-      slope: regrSlope("score", "lon"),
-      n: regrCount("score", "lon"),
-      variance: variance("score"),
+      slope: regrSlope(this.#score, this.#lon),
+      n: regrCount(this.#score, this.#lon),
+      variance: variance(this.#score),
     })
       .from(this.#table)
       .where(filter ?? []);
@@ -40,9 +41,9 @@ class Fit extends MosaicClient {
 }
 
 /** A brush over `lon × score` that keeps People 0–4: `lon = i`, `score = i + 1`. */
-const brush = () =>
+const brush = ([score, lon]: readonly [string, string]) =>
   clauseIntervals(
-    ["lon", "score"],
+    [lon, score],
     [
       [0, 4],
       [1, 5],
@@ -57,17 +58,17 @@ const brush = () =>
     },
   );
 
-async function fit(relation: Relation) {
+async function fit(read: (graph: Graph) => { table: TableExpr; columns: readonly [string, string] }) {
   const corpus = await attach();
   const { coordinator } = corpus;
   const error = vi.fn();
   coordinator.logger({ error, warn: () => {}, info: () => {}, debug: () => {}, log: () => {} } as never);
-  const table = relationQuery(await readJoinGraph(corpus.engine, corpus.from, { signal: new AbortController().signal }), relation);
+  const { table, columns } = read(corpus.graph);
   const own = Selection.crossfilter();
-  const tile = new Fit(own, table);
+  const tile = new Fit(own, table, columns);
   coordinator.connect(tile);
   await settle(corpus);
-  const clause = brush();
+  const clause = brush(columns);
   own.activate(clause);
   own.update(clause);
   await settle(corpus);
@@ -75,8 +76,8 @@ async function fit(relation: Relation) {
 }
 
 describe("a regression tile over a relation, brushed in two dimensions", () => {
-  it("pre-aggregates a type on its own, and the brush reads the view it created", async () => {
-    const { corpus, error, tile, info } = await fit({ root: "Person", path: [] });
+  it("pre-aggregates a type's own table, and the brush reads the view it created", async () => {
+    const { corpus, error, tile, info } = await fit((graph) => ({ table: typeRelation(graph, "Person").table, columns: ["score", "lon"] }));
     expect(error).not.toHaveBeenCalled();
     expect(corpus.sent.some((s) => /CREATE TABLE IF NOT EXISTS "mosaic"\."preagg_/.test(s))).toBe(true);
     expect(info && "result" in info && info.result).toBeTruthy();
@@ -84,8 +85,9 @@ describe("a regression tile over a relation, brushed in two dimensions", () => {
     expect(tile.result).toEqual({ slope: 1, n: 5, variance: 2.5 });
   });
 
-  it("answers a relation with a path without pre-aggregating it: a join has no single base table", async () => {
-    const { corpus, error, tile, info } = await fit({ root: "Person", path: [{ edge: "Person_livesIn_Place", direction: "out" }] });
+  it("answers a pattern without pre-aggregating it: its SQL text has no base table Mosaic can trace", async () => {
+    const pattern = [{ as: "p", type: "Person" }, { edge: "livesIn", direction: "out" }, { as: "home", type: "Place" }] as const;
+    const { corpus, error, tile, info } = await fit((graph) => ({ table: relationOver(graph, pattern).table, columns: ["p.score", "p.lon"] }));
     expect(error).not.toHaveBeenCalled();
     expect(info).toBeNull();
     expect(corpus.sent.some((s) => /preagg_/.test(s))).toBe(false);

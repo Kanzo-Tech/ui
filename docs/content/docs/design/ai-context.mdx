@@ -37,8 +37,8 @@ because its field enum was written once for each place a field went (ten times).
 
 ## Say each thing once
 
-**Types are described once, with their fields; a relation is a type and the paths the model writes
-from it.**
+**Types are described once, with their fields; a relation is the pattern the model writes over
+them.**
 
 ```
 ### Types
@@ -56,18 +56,18 @@ and LlamaIndex's `SQLDatabase` describe a schema the same way. A type's values a
 relation over the type alone, which is what a reader sees of it; the values a hop narrows to are a
 detail the answer's rows say, not the description.
 
-**The model writes no relation.** It names the type it counts, `of`, and writes every field as a path
-from it, so the prompt lists no relation at all, which was most of what remained. An answer carries
-its relation as a key, `"Person>knows>Person"`, through the same `relationKey` that reads it back;
-`Answer`, what `AnswerCard` and a dashboard read, keeps the object.
+**The model writes its pattern, and no relation is listed.** It writes `match`, the vertices and edges
+it reads, and every field as `variable.property`, so the prompt lists no relation at all, which was
+most of what remained. An answer carries its pattern as written, and `Answer`, what `AnswerCard` and a
+dashboard read, keeps it.
 
-**The path list is one definition per type.** The schema writes one branch per type offered, and each
-branch names its enum of paths once under `$defs`, every place a field goes a `{ "$ref" }` to it
-([Tasks](/docs/design/tasks#a-field-is-a-path-from-what-is-measured)). JSON Schema's own reuse;
-OpenAI's and Anthropic's tools resolve local `$ref`s, and so does llama.cpp's JSON-schema grammar —
-checked in Docker Model Runner, 2026-10-10, with a schema whose two fields both refer to one enum of
-three names and a prompt asking for names outside it: Qwen3 called the tool with two names from the
-enum, and Hermes 3 8B and 3B under `response_format` wrote only names from it.
+**The vocabulary is three lists, each written once.** The schema names the types and the edges within
+reach as enums, once each, and a field as one pattern over the properties' names
+([Tasks](/docs/design/tasks#a-field-is-a-variable-and-a-property)), so its size grows with the
+vocabulary and not with the paths through it. It replaced one branch per type, each with its enum of
+paths under `$defs` and every field a `{ "$ref" }` to it — checked in Docker Model Runner, 2026-10-10,
+where Qwen3 and Hermes 3 resolved the `$ref`s; the enums they were checked on are still what a
+vertex's `type` and an edge's `edge` are.
 
 The same five graphs, sent by the starters and the agent with each type said once, the request caught
 at the HTTP boundary and counted the same way:
@@ -84,12 +84,12 @@ SNB's starters fit the 3B's 8K six times over. `snb-ask` — the page filtered t
 browsers do they use most?* on Qwen3's 16,384 — takes 3,211 on its first question and, with three
 turns of history before it, 5,164. Dropping the category values as well saves little once they are
 said once (SNB's starters 1,290 → 905), so values stay unless the budget asks. **Not measured since:**
-these figures predate paths. The schema now lists every path to three hops for each type offered, a
-term nobody has counted on SNB; the prompt's share is measured, the schema's is not.
+these figures predate patterns. The schema now lists the types and edges within three hops once each,
+a term nobody has counted on SNB; the prompt's share is measured, the schema's is not.
 
-**What would reverse it:** the evaluation set showing the model writes paths measurably worse when it is
-shown each type's fields once than when the fields a path reaches are spelled out beside it. Then the
-enum's paths carry their column's description, still without the types' values.
+**What would reverse it:** the evaluation set showing the model writes patterns measurably worse when it
+is shown each type's fields once than when the fields a pattern reaches are spelled out beside it.
+Then the prompt spells them out per edge, still without the types' values.
 
 ## The linker is the budget
 
@@ -126,6 +126,6 @@ served model's context. Then the linker keeps the named types without their neig
 values after, and the token count comes back as the linker's stopping rule, not as a failure.
 
 *Held by* `packages/ai/src/data/ask.test.ts`, "offers the types the question names, and their
-neighbours"; "finds a type by a value it holds, and keeps what the page's chips are on"; "offers every
-type to a question that names none"; "is one branch per type offered, each its own enum of paths
-from it".
+neighbours"; "finds a type by a value the graph answers for it, and keeps what the page's chips are
+on"; "offers every type to a question that names none"; "holds the object at its root, the types and
+edges in reach as enums, and a field as a variable and a property".

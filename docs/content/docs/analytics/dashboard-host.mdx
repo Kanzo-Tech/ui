@@ -1,6 +1,6 @@
 ---
 title: Host recipe
-description: Wiring a Dashboard to a backend — loading a saved spec, writing it after a pause, a read-only mode, your own labels and colours, one dashboard per relation, and where failures go.
+description: Wiring a Dashboard to a backend — loading a saved spec, writing it after a pause, a read-only mode, your own labels and colours, one dashboard per pattern, and where failures go.
 ---
 
 `Dashboard` owns the fields, the automatic layout and the editors. What it does not own is the
@@ -11,11 +11,12 @@ share, end to end. Toggle **Editable**, change a card, and watch one write land 
 
 ## 1. Load the saved spec
 
-Read the relation's spec before drawing, and hand `undefined` when there is none — the automatic
-dashboard draws, and nothing is written for a relation nobody has edited.
+Read the pattern's spec before drawing, and hand `undefined` when there is none — the automatic
+dashboard draws, and nothing is written for a pattern nobody has edited.
 
 ```tsx
-const saved = useQuery({ queryKey: ["dashboard", relation], queryFn: () => api.getDashboard(relation) });
+const key = patternKey(pattern); // from @kanzo-tech/mosaic
+const saved = useQuery({ queryKey: ["dashboard", key], queryFn: () => api.getDashboard(key) });
 if (saved.isPending) return <Skeleton className="h-96 w-full" />;
 ```
 
@@ -35,15 +36,16 @@ title or ticking three columns is many edits and one decision, so the write wait
 import { useDebouncedCommit } from "@kanzo-tech/ui";
 import { Dashboard, type DashboardSpec } from "@kanzo-tech/ui/analytics";
 
-function SavedDashboard({ relation, saved }: { relation: string; saved: DashboardSpec | undefined }) {
+function SavedDashboard({ pattern, saved }: { pattern: Pattern; saved: DashboardSpec | undefined }) {
+  const key = patternKey(pattern);
   // `undefined` is *Reset to automatic*: the stored spec is deleted, not overwritten.
   const save = useMutation({
     mutationFn: (spec: DashboardSpec | undefined) =>
-      spec === undefined ? api.deleteDashboard(relation) : api.putDashboard(relation, spec),
+      spec === undefined ? api.deleteDashboard(key) : api.putDashboard(key, spec),
   });
   const { draft, change } = useDebouncedCommit(saved, (spec) => save.mutate(spec), 800);
 
-  return <Dashboard relation={relation} value={draft} onChange={change} />;
+  return <Dashboard relation={pattern} value={draft} onChange={change} />;
 }
 ```
 
@@ -67,7 +69,7 @@ and no remove buttons. Filters, picks, brushes, chips and paging still work — 
 viewer explores; a viewer does not rearrange.
 
 ```tsx
-<Dashboard relation={relation} value={draft} onChange={canEdit ? change : undefined} />
+<Dashboard relation={pattern} value={draft} onChange={canEdit ? change : undefined} />
 ```
 
 A viewer with nothing saved sees the automatic dashboard, which is the right default for a role that
@@ -81,14 +83,14 @@ It applies wherever that field is drawn as a series.
 
 ```tsx
 const CONFIG: Record<string, ChartConfig> = {
-  verdict: {
+  "sighting.verdict": {
     confirmed: { label: "Confirmed", color: "var(--success)", icon: CheckCircle2Icon },
     disputed: { label: "Disputed", color: "var(--warning)", icon: CircleHelpIcon },
     hoax: { label: "Hoax", color: "var(--destructive)", icon: TriangleAlertIcon },
   },
 };
 
-<Dashboard relation="sightings" config={CONFIG} value={draft} onChange={change} />;
+<Dashboard relation={SIGHTINGS} config={CONFIG} value={draft} onChange={change} />;
 ```
 
 - Use **tokens**, not hex: `var(--success)` follows the theme into dark mode and through the
@@ -101,58 +103,54 @@ const CONFIG: Record<string, ChartConfig> = {
 The config is the host's, not the spec's: it describes what a value means in your product, which is
 true of every dashboard over that field, so it is not saved with any of them.
 
-## 5. One dashboard per relation
+## 5. One dashboard per pattern
 
-A spec names columns, and so does every clause a part publishes. A clause says the relation it was
-published on, so two relations on the page's one selection never send each other a column the other
-does not have: the page crosses a clause into another relation by key over the provider's `joins`,
-or keeps none of it where there is no way across
-([across relations](/docs/analytics/charts#across-relations)). Give each relation its own dashboard,
-and its own spec.
+A spec names fields, `variable.property`, and so does every clause a part publishes. A clause says
+the relation it was published on, so two patterns on the page's one selection never send each other
+a column the other does not have: the page lands a clause on another pattern's vertex of the same
+type, or carries it along the graph's one shortest path, or keeps none of it where there is no way
+across ([across relations](/docs/analytics/charts#across-relations)). Give each pattern its own
+dashboard, and its own spec.
 
-A host over a graph of types hands the provider the graph as its `joins`, picks the relation with
-`RelationPicker` and keys everything by it; the graph beside the dashboard follows its brushes
-through the root's key, with nothing to wire:
+A host over a graph hands the provider the graph, picks the pattern with `RelationPicker` and keys
+everything by `patternKey`; the graph beside the dashboard follows its brushes through the pattern's
+first vertex, with nothing to wire:
 
 ```tsx
-const key = relationKey(graph, relation);
+const key = patternKey(pattern);
 const saved = parseDashboards(stored); // throws on anything that is not a current document
-const keys = new JoinResolver(graph).steps(relation).map((s) => s.key);
 
-// under <MosaicProvider engine={e} joins={graph}>
-<RelationPicker graph={graph} value={relation} onValueChange={setRelation} />
-<FilterBar relation={relation} rowNoun={relation.path.length ? "paths" : relation.root} />
+// under <MosaicProvider engine={e} graph={graph}>
+<RelationPicker graph={graph} value={pattern} onValueChange={setPattern} />
+<FilterBar relation={pattern} rowNoun={pattern.length > 1 ? "paths" : "rows"} />
 <Dashboard
   key={key}
-  relation={relation}
-  exclude={keys}
-  value={saved.byRelation[key]}
+  relation={pattern}
+  value={saved.byPattern[key]}
   onChange={(spec) => {
-    const { [key]: _, ...rest } = saved.byRelation; // `undefined` is a reset: forget the relation
-    change({ byRelation: spec === undefined ? rest : { ...rest, [key]: spec } });
+    const { [key]: _, ...rest } = saved.byPattern; // `undefined` is a reset: forget the pattern
+    change({ byPattern: spec === undefined ? rest : { ...rest, [key]: spec } });
   }}
 />
 ```
 
 The graph and the dashboard share the page's crossfilter: a brush on a tile greys out on the canvas
-every vertex but the roots of the rows it keeps, and a lasso on the canvas filters every tile —
-[what the page sees](/docs/analytics/dashboard#what-the-page-sees).
+every vertex but the first vertices of the rows it keeps, and a lasso on the canvas filters every
+tile — [what the page sees](/docs/analytics/dashboard#what-the-page-sees).
 
-`key` remounts the dashboard on a switch, and **the reader's filters stay**. A pick on one
-relation's chart is the page's filter, not the chart's: it stays in the `FilterBar` as a chip and
-filters the next relation by its root's key, until the reader removes it — its chip, a re-pick on
-the chart, or *Clear every filter*. Switch back and the chart draws the pick it still holds. A clause
-published by something that stays mounted, like a graph's lasso as a semi-join on `dense_id`,
-carries over the same way: a relation keeps its root's key under the
-key's own name, so the lasso filters a joined relation as it filters the root's table.
+`key` remounts the dashboard on a switch, and **the reader's filters stay**. A pick on one pattern's
+chart is the page's filter, not the chart's: it stays in the `FilterBar` as a chip and filters the
+next pattern by the vertex both hold, until the reader removes it — its chip, a re-pick on the
+chart, or *Clear every filter*. Switch back and the chart draws the pick it still holds. A clause
+published by something that stays mounted, like a graph's lasso, carries over the same way.
 
-`exclude` drops the keys from the fields: they are identity, not data. `Dashboards` is one document,
-written whole — [the shape, and how it is read back](/docs/analytics/dashboard-spec#dashboards).
+A named vertex's index is a column of the pattern and never a field, so there is nothing to exclude
+for it. `Dashboards` is one document, written whole —
+[the shape, and how it is read back](/docs/analytics/dashboard-spec#dashboards).
 
 ## 6. Where failures go
 
-Pass `onFailure` to the `MosaicProvider`. A dashboard reports a `SUMMARIZE` that fails, and every
-card, tile and input reports its own query, with the thrown value — DuckDB's error, or `engine()`'s
+Pass `onFailure` to the `MosaicProvider`. Every card, tile and input reports its own query, with the thrown value — DuckDB's error, or `engine()`'s
 `Problem` with its `code`. Each part also says so in its own frame, so the callback is for
 telemetry and toasts, not for keeping the page legible.
 
@@ -162,10 +160,10 @@ telemetry and toasts, not for keeping the page legible.
 
 ## Checklist
 
-- [ ] One engine per page; one `MosaicProvider` per relation that has its own dashboard.
-- [ ] `value` is `undefined` until the relation's first save; the read's failure is shown, not
+- [ ] One engine per page, and one `MosaicProvider` with the graph.
+- [ ] `value` is `undefined` until the pattern's first save; the read's failure is shown, not
       replaced by the automatic dashboard.
-- [ ] `onChange` writes the whole spec after a pause, keyed by the relation.
+- [ ] `onChange` writes the whole spec after a pause, keyed by `patternKey`.
 - [ ] `onChange` is absent for viewers.
 - [ ] `exclude` lists the host's keys and coordinates; `config` is stable.
 - [ ] `onFailure` reaches your telemetry.

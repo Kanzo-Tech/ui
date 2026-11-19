@@ -1,0 +1,18 @@
+// The archive's closed contracts, written as a graph for the dashboard examples with a time: a
+// contract is its subject, the IRI its `id` mints, and `closed` is a GraphAr `date`.
+
+type { Contract } := io.shex("contracts.shex")
+
+Rows := io.csv("contracts.csv")
+
+Contracts : Contract from Rows
+    @subject = "https://kanzo.tech/contracts/{Rows.id}"
+    closed   = Rows.closed
+    hall     = Rows.hall
+    region   = Rows.region
+    beast    = Rows.beast
+    grade    = Rows.grade
+    outcome  = Rows.outcome
+    reward   = Rows.reward
+    party    = Rows.party
+    reports  = Rows.reports

@@ -1,274 +1,137 @@
 ---
 title: What a field is
-description: Why a field's facts come from the data's own catalog — what it is from what the catalog declares, what it holds from counts where something counted it — and reach every reader through JoinGraph, so nothing in the library guesses them from a column's name or a threshold; and what would reverse each part.
+description: Why a field's facts are the graph's — what it is from the property the Graph describes, what it holds from the statistics the chunks state — so nothing in the library guesses them from a column's name or a threshold, and nothing reads them twice; and what would reverse each part.
 ---
 
-*Status: partly to be built.* The tree takes these facts from an attached GraphAr graph through
-`@kanzo-tech/relations`'s `readJoinGraph`, the one `CatalogReader`, and `withMapping` fills the labels
-and datatypes the catalog does not say. Decided and not built: the shape before a run is the
-compiler's ([relations](/docs/design/relations)). Where a source for a fact is not yet stated, the table says so
-and the fact is absent until one does; nothing derives it. The *Breaking* list at the end is what a
-consumer edits.
-
 A dashboard, Ask, an answer's card and keasy's assistant each need to know two things about a
-column: **what it is** — a number, a date, a key, called *birth date* in English and *fecha de
-nacimiento* in Spanish — and **what it holds** — how many distinct values, how many missing, its
-range, its commonest values. The library used to throw the first away on the way in and re-derive a
+column: **what it is** — a number, a date, a key — and **what it holds** — how many distinct values,
+how many missing, its range. The library used to throw the first away on the way in and re-derive a
 cruder version of it from the column's name, and to read the second twice, by two `SUMMARIZE`s that
 need not agree, and a count per category on top for Ask.
 
-A graph reaches the library as an Apache GraphAr graph `attachGraph` attached
-([The graph](/docs/design/graph#what-graphar-does-not-carry)), and its catalog states fewer facts
-than fossil's `fossil/1` manifest did, which it replaced:
+A graph reaches the library as the `Graph` `@kanzo-tech/graphar-duckdb`'s `attachGraph` answers
+([The graph](/docs/design/graph#the-graph-is-graphars-to-read)), and every fact below is a field of it:
 
-| Fact | GraphAr's catalog | `JoinGraph` | Before fossil's manifest |
-| --- | --- | --- | --- |
-| an edge's label | `graphar_edge_types.edge_type` | `JoinEdge.label` | parsed out of `<Source>_<label>_<Destination>` |
-| an edge's ends | the per-type indices, made global by the graph | `src`, `dst` | written as `"src"` and `"dst"` |
-| a column's role | `is_primary`; the global id is the graph's | `JoinColumn.role`: `address`, `identity` | `ID_NAME` re-guessed identity by name |
-| nullability | `is_nullable` | `JoinColumn.nullable` | not read |
-| the keys | `is_primary`, and the global id | `JoinType.candidateKeys` | a 50-value cut-off |
-| a type's, an edge's, a column's IRI; a term type; a literal's datatype | not in it — the RML mapping | absent | not read |
-| a label in a language | not in it — the mapping, when a reader asks | absent | words split out of identifiers |
-| what a column holds | each chunk's Parquet footer, named by `graphar_chunks` | `JoinColumn.stats` | a `SUMMARIZE` in `fieldStats`, another in `AnswerCard`, a count per category for Ask |
+| Fact | The `Graph` | Before |
+| --- | --- | --- |
+| a vertex type, its count | `vertexTypes[].type`, `count` | parsed out of view names |
+| an edge's label and its ends | `edgeTypes[].edgeType`, `srcType`, `dstType` | parsed out of `<Source>_<label>_<Destination>` |
+| a property's DuckDB type | `properties[].type` | `duckdb_columns()` on our side |
+| the key | `properties[].primary` | `ID_NAME` re-guessed identity by name; a 50-value cut-off |
+| nullability, a list | `nullable`, `list` | not read |
+| what a property holds | `properties[].stats`, from each chunk's Parquet `Statistics` | a `SUMMARIZE` in `fieldStats`, another in `AnswerCard`, a count per category for Ask |
+| an IRI, a term type, a datatype, a label in a language | not in it | not read; words split out of identifiers |
 
-`JoinColumn` keeps every field the table's last rows name — `iri`, `termType`, `datatype`,
-`annotations`, `stats` — because a host's own graph may state them, and every reader below reads
-them where they are stated.
+## What a field is comes from the graph, through one reader
 
-## What a field is comes from the catalog, through one read
+**Every fact the `Graph` states about a type, an edge or a property reaches a field unchanged, and
+nothing downstream re-derives one.** GraphAr's information files are read by graphar's own reader,
+the one place their names are known; kanzo-ui reads the `Graph` and writes no GraphAr column name
+([The graph](/docs/design/graph#the-graph-is-graphars-to-read)). `patternColumns(graph, pattern)`
+describes a pattern's columns under the names `relationOver` reads them by: a column per named vertex
+for its index, which is no field, then `variable.property` for every property of every named element,
+described by its type's property — so its counts are the type's, which is what a default needs, and
+not the join's.
 
-**Every fact the catalog states about a type, an edge or a column reaches `JoinGraph` unchanged, and
-nothing downstream re-derives one.** The path is the one the data already travels: the GraphAr
-information files → `@kanzo-tech/graphar-duckdb`'s `attachGraph`, which makes them relations beside
-the views → `@kanzo-tech/relations`'s `readJoinGraph`, the one function that reads them and the one
-constructor of a `JoinGraph` from a graph → `@kanzo-tech/ui/analytics`, `@kanzo-tech/ai/data` and
-`@kanzo-tech/graph`. A column's DuckDB type is read in the same breath from the engine's own
-`duckdb_columns()`: what the engine will read the view as, never a mapping of GraphAr's words kept
+**What would reverse it:** a reader that needs a fact the `Graph` does not hold. Then it is added to
+what the writer states and graphar reads, and travels the same path — never derived on the reader's
+side.
+
+*Held by* `packages/ui/src/charts/field-stats.test.tsx`, "reads a column per named vertex for its index,
+then every property of every named element as variable.property", "reads nothing of an element the
+pattern leaves unnamed"; `packages/graph/src/layers.test.ts`, "builds statements only where it reads,
+writes none in a string, names no GraphAr column, and takes only types from graphar".
+
+## What a field holds comes from the chunks' statistics, and nothing is read for it
+
+**A field's distinct count and its extent are its property's `stats`, which the writer's Parquet
+`Statistics` state — the nulls, the minimum, the maximum and the distinct count — and the library runs
+no `SUMMARIZE`.** `useFieldStats(pattern)` queries nothing: the descriptions and the counts are the
+page's `Graph`, and it throws where the page has none. Ask is offered each type's fields off the
+graph; `AnswerCard` draws by the facts the answer was asked over, so the model and the card are told
+the same figures.
+
+**A distinct count does not combine across row groups**, so where the chunks only bound it the field
+carries the least they allow, and where they say nothing it carries none — `0`, a field with no count
+and no extent, which the defaults treat as a dimension of unknown width. Refusing such a property
+would have been a failure for a reader to see where a missing figure does; summarizing it would have
+been the second reader of one fact, which is the thing this page removed. The only `SUMMARIZE` the
+library ran before was over a relation nothing counted — the vertex union, a joined relation, a host's
+own table — and a dashboard now reads only a pattern, whose every field is a property the graph
+describes.
+
+**What would reverse it:** a graph written by something other than fossil, as the common case, whose
+chunks state no distinct count. Then the counts are a reader's step, run once per graph by graphar
+through the host's engine and stated on the `Graph` — still not one per component, and still not
 here.
 
-**`JoinGraph` carries a column as a description, not a name** — `JoinColumn`: its name, its DuckDB
-type, and whatever the catalog states of it, `role`, `datatype`, `termType`, `iri`, `nullable`,
-`annotations` and `stats`. A type and an edge carry their own `iri` and annotations, a type its
-`candidateKeys`. Only `name` and `type` are required, so a host's own graph describes what it knows —
-the dashboard example on `/docs/analytics/dashboard` declares its table's key that way.
-`relationColumns(graph, relation)` describes a relation's columns under the names it reads them by:
-a column of a joined relation is described by its step's type, so its counts are the type's, which
-is what a default needs, and not the join's.
-
-**Every catalog read is behind `readJoinGraph`**, so a change in how a graph states itself is a change
-in one function. It was one when the graph moved to Apache GraphAr: the reader read
-GraphAr's relations instead of fossil's manifest, and nothing past `JoinGraph` moved
-([The graph](/docs/design/graph#the-graph-reads-sql-through-the-pages-coordinator)).
-
-The reference is the catalog itself — GraphAr's information files, and, for a host's own graph, the
-vocabulary of a term in R2RML's words: `rr:termType` and the XSD datatypes. A semantic layer reads
-the same way: Looker's dimension `type` and Malloy's schema-read types come from the warehouse's
-declaration, never from a column's spelling.
-
-**What would reverse it:** a reader that needs a fact the catalog does not hold. Then it is added to
-what the writer states and the catalog carries, and travels the same path — never derived on the
-reader's side.
-
-*Held by* `packages/graph/src/core/catalog.test.ts`, "takes an edge's label and its ends from
-graphar_edge_types, never from the view's name"; "describes each column by the engine's type and
-GraphAr's primary key and nullability, the global id first"; `packages/relations/src/graphar.test.ts`,
-"keys a type by the global id, names its keys, and joins an edge on its global ends";
-`packages/graph/src/layers.test.ts`, "builds statements only where it reads, writes none in a string,
-and imports nothing of graphar's or fossil's".
-
-## What a field holds comes from counts, where the join graph states them
-
-**Where a join graph states a column's counts — its nulls, its distinct values, its extent and its
-commonest values with their share of the rows, under Parquet's `Statistics` names and `pg_stats`' —
-the library reads those, and runs no `SUMMARIZE` over a counted relation.** fossil's writer counts
-every column once, at write, into each chunk's Parquet footer, and `readJoinGraph` reads them there
-through `graphar_chunks` ([The graph](/docs/design/graph#what-a-column-holds-is-read-from-the-footers)):
-a type's relation is counted, the `vertices` union and a joined relation are not, and a graph a
-foreign writer made states none.
-`useFieldStats` over a relation of the page's joins whose columns are all counted queries nothing — a
-column that can be no field, a list, counts for nothing and does not make it read;
-Ask is offered each type's fields off the graph, its commonest values the writer's; `AnswerCard`
-draws by the facts the answer was asked over, so the model and the card are told the same figures.
-`JoinColumnStats` keeps the reference's names, camel-cased, so a change on fossil's side is a change
-of one name here.
-
-A relation whose columns nothing counted — a host's own table under `MosaicProvider`, or the
-`vertices` union, whose tables were counted one by one but never together — is read with one
-`SUMMARIZE` through [the read door](/docs/design/reads), once and cached, and what the joins say each
-column *is* is kept over the summary's counts. That is the only `SUMMARIZE` left.
-
-**Parquet's own statistics are half of it.** A row group's footer carries a minimum, a maximum and
-a null count, read for free, and `readJoinGraph` takes those; it carries no distinct count and no
-commonest values, the two figures a field's role and Ask's prompt need, and a distinct count does
-not combine across row groups. So the writer states those two in the file's `key_value_metadata`
-under `fossil:stats`, and the reader counts a column only when one chunk of its type states it
-([The graph](/docs/design/graph#what-a-column-holds-is-read-from-the-footers)). *Back if* a Parquet
-release has table-level distinct counts in its footer — then each fact is read from its field.
-
-**A graph that states none is read with one `SUMMARIZE`**, as any relation nothing counted is: a
-graph a foreign writer made, a column cut across chunks, and Ask offered such fields without
-values. Refusing it would have been a failure for a reader to see where a slower read does.
-
-**What would reverse it:** a graph written by something other than fossil, as the common case. Then
-the counts are a reader's step, run once per graph through the read door, and still not one per
-component.
-
-*Held by* `packages/ui/src/charts/field-stats.test.tsx`, "reads nothing for a relation over the page's
-joins whose every column the corpus counted", "counts a relation whose only uncounted column is no
-field at all, such as a list"; "summarizes a relation over the joins the corpus did not
-count, keeping what the graph says each column is"; `packages/ai/src/data/answer.test.ts`, "reads
-nothing from the engine: what a field is and holds is the graph's"; `packages/ai/src/data/answer-card.test.tsx`,
+*Held by* `packages/ui/src/charts/field-stats.test.tsx`, "answers a pattern's fields from the graph's
+description, reading nothing", "counts the least distinct values the chunks allow where they only
+bound it, and none where they say nothing"; `packages/ai/src/data/answer.test.ts`, "reads nothing from
+the engine: what a field is and holds is the graph's"; `packages/ai/src/data/answer-card.test.tsx`,
 "draws an answered tile at once, never busy: its fields are the graph's, and nothing is read for them".
 
 ## A field's kind and role are read, not guessed
 
-**A field's kind is Mosaic's `jsType` of its DuckDB type, unless its datatype makes it a time; its
-role is what the data declares, and where it declares nothing, the kind's.** No `ID_NAME`, no
-`DIMENSION_LIMIT`.
+**A field's kind is Mosaic's `jsType` of its DuckDB type; its role is `identifier` where it is its
+type's primary key, and otherwise the kind's.** No `ID_NAME`, no `DIMENSION_LIMIT`.
 
 | Field | Decided by | Reads as |
 | --- | --- | --- |
-| a column whose `role` is `address`, `identity` or `endpoint` | the catalog | identifier |
-| a column whose `termType` is an IRI or a blank node | the catalog | identifier |
-| a column among its type's `candidateKeys` — never null, never repeated | the catalog | identifier |
-| a number or a time whose datatype is `xsd:date`, `xsd:dateTime`, `xsd:gYear` or `xsd:gYearMonth` | the catalog | temporal, a dimension |
-| any other number | its DuckDB type | numeric, a measure |
-| anything else | its DuckDB type | categorical, a dimension |
+| its type's primary key | the `Graph` | identifier |
+| a number | its DuckDB type | numeric, a measure |
+| a date or a time | its DuckDB type | temporal, a dimension |
+| a text or a boolean | its DuckDB type | categorical, a dimension |
+| a list, a struct, a blob, or a type a mark throws on | its DuckDB type | no field |
 
-A year stored as its integer is a time with its extent as the years' first days, and a trend over it
-bins the number it is. A relation with no graph behind it has no role and no datatype, so the last
-two rows decide it, and nothing is an identifier because nothing said so; a host says it in the
-joins it hands the provider.
-
-**What it costs:** a text nearly but not quite unique per row, which the shape does not declare,
-reads as a dimension — the dashboard offers a facet filter over thousands of values, and a chart over
-it thousands of bars, which the bar chart's own band still cuts. The 50-value cut-off hid that case
-and misfiled every category of 51 values with it.
+**What it costs:** a text nearly but not quite unique per row, which the graph does not declare a
+key, reads as a dimension — the dashboard offers a facet filter over thousands of values, and a chart
+over it thousands of bars, which the bar chart's own band still cuts. The 50-value cut-off hid that
+case and misfiled every category of 51 values with it. And a year written as an integer is a number:
+the datatype that said it was a year was the RML mapping's, which the `Graph` does not carry
+([The graph](/docs/design/graph#the-graph-is-graphars-to-read)).
 
 **What would reverse it:** dashboards defaulting, in readers' hands, to charts over columns the data
-never declared and that are identifiers to anybody who reads them — then the remedy is in the shape (a
-key, an IRI), and if no shape can say it, a rule with its evidence beside it, never a spelling.
+never declared and that are identifiers to anybody who reads them — then the remedy is in the graph (a
+key), and if no graph can say it, a rule with its evidence beside it, never a spelling. Or the `Graph`
+stating a property's datatype, which would make a year a time again with no change here but a row of
+the table above.
 
-*Held by* `packages/ui/src/charts/field-stats.test.tsx`, "reads a kind from Mosaic's type words, and
-a role from what the data says and nothing else"; "reads a time by its datatype, a year stored as its
-integer among them, and its extent as the years' first days".
+*Held by* `packages/ui/src/charts/field-stats.test.tsx`, "reads a kind from Mosaic's type words, and a
+role from what the graph says and nothing else", "classifies every precision DuckDB reports, reads a
+zoned extent, and drops the three types a mark throws on".
 
-## A multi-valued property is a step
+## A multi-valued property is a value, not a step
 
-**A property table is a type of its own — a row per value, with a `value`, the column a path that
-ends on it reads — reached from its source by a hop named by the property, through the table itself.**
-The key is held in the row, so the hop is one join, not two: an edge whose table is the table of the
-type it reaches is a key held there, which is what a property table is. A path that ends on it,
-`laureate.nickname`, reads its value, never `laureate.nickname.nickname`; its language column reads
-beside it. It fans out like any hop, and `count` still counts the measured type
-([Analytics](/docs/design/analytics)), so *laureates by nickname* counts a laureate once per nickname
-and never twice per row. Ask writes such a path, and never measures a property on its own.
+**A list property is a column of the type that owns it, a `VARCHAR[]`, which Mosaic's `jsType` has no
+word for and which is therefore no field.** fossil's decision (2026-10-14) is that a multi-valued
+property is a GraphAr `list` property ([The graph](/docs/design/graph#a-vertex-type-is-a-node-type-a-list-property-is-a-value)),
+and a pattern reaches only vertices and edges, so there is no hop to a property table to name. A host
+that wants *laureates by nickname* needs the values as rows — a vertex type of its own, written by the
+writer.
 
-The reference is Malloy's `join_many` and fossil's own first normal form: fossil kept a multi-valued
-property in a table of its own precisely so that a reader joins it. **A graph read from GraphAr makes
-no such type**: fossil's decision (2026-10-14) is that a multi-valued property is a `list` property
-of the type that owns it, a `VARCHAR[]` column, which Mosaic's `jsType` has no word for and which is
-therefore no field and no step ([The graph](/docs/design/graph#a-vertex-type-is-a-node-type-a-list-property-is-a-value)).
-A host's own graph may still declare a type with a `value`, and everything above holds for it.
+**What would reverse it:** readers asking to group by a list's members, measured — then graphar's
+`match` unnests a list property into rows, and a field names it as `variable.property` like any other.
 
-**What would reverse it:** a property table that is not a function of its source — a value with no
-source key — which fossil's format does not allow.
+## The words are names
 
-*Held by* `packages/relations/src/crossfilter.test.ts`, "joins its table once, on the key it holds, so a
-laureate's row is one per nickname and never one per pair"; "resolves a path that ends on it to the
-step, and reads its value there"; `packages/ai/src/data/ask.test.ts`, "is a path Ask may write and read its value by, and never a type it
-measures".
+**A type's, an edge's and a property's words are its name as the graph states it**: a tile's title, Ask's
+chips and `RelationPicker`'s sentences read `variable.property`, the path the reader edits in the
+tile's field pickers. The `Graph` states no label, so there is nothing in a language to choose among;
+the RML mapping's labels, which `withMapping` once put on the old join graph, went with it.
 
-## The words are its labels
-
-**A type's, an edge's and a column's words are its `rdfs:label` in the page's language** —
-`<html lang>`, by RFC 4647's lookup, then an untagged literal — `labelOf`. A SHACL shape's `sh:name`
-is written as `rdfs:label` and its `sh:description` as `rdfs:comment`, so a reader asks one predicate
-and holds no preference list of its own. A graph's join graph carries none today — fossil emits no
-annotations into a GraphAr graph until a reader asks for them — so over a graph a word is a name,
-and the rule reads the labels a host's own graph states. A type's naming column is the one whose property
-IRI is a labelling property — `skos:prefLabel`, `rdfs:label`, then schema.org's and FOAF's `name`,
-in rdflib's order — `namingColumn`, and it reads as its type: *university.name* is *university*.
-`relationColumns` gives each column the label the data gives it, `fieldStats` carries it as
-`FieldStat.label`, and a tile's title, Ask's chips and `RelationPicker`'s sentences read it
-([Tasks](/docs/design/tasks)).
-
-**Decided differently from the plan:** where nothing labels a field, a title reads its path, not the
-identifier split — a path is what the reader edits in the tile's field pickers, and the two would
-read differently. The split, `splitWords`, is the picker's last resort for a type or an edge, and it
-never inflects. Two paths of one length that reach one field read the same words, so the chip offers
-the other by its path.
-
-**What would reverse it:** an evaluation set on which readers misread an answer's labelled words —
-then a host's own labels, handed in, win over the data's, and still no word is the code's.
-
-*Held by* `packages/relations/src/words.test.ts`, "reads the label in the page's language by RFC 4647's
-lookup, then an untagged one"; "is the column whose property labels, preferred as rdflib prefers,
-never one because it is called name"; "are its own label, or its type's for the type's naming column,
-and absent where nothing labels it".
-
-**A mapping states what GraphAr cannot, and the words come from it onto the same graph.** A GraphAr
-graph states tables, column types and edges, and no word, class or predicate; the RML-Core mapping
-written beside it states them. `withMapping(graph, model)` puts the mapping's class, predicate, term
-type, datatype and `rdfs:label`s on the `JoinGraph`'s own `iri`, `annotations`, `termType` and
-`datatype`, which `labelOf`, `relationColumns`, `fieldStats`, `RelationPicker` and Ask already read —
-so there is no second lookup keyed by IRI for a part to consult, and a host passes the mapping once,
-where it passes the graph. The language is not chosen there; every label is kept and the reader's
-`labelOf` chooses. `model` is a structural type cut to what is read (`MappingModel`), the shape of
-rudof's `Mapping.model()`, so the library imports no RDF code, and it is kept to the tables the graph
-has: a table is a type by its source's name, a column by the column its term reads, a relation by its
-parent's table, and among several edges between the same two types by the predicate's local name.
-A column read from a template and a relation no edge matches are left out.
-
-**A query-sourced map is read by the tables its SQL names.** fossil writes a relation, and a
-multi-valued or language-tagged property, as a triples map over an `rml:SQL2008Query` — a relation
-joins the adjacency table to both end tables, a set unnests its list once — never as a
-`parentTriplesMap`, and the mapping does not state that a query and a table are the same rows. So
-the match is by the quoted identifiers in the SQL (`"Person_awarded_Prize"`, `unnest("name")`),
-under three rules: a map whose SQL names exactly one edge's table is that edge's, and its predicate
-and annotations are the edge's `iri` and `annotations`; otherwise a map whose SQL names a type's
-table is described onto the one non-key column of that type the SQL also names; and a name two
-edges, or two columns, share describes nothing. The language column of a tagged value is data and
-no description of the column, so it is not read; the label's own language is kept as it is.
-
-The same change made the words one function. `RelationPicker` and Ask each wrote *the label, else the
-name* — the picker split the name into words and Ask showed it as written, so *laureate award* and
-*LaureateAward* named one type — and `splitWords` was the picker's by its docs and not by its code.
-`typeWords`, `edgeWords` and `splitWords` are `@kanzo-tech/relations`'s, and both read them; Ask's chips
-now say *laureate* where nothing labels `Laureate`. `termType` is RML-Core's spelling (`IRI`) from a
-mapping and R2RML's (`rr:IRI`) from a fossil corpus, and a field reads both until the corpus's reader
-goes. The canvas's legend and inspector are not changed: the legend takes names from the host
-(`categories`), which a host builds with `typeWords`, and the inspector still prints a property by its
-name.
-
-**What would reverse it:** a mapping that states which table a query reads — an `rml:source` that names
-it, or a `rml:logicalSource` shared by the maps of one table — then the match is by that statement and
-the SQL is no longer searched; or a query shape whose text names a table and a column that are not the
-ones it describes (a join on a second type's column), then the match is by a rule fossil states and
-the quoted-identifier test goes. Or a GraphAr graph whose info carries the IRIs itself — a vertex type's class
-and a property's predicate — then the catalog states them and `withMapping` is left with the labels;
-or a mapping whose tables are not named as the graph's types are, then the match is by the class IRI
-and a host says which type is which. Or a second consumer that needs a label for a thing the graph
-has no type, edge or column for — a value, say — then the lookup by IRI this avoided is the minimal
-way to state it.
-
-*Held by* `packages/relations/src/mapping.test.ts`, "keeps every language, and the reader chooses one: the same graph reads in either"; "falls back to the name in words where the mapping labels nothing, and a blank node labels nothing"; "labels the edge a relation's query joins, by the edge table the SQL names"; "describes the list a query unnests onto its type's one column the SQL names"; "describes nothing a query names ambiguously"; `packages/ai/src/data/ask.test.ts`, "words a type by the label a mapping states, in the page's language, and by its name in words where it states none".
+**What would reverse it:** the `Graph` stating labels — a vertex type's `rdfs:label` read from the
+mapping graphar already writes beside the graph — then a title reads the label in the page's language
+and falls back to the name.
 
 ## What it changed for a consumer
 
-- A `JoinGraph` type's `columns` are `JoinColumn` descriptions, not names. Build one from a graph
-  with `@kanzo-tech/relations`' reader, and fill its labels and datatypes with `withMapping`; a graph
-  of your own describes at least each column's `name` and `type`.
-- A term's type, an IRI and a column's role beyond the key are absent until the catalog or the
-  mapping states them; nothing in the library guesses them.
+- `useFieldStats` takes a `Pattern` and reads the page's `Graph`; it runs no `SUMMARIZE` and throws
+  where the provider has no `graph`. It answers `{ fields, columns }` at once: `FieldStatsState`, its
+  loading and its failure are gone, because nothing is read. `fieldStats` takes column descriptions — `name`, `type`,
+  `primary` and `stats` — and `patternColumns(graph, pattern)` makes them.
+- A field's `name` is `variable.property`. `FieldStat.label` is gone: a field is called by its name.
 - A column named `id`, `uri` or `iri` is no longer an identifier because of its name, and a text of
-  more than 50 values is no longer one because of its count. Declare a key in the shape, or in the
-  joins you hand the provider.
-- `useFieldStats` takes the relation as `ChartRoot` does, reads a counted graph's facts, and runs one
-  `SUMMARIZE` only for a relation nothing counted. `fieldStats` takes column descriptions;
-  `SummarizeRow` is gone.
-- `answerRelationsOf`, `readAnswerRelations`, `AnswerField`, `AskInput.types` and
-  `AskChatOptions.types` are gone: Ask is offered the graph's facts.
-- A multi-valued property is a hop in `RelationPicker` and a path in Ask.
-- A tile's title, Ask's chips and `RelationPicker` read the data's labels.
+  more than 50 values is no longer one because of its count. An identifier is its type's primary key.
+- A year the mapping typed `xsd:gYear` and the writer stored as an integer is a number.
+- A field whose property the statistics say nothing of has `distinct: 0` and no extent.

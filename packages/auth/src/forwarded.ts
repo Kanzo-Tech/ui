@@ -1,4 +1,4 @@
-import { Problem } from "@kanzo-tech/kernel";
+import { Problem } from "@kanzo-tech/problems";
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 import { claims } from "./claims";
 import { withoutTrailingSlashes } from "./edge-url";

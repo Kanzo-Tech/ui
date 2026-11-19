@@ -54,7 +54,7 @@ the token says with the realm's signature.
 | the keys could not be fetched at all | throws `idp/unreachable` (502) |
 
 The last two are an outage, not a refusal: the token may be perfectly good. Each is a `Problem` from
-`@kanzo-tech/kernel`, and `isProblem(error, "idp/unreachable")` tells them apart.
+`@kanzo-tech/problems`, and `isProblem(error, "idp/unreachable")` tells them apart.
 
 ## Reaching the keys from inside a cluster
 

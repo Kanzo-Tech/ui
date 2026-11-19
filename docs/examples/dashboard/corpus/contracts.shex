@@ -1,0 +1,17 @@
+PREFIX contracts: <https://kanzo.tech/contracts/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+# The output contract of `contracts.fossil`: the archive's closed contracts, for the dashboard
+# examples the sightings cannot serve — a real time, `closed`, a GraphAr `date`.
+
+contracts:Contract {
+  contracts:closed  xsd:date ;
+  contracts:hall    xsd:string ;
+  contracts:region  xsd:string ;
+  contracts:beast   xsd:string ;
+  contracts:grade   xsd:string ;
+  contracts:outcome xsd:string ;
+  contracts:reward  xsd:integer ;
+  contracts:party   xsd:integer ;
+  contracts:reports xsd:integer
+}
