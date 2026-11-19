@@ -7,7 +7,7 @@ WORKDIR /repo
 COPY . .
 RUN pnpm install --frozen-lockfile --filter @kanzo-tech/storage-service... \
  && pnpm --filter @kanzo-tech/kernel --filter @kanzo-tech/auth build \
- && pnpm --filter @kanzo-tech/storage-service deploy --prod --legacy /service
+ && pnpm --filter @kanzo-tech/storage-service deploy --prod /service
 
 FROM node:24-slim
 WORKDIR /service
