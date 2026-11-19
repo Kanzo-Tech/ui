@@ -1,7 +1,8 @@
-import { Query, Selection, clauseInterval, clauseMatch, clausePoint, clauseSemiJoin, holdFirstDraw, isIn, literal } from "@kanzo-tech/mosaic";
+import { Query, Selection, clauseInterval, clauseMatch, clausePoint, clauseSemiJoin, holdFirstDraw, isIn, literal, verbatim } from "@kanzo-tech/mosaic";
 import { describe, expect, it, vi } from "vitest";
+import type { Graph } from "@kanzo-tech/graphar-duckdb";
 import { attach, refusal, settle, type Attached } from "../../test/corpus";
-import { identityOf, vertexTypes } from "./source";
+import { identityOf, placed } from "./source";
 import { createGraph } from "./store";
 import type { GraphOptions } from "./state";
 
@@ -15,26 +16,32 @@ import type { GraphOptions } from "./state";
 const chart = { reset() {} };
 const ids = (mask: Uint8Array | null | undefined) => [...(mask ?? [])].flatMap((on, id) => (on ? [id] : []));
 
+/** `graph` with `type` counted as `count`: what a store sizes the canvas by, before it reads anything. */
+const counted = (graph: Graph, type: string, count: number): Graph => ({
+  ...graph,
+  vertexTypes: graph.vertexTypes.map((t) => (t.type === type ? { ...t, count } : t)),
+});
+
 async function graph(over: Partial<GraphOptions> = {}, attached?: Attached) {
   const corpus = attached ?? (await attach());
   const onFailure = vi.fn();
-  const store = createGraph({ from: corpus.from, engine: corpus.engine, onFailure, ...over });
+  const store = createGraph({ graph: corpus.graph, engine: corpus.engine, onFailure, ...over });
   const heard = vi.fn();
   const unsubscribe = store.subscribe(heard);
   return { corpus, heard, onFailure, store, unsubscribe };
 }
 
 describe("the graph store", () => {
-  it("reads the structure from GraphAr's relations, and every vertex by its global id", async () => {
+  it("reads the structure from the Graph, and every vertex by its global id", async () => {
     const { corpus, store } = await graph();
     await settle(corpus);
     const { geometry, structure } = store.getSnapshot();
-    expect(vertexTypes(structure!).map((t) => [t.name, t.first, t.rows, identityOf(t)])).toEqual([
+    expect(placed(structure!).map(({ type, first }) => [type.type, first, type.count, identityOf(type)])).toEqual([
       ["Person", 0, 10, "subject"],
       ["Place", 10, 6, "subject"],
       ["Tag", 16, 4, "subject"],
     ]);
-    expect(structure?.edges.map((e) => [e.name, e.label, e.source, e.destination])).toEqual([
+    expect(structure?.edgeTypes.map((e) => [e.name, e.edgeType, e.srcType, e.dstType])).toEqual([
       ["Person_knows_Person", "knows", "Person", "Person"],
       ["Person_livesIn_Place", "livesIn", "Person", "Place"],
       ["Person_tagged_Tag", "tagged", "Person", "Tag"],
@@ -46,23 +53,15 @@ describe("the graph store", () => {
 
   it("refuses a graph with no vertex as graph/nothing-to-draw", async () => {
     const corpus = await attach();
-    await corpus.coordinator.exec(
-      `ALTER VIEW ${corpus.from}.graphar_vertex_types RENAME TO written;
-       CREATE VIEW ${corpus.from}.graphar_vertex_types AS SELECT * FROM ${corpus.from}.written WHERE false;`,
-    );
-    const { onFailure, store } = await graph({}, corpus);
+    const { onFailure, store } = await graph({ graph: { ...corpus.graph, vertexTypes: [] } }, corpus);
     await settle(corpus);
     expect(onFailure.mock.calls[0]?.[0]).toMatchObject({ name: "Problem", code: "graph/nothing-to-draw" });
     expect(store.getSnapshot().structure).toBeNull();
   });
 
-  it("refuses more than 2^24 vertices as graph/too-large, from the GraphAr catalog's counts and before one link is read", async () => {
+  it("refuses more than 2^24 vertices as graph/too-large, from the Graph's counts and before one link is read", async () => {
     const corpus = await attach();
-    await corpus.coordinator.exec(
-      `ALTER VIEW ${corpus.from}.graphar_vertex_types RENAME TO written;
-       CREATE VIEW ${corpus.from}.graphar_vertex_types AS SELECT * REPLACE (CASE WHEN type = 'Person' THEN 16777207::UBIGINT ELSE count END AS count) FROM ${corpus.from}.written;`,
-    );
-    const { onFailure, store } = await graph({}, corpus);
+    const { onFailure, store } = await graph({ graph: counted(corpus.graph, "Person", 16777207) }, corpus);
     await settle(corpus);
     expect(onFailure).toHaveBeenCalledTimes(1);
     expect(onFailure.mock.calls[0]?.[0]).toMatchObject({ name: "Problem", code: "graph/too-large", data: { count: 2 ** 24 + 1, limit: 2 ** 24 } });
@@ -107,11 +106,11 @@ describe("the graph store", () => {
   it("reads positions again when x or y moves, and nothing else", async () => {
     const { corpus, store } = await graph({ x: "lon", y: "lat" });
     await settle(corpus);
-    const before = corpus.sent.length;
+    const links = vi.spyOn(corpus.graph, "links");
     store.setOptions({ ...store.getOptions(), x: undefined, y: undefined });
     await settle(corpus);
     expect(store.getSnapshot().geometry?.bound).toBe(false);
-    expect(corpus.sent.slice(before).some((sql) => sql.includes("graphar_vertex_types"))).toBe(false);
+    expect(links).not.toHaveBeenCalled();
   });
 
   it("sizes by degree when r is unbound, and by the column when it is bound", async () => {
@@ -150,7 +149,7 @@ describe("the graph store", () => {
 
   it("fixes the categorical domain before the graph loads", async () => {
     const corpus = await attach();
-    const store = createGraph({ from: corpus.from, engine: corpus.engine, fill: "kind", categories: { beast: "Beast" }, onFailure: () => {} });
+    const store = createGraph({ graph: corpus.graph, engine: corpus.engine, fill: "kind", categories: { beast: "Beast" }, onFailure: () => {} });
     expect(store.getSnapshot().domain).toEqual(["beast"]);
   });
 
@@ -193,37 +192,28 @@ describe("the graph store", () => {
     expect(store.getSnapshot().status).toBe("idle");
     store.setOptions({ ...store.getOptions(), fill: "team" });
     expect(store.getSnapshot().status).toBe("loading");
-    store.setOptions({ ...store.getOptions(), from: null });
+    store.setOptions({ ...store.getOptions(), graph: null });
     expect(store.getSnapshot()).toMatchObject({ status: "none", structure: null, geometry: null });
   });
 
   it("fails with the thrown value itself, code and all, when a read rejects", async () => {
     const corpus = await attach();
     const refused = refusal();
-    corpus.refuse(/graphar_vertex_types/, refused);
+    corpus.refuse(/Person_knows_Person/, refused);
     const { onFailure, store } = await graph({}, corpus);
     await settle(corpus);
     expect(store.getSnapshot().status).toBe("failed");
     expect(onFailure).toHaveBeenCalledExactlyOnceWith(refused);
   });
 
-  it("fails, and says so once, when the catalog it names is not attached", async () => {
-    const corpus = await attach();
-    const { onFailure, store } = await graph({ from: "nowhere" }, corpus);
-    await settle(corpus);
-    expect(store.getSnapshot().status).toBe("failed");
-    expect(onFailure).toHaveBeenCalledOnce();
-    expect(String(onFailure.mock.calls[0]?.[0])).toMatch(/nowhere/);
-  });
-
   it("drops a stale answer when the corpus changes under it", async () => {
     const first = await attach();
     const second = await attach();
     const { onFailure, store } = await graph({}, first);
-    store.setOptions({ ...store.getOptions(), from: second.from, engine: second.engine });
+    store.setOptions({ ...store.getOptions(), graph: second.graph, engine: second.engine });
     await settle(first);
     await settle(second);
-    expect(String(vertexTypes(store.getSnapshot().structure!)[0]!.table)).toContain(`"${second.from}"."Person"`);
+    expect(store.getSnapshot().structure).toBe(second.graph);
     expect(onFailure).not.toHaveBeenCalled();
   });
 
@@ -233,13 +223,13 @@ describe("the graph store", () => {
     const query = vi.spyOn(first.engine, "query");
     const signals = () => query.mock.calls.map(([, options]) => options.signal);
     const { onFailure, store, unsubscribe } = await graph({}, first);
-    // The catalog's five statements, each asked with the load's signal, which the engine interrupts on.
-    expect(signals()).toHaveLength(5);
+    // The edges' reads, each asked with the load's signal, which the engine interrupts on.
+    expect(signals().length).toBeGreaterThan(0);
     expect(signals().some((signal) => signal.aborted)).toBe(false);
-    store.setOptions({ ...store.getOptions(), from: second.from, engine: second.engine });
+    store.setOptions({ ...store.getOptions(), graph: second.graph, engine: second.engine });
     expect(signals().every((signal) => signal.aborted)).toBe(true);
     query.mockClear();
-    store.setOptions({ ...store.getOptions(), from: first.from, engine: first.engine });
+    store.setOptions({ ...store.getOptions(), graph: first.graph, engine: first.engine });
     unsubscribe();
     expect(signals().length).toBeGreaterThan(0);
     expect(signals().every((signal) => signal.aborted)).toBe(true);
@@ -257,18 +247,16 @@ describe("the graph store", () => {
     expect(store.getSnapshot().drawn?.vertices).toBe(20);
   });
 
-  it("retries a failed read from the stage that failed, with the stages before it left alone", async () => {
+  it("retries a failed read from the stage that failed", async () => {
     const corpus = await attach();
     corpus.refuse(/Person_knows_Person/, refusal());
     const { onFailure, store } = await graph({}, corpus);
     await settle(corpus);
     expect(store.getSnapshot()).toMatchObject({ status: "failed", geometry: null });
-    const catalog = corpus.sent.filter((sql) => sql.includes("fossil_tables")).length;
     store.retry();
     expect(store.getSnapshot().status).toBe("loading");
     await settle(corpus);
     expect(store.getSnapshot().drawn?.vertices).toBe(20);
-    expect(corpus.sent.filter((sql) => sql.includes("fossil_tables"))).toHaveLength(catalog);
     expect(onFailure).toHaveBeenCalledOnce();
   });
 
@@ -284,11 +272,7 @@ describe("the graph store", () => {
 
   it("fails a graph too large again with the same code on retry", async () => {
     const corpus = await attach();
-    await corpus.coordinator.exec(
-      `ALTER VIEW ${corpus.from}.graphar_vertex_types RENAME TO written;
-       CREATE VIEW ${corpus.from}.graphar_vertex_types AS SELECT * REPLACE (CASE WHEN type = 'Person' THEN 16777207::UBIGINT ELSE count END AS count) FROM ${corpus.from}.written;`,
-    );
-    const { onFailure, store } = await graph({}, corpus);
+    const { onFailure, store } = await graph({ graph: counted(corpus.graph, "Person", 16777207) }, corpus);
     await settle(corpus);
     store.retry();
     await settle(corpus);
@@ -303,7 +287,7 @@ describe("the graph store", () => {
     for (const vertex of [1, 2, 3, 4, 5, 6, 2]) store.remember(vertex, `#${vertex}`);
     expect(store.getSnapshot().recent.map((r) => r.vertex)).toEqual([2, 6, 5, 4, 3]);
     const next = await attach();
-    store.setOptions({ ...store.getOptions(), from: next.from, engine: next.engine });
+    store.setOptions({ ...store.getOptions(), graph: next.graph, engine: next.engine });
     expect(store.getSnapshot().recent).toEqual([]);
   });
 
@@ -379,8 +363,8 @@ describe("the page's crossfilter", () => {
   it("answers a semi-join on dense_id on every table, whatever relation its subquery reads", async () => {
     const { corpus, crossfilter, onFailure, store } = await filtered();
     // Who lives in a place: rows of an edge type, whose `src` and `dst` no vertex type has.
-    const lives = store.getSnapshot().structure!.edges.find((e) => e.name === "Person_livesIn_Place")!;
-    const residents = Query.select("src").from(lives.table).where(isIn("src", [literal(1), literal(2)]));
+    const lives = store.getSnapshot().structure!.edgeTypes.find((e) => e.name === "Person_livesIn_Place")!;
+    const residents = Query.select(lives.src).from(verbatim(lives.table)).where(isIn(lives.src, [literal(1), literal(2)]));
     crossfilter.update(clauseSemiJoin("dense_id", residents, { source: chart, label: "Residents" }));
     await settle(corpus);
     expect(onFailure).not.toHaveBeenCalled();
@@ -394,7 +378,7 @@ describe("the page's crossfilter", () => {
     store.select([3, 4], "marquee", "Marquee");
     await settle(corpus);
     expect(String(crossfilter.predicate(chart as never))).toBe(`("dense_id" IN (3, 4))`);
-    expect(crossfilter.clauses[0]?.meta).toEqual({ type: "semijoin", label: "Marquee", relation: "vertices" });
+    expect(crossfilter.clauses[0]?.meta).toMatchObject({ type: "semijoin", label: "Marquee", relation: { key: "vertices" } });
     // Kept with no query: the canvas's own clause narrows what the page's answer keeps, here everything.
     expect(ids(store.getSnapshot().kept)).toEqual([3, 4]);
     expect(corpus.sent.slice(before).filter((sql) => sql.includes("WHERE"))).toEqual([]);
@@ -452,6 +436,6 @@ describe("the page's crossfilter", () => {
     store.setOptions({ ...store.getSnapshot().options, filterBy: second });
     await settle(corpus);
     expect(first.clauses.map((c) => c.meta)).toEqual([]);
-    expect(second.clauses.map((c) => c.meta)).toEqual([{ type: "semijoin", label: "Lasso", relation: "vertices" }]);
+    expect(second.clauses.map((c) => c.meta)).toMatchObject([{ type: "semijoin", label: "Lasso", relation: { key: "vertices" } }]);
   });
 });

@@ -1,5 +1,5 @@
-/** The three reads of a load, in the order they depend on each other. */
-export type Kind = "structure" | "geometry" | "encoding";
+/** The two reads of a load, in the order they depend on each other. */
+export type Kind = "geometry" | "encoding";
 
 /**
  * **The reads of one load**: one in flight per kind, all under one signal. A newer read of a kind
@@ -7,12 +7,12 @@ export type Kind = "structure" | "geometry" | "encoding";
  * aborts, every answer still to come is stale, and the next read gets a signal of its own.
  */
 export function createReads() {
-  const ticket: Record<Kind, number> = { structure: 0, geometry: 0, encoding: 0 };
-  const pending: Record<Kind, boolean> = { structure: false, geometry: false, encoding: false };
+  const ticket: Record<Kind, number> = { geometry: 0, encoding: 0 };
+  const pending: Record<Kind, boolean> = { geometry: false, encoding: false };
   let controller = new AbortController();
   return {
     /** Whether any read is still to answer. */
-    busy: () => pending.structure || pending.geometry || pending.encoding,
+    busy: () => pending.geometry || pending.encoding,
     run<T>(kind: Kind, ask: (signal: AbortSignal) => Promise<T>, done: (value: T) => void, failed: (error: unknown) => void): void {
       const mine = ++ticket[kind];
       pending[kind] = true;

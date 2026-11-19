@@ -1,7 +1,7 @@
 import { act, render, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { attach, settle } from "../../test/corpus";
-import { isProblem } from "@kanzo-tech/kernel";
+import { isProblem } from "@kanzo-tech/problems";
 import { GraphCanvas } from "./graph-canvas";
 import { GraphRoot } from "./graph-root";
 import { useGraphContext } from "../react/use-graph-context";
@@ -24,7 +24,7 @@ describe("GraphRoot and GraphCanvas", () => {
     }
     const corpus = await attach();
     render(
-      <GraphRoot engine={corpus.engine} from={corpus.from} onFailure={onFailure}>
+      <GraphRoot engine={corpus.engine} graph={corpus.graph} onFailure={onFailure}>
         <GraphCanvas />
         <Status />
       </GraphRoot>,
@@ -37,7 +37,7 @@ describe("GraphRoot and GraphCanvas", () => {
   it("does not rebuild the renderer because a callback changed identity", () => {
     const calls: string[] = [];
     const tree = (tag: string) => (
-      <GraphRoot engine={null} from={null} onFailure={(error) => calls.push(`${tag}:${String(error)}`)}>
+      <GraphRoot engine={null} graph={null} onFailure={(error) => calls.push(`${tag}:${String(error)}`)}>
         <GraphCanvas />
       </GraphRoot>
     );
@@ -55,7 +55,7 @@ describe("GraphRoot and GraphCanvas", () => {
     }
     const corpus = await attach();
     render(
-      <GraphRoot engine={corpus.engine} from={corpus.from} onFailure={() => {}}>
+      <GraphRoot engine={corpus.engine} graph={corpus.graph} onFailure={() => {}}>
         <Part />
       </GraphRoot>,
     );
@@ -91,7 +91,7 @@ describe("useGraphState", () => {
       return null;
     }
     render(
-      <GraphRoot engine={corpus.engine} from={corpus.from} onFailure={() => {}}>
+      <GraphRoot engine={corpus.engine} graph={corpus.graph} onFailure={() => {}}>
         <Host />
         <ToolPart />
         <HoverPart />
@@ -113,7 +113,7 @@ describe("useGraph", () => {
     const look = { vignette: true };
     const { rerender, result } = renderHook(
       ({ tag }: { tag: string }) =>
-        useGraph({ engine: corpus.engine, from: corpus.from, fill: "team", look, onFailure: () => void tag }),
+        useGraph({ engine: corpus.engine, graph: corpus.graph, fill: "team", look, onFailure: () => void tag }),
       { initialProps: { tag: "a" } },
     );
     const options = result.current.getState().options;
@@ -125,7 +125,7 @@ describe("useGraph", () => {
   it("hands the store a new binding when a prop moves", async () => {
     const corpus = await attach();
     const { rerender } = renderHook(
-      ({ fill }: { fill: string }) => useGraph({ engine: corpus.engine, from: corpus.from, fill, onFailure: () => {} }),
+      ({ fill }: { fill: string }) => useGraph({ engine: corpus.engine, graph: corpus.graph, fill, onFailure: () => {} }),
       { initialProps: { fill: "team" } },
     );
     await act(() => settle(corpus));

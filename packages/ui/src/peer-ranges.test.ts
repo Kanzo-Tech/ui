@@ -43,7 +43,11 @@ type Manifest = {
 };
 
 const SIBLING = "workspace:*";
-const CARET = /^\^(\d+)(?:\.(\d+))?(?:\.\d+)?$/;
+/** A caret, a prerelease included: `^0.1.0-alpha.2` admits the `0.1` line from that prerelease on. */
+const CARET = /^\^(\d+)(?:\.(\d+))?(?:\.\d+)?(?:-[0-9A-Za-z.-]+)?$/;
+
+/** The packages of this repository, which ship in lockstep: a `@kanzo-tech/` name outside it is a third party's. */
+const FAMILY = new Set(SHIPPED.map((root) => `@kanzo-tech/${root.name}`));
 
 /** The release line a caret admits: the major, or `0.minor` under `0.x`. */
 function line(caret: string): string | undefined {
@@ -72,7 +76,7 @@ describe("peer ranges", () => {
     const open = MANIFESTS.flatMap(({ label, pkg }) =>
       Object.entries(pkg.peerDependencies ?? {})
         .filter(([name, range]) =>
-          name.startsWith("@kanzo-tech/")
+          FAMILY.has(name)
             ? range !== SIBLING
             : range.split("||").some((alternative) => line(alternative) === undefined),
         )

@@ -14,9 +14,9 @@ It holds two layers, and the second is made of the first:
   Observable Plot's vocabulary as JSX, compiled to one `vg.plot(...)` per root.
   [Charts](/docs/analytics/charts) teaches it and the [gallery](/docs/analytics/gallery) draws every
   mark.
-- **The BI kit** — `Dashboard` and its parts. A relation you have not seen, read from what
-  its data says of it — a graph's description and counts, or one `SUMMARIZE` — drawn as a filter row, tiles, chart cards and the rows, and kept as a JSON spec the
-  host saves. [Dashboard](/docs/analytics/dashboard) teaches it.
+- **The BI kit** — `Dashboard` and its parts. A pattern over a graph you have not seen, read from
+  what the graph says of each property, drawn as a filter row, tiles, chart cards and the rows, and
+  kept as a JSON spec the host saves. [Dashboard](/docs/analytics/dashboard) teaches it.
 
 ## The mental model
 
@@ -59,8 +59,8 @@ pick with `ChartHighlight`, which reads that chart's own clauses —
 [the long version](/docs/analytics/charts#feedback-on-the-chart-that-filters).
 
 A clause says which relation it was published on, and a part which relation it reads; given the
-provider's `joins`, a clause on one relation reaches a part on another crossed by key, or keeps none
-of it where there is no way across — [across relations](/docs/analytics/charts#across-relations).
+provider's `graph`, a clause on one pattern reaches a part on another landed on the vertex both hold
+or carried along the graph's one shortest path, or keeps none of it where there is no way across — [across relations](/docs/analytics/charts#across-relations).
 
 The two operations a page-level control wants are Mosaic's own:
 
@@ -130,24 +130,17 @@ The peers are **optional in the manifest and required in practice** — optional
 install them for you", not "the code works without them".
 
 ```bash
-pnpm add @kanzo-tech/ui @kanzo-tech/mosaic @uwdata/mosaic-core @uwdata/mosaic-sql @uwdata/vgplot @uwdata/mosaic-plot valibot @tanstack/react-query
+pnpm add @kanzo-tech/ui @kanzo-tech/mosaic @uwdata/mosaic-core @uwdata/mosaic-sql @uwdata/vgplot @uwdata/mosaic-plot valibot
 ```
 
-A page that reads a relation's fields — `Dashboard`, `useFieldStats`, and the parts an Ask answer
-draws — reads them as a [TanStack Query](https://tanstack.com/query) query on **your**
-`QueryClient`, so one `QueryClientProvider` sits above it. It is the one you already render if your
-app uses TanStack Query; the library brings no client of its own
-([why](/docs/design/reads)). Without it those hooks throw TanStack's own *No QueryClient set*. The
-charts on their own read through Mosaic and need none of it.
+A dashboard reads a graph: `@kanzo-tech/graphar-duckdb`'s `attachGraph` answers the `Graph` you hand
+`MosaicProvider`, and it arrives with `@kanzo-tech/ui` as a dependency — it links no engine, and
+attaches through the engine you already have.
 
 ```tsx
-const queries = new QueryClient();
-
-<QueryClientProvider client={queries}>
-  <MosaicProvider engine={e}>
-    <Dashboard relation="sightings" />
-  </MosaicProvider>
-</QueryClientProvider>
+<MosaicProvider engine={e} graph={graph}>
+  <Dashboard relation={[{ as: "sighting", type: "Sighting" }]} />
+</MosaicProvider>
 ```
 
 `@kanzo-tech/mosaic` is the one door to Mosaic: the engine, the selections, the clauses,
@@ -166,8 +159,8 @@ renders empty and says nothing — is what `onFailure` and the in-frame failure 
 `useChartQuery` runs a query beside the charts and hands back rows, re-run under the crossfilter —
 the supported way to read a relation without drawing it. A widget that runs a plain
 `coordinator.query()` in an effect reports unfiltered totals next to filtered charts, which reads as
-a bug in the crossfilter. `useFieldStats` is the other read the kit is built on: a relation's
-columns, classified, read once per relation for the whole page on your `QueryClient`. And what a page reads once and draws as it is — a schema, a catalog — is
+a bug in the crossfilter. `useFieldStats` is what the kit is built on: a pattern's fields,
+classified from what the graph says of them, with nothing read. And what a page reads once and draws as it is — a schema, a catalog — is
 [`useQueryRows`](/docs/hooks/use-query-rows), which suspends on the statement.
 
 <Cards>

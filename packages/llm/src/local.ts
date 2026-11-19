@@ -2,7 +2,7 @@ import { doesBrowserSupportWebLLM, webLLM, type WebLLMProgress } from "@browser-
 import { type AppConfig, prebuiltAppConfig } from "@mlc-ai/web-llm";
 import { extractReasoningMiddleware, type LanguageModel, type LanguageModelMiddleware, wrapLanguageModel } from "ai";
 
-import { Problem } from "@kanzo-tech/kernel";
+import { Problem } from "@kanzo-tech/problems";
 import type { ModelLoad } from "./load.js";
 
 /** A call's options and a generation's result, as the middleware sees them. */

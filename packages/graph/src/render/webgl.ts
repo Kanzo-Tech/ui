@@ -1,7 +1,7 @@
 "use client";
 
 import type { Graph } from "@cosmos.gl/graph";
-import { Problem, within, type ProblemData } from "@kanzo-tech/kernel";
+import { Problem, within, type ProblemData } from "@kanzo-tech/problems";
 
 /**
  * The slowest honest answer for a GPU device: one comes up in milliseconds when it can be made at

@@ -1,4 +1,4 @@
-import { isProblem } from "@kanzo-tech/kernel";
+import { isProblem } from "@kanzo-tech/problems";
 import { describe, expect, it } from "vitest";
 import { directorySas, gcsBoundary, type Location, s3Policy, vend, within } from "./vend.ts";
 

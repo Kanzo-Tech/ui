@@ -129,8 +129,8 @@ A server read has three answers, and a product draws each differently:
 | the token did not verify | throws `token/refused` | a redirect to `problemPage?code=token/refused` |
 | the realm's keys could not be fetched | throws `idp/unreachable` or `idp/silent` | a redirect to `problemPage` with that code |
 
-The codes are the kernel's `Problem`s; test one with `isProblem(error, "token/refused")` from
-`@kanzo-tech/kernel`. A refused token goes to the problem page and never to sign-in: the edge holds a
+The codes are `Problem`s; test one with `isProblem(error, "token/refused")` from
+`@kanzo-tech/problems`. A refused token goes to the problem page and never to sign-in: the edge holds a
 session and would forward the same token, which is a loop. [How the layer
 fails](/docs/design/auth-failure) is why each answer is what it is.
 

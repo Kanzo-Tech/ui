@@ -8,24 +8,27 @@ import type { AskSpec } from "../src/data/ask.js";
  * one. Only the cases it answers run.
  */
 
+const award = { as: "award", type: "LaureateAward" } as const;
+const university = { as: "university", type: "University" } as const;
+
 const answers: Record<string, AskSpec> = {
-  "How many Nobel prizes have been awarded?": { of: "LaureateAward", show: { kind: "stat", measure: { op: "count" } } },
+  "How many Nobel prizes have been awarded?": { match: [award], show: { kind: "stat", measure: { op: "count" } } },
   "Which universities won the most prizes?": {
-    of: "LaureateAward",
+    match: [award, { edge: "university", direction: "out" }, university],
     show: { kind: "chart", type: "bar", x: "university.name", y: { op: "count" } },
   },
   "Which ones were won in Germany?": {
-    of: "LaureateAward",
-    where: [{ field: "university.addressCountry.name", in: ["Germany"] }],
+    match: [award, { edge: "university", direction: "out" }, university, { edge: "addressCountry", direction: "out" }, { as: "country", type: "Country" }],
+    where: [{ field: "country.name", in: ["Germany"] }],
     show: { kind: "chart", type: "bar", x: "university.name", y: { op: "count" } },
   },
   "Which countries have won the most prizes?": {
-    of: "LaureateAward",
-    show: { kind: "chart", type: "bar", x: "laureate.birthPlace.name", y: { op: "count" } },
+    match: [award, { edge: "laureate", direction: "out" }, { as: "laureate", type: "Laureate" }, { edge: "birthPlace", direction: "out" }, { as: "country", type: "Country" }],
+    show: { kind: "chart", type: "bar", x: "country.name", y: { op: "count" } },
   },
   "How many people are women, and how many are men?": {
-    of: "Person",
-    show: { kind: "chart", type: "bar", x: "gender", y: { op: "count" } },
+    match: [{ as: "laureate", type: "Laureate" }],
+    show: { kind: "chart", type: "bar", x: "laureate.gender", y: { op: "count" } },
   },
 };
 

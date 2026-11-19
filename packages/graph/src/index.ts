@@ -60,4 +60,4 @@ export type {
   VertexSelectionSource,
 } from "./core/types";
 export type { DataStatus, Drawn, GraphState } from "./core/state";
-export type { VertexDetail } from "./core/source";
+export { verticesOf, type VertexDetail } from "./core/source";

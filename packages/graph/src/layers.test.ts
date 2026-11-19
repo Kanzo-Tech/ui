@@ -6,9 +6,10 @@ import { describe, expect, it } from "vitest";
 
 /**
  * The layers of `/docs/design/graph`, held where they can be read off the source: the graph reads a
- * GraphAr graph `attachGraph` attached as a catalog, with SQL through the page's coordinator, and
- * imports nothing of graphar's or fossil's; every statement is built from mosaic-sql's nodes, in the two modules that read rows, and none
- * is written in a string; no module past the size a named reference is the shape of; and a core that
+ * GraphAr graph through the `Graph` `@kanzo-tech/graphar-duckdb` answers, takes its types and nothing
+ * else from that package, and imports nothing of fossil's; it names no column GraphAr defines — the
+ * `Graph` names each relation and index; every statement is built from mosaic-sql's nodes, in the two
+ * modules that read rows, and none is written in a string; no module past the size a named reference is the shape of; and a core that
  * knows nothing of React or cosmos.gl.
  *
  * What it cannot prove: a query assembled from fragments no one of which looks like SQL, or a value
@@ -31,7 +32,10 @@ const parse = (name: string, text: string) =>
  */
 const SQL = /\b(SELECT|FROM|WHERE|JOIN|CREATE (OR REPLACE )?(VIEW|TABLE))\s|read_parquet/;
 
-/** The two modules that build a statement: the rows, and the crossfilter's client. The catalog is `@kanzo-tech/relations`'s reader's. */
+/** What a GraphAr chunk calls its columns, and what its catalog calls its tables: the `Graph`'s to name. */
+const GRAPHAR = /_graphAr|graphar_/;
+
+/** The two modules that build a statement: the rows, and the crossfilter's client. Every other read is the `Graph`'s. */
 const READERS = new Set(["core/source.ts", "core/client.ts"]);
 
 describe("the graph's layers", () => {
@@ -40,18 +44,20 @@ describe("the graph's layers", () => {
     for (const { name, text } of modules) expect(text.includes("\0"), `${name} contains a NUL byte`).toBe(false);
   });
 
-  it("builds statements only where it reads, writes none in a string, and imports nothing of graphar's or fossil's", () => {
+  it("builds statements only where it reads, writes none in a string, names no GraphAr column, and takes only types from graphar", () => {
     const offenders: string[] = [];
     const builders = new Set<string>();
     for (const { name, text } of modules) {
       const visit = (node: ts.Node): void => {
         const literal = ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateHead(node);
         if (literal && SQL.test(node.text)) offenders.push(`${name}: SQL in a string — ${node.text.slice(0, 60)}`);
+        if (literal && GRAPHAR.test(node.text)) offenders.push(`${name}: a GraphAr name in a string — ${node.text.slice(0, 60)}`);
         if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
           const from = node.moduleSpecifier.text;
           if (from.startsWith("@uwdata/")) offenders.push(`${name}: imports ${from}, which @kanzo-tech/mosaic re-exports`);
-          if (from.startsWith("@fossil-lang/") || from.startsWith("@kanzo-tech/graphar")) {
-            offenders.push(`${name}: imports ${from}; the contract is the attached catalog`);
+          if (from.startsWith("@fossil-lang/")) offenders.push(`${name}: imports ${from}; the contract is the Graph`);
+          if (from.startsWith("@kanzo-tech/graphar") && !(node.importClause?.isTypeOnly ?? false)) {
+            offenders.push(`${name}: imports ${from} as a value; the page attaches the graph, and the graph is handed it`);
           }
           const bindings = node.importClause?.namedBindings;
           if (from === "@kanzo-tech/mosaic" && bindings && ts.isNamedImports(bindings)) {
@@ -66,6 +72,7 @@ describe("the graph's layers", () => {
     expect([...builders].sort(), "a statement is built only where the graph reads").toEqual([...READERS].sort());
     // The pattern still sees a statement, so the first rule is not passing because it went blind.
     expect(SQL.test("SELECT id FROM t WHERE x")).toBe(true);
+    expect(GRAPHAR.test("_graphArVertexIndex")).toBe(true);
   });
 
   it("keeps every module under four hundred lines", () => {

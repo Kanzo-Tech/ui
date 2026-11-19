@@ -12,7 +12,7 @@
 import { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
 import { DefaultAzureCredential, type TokenCredential } from "@azure/identity";
 import { DataLakeServiceClient, DirectorySASPermissions, generateDataLakeSASQueryParameters, SASProtocol } from "@azure/storage-file-datalake";
-import { Problem } from "@kanzo-tech/kernel";
+import { Problem } from "@kanzo-tech/problems";
 import { DownscopedClient, GoogleAuth } from "google-auth-library";
 
 export type Access = "read" | "write";

@@ -1,13 +1,6 @@
 import { QueryError, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
-import { answerOf } from "./engine";
 
 export type Row = Record<string, unknown>;
-
-/** What `SUMMARIZE` answers over the sightings: a categorical field and a numeric one. */
-export const FIELDS: Row[] = [
-  { column_name: "region", column_type: "VARCHAR", approx_unique: 4, min: "a", max: "d", count: 10 },
-  { column_name: "bounty", column_type: "DOUBLE", approx_unique: 9, min: 1, max: 9, count: 10 },
-];
 
 /**
  * jsdom has no DuckDB, so a test's coordinator is a double that plays the moves a real one makes
@@ -15,14 +8,14 @@ export const FIELDS: Row[] = [
  * `queryError` as a `QueryError`, as `Coordinator.updateClient` wraps it), forget on disconnect, and
  * re-ask when the client's `filterBy` moves. The re-ask is `updateSelection`'s: a disabled client
  * keeps the request until enabled, and a client the active clause exempts is left alone. `query`
- * answers `SUMMARIZE` with `fields`.
+ * answers no rows: what a field is comes from the page's `Graph` (`./graph`), not from a statement.
  */
-export function stubCoordinator(answer: (sql: string) => Row[] = () => [], fields?: Row[]) {
+export function stubCoordinator(answer: (sql: string) => Row[] = () => []) {
   const connected = new Set<MosaicClient>();
   const queries: string[] = [];
   const listeners = new Map<MosaicClient, () => void>();
   const coordinator = {
-    query: async (sql: string) => (fields && sql.startsWith("SUMMARIZE") ? answerOf(fields) : []),
+    query: async () => [],
     connect(client: MosaicClient) {
       connected.add(client);
       client.coordinator = coordinator as unknown as Coordinator;

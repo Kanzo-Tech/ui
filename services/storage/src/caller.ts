@@ -1,4 +1,4 @@
-import { Problem } from "@kanzo-tech/kernel";
+import { Problem } from "@kanzo-tech/problems";
 
 /**
  * The organization a deployment serves is the only one whose people may ask: a token of the same

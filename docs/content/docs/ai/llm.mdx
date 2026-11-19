@@ -237,12 +237,12 @@ retry after it".
 ## Failures
 
 ```ts
-// isProblem, from @kanzo-tech/kernel
+// isProblem, from @kanzo-tech/problems
 isProblem(error, "llm/unavailable"); // data.reason: "webgpu" (the browser has none) or "unserved" (the page serves no such model)
 isProblem(error, "llm/truncated");   // data.reason: "context" (the answer did not fit)
 ```
 
-The failures this package names, as the kernel's `Problem`: the model cannot answer here (`llm/unavailable`), and a structured
+The failures this package names, as `@kanzo-tech/problems`' `Problem`: the model cannot answer here (`llm/unavailable`), and a structured
 answer — a schema or a grammar — that the model's context cut off (`llm/truncated`, `reason`
 `"context"`), since half a document is not one. A generation stopped from outside, by the caller's
 signal or by `Chat`'s stop, rejects as an `AbortError`, never as text; one asked for as text and cut

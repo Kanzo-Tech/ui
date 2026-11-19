@@ -1,3 +1,4 @@
+import type { Graph } from "@kanzo-tech/graphar-duckdb";
 import { describe, expect, it } from "vitest";
 import type { Encoding, Geometry } from "../core/load";
 import { appearance, paint, scaleOf } from "./graph-model";
@@ -7,7 +8,7 @@ import { DEFAULT_LOOK } from "./graph-looks";
 function loaded(over: { sizes?: Float32Array; links?: Float32Array } = {}): [Geometry, Encoding] {
   return [
     {
-      structure: { types: [], edges: [] },
+      structure: { vertexTypes: [], edgeTypes: [] } as unknown as Graph,
       size: 3,
       positions: new Float32Array(6),
       bound: false,

@@ -1,6 +1,6 @@
-import { FIELDS, stubCoordinator } from "../../test/coordinator";
+import { stubCoordinator } from "../../test/coordinator";
 import { engineOver } from "../../test/engine";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { SIGHTINGS, SIGHTINGS_GRAPH } from "../../test/graph";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -9,9 +9,6 @@ import { FilterBar } from "./filter-bar.js";
 import type { DashboardSpec } from "./dashboard-spec.js";
 import { MosaicClients, MosaicProvider, TileEditorAside, useTileEditorOpen } from "./mosaic-provider.js";
 import { ShellAside } from "../layouts/shell.js";
-
-/** The host's one client: every read the parts make is a query on it. */
-const queries = new QueryClient();
 
 /** Counts the times the editor's module is fetched: a read-only dashboard must never fetch it. */
 const editorLoads = vi.hoisted(() => ({ count: 0 }));
@@ -24,7 +21,7 @@ const SPEC: DashboardSpec = {
   filters: [],
   tiles: [
     { id: "n", kind: "stat", title: "Sightings", measure: { op: "count" } },
-    { id: "t", kind: "table", span: 3, columns: ["region"] },
+    { id: "t", kind: "table", span: 3, columns: ["s.region"] },
   ],
 };
 
@@ -39,10 +36,10 @@ function Aside() {
 
 function draw(props: { value?: DashboardSpec; onChange?: (spec: DashboardSpec | undefined) => void }) {
   return render(
-    <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator(undefined, FIELDS).coordinator)}>
-      <Dashboard relation="sightings" {...props} />
+    <MosaicProvider engine={engineOver(stubCoordinator().coordinator)} graph={SIGHTINGS_GRAPH}>
+      <Dashboard relation={SIGHTINGS} {...props} />
       <Aside />
-    </MosaicProvider></QueryClientProvider>,
+    </MosaicProvider>,
   );
 }
 
@@ -169,9 +166,9 @@ describe("the tile editor in the page's aside", () => {
 
   it("offers no editing on a page without a TileEditorAside", async () => {
     render(
-      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator(undefined, FIELDS).coordinator)}>
-        <Dashboard onChange={vi.fn()} relation="sightings" value={SPEC} />
-      </MosaicProvider></QueryClientProvider>,
+      <MosaicProvider engine={engineOver(stubCoordinator().coordinator)} graph={SIGHTINGS_GRAPH}>
+        <Dashboard onChange={vi.fn()} relation={SIGHTINGS} value={SPEC} />
+      </MosaicProvider>,
     );
     expect(await screen.findByText("Sightings")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Edit|Add tile|Dashboard options/ })).toBeNull();
@@ -188,10 +185,10 @@ describe("Reset to automatic", () => {
     expect(onChange).toHaveBeenCalledWith(undefined);
 
     rerender(
-      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator(undefined, FIELDS).coordinator)}>
-        <Dashboard onChange={onChange} relation="sightings" />
+      <MosaicProvider engine={engineOver(stubCoordinator().coordinator)} graph={SIGHTINGS_GRAPH}>
+        <Dashboard onChange={onChange} relation={SIGHTINGS} />
         <Aside />
-      </MosaicProvider></QueryClientProvider>,
+      </MosaicProvider>,
     );
     await user.click(await screen.findByRole("button", { name: "Dashboard options" }));
     expect((await screen.findByRole("menuitem", { name: "Reset to automatic" })).getAttribute("data-disabled")).not.toBeNull();
@@ -202,41 +199,41 @@ describe("Dashboard's filters", () => {
   it("are drawn in the page's FilterBar", async () => {
     const user = userEvent.setup();
     render(
-      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator(undefined, FIELDS).coordinator)}>
+      <MosaicProvider engine={engineOver(stubCoordinator().coordinator)} graph={SIGHTINGS_GRAPH}>
         <FilterBar />
-        <Dashboard onChange={() => {}} relation="sightings" value={{ ...SPEC, filters: [{ field: "region" }] }} />
+        <Dashboard onChange={() => {}} relation={SIGHTINGS} value={{ ...SPEC, filters: [{ field: "s.region" }] }} />
         <Aside />
-      </MosaicProvider></QueryClientProvider>,
+      </MosaicProvider>,
     );
     const bar = await screen.findByRole("region", { name: "Filters" });
-    await waitFor(() => expect(within(bar).getByText("region:")).toBeTruthy());
-    expect(within(bar).getByRole("button", { name: "Remove the region filter" })).toBeTruthy();
+    await waitFor(() => expect(within(bar).getByText("s.region:")).toBeTruthy());
+    expect(within(bar).getByRole("button", { name: "Remove the s.region filter" })).toBeTruthy();
     await user.click(within(bar).getByRole("button", { name: "Add a filter" }));
-    expect(await screen.findByRole("menuitem", { name: "bounty" })).toBeTruthy();
+    expect(await screen.findByRole("menuitem", { name: "s.bounty" })).toBeTruthy();
   });
 
   it("are drawn from a dashboard under MosaicClients that is off as when it is shown: control, remove, Add a filter", async () => {
     const user = userEvent.setup();
     render(
-      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator(undefined, FIELDS).coordinator)}>
+      <MosaicProvider engine={engineOver(stubCoordinator().coordinator)} graph={SIGHTINGS_GRAPH}>
         <FilterBar />
         <MosaicClients enabled={false}>
-          <Dashboard onChange={() => {}} relation="sightings" value={{ ...SPEC, filters: [{ field: "region" }] }} />
+          <Dashboard onChange={() => {}} relation={SIGHTINGS} value={{ ...SPEC, filters: [{ field: "s.region" }] }} />
         </MosaicClients>
         <Aside />
-      </MosaicProvider></QueryClientProvider>,
+      </MosaicProvider>,
     );
     const bar = await screen.findByRole("region", { name: "Filters" });
-    await waitFor(() => expect(within(bar).getByRole("button", { name: "Remove the region filter" })).toBeTruthy());
-    expect(within(bar).getByText("region:")).toBeTruthy();
+    await waitFor(() => expect(within(bar).getByRole("button", { name: "Remove the s.region filter" })).toBeTruthy());
+    expect(within(bar).getByText("s.region:")).toBeTruthy();
     await user.click(within(bar).getByRole("button", { name: "Add a filter" }));
-    expect(await screen.findByRole("menuitem", { name: "bounty" })).toBeTruthy();
+    expect(await screen.findByRole("menuitem", { name: "s.bounty" })).toBeTruthy();
   });
 
   it("are not drawn on a page without a FilterBar", async () => {
-    draw({ value: { ...SPEC, filters: [{ field: "region" }] } });
+    draw({ value: { ...SPEC, filters: [{ field: "s.region" }] } });
     expect(await screen.findByText("Sightings")).toBeTruthy();
-    expect(screen.queryByText("region:")).toBeNull();
+    expect(screen.queryByText("s.region:")).toBeNull();
   });
 });
 

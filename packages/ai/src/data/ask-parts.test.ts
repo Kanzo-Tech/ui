@@ -5,7 +5,7 @@ import { ASK_PARTS } from "./ask-parts.js";
 import type { AskMessage } from "./ask-chat.js";
 import { askTile, type AskSpec } from "./ask.js";
 
-const women: AskSpec = { of: "Person", where: [{ field: "gender", in: ["female"] }], show: { kind: "stat", measure: { op: "count" } } };
+const women: AskSpec = { match: [{ as: "person", type: "Person" }], where: [{ field: "person.gender", in: ["female"] }], show: { kind: "stat", measure: { op: "count" } } };
 
 /** A turn of Ask as a kept chat holds it: the question, the answer as it was read, and the turn. */
 const kept = (answer: Record<string, unknown>, turn: Record<string, unknown> = { spec: women }) => [
@@ -22,7 +22,7 @@ const kept = (answer: Record<string, unknown>, turn: Record<string, unknown> = {
 ];
 
 const answer = {
-  answer: { relation: { root: "Person", path: [] }, tile: askTile(women, "ask-1") },
+  answer: { pattern: women.match, tile: askTile(women, "ask-1") },
   rows: [{ count: 42 }],
   truncated: false,
   under: [],
@@ -43,11 +43,11 @@ describe("Ask's parts, read back", () => {
     expect(turn).toEqual({ type: "data-ask", data: { spec: women, decided: { which: "a" } } });
   });
 
-  it("refuses an answer whose tile a dashboard would not read, or whose relation is not one", async () => {
+  it("refuses an answer whose tile a dashboard would not read, or whose pattern is not one", async () => {
     const pie = await read(kept({ ...answer, answer: { ...answer.answer, tile: { ...answer.answer.tile, kind: "pie" } } }));
     expect(pie.success).toBe(false);
-    const nowhere = await read(kept({ ...answer, answer: { ...answer.answer, relation: "Person" } }));
+    const nowhere = await read(kept({ ...answer, answer: { ...answer.answer, pattern: [{ type: "Person" }, { edge: "knows" }] } }));
     expect(nowhere.success).toBe(false);
-    if (!nowhere.success) expect(nowhere.error.message).toContain("answer.relation");
+    if (!nowhere.success) expect(nowhere.error.message).toContain("answer.pattern");
   });
 });

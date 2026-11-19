@@ -16,7 +16,7 @@
   "//dependencies": "What the door needs at test time, and nothing of the writer's: `write.mjs` runs fossil through `docs/scripts/write-corpus.mjs`, the one writer, whose `@fossil-lang/executor` is the docs' dev dependency. `@duckdb/duckdb-wasm` is the engine's pin, the one every package's tests run on; `@kanzo-tech/graphar-duckdb` is the attach a page makes, so a test reads what a page reads.",
   "dependencies": {
     "@duckdb/duckdb-wasm": "1.33.1-dev57.0",
-    "@kanzo-tech/graphar-duckdb": "^0.1.0-alpha.1",
-    "@kanzo-tech/kernel": "workspace:^"
+    "@kanzo-tech/graphar-duckdb": "^0.1.0-alpha.2",
+    "@kanzo-tech/problems": "workspace:^"
   }
 }

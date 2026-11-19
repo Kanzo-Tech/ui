@@ -59,9 +59,8 @@ const config: NextConfig = {
   // survives every test and fails only in this build.
   // `@kanzo-tech/mosaic` is listed for a different reason than the other two: nothing in this app
   // imports it directly, but `@kanzo-tech/ui/analytics` imports it, so every chart page reaches it
-  // one hop in. `@kanzo-tech/kernel` is the same case one hop further: mosaic imports it.
-  // `@kanzo-tech/relations` is the same case as mosaic: `/analytics` imports it.
-  transpilePackages: ["@kanzo-tech/ui", "@kanzo-tech/theme", "@kanzo-tech/mosaic", "@kanzo-tech/relations", "@kanzo-tech/kernel"],
+  // one hop in. `@kanzo-tech/problems` is the same case one hop further: mosaic imports it.
+  transpilePackages: ["@kanzo-tech/ui", "@kanzo-tech/theme", "@kanzo-tech/mosaic", "@kanzo-tech/problems"],
   /**
    * The one thing the browser build needs that the browser never runs.
    *

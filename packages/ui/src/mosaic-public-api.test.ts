@@ -136,7 +136,7 @@ describe("one door to Mosaic", () => {
     const analytics = (await import("./analytics.js")) as Record<string, unknown>;
     const mosaic = (await import("@kanzo-tech/mosaic")) as Record<string, unknown>;
     expect(Object.keys(analytics).filter((name) => name in mosaic)).toEqual([]);
-    for (const name of ["Query", "count", "sql", "asc", "engine", "Selection", "relationKey"]) expect(analytics[name]).toBeUndefined();
+    for (const name of ["Query", "count", "sql", "asc", "engine", "Selection", "relationOver"]) expect(analytics[name]).toBeUndefined();
     // A type leaves no runtime key, so the barrel's own specifiers are read: it names no Mosaic module.
     const barrel = join(SHIPPED.find((root) => root.name === "ui")!.src, "analytics.ts");
     const named = ts.preProcessFile(readFileSync(barrel, "utf8"), true, true).importedFiles.map((file) => file.fileName);

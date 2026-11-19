@@ -32,6 +32,7 @@ const VALUES = [
   "useGraphPrefs",
   "useGraphState",
   "usePick",
+  "verticesOf",
 ];
 
 const surface = GRAPH as Record<string, unknown>;

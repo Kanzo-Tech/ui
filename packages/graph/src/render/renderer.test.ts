@@ -2,7 +2,7 @@ import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Selection, clauseInterval } from "@kanzo-tech/mosaic";
 import { attach, settle } from "../../test/corpus";
-import { isProblem } from "@kanzo-tech/kernel";
+import { isProblem } from "@kanzo-tech/problems";
 import type { GraphOptions } from "../core/state";
 import { createGraph } from "../core/store";
 import { internalsOf, useGraph } from "../react/use-graph";
@@ -135,7 +135,7 @@ const STILL: Partial<GraphOptions> = { simulate: false };
 async function drawing(over: Partial<GraphOptions> = { x: "lon", y: "lat" }) {
   const corpus = await attach();
   const crossfilter = Selection.crossfilter();
-  const store = createGraph({ from: corpus.from, engine: corpus.engine, fill: "team", filterBy: crossfilter, onFailure: () => {}, ...over });
+  const store = createGraph({ graph: corpus.graph, engine: corpus.engine, fill: "team", filterBy: crossfilter, onFailure: () => {}, ...over });
   const host = document.createElement("div");
   const renderer = createRenderer(host, store);
   await settle(corpus);
@@ -663,7 +663,7 @@ describe("the arrangement outlives the canvas", () => {
   });
 
   it("keeps nothing it never drew, and no camera from a canvas with no size", async () => {
-    const { store } = await drawing({ from: null, engine: null, onFailure: () => {} });
+    const { store } = await drawing({ graph: null, engine: null, onFailure: () => {} });
     const early = createRenderer(document.createElement("div"), store);
     early?.destroy();
     expect(store.getSnapshot().arrangement).toBeNull();
@@ -678,7 +678,7 @@ describe("the arrangement outlives the canvas", () => {
 describe("the renderer's failures", () => {
   function mounted() {
     const onFailure = vi.fn();
-    const store = createGraph({ from: null, engine: null, onFailure });
+    const store = createGraph({ graph: null, engine: null, onFailure });
     const host = document.createElement("div");
     const renderer = createRenderer(host, store);
     return { host, onFailure, renderer, store };
@@ -687,7 +687,7 @@ describe("the renderer's failures", () => {
   it("asks for a restore when the context is lost, and fails nothing while it waits", async () => {
     const onRestore = vi.fn();
     const onFailure = vi.fn();
-    const store = createGraph({ from: null, engine: null, onFailure });
+    const store = createGraph({ graph: null, engine: null, onFailure });
     const host = document.createElement("div");
     createRenderer(host, store, { onRestore });
     await Promise.resolve();
@@ -737,7 +737,7 @@ describe("the renderer's failures", () => {
   it("builds a new cosmos.gl over the store's geometry and encoding when the context returns, and runs a layout again", async () => {
     const corpus = await attach();
     const onFailure = vi.fn();
-    const { result } = renderHook(() => useGraph({ from: corpus.from, engine: corpus.engine, fill: "team", onFailure }));
+    const { result } = renderHook(() => useGraph({ graph: corpus.graph, engine: corpus.engine, fill: "team", onFailure }));
     const host = document.createElement("div");
     const detach = internalsOf(result.current).attach(host);
     await settle(corpus);
@@ -806,7 +806,7 @@ describe("the renderer's failures", () => {
     const broken = new Error("render threw");
     device.broken = broken;
     const onFailure = vi.fn();
-    const { result } = renderHook(() => useGraph({ from: null, engine: null, onFailure }));
+    const { result } = renderHook(() => useGraph({ graph: null, engine: null, onFailure }));
     const { attach } = internalsOf(result.current);
     expect(() => attach(document.createElement("div"))).not.toThrow();
     expect(onFailure).toHaveBeenCalledOnce();

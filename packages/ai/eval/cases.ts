@@ -1,3 +1,5 @@
+import type { Pattern } from "@kanzo-tech/graphar-duckdb";
+
 /**
  * **Ask's evaluation set** — Kanzo Tasks (`/docs/design/tasks#the-evaluation-set`). Written by hand
  * and never trained on: a case is what a reader asks and what the data says the answer is, so the
@@ -13,20 +15,18 @@
  * A case is scored by **execution accuracy**: the rows the answer was read from (its card's data
  * table, the engine's) hold every `holds` pair and no `lacks` pair. A pair is a label and a count; a
  * label of `null` is a figure, any cell. One shape has no rows to score: a question the data cannot
- * answer, which must draw no card (`expects: "refusal"`). A question two paths of one length answer
- * — a prize's country, by its laureate's birth or its university's address — is answered by the path
- * the model wrote, with the other on the chip (`/docs/design/tasks`), so it is scored as an answer
- * whichever it wrote: its `holds` is empty.
+ * answer, which must draw no card (`expects: "refusal"`). A question two patterns of one length answer
+ * — a prize's country, by its laureate's birth or its university's address — is answered by the
+ * pattern the model wrote, so it is scored as an answer whichever it wrote: its `holds` is empty.
  */
 
 /** A row the answer must, or must not, have been read from: a label and its count. */
 export type Pair = readonly [label: string | null, n: number];
 
-/** The page the question is asked on: a dashboard's relation, and a bar picked on its one tile — its `x` a path from the relation's root. */
+/** The page the question is asked on: a dashboard's pattern, and a bar picked on its one tile — its `x` a field of the pattern. */
 export interface Page {
-  /** The relation's root type and the hops from it, as `relationKey` spells them: `>category>Category`. */
-  readonly root: string;
-  readonly hops?: readonly string[];
+  /** The pattern the dashboard is over, its first vertex what it counts. */
+  readonly pattern: Pattern;
   /** The page's filter, if any: one tile counting `x`, and the bar `pick` picked on it. */
   readonly filter?: { readonly x: string; readonly pick: string };
 }
@@ -46,7 +46,9 @@ export interface AskCase {
   readonly tests: string;
 }
 
-const PRIZES_BY_CATEGORY: Page = { root: "LaureateAward", hops: [">category>Category"] };
+const PRIZES_BY_CATEGORY: Page = {
+  pattern: [{ as: "award", type: "LaureateAward" }, { edge: "category", direction: "out" }, { as: "category", type: "Category" }],
+};
 const PHYSICS: Page = { ...PRIZES_BY_CATEGORY, filter: { x: "category.name", pick: "Physics" } };
 
 export const ASK: readonly AskCase[] = [
@@ -181,7 +183,7 @@ export const ASK: readonly AskCase[] = [
   {
     id: "nobel-universities-by-country",
     corpus: "nobel",
-    page: { root: "University" },
+    page: { pattern: [{ as: "university", type: "University" }] },
     ask: ["Which countries have the most universities?"],
     // select co.name, count(*) from institutions i join countries co … group by 1
     holds: [["USA", 147], ["Germany", 55], ["United Kingdom", 42]],
@@ -190,7 +192,7 @@ export const ASK: readonly AskCase[] = [
   {
     id: "nobel-paris-universities",
     corpus: "nobel",
-    page: { root: "University" },
+    page: { pattern: [{ as: "university", type: "University" }] },
     ask: ["How many of the universities are in Paris?"],
     holds: [[null, 15]],
     tests: "a where on a type's own field, a figure",
@@ -253,9 +255,9 @@ export const ASK: readonly AskCase[] = [
     page: PRIZES_BY_CATEGORY,
     ask: ["Which countries have won the most prizes?"],
     // A prize reaches a country two equally short ways: its laureate's birth (USA 299) and its
-    // university's country (USA 411). The model's path is the answer, and the chip offers the other.
+    // university's country (USA 411). The model's pattern is the answer.
     holds: [],
-    tests: "two paths of one length: answered by the one the model wrote, asking nothing",
+    tests: "two patterns of one length: answered by the one the model wrote, asking nothing",
   },
   {
     id: "nobel-no-prize-money",
@@ -281,7 +283,7 @@ export const ASK: readonly AskCase[] = [
   {
     id: "snb-gender",
     corpus: "snb",
-    page: { root: "Person" },
+    page: { pattern: [{ as: "person", type: "Person" }] },
     ask: ["How many people are women, and how many are men?"],
     holds: [["female", 778], ["male", 750]],
     tests: "a breakdown by a category on a large graph's smallest type",
@@ -289,7 +291,7 @@ export const ASK: readonly AskCase[] = [
   {
     id: "snb-women-born-1985-1989",
     corpus: "snb",
-    page: { root: "Person" },
+    page: { pattern: [{ as: "person", type: "Person" }] },
     ask: ["How many women were born between 1985 and 1989?"],
     holds: [[null, 391]],
     tests: "two conditions at once, one of them a date range",
@@ -297,7 +299,7 @@ export const ASK: readonly AskCase[] = [
   {
     id: "snb-browsers",
     corpus: "snb",
-    page: { root: "Person" },
+    page: { pattern: [{ as: "person", type: "Person" }] },
     ask: ["Which browsers do people use most?"],
     holds: [["Firefox", 628], ["Chrome", 438], ["Internet Explorer", 364]],
     tests: "a ranking by a category on the type on screen",
@@ -305,16 +307,16 @@ export const ASK: readonly AskCase[] = [
   {
     id: "snb-countries",
     corpus: "snb",
-    page: { root: "Person" },
+    page: { pattern: [{ as: "person", type: "Person" }] },
     ask: ["Which countries do most people live in?"],
     // A person is located in a city, and a city is part of a country: Place twice, a self-join.
     holds: [["India", 222], ["China", 208], ["Germany", 55]],
-    tests: "a self-join: the same type twice on one path",
+    tests: "a self-join: the same type twice in one pattern",
   },
   {
     id: "snb-posts-by-women",
     corpus: "snb",
-    page: { root: "Person" },
+    page: { pattern: [{ as: "person", type: "Person" }] },
     ask: ["How many posts were written by women?"],
     holds: [[null, 68294]],
     tests: "counting another type than the one on screen, across a hop, on a large table",
@@ -322,7 +324,7 @@ export const ASK: readonly AskCase[] = [
   {
     id: "snb-post-browsers",
     corpus: "snb",
-    page: { root: "Person" },
+    page: { pattern: [{ as: "person", type: "Person" }] },
     ask: ["Which browsers are posts written from?"],
     holds: [["Firefox", 53312], ["Internet Explorer", 36600], ["Chrome", 35050]],
     tests: "a breakdown over 135,701 rows",
@@ -330,7 +332,7 @@ export const ASK: readonly AskCase[] = [
   {
     id: "snb-long-comments",
     corpus: "snb",
-    page: { root: "Person" },
+    page: { pattern: [{ as: "person", type: "Person" }] },
     ask: ["How many comments are longer than 100 characters?"],
     // select count(*) from comment where length > 100
     holds: [[null, 7621]],
@@ -339,7 +341,7 @@ export const ASK: readonly AskCase[] = [
   {
     id: "snb-longest-comment",
     corpus: "snb",
-    page: { root: "Person" },
+    page: { pattern: [{ as: "person", type: "Person" }] },
     ask: ["How long is the longest comment?"],
     // select max(length) from comment: a measure other than a count
     holds: [[null, 1988]],
@@ -348,7 +350,7 @@ export const ASK: readonly AskCase[] = [
   {
     id: "snb-friendships-2011",
     corpus: "snb",
-    page: { root: "Person" },
+    page: { pattern: [{ as: "person", type: "Person" }] },
     ask: ["How many friendships were made in 2011?"],
     // A knowing is the relation as a vertex, with its date: 5,559 of 14,073 began in 2011.
     holds: [[null, 5559]],
@@ -357,7 +359,7 @@ export const ASK: readonly AskCase[] = [
   {
     id: "snb-women-chrome",
     corpus: "snb",
-    page: { root: "Person" },
+    page: { pattern: [{ as: "person", type: "Person" }] },
     ask: ["How many women use Chrome?"],
     holds: [[null, 224]],
     tests: "two category conditions at once",
@@ -365,11 +367,11 @@ export const ASK: readonly AskCase[] = [
   {
     id: "snb-most-friends-two-paths",
     corpus: "snb",
-    page: { root: "Person" },
+    page: { pattern: [{ as: "person", type: "Person" }] },
     ask: ["Who has the most friends?"],
-    // A knowing reaches a person as its knower and as its known — `knows` and `^knows` — two paths
+    // A knowing reaches a person as its knower and as its known — `knower` and `known` — two patterns
     // of one length; the model's is the answer.
     holds: [],
-    tests: "two paths of one length on a relation that points at one type twice, asking nothing",
+    tests: "two patterns of one length on a type that points at one type twice, asking nothing",
   },
 ];

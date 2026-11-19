@@ -339,7 +339,7 @@ engine)` is `@kanzo-tech/graphar-duckdb`'s `attachGraph` over the checked-in fil
 DuckDB-WASM a test file gets (`connection`, `queryable()`), so what a test reads is what a page reads.
 It is also the one bootstrap: `graph`'s corpus and `ai`'s test database run on it rather than each
 instantiating its own. The first thing it found was a bug: fossil writes `fossil:stats` as
-`{"version":1,"columns":{…}}`, `readJoinGraph` read the document's top-level keys as columns, and the
+`{"version":1,"columns":{…}}`, the catalog reader of the day read the document's top-level keys as columns, and the
 hand-built corpus wrote the shape the reader expected — so no column of a real graph had counts, and
 no test could see it.
 
@@ -355,9 +355,10 @@ size takes fossil about 25 s and 4.8 MB. `ai`'s answer tests read SNB's twelve p
 `Knowing`, as fossil writes it, and a measure is a post's length, since a person has no number of
 their own.
 
-*Held by* `packages/relations/src/graphar.test.ts`, "reads what fossil counted from each chunk's
-footer, and the footer's nulls and extent" and "reads nothing from a footer whose fossil:stats is of a
-version it does not know", over the Nobel graph fossil wrote.
+Reading the footers is graphar's now, and its tests hold it; what kanzo-ui owes is to read the
+`Graph`'s statistics as they are stated. *Held by* `packages/ui/src/charts/field-stats.test.tsx`,
+"counts the least distinct values the chunks allow where they only bound it, and none where they say
+nothing".
 
 **The one exception is the integration test of fossil's executor**, which installs a synchronous
 `XMLHttpRequest` and so downloads `httpfs` and `parquet` from `extensions.duckdb.org`: it needs the
@@ -404,7 +405,7 @@ library's own Ask through the harnesses a host uses, and waits on states. Decide
 
 | | |
 | --- | --- |
-| **Cases** | `packages/ai/eval/cases.ts`, data: 25 on Nobel for nearly every shape of question, 11 on LDBC SNB for self-joins and a large graph. Each says the failure it tests. The two that were ties asked back are answers now, by the path the model writes, the other on the chip ([Tasks](/docs/design/tasks#two-paths-of-one-length-are-the-models-with-the-other-on-the-chip)) |
+| **Cases** | `packages/ai/eval/cases.ts`, data: 25 on Nobel for nearly every shape of question, 11 on LDBC SNB for self-joins and a large graph. Each says the failure it tests. The two that were ties asked back are answers now, by the pattern the model writes ([Tasks](/docs/design/tasks#a-field-is-a-variable-and-a-property)) |
 | **Graphs** | written by fossil's executor in Node through `docs/scripts/write-corpus.mjs`, as the docs' archive is: `pnpm --filter @kanzo-tech/ai eval:corpus` runs each `fixtures/graphs/<name>/fetch.sh` (the data, pinned by digest) and then its `program.fossil` into `docs/public/corpus/<name>`. Data and the written graphs are `.gitignore`d. The programs, shapes and fetch scripts are the repository's one copy, the tests' fixtures' too, read from the files beside them rather than through keasy's connections; keasy keeps its own as seed data — each repository owns what it runs |
 | **Page** | `/fixtures/ask-eval`, a page nobody reads, as `/fixtures/chat-frame` is: the graph attached by name, a `Dashboard` and its `FilterBar` over the case's relation, and `Chat` over `useAskChat` with `AnswerCard`, under the page's one selection. The model is `localModel` in a worker, Qwen3 4B unless `EVAL_MODEL` names another; no offers and no chips, which a case does not score and a model would be slower for |
 | **Runner** | `ask.eval.ts`, a Vitest project (`vitest.eval.config.ts`) beside `@kanzo-tech/testing`'s end-to-end one: `playwright-core`'s Chromium with WebGPU, `DashboardHarness`, `FilterBarHarness`, `ChartHarness.pick` for the filter, `AnswerHarness` for the card and its rows, and one harness of its own for a turn that ends in words, which draws no card to wait on. `expect.poll` and `until`, no fixed wait |

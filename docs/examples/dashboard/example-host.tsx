@@ -4,37 +4,37 @@ import { useState } from "react";
 import { JsonTreeView, Switch, useDebouncedCommit } from "@kanzo-tech/ui";
 import { Dashboard, FilterBar, type ChartConfig, type DashboardSpec } from "@kanzo-tech/ui/analytics";
 import { CheckCircle2Icon, CircleHelpIcon, TriangleAlertIcon } from "lucide-react";
-import { MosaicDemo } from "../charts/mosaic-demo";
+import { GraphDemo, SIGHTINGS } from "./graph-demo";
 import { EditingPage } from "./editing-page";
 
 // A host's whole share of a dashboard: somewhere to keep the spec, a pause before writing it, a
 // switch for who may edit, and the vocabulary of a field that has meanings of its own. The
-// "server" is a variable here; in a product it is one row per relation behind a PUT.
+// "server" is a variable here; in a product it is one row per pattern behind a PUT.
 
-/** `verdict` is a status: reserved colours, labels and icons, never colour alone. */
+/** `sighting.verdict` is a status: reserved colours, labels and icons, never colour alone. */
 const CONFIG: Record<string, ChartConfig> = {
-  verdict: {
+  "sighting.verdict": {
     confirmed: { label: "Confirmed", color: "var(--success)", icon: CheckCircle2Icon },
     disputed: { label: "Disputed", color: "var(--warning)", icon: CircleHelpIcon },
     hoax: { label: "Hoax", color: "var(--destructive)", icon: TriangleAlertIcon },
   },
 };
 
-/** What the server returned for this relation. `undefined` would draw the automatic dashboard. */
+/** What the server returned for this pattern. `undefined` would draw the automatic dashboard. */
 const SAVED: DashboardSpec = {
-  filters: [{ field: "region" }, { field: "verdict" }],
+  filters: [{ field: "sighting.region" }, { field: "sighting.verdict" }],
   tiles: [
-    { id: "n", kind: "stat", title: "Sightings", measure: { op: "count" }, trend: "hour" },
+    { id: "n", kind: "stat", title: "Sightings", measure: { op: "count" }, trend: "sighting.hour" },
     {
       id: "hoax",
       kind: "stat",
       title: "Hoaxes",
-      measure: { op: "share", field: "verdict", equals: "hoax" },
-      trend: "hour",
+      measure: { op: "share", field: "sighting.verdict", equals: "hoax" },
+      trend: "sighting.hour",
       goodWhenUp: false,
     },
-    { id: "hour", kind: "chart", span: 2, type: "histogram", x: "hour", y: { op: "count" }, color: "verdict" },
-    { id: "hall", kind: "chart", span: 1, type: "bar", x: "hall", y: { op: "count" }, color: "verdict" },
+    { id: "hour", kind: "chart", span: 2, type: "histogram", x: "sighting.hour", y: { op: "count" }, color: "sighting.verdict" },
+    { id: "hall", kind: "chart", span: 1, type: "bar", x: "sighting.hall", y: { op: "count" }, color: "sighting.verdict" },
   ],
 };
 
@@ -51,7 +51,7 @@ export default function Example() {
   }, 800);
 
   return (
-    <MosaicDemo>
+    <GraphDemo name="sightings">
       <EditingPage>
         <div className="flex flex-wrap items-center gap-4">
           <Switch checked={editable} onCheckedChange={(d) => setEditable(d.checked)}>
@@ -61,15 +61,15 @@ export default function Example() {
             {draft !== stored ? "Saving…" : writes === 0 ? "Loaded · no edits yet" : `Saved · ${writes} ${writes === 1 ? "write" : "writes"}`}
           </span>
         </div>
-        <FilterBar rowNoun="sightings" relation="sightings" />
+        <FilterBar rowNoun="sightings" relation={SIGHTINGS} />
         <Dashboard
           config={CONFIG}
           onChange={editable ? change : undefined}
-          relation="sightings"
+          relation={SIGHTINGS}
           value={draft}
         />
         {stored ? <JsonTreeView data={stored} defaultExpandedDepth={1} /> : null}
       </EditingPage>
-    </MosaicDemo>
+    </GraphDemo>
   );
 }

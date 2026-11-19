@@ -1,3 +1,4 @@
+import type { Graph } from "@kanzo-tech/graphar-duckdb";
 import { describe, expect, it } from "vitest";
 import type { Geometry } from "../core/load";
 import type { GraphOptions, GraphSnapshot } from "../core/state";
@@ -46,7 +47,7 @@ describe("one frame", () => {
 });
 
 const geometry = (over: Partial<Geometry> = {}): Geometry => ({
-  structure: { types: [], edges: [] },
+  structure: { vertexTypes: [], edgeTypes: [] } as unknown as Graph,
   size: 4,
   positions: new Float32Array(8),
   bound: false,
@@ -57,11 +58,11 @@ const geometry = (over: Partial<Geometry> = {}): Geometry => ({
 });
 /** A structure whose one type carries `lon` and `lat`, so binding both places the points before any geometry loads. */
 const structure = {
-  types: [{ name: "Place", table: "Place", key: "id", columns: ["id", "lon", "lat"].map((name) => ({ name, type: "DOUBLE" })) }],
-  edges: [],
-} as unknown as GraphSnapshot["structure"];
+  vertexTypes: [{ type: "Place", count: 4, table: '"Place"', index: "i", properties: ["id", "lon", "lat"].map((name) => ({ name, type: "DOUBLE" })) }],
+  edgeTypes: [],
+} as unknown as Graph;
 
-const options: GraphOptions = { from: "c", engine: null, onFailure: () => {} };
+const options: GraphOptions = { graph: null, engine: null, onFailure: () => {} };
 const start = geometry();
 function seen(snapshot: Partial<GraphSnapshot> = {}, over: Partial<GraphOptions> = {}): Seen {
   const base = { geometry: start, encoding: null, selection: null, focus: null, kept: null, structure, motion: "running" } as unknown as GraphSnapshot;

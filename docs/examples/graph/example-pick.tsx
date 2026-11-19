@@ -2,22 +2,25 @@
 
 import { useState } from "react";
 import { GraphCanvas, GraphRoot, usePick } from "@kanzo-tech/graph";
-import { numbers, Query } from "@kanzo-tech/mosaic";
+import type { Graph } from "@kanzo-tech/graphar-duckdb";
+import { eq, literal, numbers, Query, relationOver } from "@kanzo-tech/mosaic";
 import { type Engine } from "@kanzo-tech/mosaic/engine";
 import { Show, Toggle } from "@kanzo-tech/ui";
-import { ARCHIVE_KINDS, FROM, said, useArchive } from "./archive";
+import { ARCHIVE_KINDS, said, useArchive } from "./archive";
 
 const KINDS = ["beast", "region", "tag"] as const;
 
 /**
  * A panel beside the canvas that picks *every vertex of a kind*. It is one place, so picking another
- * kind replaces its pick; the canvas greys out the rest, and a lasso intersects with it.
+ * kind replaces its pick; the canvas greys out the rest, and a lasso intersects with it. The archive
+ * has one vertex type, `Node`, so a node's index within it is its id on the canvas.
  */
-function Kinds({ engine }: { engine: Engine | null }) {
+function Kinds({ engine, graph }: { engine: Engine | null; graph: Graph | null }) {
   const kinds = usePick("kinds");
   const pick = async (kind: (typeof KINDS)[number], label: string) => {
-    if (!engine) return;
-    const query = Query.from(`"${FROM}"."Node"`).select({ id: "dense_id" }).where(`kind = '${kind}'`);
+    if (!engine || !graph) return;
+    const nodes = relationOver(graph, [{ as: "n", type: "Node" }]);
+    const query = Query.from(nodes.table).select({ id: "n" }).where(eq("n.kind", literal(kind)));
     const answer = await engine.query(String(query), { signal: AbortSignal.timeout(10_000) });
     kinds.pick(numbers(answer, "id"), label);
   };
@@ -27,7 +30,7 @@ function Kinds({ engine }: { engine: Engine | null }) {
         const label = `Every ${ARCHIVE_KINDS[kind].toLowerCase()}`;
         return (
           <Toggle
-            disabled={!engine}
+            disabled={!engine || !graph}
             key={kind}
             onPressedChange={(pressed) => (pressed ? void pick(kind, label) : kinds.pick(null, label))}
             pressed={kinds.picked === label}
@@ -52,7 +55,7 @@ export default function Example() {
             <p className="absolute inset-0 grid place-items-center p-6 text-center text-muted-foreground text-sm">{said(failure)}</p>
           </Show>
         </GraphCanvas>
-        <Kinds engine={archive.engine} />
+        <Kinds engine={archive.engine} graph={archive.graph} />
       </GraphRoot>
     </div>
   );

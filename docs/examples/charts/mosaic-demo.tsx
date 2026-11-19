@@ -2,7 +2,6 @@
 
 import dynamic from "next/dynamic";
 import type { ReactNode } from "react";
-import type { JoinGraph } from "@kanzo-tech/relations";
 import { Skeleton } from "@kanzo-tech/ui";
 
 // DuckDB-WASM is browser-only, so the boot island is loaded with `ssr: false`: the RSC prerender
@@ -15,10 +14,8 @@ const MosaicBoot = dynamic(() => import("./mosaic-boot"), {
 
 export interface MosaicDemoProps {
   children: ReactNode;
-  /** What the example says of its tables, for the page's `MosaicProvider`. */
-  joins?: JoinGraph;
 }
 
-export function MosaicDemo({ children, joins }: MosaicDemoProps) {
-  return <MosaicBoot joins={joins}>{children}</MosaicBoot>;
+export function MosaicDemo({ children }: MosaicDemoProps) {
+  return <MosaicBoot>{children}</MosaicBoot>;
 }

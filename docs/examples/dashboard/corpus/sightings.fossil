@@ -1,0 +1,16 @@
+// The sightings the charts pages load as a table, written as a graph for the dashboard pages: a
+// `Dashboard` reads a pattern of a graph, and what its fields are is what the writer counted.
+
+type { Sighting } := io.shex("sightings.shex")
+
+Rows := io.csv("sightings.csv")
+
+Sightings : Sighting from Rows
+    @subject = "https://kanzo.tech/sightings/{Rows.id}"
+    beast    = Rows.beast
+    region   = Rows.region
+    hall     = Rows.hall
+    hour     = Rows.hour
+    leagues  = Rows.leagues
+    bounty   = Rows.bounty
+    verdict  = Rows.verdict

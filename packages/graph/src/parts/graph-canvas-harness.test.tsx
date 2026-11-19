@@ -18,7 +18,7 @@ describe("GraphCanvas, as a test reads it", () => {
   it("says where it draws on its element, in every page, and takes it off when it unmounts", async () => {
     const corpus = await attach();
     const { container, unmount } = render(
-      <GraphRoot from={corpus.from} engine={corpus.engine} onFailure={() => {}}>
+      <GraphRoot graph={corpus.graph} engine={corpus.engine} onFailure={() => {}}>
         <GraphCanvas id="archive" />
       </GraphRoot>,
     );
@@ -33,7 +33,7 @@ describe("GraphCanvas, as a test reads it", () => {
     const env = dom();
     const corpus = await attach();
     render(
-      <GraphRoot from={corpus.from} engine={corpus.engine} onFailure={() => {}}>
+      <GraphRoot graph={corpus.graph} engine={corpus.engine} onFailure={() => {}}>
         <GraphCanvas />
       </GraphRoot>,
     );
@@ -47,7 +47,7 @@ describe("GraphCanvas, as a test reads it", () => {
     const env = dom();
     const corpus = await attach();
     render(
-      <GraphRoot from={corpus.from} engine={corpus.engine} onFailure={() => {}} x="lon" y="lat">
+      <GraphRoot graph={corpus.graph} engine={corpus.engine} onFailure={() => {}} x="lon" y="lat">
         <GraphCanvas>
           <GraphCounts />
         </GraphCanvas>
